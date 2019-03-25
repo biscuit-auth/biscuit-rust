@@ -156,7 +156,8 @@ impl TokenSignature {
         public_keys: &[RistrettoPoint],
         messages: &[M],
     ) -> bool {
-        if !(public_keys.len() == messages.len()
+        if !(public_keys.len() > 0
+            && public_keys.len() == messages.len()
             && public_keys.len() == self.gamma.len()
             && public_keys.len() == self.c.len())
         {
@@ -190,9 +191,9 @@ impl TokenSignature {
 
         let gammas = add_points(&self.gamma);
 
-        let c = ECVRF_hash_points(&[*hashes.last().unwrap(), gammas, u, v]);
+        let c = ECVRF_hash_points(&[*hashes.last().expect("hashes is not empty"), gammas, u, v]);
 
-        c == *self.c.last().unwrap()
+        c == *self.c.last().expect("c is not empty")
     }
 }
 
@@ -218,7 +219,7 @@ pub fn add_points(points: &[RistrettoPoint]) -> RistrettoPoint {
         points[0]
     } else {
         let mut it = points.iter();
-        let first = it.next().unwrap();
+        let first = it.next().expect("iterator is not empty");
         it.fold(*first, |acc, pk| acc + pk)
     }
 }

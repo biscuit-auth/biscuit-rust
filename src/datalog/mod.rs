@@ -192,7 +192,7 @@ impl Rule {
                 let mut p = self.head.clone();
                 for index in 0..p.ids.len() {
                     let value = match &p.ids[index] {
-                        //FIXME
+                        //FIXME: variables that appear in the head should appear in the body and constraints as well
                         ID::Variable(i) => h.get(i).unwrap(),
                         _ => continue,
                     };
@@ -341,16 +341,14 @@ impl MatchedVariables {
     }
 
     pub fn complete(&self) -> Option<HashMap<u32, ID>> {
-        if self.is_complete() {
-            Some(
-                self.0
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone().unwrap()))
-                    .collect(),
-            )
-        } else {
-            None
+        let mut result = HashMap::new();
+        for (k, v) in self.0.iter() {
+            match v {
+                Some(value) => result.insert(k.clone(), value.clone()),
+                None => return None,
+            };
         }
+        Some(result)
     }
 }
 
