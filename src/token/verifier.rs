@@ -1,6 +1,7 @@
 use super::builder::{constrained_rule, date, fact, pred, rule, s, string, Atom, Fact, Rule};
 use super::Biscuit;
 use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
+use crate::error;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Verifier {
@@ -58,7 +59,7 @@ impl Verifier {
         self.add_caveat(caveat);
     }
 
-    pub fn verify(&self, mut token: Biscuit) -> Result<(), Vec<String>> {
+    pub fn verify(&self, mut token: Biscuit) -> Result<(), error::Logic> {
         let symbols = &mut token.symbols;
 
         let mut ambient_facts = vec![];

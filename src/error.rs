@@ -6,6 +6,7 @@ pub enum Token {
     InvalidBlockIndex(InvalidBlockIndex),
     SymbolTableOverlap,
     Sealed,
+    FailedLogic(Vec<Logic>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,4 +31,31 @@ pub enum Format {
 pub enum Signature {
     InvalidFormat,
     InvalidSignature,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Logic {
+    InvalidAuthorityFact(String),
+    InvalidAmbientFact(String),
+    InvalidBlockFact(u32, String),
+    FailedCaveats(Vec<FailedCaveat>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FailedCaveat {
+    Block(FailedBlockCaveat),
+    Verifier(FailedVerifierCaveat),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FailedBlockCaveat {
+    pub block_id: u32,
+    pub caveat_id: u32,
+    pub rule: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FailedVerifierCaveat {
+    pub caveat_id: u32,
+    pub rule: String,
 }
