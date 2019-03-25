@@ -1,12 +1,11 @@
 use super::crypto::KeyPair;
-use super::datalog::{self, Fact, Rule, SymbolTable, World, ID};
+use super::datalog::{Fact, Rule, SymbolTable, World, ID};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::BlockBuilder;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use verifier::Verifier;
 
 pub mod builder;
 pub mod sealed;
@@ -256,7 +255,7 @@ impl Biscuit {
             let w = world.clone();
 
             match block.check(i, w, &self.symbols, &ambient_caveats) {
-                Err(mut e) => match e {
+                Err(e) => match e {
                     error::Logic::FailedCaveats(mut e) => errors.extend(e.drain(..)),
                     e => return Err(e),
                 },
@@ -447,12 +446,11 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::builder::{date, fact, int, pred, rule, s, string, var, BlockBuilder};
+    use super::builder::{fact, pred, rule, s, var, BlockBuilder};
     use super::verifier::Verifier;
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
-    use crate::format::SerializedBiscuit;
     use rand::prelude::*;
     use std::time::{Duration, SystemTime};
 
@@ -735,7 +733,7 @@ mod tests {
             res.unwrap();
         }
 
-        let serialized = biscuit2.to_vec().unwrap();
+        let _serialized = biscuit2.to_vec().unwrap();
         //println!("biscuit2 serialized ({} bytes):\n{}", serialized.len(), serialized.to_hex(16));
 
         let secret = b"secret key";

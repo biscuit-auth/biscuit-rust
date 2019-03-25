@@ -2,7 +2,7 @@ use super::Biscuit;
 use crate::error;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::{Sha256};
 
 type HmacSha256 = Hmac<Sha256>;
 

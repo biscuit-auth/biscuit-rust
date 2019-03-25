@@ -1,8 +1,8 @@
-use super::builder::{constrained_rule, date, fact, pred, rule, s, string, Atom, Fact, Rule};
+use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule};
 use super::Biscuit;
 use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
 use crate::error;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime};
 
 pub struct Verifier {
     facts: Vec<Fact>,
