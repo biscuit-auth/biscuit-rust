@@ -5,4 +5,5 @@ extern crate serde;
 extern crate serde_cbor;
 extern crate sha2;
 
-mod crypto;
+pub mod crypto;
+pub mod datalog;
