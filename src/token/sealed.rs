@@ -1,4 +1,5 @@
 use super::Biscuit;
+use crate::error;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -13,13 +14,27 @@ pub struct SealedBiscuit {
 }
 
 impl SealedBiscuit {
-    pub fn from_token(token: &Biscuit, secret: &[u8]) -> Self {
-        let authority = serde_cbor::ser::to_vec_packed(&token.authority).unwrap();
-        let blocks = token
-            .blocks
-            .iter()
-            .map(|b| serde_cbor::ser::to_vec_packed(b).unwrap())
-            .collect::<Vec<_>>();
+    pub fn from_token(token: &Biscuit, secret: &[u8]) -> Result<Self, error::Format> {
+        let authority = serde_cbor::ser::to_vec_packed(&token.authority).map_err(|e| {
+            error::Format::BlockSerializationError(format!(
+                "error serializing authority block: {:?}",
+                e
+            ))
+        })?;
+
+        let mut blocks = Vec::new();
+
+        for block in token.blocks.iter() {
+            match serde_cbor::ser::to_vec_packed(block) {
+                Ok(packed) => blocks.push(packed),
+                Err(e) => {
+                    return Err(error::Format::BlockSerializationError(format!(
+                        "error serializing block: {:?}",
+                        e
+                    )))
+                }
+            }
+        }
 
         let mut mac = HmacSha256::new_varkey(secret).unwrap();
         mac.input(&authority);
@@ -29,16 +44,17 @@ impl SealedBiscuit {
 
         let signature: Vec<u8> = mac.result().code().to_vec();
 
-        SealedBiscuit {
+        Ok(SealedBiscuit {
             authority,
             blocks,
             signature,
-        }
+        })
     }
 
-    pub fn from_slice(slice: &[u8], secret: &[u8]) -> Result<Self, String> {
-        let deser: SealedBiscuit =
-            serde_cbor::from_slice(slice).map_err(|e| format!("deserialization error: {:?}", e))?;
+    pub fn from_slice(slice: &[u8], secret: &[u8]) -> Result<Self, error::Format> {
+        let deser: SealedBiscuit = serde_cbor::from_slice(slice).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
 
         let mut mac = HmacSha256::new_varkey(secret).unwrap();
         mac.input(&deser.authority);
@@ -47,12 +63,13 @@ impl SealedBiscuit {
         }
 
         mac.verify(&deser.signature)
-            .map_err(|e| format!("invalid signature: {:?}", e))?;
+            .map_err(|_| error::Format::SealedSignature)?;
 
         Ok(deser)
     }
 
-    pub fn to_vec(&self) -> Vec<u8> {
-        serde_cbor::ser::to_vec_packed(self).unwrap()
+    pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
+        serde_cbor::ser::to_vec_packed(self)
+            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
 }

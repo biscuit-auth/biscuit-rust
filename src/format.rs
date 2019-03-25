@@ -2,6 +2,7 @@ use super::crypto::{KeyPair, TokenSignature};
 use curve25519_dalek::ristretto::RistrettoPoint;
 use serde::{Deserialize, Serialize};
 
+use super::error;
 use super::token::Block;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -13,35 +14,41 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice(slice: &[u8], public_key: RistrettoPoint) -> Result<Self, String> {
-        let deser: SerializedBiscuit = serde_cbor::from_slice(&slice)
-            .map_err(|e| format!("deserialization error: {:?}", e))?;
+    pub fn from_slice(slice: &[u8], public_key: RistrettoPoint) -> Result<Self, error::Format> {
+        let deser: SerializedBiscuit = serde_cbor::from_slice(&slice).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
 
-        if !deser.verify(public_key) {
-            return Err(String::from("invalid signature"));
+        match deser.verify(public_key) {
+            Ok(()) => Ok(deser),
+            Err(e) => Err(e),
         }
-
-        Ok(deser)
     }
 
-    pub fn to_vec(&self) -> Vec<u8> {
-        serde_cbor::ser::to_vec_packed(self).unwrap()
+    pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
+        serde_cbor::ser::to_vec_packed(self)
+            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
 
-    pub fn new(keypair: &KeyPair, authority: &Block) -> Self {
-        let v: Vec<u8> = serde_cbor::ser::to_vec_packed(authority).unwrap();
+    pub fn new(keypair: &KeyPair, authority: &Block) -> Result<Self, error::Format> {
+        let v: Vec<u8> = serde_cbor::ser::to_vec_packed(authority).map_err(|e| {
+            error::Format::SerializationError(format!("serialization error: {:?}", e))
+        })?;
+
         let signature = TokenSignature::new(keypair, &v);
 
-        SerializedBiscuit {
+        Ok(SerializedBiscuit {
             authority: v,
             blocks: vec![],
             keys: vec![keypair.public],
             signature,
-        }
+        })
     }
 
-    pub fn append(&self, keypair: &KeyPair, block: &Block) -> Self {
-        let v: Vec<u8> = serde_cbor::ser::to_vec_packed(block).unwrap();
+    pub fn append(&self, keypair: &KeyPair, block: &Block) -> Result<Self, error::Format> {
+        let v: Vec<u8> = serde_cbor::ser::to_vec_packed(block).map_err(|e| {
+            error::Format::SerializationError(format!("serialization error: {:?}", e))
+        })?;
 
         let mut blocks = Vec::new();
         blocks.push(self.authority.clone());
@@ -59,21 +66,23 @@ impl SerializedBiscuit {
         t.blocks.push(v);
         t.keys.push(keypair.public);
 
-        t
+        Ok(t)
     }
 
-    pub fn verify(&self, public: RistrettoPoint) -> bool {
+    pub fn verify(&self, public: RistrettoPoint) -> Result<(), error::Format> {
         if self.keys.is_empty() {
-            return false;
+            return Err(error::Format::EmptyKeys);
         }
         if self.keys[0] != public {
-            return false;
+            return Err(error::Format::UnknownPublicKey);
         }
 
         let mut blocks = Vec::new();
         blocks.push(self.authority.clone());
         blocks.extend(self.blocks.iter().cloned());
 
-        self.signature.verify(&self.keys, &blocks)
+        self.signature
+            .verify(&self.keys, &blocks)
+            .map_err(error::Format::Signature)
     }
 }

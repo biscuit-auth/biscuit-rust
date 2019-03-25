@@ -1,5 +1,6 @@
 use super::crypto::KeyPair;
 use super::datalog::{self, Fact, Rule, SymbolTable, World, ID};
+use super::error;
 use super::format::SerializedBiscuit;
 use builder::BlockBuilder;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -33,7 +34,7 @@ pub struct Biscuit {
 }
 
 impl Biscuit {
-    pub fn new(root: &KeyPair, authority: &Block) -> Result<Biscuit, String> {
+    pub fn new(root: &KeyPair, authority: &Block) -> Result<Biscuit, error::Token> {
         let authority = authority.clone();
 
         let mut symbols = default_symbol_table();
@@ -41,11 +42,11 @@ impl Biscuit {
         let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
 
         if !h1.is_disjoint(&h2) {
-            return Err(String::from("symbol tables should have no overlap"));
+            return Err(error::Token::SymbolTableOverlap);
         }
 
         if authority.index as usize != 0 {
-            return Err(String::from("invalid block index"));
+            return Err(error::Token::InvalidAuthorityIndex(authority.index));
         }
 
         symbols
@@ -54,37 +55,45 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let container = Some(SerializedBiscuit::new(root, &authority));
+        let container = SerializedBiscuit::new(root, &authority).map_err(error::Token::Format)?;
 
         Ok(Biscuit {
             authority,
             blocks,
             symbols,
-            container,
+            container: Some(container),
         })
     }
 
-    pub fn from(slice: &[u8], root: RistrettoPoint) -> Result<Self, String> {
-        let container = SerializedBiscuit::from_slice(slice, root)?;
+    pub fn from(slice: &[u8], root: RistrettoPoint) -> Result<Self, error::Token> {
+        let container = SerializedBiscuit::from_slice(slice, root).map_err(error::Token::Format)?;
 
-        let authority: Block = serde_cbor::from_slice(&container.authority)
-            .map_err(|e| format!("error deserializing authority block: {:?}", e))?;
+        let authority: Block = serde_cbor::from_slice(&container.authority).map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing authority block: {:?}",
+                e
+            )))
+        })?;
 
         if authority.index != 0 {
-            return Err(String::from("authority block should have index 0"));
+            return Err(error::Token::InvalidAuthorityIndex(authority.index));
         }
 
         let mut blocks = vec![];
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = serde_cbor::from_slice(&block)
-                .map_err(|e| format!("error deserializing block: {:?}", e))?;
+            let deser: Block = serde_cbor::from_slice(&block).map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing block: {:?}",
+                    e
+                )))
+            })?;
             if deser.index != index {
-                return Err(format!(
-                    "invalid index {} for block n°{}",
-                    deser.index, index
-                ));
+                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
+                    expected: index,
+                    found: deser.index,
+                }));
             }
             blocks.push(deser);
 
@@ -112,27 +121,37 @@ impl Biscuit {
         })
     }
 
-    pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, String> {
-        let container = sealed::SealedBiscuit::from_slice(slice, secret)?;
+    pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, error::Token> {
+        let container =
+            sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
 
-        let authority: Block = serde_cbor::from_slice(&container.authority)
-            .map_err(|e| format!("error deserializing authority block: {:?}", e))?;
+        let authority: Block = serde_cbor::from_slice(&container.authority).map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing authority block: {:?}",
+                e
+            )))
+        })?;
 
         if authority.index != 0 {
-            return Err(String::from("authority block should have index 0"));
+            return Err(error::Token::InvalidAuthorityIndex(authority.index));
         }
 
         let mut blocks = vec![];
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = serde_cbor::from_slice(&block)
-                .map_err(|e| format!("error deserializing block: {:?}", e))?;
+            let deser: Block = serde_cbor::from_slice(&block).map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing block: {:?}",
+                    e
+                )))
+            })?;
+
             if deser.index != index {
-                return Err(format!(
-                    "invalid index {} for block n°{}",
-                    deser.index, index
-                ));
+                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
+                    expected: index,
+                    found: deser.index,
+                }));
             }
             blocks.push(deser);
 
@@ -160,13 +179,17 @@ impl Biscuit {
         })
     }
 
-    pub fn to_vec(&self) -> Option<Vec<u8>> {
-        self.container.as_ref().map(|c| c.to_vec())
+    pub fn to_vec(&self) -> Result<Vec<u8>, error::Token> {
+        match self.container.as_ref() {
+            None => Err(error::Token::InternalError),
+            Some(c) => c.to_vec().map_err(error::Token::Format),
+        }
     }
 
-    pub fn seal(&self, secret: &[u8]) -> Vec<u8> {
-        let sealed = sealed::SealedBiscuit::from_token(self, secret);
-        sealed.to_vec()
+    pub fn seal(&self, secret: &[u8]) -> Result<Vec<u8>, error::Token> {
+        let sealed =
+            sealed::SealedBiscuit::from_token(self, secret).map_err(error::Token::Format)?;
+        sealed.to_vec().map_err(error::Token::Format)
     }
 
     pub fn check(
@@ -255,26 +278,34 @@ impl Biscuit {
         BlockBuilder::new((1 + self.blocks.len()) as u32, self.symbols.clone())
     }
 
-    pub fn append(&self, keypair: &KeyPair, block: Block) -> Result<Self, String> {
+    pub fn append(&self, keypair: &KeyPair, block: Block) -> Result<Self, error::Token> {
         if self.container.is_none() {
-            return Err(String::from("cannot append a bock to a sealed token"));
+            return Err(error::Token::Sealed);
         }
 
         let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
         let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
 
         if !h1.is_disjoint(&h2) {
-            return Err(String::from("symbol tables should have no overlap"));
+            return Err(error::Token::SymbolTableOverlap);
         }
 
         if block.index as usize != 1 + self.blocks.len() {
-            return Err(String::from("invalid block index"));
+            return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
+                expected: 1 + self.blocks.len() as u32,
+                found: block.index,
+            }));
         }
 
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
-        let container = self.container.as_ref().map(|c| c.append(keypair, &block));
+
+        let container = match self.container.as_ref() {
+            None => return Err(error::Token::Sealed),
+            Some(c) => c.append(keypair, &block).map_err(error::Token::Format)?,
+        };
+
         symbols
             .symbols
             .extend(block.symbols.symbols.iter().cloned());
@@ -284,7 +315,7 @@ impl Biscuit {
             authority,
             blocks,
             symbols,
-            container,
+            container: Some(container),
         })
     }
 
@@ -705,7 +736,7 @@ mod tests {
         //println!("biscuit2 serialized ({} bytes):\n{}", serialized.len(), serialized.to_hex(16));
 
         let secret = b"secret key";
-        let sealed = biscuit2.seal(&secret[..]);
+        let sealed = biscuit2.seal(&secret[..]).unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
         let biscuit3 = Biscuit::from_sealed(&sealed, &secret[..]).unwrap();

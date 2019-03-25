@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use super::error;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
     traits::Identity,
@@ -60,7 +61,7 @@ impl Token {
         t
     }
 
-    pub fn verify(&self) -> bool {
+    pub fn verify(&self) -> Result<(), error::Signature> {
         self.signature.verify(&self.keys, &self.messages)
     }
 }
@@ -155,14 +156,13 @@ impl TokenSignature {
         &self,
         public_keys: &[RistrettoPoint],
         messages: &[M],
-    ) -> bool {
+    ) -> Result<(), error::Signature> {
         if !(public_keys.len() > 0
             && public_keys.len() == messages.len()
             && public_keys.len() == self.gamma.len()
             && public_keys.len() == self.c.len())
         {
-            println!("invalid data");
-            return false;
+            return Err(error::Signature::InvalidFormat);
         }
 
         let pc = public_keys
@@ -193,7 +193,11 @@ impl TokenSignature {
 
         let c = ECVRF_hash_points(&[*hashes.last().expect("hashes is not empty"), gammas, u, v]);
 
-        c == *self.c.last().expect("c is not empty")
+        if c == *self.c.last().expect("c is not empty") {
+            Ok(())
+        } else {
+            return Err(error::Signature::InvalidSignature);
+        }
     }
 }
 
@@ -266,7 +270,7 @@ mod tests {
 
         let token1 = Token::new(&keypair1, &message1[..]);
 
-        assert!(token1.verify(), "cannot verify first token");
+        assert!(token1.verify().is_ok(), "cannot verify first token");
 
         println!("will derive a second token");
 
@@ -275,7 +279,7 @@ mod tests {
 
         let token2 = token1.append(&keypair2, &message2[..]);
 
-        assert!(token2.verify(), "cannot verify second token");
+        assert!(token2.verify().is_ok(), "cannot verify second token");
 
         println!("will derive a third token");
 
@@ -284,7 +288,7 @@ mod tests {
 
         let token3 = token2.append(&keypair3, &message3[..]);
 
-        assert!(token3.verify(), "cannot verify third token");
+        assert!(token3.verify().is_ok(), "cannot verify third token");
     }
 
     #[test]
@@ -298,7 +302,7 @@ mod tests {
 
         let token1 = Token::new(&keypair1, &message1[..]);
 
-        assert!(token1.verify(), "cannot verify first token");
+        assert!(token1.verify().is_ok(), "cannot verify first token");
 
         println!("will derive a second token");
 
@@ -309,7 +313,7 @@ mod tests {
 
         token2.messages[1] = Vec::from(&b"you"[..]);
 
-        assert!(!token2.verify(), "second token should not be valid");
+        assert!(!token2.verify().is_ok(), "second token should not be valid");
 
         println!("will derive a third token");
 
@@ -318,6 +322,6 @@ mod tests {
 
         let token3 = token2.append(&keypair3, &message3[..]);
 
-        assert!(token3.verify(), "cannot verify third token");
+        assert!(token3.verify().is_ok(), "cannot verify third token");
     }
 }
