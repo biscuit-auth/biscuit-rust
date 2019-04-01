@@ -2,7 +2,7 @@ use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, 
 use super::Biscuit;
 use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
 use crate::error;
-use std::time::{SystemTime};
+use std::time::SystemTime;
 
 pub struct Verifier {
     facts: Vec<Fact>,

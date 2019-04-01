@@ -7,7 +7,6 @@ use curve25519_dalek::{
 };
 use hmac::{Hmac, Mac};
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use std::ops::{Deref, Neg};
 
@@ -66,12 +65,12 @@ impl Token {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct TokenSignature {
-    gamma: Vec<RistrettoPoint>,
-    c: Vec<Scalar>,
-    w: RistrettoPoint,
-    s: Scalar,
+    pub gamma: Vec<RistrettoPoint>,
+    pub c: Vec<Scalar>,
+    pub w: RistrettoPoint,
+    pub s: Scalar,
 }
 
 impl TokenSignature {

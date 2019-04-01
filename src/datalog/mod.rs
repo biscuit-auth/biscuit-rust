@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;
@@ -7,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub type Symbol = u64;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum ID {
     Symbol(Symbol),
     Variable(u32),
@@ -34,7 +33,7 @@ impl AsRef<ID> for ID {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: Symbol,
     pub ids: Vec<ID>,
@@ -55,7 +54,7 @@ impl AsRef<Predicate> for Predicate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Fact {
     pub predicate: Predicate,
 }
@@ -68,14 +67,14 @@ impl Fact {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub constraints: Vec<Constraint>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Constraint {
     pub id: u32,
     pub kind: ConstraintKind,
@@ -87,7 +86,7 @@ impl AsRef<Constraint> for Constraint {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ConstraintKind {
     Int(IntConstraint),
     Str(StrConstraint),
@@ -95,16 +94,18 @@ pub enum ConstraintKind {
     Symbol(SymbolConstraint),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum IntConstraint {
     Lower(i64),
     Larger(i64),
+    LowerOrEqual(i64),
+    LargerOrEqual(i64),
     Equal(i64),
     In(HashSet<i64>),
     NotIn(HashSet<i64>),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StrConstraint {
     Prefix(String),
     Suffix(String),
@@ -113,13 +114,13 @@ pub enum StrConstraint {
     NotIn(HashSet<String>),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DateConstraint {
     Before(u64),
     After(u64),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SymbolConstraint {
     In(HashSet<u64>),
     NotIn(HashSet<u64>),
@@ -136,6 +137,8 @@ impl Constraint {
             (ID::Integer(i), ConstraintKind::Int(c)) => match c {
                 IntConstraint::Lower(j) => *i < *j,
                 IntConstraint::Larger(j) => *i > *j,
+                IntConstraint::LowerOrEqual(j) => *i <= *j,
+                IntConstraint::LargerOrEqual(j) => *i >= *j,
                 IntConstraint::Equal(j) => *i == *j,
                 IntConstraint::In(h) => h.contains(i),
                 IntConstraint::NotIn(h) => !h.contains(i),
@@ -505,7 +508,7 @@ impl World {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     pub symbols: Vec<String>,
 }
@@ -572,6 +575,8 @@ impl SymbolTable {
         match &c.kind {
             ConstraintKind::Int(IntConstraint::Lower(i)) => format!("{}? < {}", c.id, i),
             ConstraintKind::Int(IntConstraint::Larger(i)) => format!("{}? > {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("{}? <= {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("{}? >= {}", c.id, i),
             ConstraintKind::Int(IntConstraint::Equal(i)) => format!("{}? == {}", c.id, i),
             ConstraintKind::Int(IntConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
             ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("{}? not in {:?}", c.id, i),

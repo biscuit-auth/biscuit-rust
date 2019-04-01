@@ -4,8 +4,10 @@ use super::error;
 use super::format::SerializedBiscuit;
 use builder::BlockBuilder;
 use curve25519_dalek::ristretto::RistrettoPoint;
-use serde::{Deserialize, Serialize};
+use prost::Message;
 use std::collections::HashSet;
+
+use crate::format::{convert::proto_block_to_token_block, schema};
 
 pub mod builder;
 pub mod sealed;
@@ -67,12 +69,14 @@ impl Biscuit {
     pub fn from(slice: &[u8], root: RistrettoPoint) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::from_slice(slice, root).map_err(error::Token::Format)?;
 
-        let authority: Block = serde_cbor::from_slice(&container.authority).map_err(|e| {
-            error::Token::Format(error::Format::BlockDeserializationError(format!(
-                "error deserializing authority block: {:?}",
-                e
-            )))
-        })?;
+        let authority: Block = schema::Block::decode(&container.authority)
+            .map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing authority block: {:?}",
+                    e
+                )))
+            })
+            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
 
         if authority.index != 0 {
             return Err(error::Token::InvalidAuthorityIndex(authority.index));
@@ -82,12 +86,15 @@ impl Biscuit {
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = serde_cbor::from_slice(&block).map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing block: {:?}",
-                    e
-                )))
-            })?;
+            let deser: Block = schema::Block::decode(block)
+                .map_err(|e| {
+                    error::Token::Format(error::Format::BlockDeserializationError(format!(
+                        "error deserializing block: {:?}",
+                        e
+                    )))
+                })
+                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+
             if deser.index != index {
                 return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
                     expected: index,
@@ -124,12 +131,14 @@ impl Biscuit {
         let container =
             sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
 
-        let authority: Block = serde_cbor::from_slice(&container.authority).map_err(|e| {
-            error::Token::Format(error::Format::BlockDeserializationError(format!(
-                "error deserializing authority block: {:?}",
-                e
-            )))
-        })?;
+        let authority: Block = schema::Block::decode(container.authority)
+            .map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing authority block: {:?}",
+                    e
+                )))
+            })
+            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
 
         if authority.index != 0 {
             return Err(error::Token::InvalidAuthorityIndex(authority.index));
@@ -139,12 +148,14 @@ impl Biscuit {
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = serde_cbor::from_slice(&block).map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing block: {:?}",
-                    e
-                )))
-            })?;
+            let deser: Block = schema::Block::decode(block)
+                .map_err(|e| {
+                    error::Token::Format(error::Format::BlockDeserializationError(format!(
+                        "error deserializing block: {:?}",
+                        e
+                    )))
+                })
+                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
 
             if deser.index != index {
                 return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
@@ -363,7 +374,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     )
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Block {
     pub index: u32,
     pub symbols: SymbolTable,
@@ -476,7 +487,6 @@ mod tests {
 
         //println!("generated biscuit token: {} bytes:\n{}", serialized1.len(), serialized1.to_hex(16));
         println!("generated biscuit token: {} bytes", serialized1.len());
-        //println!("parsed: {:#?}", serde_cbor::from_slice::<serde_cbor::Value>(&serialized1));
         //panic!();
 
         let serialized2 = {

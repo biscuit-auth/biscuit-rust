@@ -1,12 +1,14 @@
 use super::Biscuit;
 use crate::error;
 use hmac::{Hmac, Mac};
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256};
+use sha2::Sha256;
+
+use crate::format::{convert::token_block_to_proto_block, schema};
+use crate::prost::Message;
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct SealedBiscuit {
     pub authority: Vec<u8>,
     pub blocks: Vec<Vec<u8>>,
@@ -15,18 +17,22 @@ pub struct SealedBiscuit {
 
 impl SealedBiscuit {
     pub fn from_token(token: &Biscuit, secret: &[u8]) -> Result<Self, error::Format> {
-        let authority = serde_cbor::ser::to_vec_packed(&token.authority).map_err(|e| {
-            error::Format::BlockSerializationError(format!(
-                "error serializing authority block: {:?}",
-                e
-            ))
-        })?;
+        let mut authority = Vec::new();
+        token_block_to_proto_block(&token.authority)
+            .encode(&mut authority)
+            .map_err(|e| {
+                error::Format::BlockSerializationError(format!(
+                    "error serializing authority block: {:?}",
+                    e
+                ))
+            })?;
 
         let mut blocks = Vec::new();
 
         for block in token.blocks.iter() {
-            match serde_cbor::ser::to_vec_packed(block) {
-                Ok(packed) => blocks.push(packed),
+            let mut b = Vec::new();
+            match token_block_to_proto_block(block).encode(&mut b) {
+                Ok(_) => blocks.push(b),
                 Err(e) => {
                     return Err(error::Format::BlockSerializationError(format!(
                         "error serializing block: {:?}",
@@ -52,9 +58,15 @@ impl SealedBiscuit {
     }
 
     pub fn from_slice(slice: &[u8], secret: &[u8]) -> Result<Self, error::Format> {
-        let deser: SealedBiscuit = serde_cbor::from_slice(slice).map_err(|e| {
+        let proto: schema::SealedBiscuit = schema::SealedBiscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
+
+        let deser = SealedBiscuit {
+            authority: proto.authority,
+            blocks: proto.blocks,
+            signature: proto.signature,
+        };
 
         let mut mac = HmacSha256::new_varkey(secret).unwrap();
         mac.input(&deser.authority);
@@ -69,7 +81,16 @@ impl SealedBiscuit {
     }
 
     pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
-        serde_cbor::ser::to_vec_packed(self)
+        let proto = schema::SealedBiscuit {
+            authority: self.authority.clone(),
+            blocks: self.blocks.clone(),
+            signature: self.signature.clone(),
+        };
+
+        let mut v = Vec::new();
+        proto
+            .encode(&mut v)
+            .map(|_| v)
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
 }
