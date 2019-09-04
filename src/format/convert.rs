@@ -8,96 +8,53 @@ use crate::token::Block;
 
 pub fn token_sig_to_proto_sig(input: &TokenSignature) -> schema::Signature {
     schema::Signature {
-        gamma: input
-            .gamma
+        parameters: input
+            .parameters
             .iter()
             .map(|g| Vec::from(&g.compress().to_bytes()[..]))
             .collect(),
-        c: input
-            .c
-            .iter()
-            .map(|c| Vec::from(&c.as_bytes()[..]))
-            .collect(),
-        w: Vec::from(&input.w.compress().to_bytes()[..]),
-        s: Vec::from(&input.s.as_bytes()[..]),
+        z: Vec::from(&input.z.as_bytes()[..]),
     }
 }
 
 pub fn proto_sig_to_token_sig(input: schema::Signature) -> Result<TokenSignature, error::Format> {
-    let mut gamma = vec![];
+    let mut parameters = vec![];
 
-    for data in input.gamma {
+    for data in input.parameters {
         if data.len() == 32 {
             if let Some(d) = CompressedRistretto::from_slice(&data[..]).decompress() {
-                gamma.push(d);
+                parameters.push(d);
             } else {
                 return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: cannot decompress gamma point"
+                    "deserialization error: cannot decompress parameters point"
                 )));
             }
         } else {
             return Err(error::Format::DeserializationError(format!(
-                "deserialization error: invalid size for gamma = {}",
+                "deserialization error: invalid size for parameters = {}",
                 data.len()
             )));
         }
     }
 
-    let mut c = vec![];
-
-    for data in input.c {
-        if data.len() == 32 {
-            let mut bytes = [0u8; 32];
-            bytes.copy_from_slice(&data);
-
-            if let Some(d) = Scalar::from_canonical_bytes(bytes) {
-                c.push(d);
-            } else {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: non canonical c scalar"
-                )));
-            }
-        } else {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: invalid size for c = {} bytes",
-                data.len()
-            )));
-        }
-    }
-
-    let w = if input.w.len() == 32 {
-        if let Some(d) = CompressedRistretto::from_slice(&input.w[..]).decompress() {
-            d
-        } else {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: cannot decompress w point"
-            )));
-        }
-    } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid size for w = {} bytes",
-            input.w.len()
-        )));
-    };
-
-    let s = if input.s.len() == 32 {
+    let z = if input.z.len() == 32 {
         let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(&input.s[..]);
+        bytes.copy_from_slice(&input.z[..]);
         if let Some(d) = Scalar::from_canonical_bytes(bytes) {
             d
         } else {
             return Err(error::Format::DeserializationError(format!(
-                "deserialization error: non canonical s scalar"
+                "deserialization error: non canonical z scalar"
             )));
         }
     } else {
         return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid size for s = {} bytes",
-            input.s.len()
+            "deserialization error: invalid size for z = {} bytes",
+            input.z.len()
         )));
     };
 
-    Ok(TokenSignature { gamma, c, w, s })
+    Ok(TokenSignature { parameters, z })
 }
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {

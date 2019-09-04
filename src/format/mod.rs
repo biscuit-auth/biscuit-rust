@@ -1,6 +1,7 @@
 use super::crypto::{KeyPair, TokenSignature};
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use prost::Message;
+use rand::{CryptoRng, Rng};
 
 use super::error;
 use super::token::Block;
@@ -80,7 +81,11 @@ impl SerializedBiscuit {
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
 
-    pub fn new(keypair: &KeyPair, authority: &Block) -> Result<Self, error::Format> {
+    pub fn new<T: Rng + CryptoRng>(
+        rng: &mut T,
+        keypair: &KeyPair,
+        authority: &Block,
+    ) -> Result<Self, error::Format> {
         let mut v = Vec::new();
         token_block_to_proto_block(authority)
             .encode(&mut v)
@@ -88,7 +93,7 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = TokenSignature::new(keypair, &v);
+        let signature = TokenSignature::new(rng, keypair, &v);
 
         Ok(SerializedBiscuit {
             authority: v,
@@ -98,7 +103,12 @@ impl SerializedBiscuit {
         })
     }
 
-    pub fn append(&self, keypair: &KeyPair, block: &Block) -> Result<Self, error::Format> {
+    pub fn append<T: Rng + CryptoRng>(
+        &self,
+        rng: &mut T,
+        keypair: &KeyPair,
+        block: &Block,
+    ) -> Result<Self, error::Format> {
         let mut v = Vec::new();
         token_block_to_proto_block(block)
             .encode(&mut v)
@@ -110,7 +120,7 @@ impl SerializedBiscuit {
         blocks.push(self.authority.clone());
         blocks.extend(self.blocks.iter().cloned());
 
-        let signature = self.signature.sign(&self.keys, &blocks, keypair, &v);
+        let signature = self.signature.sign(rng, &self.keys, &blocks, keypair, &v);
 
         let mut t = SerializedBiscuit {
             authority: self.authority.clone(),

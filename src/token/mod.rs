@@ -5,6 +5,7 @@ use super::format::SerializedBiscuit;
 use builder::BlockBuilder;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use prost::Message;
+use rand::{CryptoRng, Rng};
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
@@ -35,7 +36,11 @@ pub struct Biscuit {
 }
 
 impl Biscuit {
-    pub fn new(root: &KeyPair, authority: &Block) -> Result<Biscuit, error::Token> {
+    pub fn new<T: Rng + CryptoRng>(
+        rng: &mut T,
+        root: &KeyPair,
+        authority: &Block,
+    ) -> Result<Biscuit, error::Token> {
         let authority = authority.clone();
 
         let mut symbols = default_symbol_table();
@@ -56,7 +61,8 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let container = SerializedBiscuit::new(root, &authority).map_err(error::Token::Format)?;
+        let container =
+            SerializedBiscuit::new(rng, root, &authority).map_err(error::Token::Format)?;
 
         Ok(Biscuit {
             authority,
@@ -285,7 +291,12 @@ impl Biscuit {
         BlockBuilder::new((1 + self.blocks.len()) as u32, self.symbols.clone())
     }
 
-    pub fn append(&self, keypair: &KeyPair, block: Block) -> Result<Self, error::Token> {
+    pub fn append<T: Rng + CryptoRng>(
+        &self,
+        rng: &mut T,
+        keypair: &KeyPair,
+        block: Block,
+    ) -> Result<Self, error::Token> {
         if self.container.is_none() {
             return Err(error::Token::Sealed);
         }
@@ -310,7 +321,9 @@ impl Biscuit {
 
         let container = match self.container.as_ref() {
             None => return Err(error::Token::Sealed),
-            Some(c) => c.append(keypair, &block).map_err(error::Token::Format)?,
+            Some(c) => c
+                .append(rng, keypair, &block)
+                .map_err(error::Token::Format)?,
         };
 
         symbols
@@ -478,7 +491,7 @@ mod tests {
             authority_block.add_fact(&fact("right", &[s("authority"), s("file2"), s("read")]));
             authority_block.add_fact(&fact("right", &[s("authority"), s("file1"), s("write")]));
 
-            let biscuit1 = Biscuit::new(&root, &authority_block.to_block()).unwrap();
+            let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
 
             println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -488,6 +501,35 @@ mod tests {
         //println!("generated biscuit token: {} bytes:\n{}", serialized1.len(), serialized1.to_hex(16));
         println!("generated biscuit token: {} bytes", serialized1.len());
         //panic!();
+
+        /*
+        for i in 0..9 {
+            let biscuit1_deser = Biscuit::from(&serialized1, root.public).unwrap();
+
+            // new caveat: can only have read access1
+            let mut block2 = biscuit1_deser.create_block();
+
+            block2.add_caveat(&rule(
+                "caveat1",
+                &[var(0)],
+                &[
+                    pred("resource", &[s("ambient"), var(0)]),
+                    pred("operation", &[s("ambient"), s("read")]),
+                    pred("right", &[s("authority"), var(0), s("read")]),
+                ],
+            ));
+
+            let keypair2 = KeyPair::new(&mut rng);
+            let biscuit2 = biscuit1_deser.append(&keypair2, block2.to_block()).unwrap();
+
+            println!("biscuit2 (1 caveat): {}", biscuit2.print());
+
+            serialized1 = biscuit2.to_vec().unwrap();
+
+        }
+        println!("generated biscuit token 2: {} bytes", serialized1.len());
+        panic!();
+        */
 
         let serialized2 = {
             let biscuit1_deser = Biscuit::from(&serialized1, root.public).unwrap();
@@ -506,7 +548,9 @@ mod tests {
             ));
 
             let keypair2 = KeyPair::new(&mut rng);
-            let biscuit2 = biscuit1_deser.append(&keypair2, block2.to_block()).unwrap();
+            let biscuit2 = biscuit1_deser
+                .append(&mut rng, &keypair2, block2.to_block())
+                .unwrap();
 
             println!("biscuit2 (1 caveat): {}", biscuit2.print());
 
@@ -530,7 +574,7 @@ mod tests {
 
             let keypair3 = KeyPair::new(&mut rng);
             let biscuit3 = biscuit2_deser
-                .append(&keypair3, block3.clone().to_block())
+                .append(&mut rng, &keypair3, block3.clone().to_block())
                 .unwrap();
 
             biscuit3.to_vec().unwrap()
@@ -599,7 +643,7 @@ mod tests {
         authority_block.add_right("/folder1/file2", "write");
         authority_block.add_right("/folder2/file3", "read");
 
-        let biscuit1 = Biscuit::new(&root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -609,7 +653,9 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new(&mut rng);
-        let biscuit2 = biscuit1.append(&keypair2, block2.to_block()).unwrap();
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.to_block())
+            .unwrap();
 
         {
             let mut verifier = Verifier::new();
@@ -668,7 +714,7 @@ mod tests {
         authority_block.add_right("file1", "read");
         authority_block.add_right("file2", "read");
 
-        let biscuit1 = Biscuit::new(&root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -678,7 +724,9 @@ mod tests {
         block2.revocation_id(1234);
 
         let keypair2 = KeyPair::new(&mut rng);
-        let biscuit2 = biscuit1.append(&keypair2, block2.to_block()).unwrap();
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.to_block())
+            .unwrap();
 
         {
             let mut verifier = Verifier::new();
@@ -721,7 +769,7 @@ mod tests {
         authority_block.add_right("/folder1/file2", "write");
         authority_block.add_right("/folder2/file3", "read");
 
-        let biscuit1 = Biscuit::new(&root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -731,8 +779,12 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new(&mut rng);
-        let biscuit2 = biscuit1.append(&keypair2, block2.to_block()).unwrap();
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.to_block())
+            .unwrap();
 
+        //println!("biscuit2:\n{:#?}", biscuit2);
+        //panic!();
         {
             let mut verifier = Verifier::new();
             verifier.resource("/folder1/file1");

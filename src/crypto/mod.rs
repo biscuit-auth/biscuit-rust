@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use super::error;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
@@ -24,6 +22,31 @@ impl KeyPair {
 
         KeyPair { private, public }
     }
+
+    pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
+        let r = Scalar::random(rng);
+        let A = r * RISTRETTO_BASEPOINT_POINT;
+        let d = ECVRF_hash_points(&[A]);
+        // FIXME: maybe there's a simpler hashing process
+        let e = ECVRF_hash_points(&[
+            self.public,
+            ECVRF_hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
+        ]);
+        let z = r * d - e * self.private;
+        (d, z)
+    }
+}
+
+pub fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
+    let (d, z) = signature;
+    let e = ECVRF_hash_points(&[
+        *public,
+        ECVRF_hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
+    ]);
+    let d_inv = d.invert();
+    let A = z * d_inv * RISTRETTO_BASEPOINT_POINT + e * d_inv * public;
+
+    ECVRF_hash_points(&[A]) == *d
 }
 
 pub struct Token {
@@ -33,8 +56,8 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(keypair: &KeyPair, message: &[u8]) -> Self {
-        let signature = TokenSignature::new(keypair, message);
+    pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+        let signature = TokenSignature::new(rng, keypair, message);
 
         Token {
             messages: vec![message.to_owned()],
@@ -43,10 +66,15 @@ impl Token {
         }
     }
 
-    pub fn append(&self, keypair: &KeyPair, message: &[u8]) -> Self {
+    pub fn append<T: Rng + CryptoRng>(
+        &self,
+        rng: &mut T,
+        keypair: &KeyPair,
+        message: &[u8],
+    ) -> Self {
         let signature = self
             .signature
-            .sign(&self.keys, &self.messages, keypair, message);
+            .sign(rng, &self.keys, &self.messages, keypair, message);
 
         let mut t = Token {
             messages: self.messages.clone(),
@@ -67,88 +95,45 @@ impl Token {
 
 #[derive(Clone, Debug)]
 pub struct TokenSignature {
-    pub gamma: Vec<RistrettoPoint>,
-    pub c: Vec<Scalar>,
-    pub w: RistrettoPoint,
-    pub s: Scalar,
+    pub parameters: Vec<RistrettoPoint>,
+    pub z: Scalar,
 }
 
 impl TokenSignature {
-    pub fn new(keypair: &KeyPair, message: &[u8]) -> Self {
-        let h = ECVRF_hash_to_curve(keypair.public, message);
-        let gamma = keypair.private * h;
-        let k = ECVRF_nonce(keypair.private, h);
-        let c = ECVRF_hash_points(&[h, gamma, k * RISTRETTO_BASEPOINT_POINT, k * h]);
-        let s = (k + c * keypair.private).reduce();
-
-        // W = h^(s0 - S) * .. * hn^(sn - S)
-        let w = RistrettoPoint::identity();
+    pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+        let r = Scalar::random(rng);
+        let A = r * RISTRETTO_BASEPOINT_POINT;
+        let d = ECVRF_hash_points(&[A]);
+        let e = hash_message(keypair.public, message);
+        let z = r * d - e * keypair.private;
 
         TokenSignature {
-            gamma: vec![gamma],
-            c: vec![c],
-            w,
-            s,
+            parameters: vec![A],
+            z: z,
         }
     }
 
-    pub fn sign<M: Deref<Target = [u8]>>(
+    pub fn sign<M: Deref<Target = [u8]>, T: Rng + CryptoRng>(
         &self,
+        rng: &mut T,
         public_keys: &[RistrettoPoint],
         messages: &[M],
         keypair: &KeyPair,
         message: &[u8],
     ) -> Self {
-        let h = ECVRF_hash_to_curve(keypair.public, message);
-        let gamma = keypair.private * h;
-        let k = ECVRF_nonce(keypair.private, h);
+        let r = Scalar::random(rng);
+        let A = r * RISTRETTO_BASEPOINT_POINT;
+        let d = ECVRF_hash_points(&[A]);
+        let e = hash_message(keypair.public, message);
+        let z = r * d - e * keypair.private;
 
-        let pc = public_keys
-            .iter()
-            .zip(self.c.iter())
-            .map(|(p, c)| p * (c.neg()))
-            .collect::<Vec<_>>();
-        // u = g^(k0 + k1 + ... + kn)
-        let u = add_points(&pc)
-            + (self.s * RISTRETTO_BASEPOINT_POINT)
-            + (k * RISTRETTO_BASEPOINT_POINT);
-
-        let hashes = messages
-            .iter()
-            .zip(public_keys.iter())
-            .map(|(m, pk)| ECVRF_hash_to_curve(*pk, m))
-            .collect::<Vec<_>>();
-        let hashes_sum = add_points(&hashes);
-
-        // v = h0^k0 * h1^k1 * .. * hn^k^n
-        let v = self
-            .gamma
-            .iter()
-            .zip(self.c.iter())
-            .fold(self.w, |acc, (gamma, c)| (c.neg() * gamma) + acc)
-            + (self.s * hashes_sum)
-            + (k * h);
-
-        let gammas = add_points(&self.gamma);
-
-        let c = ECVRF_hash_points(&[h, gammas + gamma, u, v]);
-
-        let s = (k + c * keypair.private).reduce();
-        let agg_s = (self.s + s).reduce();
-
-        let hs = hashes_sum * s.neg();
-        let w = self.w + hs + h * self.s.neg();
-
-        let mut res = TokenSignature {
-            gamma: self.gamma.clone(),
-            c: self.c.clone(),
-            w,
-            s: agg_s,
+        let mut t = TokenSignature {
+            parameters: self.parameters.clone(),
+            z: self.z + z,
         };
-        res.gamma.push(gamma);
-        res.c.push(c);
 
-        res
+        t.parameters.push(A);
+        t
     }
 
     pub fn verify<M: Deref<Target = [u8]>>(
@@ -156,43 +141,41 @@ impl TokenSignature {
         public_keys: &[RistrettoPoint],
         messages: &[M],
     ) -> Result<(), error::Signature> {
-        if !(public_keys.len() > 0
-            && public_keys.len() == messages.len()
-            && public_keys.len() == self.gamma.len()
-            && public_keys.len() == self.c.len())
-        {
+        if !(public_keys.len() == messages.len() && public_keys.len() == self.parameters.len()) {
+            println!("invalid data");
             return Err(error::Signature::InvalidFormat);
         }
 
-        let pc = public_keys
+        let zP = self.z * RISTRETTO_BASEPOINT_POINT;
+        let eiXi = public_keys
             .iter()
-            .zip(self.c.iter())
-            .map(|(p, c)| p * (c.neg()))
-            .collect::<Vec<_>>();
-        // u = g^(k0 + k1 + ... + kn)
-        let u = add_points(&pc) + (self.s * RISTRETTO_BASEPOINT_POINT);
+            .zip(messages)
+            .map(|(pubkey, message)| {
+                let e = hash_message(*pubkey, message);
+                e * pubkey
+            })
+            .fold(RistrettoPoint::identity(), |acc, point| acc + point);
 
-        let hashes = messages
+        let diAi = self
+            .parameters
             .iter()
-            .zip(public_keys.iter())
-            .map(|(m, pk)| ECVRF_hash_to_curve(*pk, m))
-            .collect::<Vec<_>>();
+            .map(|A| {
+                let d = ECVRF_hash_points(&[*A]);
+                d * A
+            })
+            .fold(RistrettoPoint::identity(), |acc, point| acc + point);
 
-        // v = h0^k0 * h1^k1 * .. * hn^k^n
-        let v = self
-            .gamma
-            .iter()
-            .zip(self.c.iter())
-            .zip(hashes.iter())
-            .fold(self.w, |acc, ((gamma, c), h)| {
-                (c.neg() * gamma) + (self.s * h) + acc
-            });
+        let res = zP + eiXi - diAi;
 
-        let gammas = add_points(&self.gamma);
+        /*
+        println!("verify identity={:?}", RistrettoPoint::identity());
+        println!("verify res={:?}", res);
+        println!("verify identity={:?}", RistrettoPoint::identity().compress());
+        println!("verify res={:?}", res.compress());
+        println!("returning: {:?}", RistrettoPoint::identity() == res);
+        */
 
-        let c = ECVRF_hash_points(&[*hashes.last().expect("hashes is not empty"), gammas, u, v]);
-
-        if c == *self.c.last().expect("c is not empty") {
+        if RistrettoPoint::identity() == res {
             Ok(())
         } else {
             return Err(error::Signature::InvalidSignature);
@@ -211,6 +194,12 @@ pub fn ECVRF_hash_points(points: &[RistrettoPoint]) -> Scalar {
     for point in points.iter() {
         h.input(point.compress().as_bytes());
     }
+
+    Scalar::from_hash(h)
+}
+
+pub fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
+    let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
 
     Scalar::from_hash(h)
 }
@@ -259,6 +248,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn basic_signature() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        let message = b"hello world";
+        let keypair = KeyPair::new(&mut rng);
+
+        let signature = keypair.sign(&mut rng, message);
+
+        assert!(verify(&keypair.public, message, &signature));
+
+        assert!(!verify(&keypair.public, b"AAAA", &signature));
+    }
+
+    #[test]
     fn three_messages() {
         //let mut rng: OsRng = OsRng::new().unwrap();
         //keep the same values in tests
@@ -267,27 +270,27 @@ mod tests {
         let message1 = b"hello";
         let keypair1 = KeyPair::new(&mut rng);
 
-        let token1 = Token::new(&keypair1, &message1[..]);
+        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
 
-        assert!(token1.verify().is_ok(), "cannot verify first token");
+        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
 
         println!("will derive a second token");
 
         let message2 = b"world";
         let keypair2 = KeyPair::new(&mut rng);
 
-        let token2 = token1.append(&keypair2, &message2[..]);
+        let token2 = token1.append(&mut rng, &keypair2, &message2[..]);
 
-        assert!(token2.verify().is_ok(), "cannot verify second token");
+        assert_eq!(token2.verify(), Ok(()), "cannot verify second token");
 
         println!("will derive a third token");
 
         let message3 = b"!!!";
         let keypair3 = KeyPair::new(&mut rng);
 
-        let token3 = token2.append(&keypair3, &message3[..]);
+        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
 
-        assert!(token3.verify().is_ok(), "cannot verify third token");
+        assert_eq!(token3.verify(), Ok(()), "cannot verify third token");
     }
 
     #[test]
@@ -299,28 +302,36 @@ mod tests {
         let message1 = b"hello";
         let keypair1 = KeyPair::new(&mut rng);
 
-        let token1 = Token::new(&keypair1, &message1[..]);
+        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
 
-        assert!(token1.verify().is_ok(), "cannot verify first token");
+        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
 
         println!("will derive a second token");
 
         let message2 = b"world";
         let keypair2 = KeyPair::new(&mut rng);
 
-        let mut token2 = token1.append(&keypair2, &message2[..]);
+        let mut token2 = token1.append(&mut rng, &keypair2, &message2[..]);
 
         token2.messages[1] = Vec::from(&b"you"[..]);
 
-        assert!(!token2.verify().is_ok(), "second token should not be valid");
+        assert_eq!(
+            token2.verify(),
+            Err(error::Signature::InvalidSignature),
+            "second token should not be valid"
+        );
 
         println!("will derive a third token");
 
         let message3 = b"!!!";
         let keypair3 = KeyPair::new(&mut rng);
 
-        let token3 = token2.append(&keypair3, &message3[..]);
+        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
 
-        assert!(token3.verify().is_ok(), "cannot verify third token");
+        assert_eq!(
+            token3.verify(),
+            Err(error::Signature::InvalidSignature),
+            "cannot verify third token"
+        );
     }
 }
