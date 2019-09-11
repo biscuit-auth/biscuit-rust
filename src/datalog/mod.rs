@@ -195,8 +195,13 @@ impl Rule {
                 let mut p = self.head.clone();
                 for index in 0..p.ids.len() {
                     let value = match &p.ids[index] {
-                        //FIXME: variables that appear in the head should appear in the body and constraints as well
-                        ID::Variable(i) => h.get(i).unwrap(),
+                        ID::Variable(i) => match h.get(i) {
+                          Some(val) => val,
+                          None => {
+                            println!("error: variables that appear in the head should appear in the body and constraints as well");
+                            continue;
+                          }
+                        },
                         _ => continue,
                     };
 
