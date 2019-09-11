@@ -214,19 +214,20 @@ impl Biscuit {
 
     pub fn check(
         &self,
+        symbols: &SymbolTable,
         mut ambient_facts: Vec<Fact>,
         ambient_rules: Vec<Rule>,
         ambient_caveats: Vec<Rule>,
     ) -> Result<(), error::Logic> {
         let mut world = World::new();
 
-        let authority_index = self.symbols.get("authority").unwrap();
-        let ambient_index = self.symbols.get("ambient").unwrap();
+        let authority_index = symbols.get("authority").unwrap();
+        let ambient_index = symbols.get("ambient").unwrap();
 
         for fact in self.authority.facts.iter().cloned() {
             if fact.predicate.ids[0] != ID::Symbol(authority_index) {
                 return Err(error::Logic::InvalidAuthorityFact(
-                    self.symbols.print_fact(&fact),
+                    symbols.print_fact(&fact),
                 ));
             }
 
@@ -244,7 +245,7 @@ impl Biscuit {
             // FIXME: check that facts have at least one element in the predicate
             if fact.predicate.ids[0] != ID::Symbol(authority_index) {
                 return Err(error::Logic::InvalidAuthorityFact(
-                    self.symbols.print_fact(&fact),
+                    symbols.print_fact(&fact),
                 ));
             }
         }
@@ -255,7 +256,7 @@ impl Biscuit {
         for fact in ambient_facts.drain(..) {
             if fact.predicate.ids[0] != ID::Symbol(ambient_index) {
                 return Err(error::Logic::InvalidAmbientFact(
-                    self.symbols.print_fact(&fact),
+                    symbols.print_fact(&fact),
                 ));
             }
 
@@ -275,7 +276,7 @@ impl Biscuit {
         for (i, block) in self.blocks.iter().enumerate() {
             let w = world.clone();
 
-            match block.check(i, w, &self.symbols, &ambient_caveats) {
+            match block.check(i, w, symbols, &ambient_caveats) {
                 Err(e) => match e {
                     error::Logic::FailedCaveats(mut e) => errors.extend(e.drain(..)),
                     e => return Err(e),
@@ -605,7 +606,7 @@ mod tests {
 
             //println!("final token: {:#?}", final_token);
             //println!("ambient facts: {:#?}", ambient_facts);
-            let res = final_token.check(ambient_facts, vec![], vec![]);
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![]);
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -623,7 +624,7 @@ mod tests {
                 ambient_facts.push(fact.convert(&mut symbols));
             }
 
-            let res = final_token.check(ambient_facts, vec![], vec![]);
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![]);
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![

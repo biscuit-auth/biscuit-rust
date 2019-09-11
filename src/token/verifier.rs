@@ -60,24 +60,24 @@ impl Verifier {
     }
 
     pub fn verify(&self, mut token: Biscuit) -> Result<(), error::Logic> {
-        let symbols = &mut token.symbols;
+        let mut symbols = token.symbols.clone();
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
         let mut ambient_caveats = vec![];
 
         for fact in self.facts.iter() {
-            ambient_facts.push(fact.convert(symbols));
+            ambient_facts.push(fact.convert(&mut symbols));
         }
 
         for rule in self.rules.iter() {
-            ambient_rules.push(rule.convert(symbols));
+            ambient_rules.push(rule.convert(&mut symbols));
         }
 
         for caveat in self.caveats.iter() {
-            ambient_caveats.push(caveat.convert(symbols));
+            ambient_caveats.push(caveat.convert(&mut symbols));
         }
 
-        token.check(ambient_facts, ambient_rules, ambient_caveats)
+        token.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
     }
 }
