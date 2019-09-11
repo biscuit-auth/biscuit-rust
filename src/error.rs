@@ -6,7 +6,7 @@ pub enum Token {
     InvalidBlockIndex(InvalidBlockIndex),
     SymbolTableOverlap,
     Sealed,
-    FailedLogic(Vec<Logic>),
+    FailedLogic(Logic),
 }
 
 #[derive(Clone, Debug, PartialEq)]

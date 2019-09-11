@@ -11,7 +11,7 @@ use std::ops::{Deref, Neg};
 type HmacSha512 = Hmac<Sha512>;
 
 pub struct KeyPair {
-    private: Scalar,
+    pub private: Scalar,
     pub public: RistrettoPoint,
 }
 
