@@ -1,8 +1,10 @@
 extern crate rand;
 extern crate biscuit;
 extern crate hex;
+extern crate curve25519_dalek;
 
 use rand::prelude::*;
+use curve25519_dalek::scalar::Scalar;
 use biscuit::token::{Biscuit, default_symbol_table, builder::*, verifier::Verifier};
 use biscuit::crypto::KeyPair;
 use biscuit::error;
@@ -30,6 +32,12 @@ fn main() {
 
     println!("------------------------------");
     basic_token(&mut rng, &target, &root);
+
+    println!("------------------------------");
+    different_root_key(&mut rng, &target, &root);
+
+    println!("------------------------------");
+    invalid_signature(&mut rng, &target, &root);
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient_rules: Vec<Rule>, ambient_caveats: Vec<Rule>) -> Result<(), error::Token> {
@@ -64,9 +72,9 @@ fn basic_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   let symbols = default_symbol_table();
   let mut authority_block = BlockBuilder::new(0, symbols);
 
-  authority_block.add_fact(&fact("right", &[s("authority"), s("file1"), s("read")]));
-  authority_block.add_fact(&fact("right", &[s("authority"), s("file2"), s("read")]));
-  authority_block.add_fact(&fact("right", &[s("authority"), s("file1"), s("write")]));
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
   let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
 
@@ -92,4 +100,78 @@ fn basic_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   let data = biscuit2.to_vec().unwrap();
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
   write_testcase(target, "test1_basic", &data[..]);
+}
+
+fn different_root_key<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+  println!("different root key:");
+
+  let root2 = KeyPair::new(rng);
+  let symbols = default_symbol_table();
+  let mut authority_block = BlockBuilder::new(0, symbols);
+
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
+
+  let biscuit1 = Biscuit::new(rng, &root2, &authority_block.to_block()).unwrap();
+
+  let mut block2 = biscuit1.create_block();
+
+  block2.add_caveat(&rule(
+    "caveat1",
+    &[var(0)],
+    &[
+      pred("resource", &[s("ambient"), var(0)]),
+      pred("operation", &[s("ambient"), s("read")]),
+      pred("right", &[s("authority"), var(0), s("read")]),
+    ],
+  ));
+
+  let keypair2 = KeyPair::new(rng);
+  let biscuit2 = biscuit1
+    .append(rng, &keypair2, block2.to_block())
+    .unwrap();
+
+  println!("biscuit2 (1 caveat): {}", biscuit2.print());
+
+  let data = biscuit2.to_vec().unwrap();
+  println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
+  write_testcase(target, "test2_different_root_key", &data[..]);
+}
+
+fn invalid_signature<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+  println!("invalid signature:");
+
+  let symbols = default_symbol_table();
+  let mut authority_block = BlockBuilder::new(0, symbols);
+
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
+  authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
+
+  let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
+
+  let mut block2 = biscuit1.create_block();
+
+  block2.add_caveat(&rule(
+    "caveat1",
+    &[var(0)],
+    &[
+      pred("resource", &[s("ambient"), var(0)]),
+      pred("operation", &[s("ambient"), s("read")]),
+      pred("right", &[s("authority"), var(0), s("read")]),
+    ],
+  ));
+
+  let keypair2 = KeyPair::new(rng);
+  let biscuit2 = biscuit1
+    .append(rng, &keypair2, block2.to_block())
+    .unwrap();
+
+  println!("biscuit2 (1 caveat): {}", biscuit2.print());
+
+  let mut serialized = biscuit2.container().unwrap().clone();
+  serialized.signature.z = serialized.signature.z + Scalar::one();
+
+  let data = serialized.to_vec().unwrap();
+  println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
+  write_testcase(target, "test3_invalid_signature", &data[..]);
 }

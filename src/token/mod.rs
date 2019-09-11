@@ -208,6 +208,10 @@ impl Biscuit {
         sealed.to_vec().map_err(error::Token::Format)
     }
 
+    pub fn container(&self) -> Option<&SerializedBiscuit> {
+      self.container.as_ref()
+    }
+
     pub fn check(
         &self,
         mut ambient_facts: Vec<Fact>,
