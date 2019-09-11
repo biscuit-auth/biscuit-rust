@@ -10,6 +10,7 @@ use biscuit::crypto::KeyPair;
 use biscuit::error;
 use std::fs::File;
 use std::io::Write;
+use std::time::*;
 
 fn main() {
     println!("args: {:?}", std::env::args());
@@ -38,6 +39,9 @@ fn main() {
 
     println!("------------------------------");
     invalid_signature(&mut rng, &target, &root);
+
+    println!("------------------------------");
+    expired_token(&mut rng, &target, &root);
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient_rules: Vec<Rule>, ambient_caveats: Vec<Rule>) -> Result<(), error::Token> {
@@ -175,3 +179,37 @@ fn invalid_signature<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair)
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
   write_testcase(target, "test3_invalid_signature", &data[..]);
 }
+
+fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+  println!("expired token:");
+
+  let symbols = default_symbol_table();
+  let mut authority_block = BlockBuilder::new(0, symbols);
+
+  let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
+
+  let mut block2 = biscuit1.create_block();
+
+  block2.add_caveat(&rule(
+    "caveat1",
+    &[string("file1")],
+    &[pred("resource", &[s("ambient"), string("file1")])],
+  ));
+  // January 1 2019
+  block2.expiration_date(UNIX_EPOCH.checked_add(Duration::from_secs(49 * 365 * 24 * 3600)).unwrap());
+
+
+  let keypair2 = KeyPair::new(rng);
+  let biscuit2 = biscuit1
+    .append(rng, &keypair2, block2.to_block())
+    .unwrap();
+
+  println!("biscuit2 (1 caveat): {}", biscuit2.print());
+
+  let data = biscuit2.to_vec().unwrap();
+  println!("validation: {:?}", validate_token(root, &data[..],
+    vec![fact("resource", &[s("ambient"), string("file1")]), fact("operation", &[s("ambient"), s("read")]), fact("time", &[s("ambient"), date(&SystemTime::now())])],
+    vec![], vec![]));
+  write_testcase(target, "test4_expired_token", &data[..]);
+}
+
