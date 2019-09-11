@@ -1008,7 +1008,7 @@ mod tests {
         let authority = syms.add("authority");
         let ambient = syms.add("ambient");
         let resource = syms.insert("resource");
-        let operation = syms.insert("resource");
+        let operation = syms.insert("operation");
         let right = syms.insert("right");
         let file1 = syms.add("file1");
         let file2 = syms.add("file2");
