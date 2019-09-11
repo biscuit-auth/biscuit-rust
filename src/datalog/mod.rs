@@ -999,4 +999,57 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
     }
+
+    #[test]
+    fn resource() {
+        let mut w = World::new();
+        let mut syms = SymbolTable::new();
+
+        let authority = syms.add("authority");
+        let ambient = syms.add("ambient");
+        let resource = syms.insert("resource");
+        let operation = syms.insert("resource");
+        let right = syms.insert("right");
+        let file1 = syms.add("file1");
+        let file2 = syms.add("file2");
+        let read = syms.add("read");
+        let write = syms.add("write");
+        let caveat1 = syms.insert("caveat1");
+        let caveat2 = syms.insert("caveat2");
+
+        w.add_fact(fact(resource, &[&ambient, &file2]));
+        w.add_fact(fact(operation, &[&ambient, &write]));
+        w.add_fact(fact(right, &[&authority, &file1, &read]));
+        w.add_fact(fact(right, &[&authority, &file2, &read]));
+        w.add_fact(fact(right, &[&authority, &file1, &write]));
+
+
+        let res = w.query_rule(rule(
+            caveat1,
+            &[&file1],
+            &[pred(resource, &[&ambient, &file1])]
+        ));
+
+        for fact in &res {
+            println!("\t{}", syms.print_fact(fact));
+        }
+
+        assert!(res.is_empty());
+
+        let res = w.query_rule(rule(
+            caveat2,
+            &[ID::Variable(0)],
+            &[
+              pred(resource, &[&ambient, &ID::Variable(0)]),
+              pred(operation, &[&ambient, &read]),
+              pred(right, &[&authority, &ID::Variable(0), &read])
+            ]
+        ));
+
+        for fact in &res {
+            println!("\t{}", syms.print_fact(fact));
+        }
+
+        assert!(res.is_empty());
+      }
 }
