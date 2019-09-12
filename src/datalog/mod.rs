@@ -220,7 +220,7 @@ pub struct CombineIt<'a> {
     predicates: &'a [Predicate],
     constraints: &'a [Constraint],
     all_facts: &'a HashSet<Fact>,
-    current_facts: Box<Iterator<Item = &'a Fact> + 'a>,
+    current_facts: Box<dyn Iterator<Item = &'a Fact> + 'a>,
     current_it: Option<Box<CombineIt<'a>>>,
 }
 

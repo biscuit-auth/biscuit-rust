@@ -64,7 +64,6 @@ fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
   println!("written to: {}/{}", target, name);
 
-  let path  = target.to_string();
   let mut file = File::create(&format!("{}/{}.bc", target, name)).unwrap();
   file.write_all(data).unwrap();
   file.flush().unwrap();
@@ -184,7 +183,7 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   println!("expired token:");
 
   let symbols = default_symbol_table();
-  let mut authority_block = BlockBuilder::new(0, symbols);
+  let authority_block = BlockBuilder::new(0, symbols);
 
   let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
 

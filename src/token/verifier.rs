@@ -59,7 +59,7 @@ impl Verifier {
         self.add_caveat(caveat);
     }
 
-    pub fn verify(&self, mut token: Biscuit) -> Result<(), error::Logic> {
+    pub fn verify(&self, token: Biscuit) -> Result<(), error::Logic> {
         let mut symbols = token.symbols.clone();
 
         let mut ambient_facts = vec![];

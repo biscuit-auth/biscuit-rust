@@ -371,20 +371,6 @@ impl Biscuit {
         })
     }
 
-    pub fn adjust_authority_symbols(block: &mut Block) {
-        let base_symbols = default_symbol_table();
-
-        let new_syms = block.symbols.symbols.split_off(base_symbols.symbols.len());
-
-        block.symbols.symbols = new_syms;
-    }
-
-    pub fn adjust_block_symbols(&self, block: &mut Block) {
-        let new_syms = block.symbols.symbols.split_off(self.symbols.symbols.len());
-
-        block.symbols.symbols = new_syms;
-    }
-
     /// pretty printer for this token
     pub fn print(&self) -> String {
         let authority = print_block(&self.symbols, &self.authority);

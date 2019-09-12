@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use super::error;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::{RistrettoPoint, CompressedRistretto}, scalar::Scalar,
@@ -6,7 +7,7 @@ use curve25519_dalek::{
 use hmac::{Hmac, Mac};
 use rand::prelude::*;
 use sha2::{Digest, Sha512};
-use std::ops::{Deref, Neg};
+use std::ops::Deref;
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -114,7 +115,7 @@ impl Token {
     ) -> Self {
         let signature = self
             .signature
-            .sign(rng, &self.keys, &self.messages, keypair, message);
+            .sign(rng, keypair, message);
 
         let mut t = Token {
             messages: self.messages.clone(),
@@ -153,11 +154,9 @@ impl TokenSignature {
         }
     }
 
-    pub fn sign<M: Deref<Target = [u8]>, T: Rng + CryptoRng>(
+    pub fn sign<T: Rng + CryptoRng>(
         &self,
         rng: &mut T,
-        public_keys: &[RistrettoPoint],
-        messages: &[M],
         keypair: &KeyPair,
         message: &[u8],
     ) -> Self {

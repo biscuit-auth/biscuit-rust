@@ -121,7 +121,7 @@ impl SerializedBiscuit {
         blocks.push(self.authority.clone());
         blocks.extend(self.blocks.iter().cloned());
 
-        let signature = self.signature.sign(rng, &self.keys, &blocks, keypair, &v);
+        let signature = self.signature.sign(rng, keypair, &v);
 
         let mut t = SerializedBiscuit {
             authority: self.authority.clone(),
