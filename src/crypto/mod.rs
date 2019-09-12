@@ -183,12 +183,15 @@ impl TokenSignature {
     }
 }
 
+//FIXME: the ECVRF_hash_to_curve1 looks like a hash and pray, but since
+// curve25519-dalek already has a hash to curve function, we can reuse it instead?
 pub fn ECVRF_hash_to_curve(point: RistrettoPoint, data: &[u8]) -> RistrettoPoint {
     let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
 
     RistrettoPoint::from_hash(h)
 }
 
+//FIXME: is the output value in the right set?
 pub fn ECVRF_hash_points(points: &[RistrettoPoint]) -> Scalar {
     let mut h = Sha512::new();
     for point in points.iter() {

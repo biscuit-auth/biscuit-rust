@@ -250,14 +250,12 @@ impl Rule {
     }
 }
 
+/// creates a new fact
 pub fn fact<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Fact {
     Fact(pred(name, ids))
-    /*Fact(Predicate {
-      name.to_string(),
-      ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
-    })*/
 }
 
+/// creates a predicate
 pub fn pred<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Predicate {
     Predicate {
         name: name.to_string(),
@@ -265,6 +263,7 @@ pub fn pred<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Predicate {
     }
 }
 
+/// creates a rule
 pub fn rule<I: AsRef<Atom>, P: AsRef<Predicate>>(
     head_name: &str,
     head_ids: &[I],
@@ -277,6 +276,7 @@ pub fn rule<I: AsRef<Atom>, P: AsRef<Predicate>>(
     )
 }
 
+/// creates a rule with constraints
 pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<datalog::Constraint>>(
     head_name: &str,
     head_ids: &[I],
@@ -290,23 +290,32 @@ pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<datalog::C
     )
 }
 
+/// creates an integer value
 pub fn int(i: i64) -> Atom {
     Atom::Integer(i)
 }
 
+/// creates a string
 pub fn string(s: &str) -> Atom {
     Atom::Str(s.to_string())
 }
 
+/// creates a symbol
+///
+/// once the block is generated, this symbol will be added to the symbol table if needed
 pub fn s(s: &str) -> Atom {
     Atom::Symbol(s.to_string())
 }
 
+/// creates a date
+///
+/// internally the date will be stored as seconds since UNIX_EPOCH
 pub fn date(t: &SystemTime) -> Atom {
     let dur = t.duration_since(UNIX_EPOCH).unwrap();
     Atom::Date(dur.as_secs())
 }
 
+/// creates a variable for a rule
 pub fn var(i: u32) -> Atom {
     Atom::Variable(i)
 }
