@@ -1,9 +1,8 @@
-use super::crypto::KeyPair;
+use super::crypto::{KeyPair, PublicKey};
 use super::datalog::{Fact, Rule, SymbolTable, World, ID};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::BlockBuilder;
-use curve25519_dalek::ristretto::RistrettoPoint;
 use prost::Message;
 use rand::{CryptoRng, Rng};
 use std::collections::HashSet;
@@ -80,7 +79,7 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from(slice: &[u8], root: RistrettoPoint) -> Result<Self, error::Token> {
+    pub fn from(slice: &[u8], root: PublicKey) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::from_slice(slice, root).map_err(error::Token::Format)?;
 
         let authority: Block = schema::Block::decode(&container.authority)
@@ -573,7 +572,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, root.public).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new caveat: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
@@ -602,7 +601,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2, root.public).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
 
             // new caveat: can only access file1
             let mut block3 = biscuit2_deser.create_block();
@@ -625,7 +624,7 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3, root.public).unwrap();
+        let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
         {
             let mut symbols = final_token.symbols.clone();

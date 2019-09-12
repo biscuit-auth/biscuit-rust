@@ -28,8 +28,8 @@ fn main() {
 
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let root = KeyPair::new(&mut rng);
-    println!("root secret key: {}", hex::encode(root.private.to_bytes()));
-    println!("root public key: {}", hex::encode(root.public.compress().to_bytes()));
+    println!("root secret key: {}", hex::encode(root.private().to_bytes()));
+    println!("root public key: {}", hex::encode(root.public().to_bytes()));
 
     println!("------------------------------");
     basic_token(&mut rng, &target, &root);
@@ -45,7 +45,7 @@ fn main() {
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient_rules: Vec<Rule>, ambient_caveats: Vec<Rule>) -> Result<(), error::Token> {
-  let token = Biscuit::from(&data[..], root.public)?;
+  let token = Biscuit::from(&data[..], root.public())?;
 
   let mut verifier = Verifier::new();
   for fact in ambient_facts {

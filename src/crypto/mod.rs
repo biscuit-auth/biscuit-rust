@@ -1,6 +1,6 @@
 use super::error;
 use curve25519_dalek::{
-    constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
+    constants::RISTRETTO_BASEPOINT_POINT, ristretto::{RistrettoPoint, CompressedRistretto}, scalar::Scalar,
     traits::Identity,
 };
 use hmac::{Hmac, Mac};
@@ -11,8 +11,8 @@ use std::ops::{Deref, Neg};
 type HmacSha512 = Hmac<Sha512>;
 
 pub struct KeyPair {
-    pub private: Scalar,
-    pub public: RistrettoPoint,
+    pub(crate)  private: Scalar,
+    pub(crate) public: RistrettoPoint,
 }
 
 impl KeyPair {
@@ -21,6 +21,14 @@ impl KeyPair {
         let public = private * RISTRETTO_BASEPOINT_POINT;
 
         KeyPair { private, public }
+    }
+
+    pub fn from(key: PrivateKey) -> Self {
+      let private = key.0;
+
+      let public = private * RISTRETTO_BASEPOINT_POINT;
+
+      KeyPair { private, public }
     }
 
     pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
@@ -35,6 +43,14 @@ impl KeyPair {
         let z = r * d - e * self.private;
         (d, z)
     }
+
+    pub fn private(&self) -> PrivateKey {
+        PrivateKey(self.private)
+    }
+
+    pub fn public(&self) -> PublicKey {
+        PublicKey(self.public)
+    }
 }
 
 pub fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
@@ -47,6 +63,30 @@ pub fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scal
     let A = z * d_inv * RISTRETTO_BASEPOINT_POINT + e * d_inv * public;
 
     ECVRF_hash_points(&[A]) == *d
+}
+
+pub struct PrivateKey(pub(crate) Scalar);
+
+impl PrivateKey {
+  pub fn to_bytes(&self) -> [u8; 32] {
+    self.0.to_bytes()
+  }
+
+  pub fn from_bytes(&self, bytes: [u8;32]) -> Option<Self> {
+    Scalar::from_canonical_bytes(bytes).map(|s| PrivateKey(s))
+  }
+}
+
+pub struct PublicKey(pub(crate) RistrettoPoint);
+
+impl PublicKey {
+  pub fn to_bytes(&self) -> [u8; 32] {
+    self.0.compress().to_bytes()
+  }
+
+  pub fn from_bytes(&self, bytes: &[u8]) -> Option<Self> {
+    CompressedRistretto::from_slice(bytes).decompress().map(|p| PublicKey(p))
+  }
 }
 
 pub struct Token {

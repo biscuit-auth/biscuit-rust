@@ -2,6 +2,7 @@ use super::crypto::{KeyPair, TokenSignature};
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use prost::Message;
 use rand::{CryptoRng, Rng};
+use crate::crypto::PublicKey;
 
 use super::error;
 use super::token::Block;
@@ -23,7 +24,7 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice(slice: &[u8], public_key: RistrettoPoint) -> Result<Self, error::Format> {
+    pub fn from_slice(slice: &[u8], public_key: PublicKey) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
@@ -135,11 +136,11 @@ impl SerializedBiscuit {
         Ok(t)
     }
 
-    pub fn verify(&self, public: RistrettoPoint) -> Result<(), error::Format> {
+    pub fn verify(&self, public: PublicKey) -> Result<(), error::Format> {
         if self.keys.is_empty() {
             return Err(error::Format::EmptyKeys);
         }
-        if self.keys[0] != public {
+        if self.keys[0] != public.0 {
             return Err(error::Format::UnknownPublicKey);
         }
 
