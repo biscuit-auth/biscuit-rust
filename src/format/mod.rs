@@ -1,4 +1,9 @@
 //! token serialization/deserialization
+//!
+//! Biscuit tokens are serialized to Protobuf. There are two levels of serialization:
+//!
+//! - serialization of Biscuit blocks to Protobuf then `Vec<u8>`
+//! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{KeyPair, TokenSignature};
 use curve25519_dalek::ristretto::CompressedRistretto;
 use prost::Message;
@@ -8,6 +13,7 @@ use crate::crypto::PublicKey;
 use super::error;
 use super::token::Block;
 
+/// Structures generated from the Protobuf schema
 pub mod schema {
     include!(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs"));
 }

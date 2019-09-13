@@ -1,3 +1,12 @@
+//! cryptographic operations
+//!
+//! Biscuit tokens are based on [aggregated gamma signatures](https://eprint.iacr.org/2018/414/20180510:203542).
+//! This provides the fundamental operation for offline delegation: from a message
+//! and a valid signature, it is possible to add a new message and produce a valid
+//! signature for the whole.
+//!
+//! The implementation is based on [curve25519_dalek](https://github.com/dalek-cryptography/curve25519-dalek),
+//! a Rust implementation of the Ristretto group over Ed25519.
 #![allow(non_snake_case)]
 use super::error;
 use curve25519_dalek::{
@@ -70,7 +79,7 @@ impl PrivateKey {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) RistrettoPoint);
 
 impl PublicKey {

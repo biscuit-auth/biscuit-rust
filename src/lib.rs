@@ -13,6 +13,134 @@
 //! * This is not a new authentication protocol. Biscuit tokens can be used as opaque tokens delivered by other systems such as OAuth.
 //! * Revocation: while tokens come with expiration dates, revocation requires external state management.
 //!
+//! # Usage
+//!
+//! In this example we will see how we can create a token, add some caveats,
+//! serialize and deserialize a token, append more caveats, and validate
+//! those caveats in the context of a request:
+//!
+//! ```rust
+//! extern crate rand;
+//! extern crate biscuit;
+//!
+//! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}};
+//!
+//! fn main() {
+//!   let mut rng = rand::thread_rng();
+//!
+//!   // let's generate the root key pair. The root public key will be necessary
+//!   // to verify the token
+//!   let root = KeyPair::new(&mut rng);
+//!   let public_key = root.public();
+//!
+//!   // creating a first token
+//!   let token1 = {
+//!     // the first block of the token is the authority block. It contains global
+//!     // information like which operation types are available
+//!     let mut builder = Biscuit::create_authority_block();
+//!
+//!     // let's define some access rights
+//!     // every fact added to the authority block must have the authority fact
+//!     builder.add_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+//!     builder.add_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
+//!     builder.add_fact(&fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
+//!     builder.add_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
+//!
+//!     // we can now create the token
+//!     let biscuit = Biscuit::new(&mut rng, &root, builder.to_block()).unwrap();
+//!     println!("biscuit (authority): {}", biscuit.print());
+//!
+//!     biscuit.to_vec().unwrap()
+//!   };
+//!
+//!   // this token is only 266 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 266);
+//!
+//!   // now let's add some restrictions to this token
+//!   // we want to limit access to `/a/file1.txt` and to read operations
+//!   let token2 = {
+//!     // the token is deserialized, the signature is verified
+//!     let deser = Biscuit::from(&token1, public_key).unwrap();
+//!
+//!     let mut builder = deser.create_block();
+//!
+//!     // caveats are implemented as logic rules. If the rule produces something,
+//!     // the caveat is successful
+//!     builder.add_caveat(&rule(
+//!       // the rule's name
+//!       "caveat",
+//!       // the "head" of the rule, defining the kind of result that is produced
+//!       &[s("resource")],
+//!       // here we require the presence of a "resource" fact with the "ambient" tag
+//!       // (meaning it is provided by the verifier)
+//!       &[
+//!         pred("resource", &[s("ambient"), string("/a/file1.txt")]),
+//!         // we restrict to read operations
+//!         pred("operation", &[s("ambient"), s("read")]),
+//!       ],
+//!     ));
+//!
+//!     let keypair = KeyPair::new(&mut rng);
+//!     // we can now create a new token
+//!     let biscuit = deser.append(&mut rng, &keypair, builder.to_block()).unwrap();
+//!     println!("biscuit (authority): {}", biscuit.print());
+//!
+//!     biscuit.to_vec().unwrap()
+//!   };
+//!
+//!   // this new token fits in 402 bytes
+//!   assert_eq!(token2.len(), 402);
+//!
+//!   /************** VERIFICATION ****************/
+//!
+//!   // let's define 3 verifiers (corresponding to 3 different requests):
+//!   // - one for /a/file1.txt and a read operation
+//!   // - one for /a/file1.txt and a write operation
+//!   // - one for /a/file2.txt and a read operation
+//!
+//!   let mut v1 = Verifier::new();
+//!   v1.resource("/a/file1.txt");
+//!   v1.operation("read");
+//!   // we will check that the token has the corresponding right
+//!   v1.add_rule(rule("read_right",
+//!     &[s("read_right")],
+//!     &[pred("right", &[s("authority"), string("/a/file1.txt"), s("read")])]
+//!   ));
+//!
+//!   let mut v2 = Verifier::new();
+//!   v2.resource("/a/file1.txt");
+//!   v2.operation("write");
+//!   v2.add_rule(rule("write_right",
+//!     &[s("write_right")],
+//!     &[pred("right", &[s("authority"), string("/a/file1.txt"), s("write")])]
+//!   ));
+//!
+//!   let mut v3 = Verifier::new();
+//!   v3.resource("/a/file2.txt");
+//!   v3.operation("read");
+//!   v2.add_rule(rule("read_right",
+//!     &[s("read_right")],
+//!     &[pred("right", &[s("authority"), string("/a/file2.txt"), s("read")])]
+//!   ));
+//!
+//!   // let's deserialize the tokens:
+//!   let biscuit1 = Biscuit::from(&token1, public_key).unwrap();
+//!   let biscuit2 = Biscuit::from(&token2, public_key).unwrap();
+//!
+//!   // the first token, that specifies no restrictions, passes all verifiers:
+//!   assert!(v1.verify(&biscuit1).is_ok());
+//!   assert!(v2.verify(&biscuit1).is_ok());
+//!   assert!(v3.verify(&biscuit1).is_ok());
+//!
+//!   // the second token restricts to read operations:
+//!   assert!(v1.verify(&biscuit2).is_ok());
+//!   // the second verifier requested a read operation
+//!   assert!(v2.verify(&biscuit2).is_err());
+//!   // the third verifier requests /a/file2.txt
+//!   assert!(v3.verify(&biscuit2).is_err());
+//! }
+//! ```
+//!
 //! # Concepts
 //!
 //! ## blocks
@@ -100,3 +228,4 @@ pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod token;
+

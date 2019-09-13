@@ -58,7 +58,7 @@ fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient
     verifier.add_caveat(caveat);
   }
 
-  verifier.verify(token).map_err(error::Token::FailedLogic)
+  verifier.verify(&token).map_err(error::Token::FailedLogic)
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
@@ -79,7 +79,7 @@ fn basic_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -114,7 +114,7 @@ fn different_root_key<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
 
-  let biscuit1 = Biscuit::new(rng, &root2, &authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root2, authority_block.to_block()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -150,7 +150,7 @@ fn invalid_signature<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair)
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -185,7 +185,7 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   let symbols = default_symbol_table();
   let authority_block = BlockBuilder::new(0, symbols);
 
-  let biscuit1 = Biscuit::new(rng, &root, &authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 

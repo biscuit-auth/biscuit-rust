@@ -81,6 +81,26 @@ impl BlockBuilder {
         self.add_caveat(&caveat);
     }
 
+    pub fn resource(&mut self, resource: &str) {
+        let caveat = rule(
+          "resource_check",
+          &[s("resource_check")],
+          &[pred("resource", &[s("ambient"), string(resource)])],
+        );
+
+        self.add_caveat(&caveat);
+    }
+
+    pub fn operation(&mut self, operation: &str) {
+        let caveat = rule(
+          "operation_check",
+          &[s("operation_check")],
+          &[pred("operation", &[s("ambient"), s(operation)])],
+        );
+
+        self.add_caveat(&caveat);
+    }
+
     pub fn resource_prefix(&mut self, prefix: &str) {
         let caveat = constrained_rule(
             "prefix",

@@ -1,3 +1,4 @@
+//! main structures to interact with Biscuit tokens
 use super::crypto::{KeyPair, PublicKey};
 use super::datalog::{Fact, Rule, SymbolTable, World, ID};
 use super::error;
@@ -28,6 +29,38 @@ pub fn default_symbol_table() -> SymbolTable {
     syms
 }
 
+/// This structure represents a valid Biscuit token
+///
+/// It contains multiple `Block` elements, the associated symbol table,
+/// and a serialized version of this data
+///
+/// ```rust
+/// extern crate rand;
+/// extern crate biscuit;
+///
+/// use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
+///
+/// fn main() {
+///   let mut rng = rand::thread_rng();
+///
+///   let root = KeyPair::new(&mut rng);
+///
+///   // first we define the authority block for global data,
+///   // like access rights
+///   // data from the authority block cannot be created in any other block
+///   let mut builder = Biscuit::create_authority_block();
+///   builder.add_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+///
+///   let token1 = Biscuit::new(&mut rng, &root, builder.to_block()).unwrap();
+///
+///   // we can create a new block builder from that token
+///   let mut builder2 = token1.create_block();
+///   builder2.operation("read");
+///
+///   let keypair2 = KeyPair::new(&mut rng);
+///   let token2 = token1.append(&mut rng, &keypair2, builder2.to_block()).unwrap();
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Biscuit {
     authority: Block,
@@ -45,10 +78,8 @@ impl Biscuit {
     pub fn new<T: Rng + CryptoRng>(
         rng: &mut T,
         root: &KeyPair,
-        authority: &Block,
+        authority: Block,
     ) -> Result<Biscuit, error::Token> {
-        let authority = authority.clone();
-
         let mut symbols = default_symbol_table();
         let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
         let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
@@ -314,6 +345,11 @@ impl Biscuit {
         }
     }
 
+    /// creates a new authority block builder
+    pub fn create_authority_block() -> BlockBuilder {
+      BlockBuilder::new(0, default_symbol_table())
+    }
+
     /// creates a new block builder
     pub fn create_block(&self) -> BlockBuilder {
         BlockBuilder::new((1 + self.blocks.len()) as u32, self.symbols.clone())
@@ -517,7 +553,7 @@ mod tests {
             authority_block.add_fact(&fact("right", &[s("authority"), s("file2"), s("read")]));
             authority_block.add_fact(&fact("right", &[s("authority"), s("file1"), s("write")]));
 
-            let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
+            let biscuit1 = Biscuit::new(&mut rng, &root, authority_block.to_block()).unwrap();
 
             println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -669,7 +705,7 @@ mod tests {
         authority_block.add_right("/folder1/file2", "write");
         authority_block.add_right("/folder2/file3", "read");
 
-        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -688,7 +724,7 @@ mod tests {
             verifier.resource("/folder1/file1");
             verifier.operation("read");
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -698,7 +734,7 @@ mod tests {
             verifier.resource("/folder2/file3");
             verifier.operation("read");
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
@@ -719,7 +755,7 @@ mod tests {
             verifier.resource("/folder2/file1");
             verifier.operation("write");
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
@@ -740,7 +776,7 @@ mod tests {
         authority_block.add_right("file1", "read");
         authority_block.add_right("file2", "read");
 
-        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -760,7 +796,7 @@ mod tests {
             verifier.operation("read");
             verifier.time();
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -772,7 +808,7 @@ mod tests {
             verifier.time();
             verifier.revocation_check(&[0, 1, 2, 5, 1234]);
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res3: {:?}", res);
 
             // error message should be like this:
@@ -795,7 +831,7 @@ mod tests {
         authority_block.add_right("/folder1/file2", "write");
         authority_block.add_right("/folder2/file3", "read");
 
-        let biscuit1 = Biscuit::new(&mut rng, &root, &authority_block.to_block()).unwrap();
+        let biscuit1 = Biscuit::new(&mut rng, &root, authority_block.to_block()).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -816,7 +852,7 @@ mod tests {
             verifier.resource("/folder1/file1");
             verifier.operation("read");
 
-            let res = verifier.verify(biscuit2.clone());
+            let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -835,7 +871,7 @@ mod tests {
             verifier.resource("/folder1/file1");
             verifier.operation("read");
 
-            let res = verifier.verify(biscuit3.clone());
+            let res = verifier.verify(&biscuit3);
             println!("res1: {:?}", res);
             res.unwrap();
         }

@@ -1,3 +1,4 @@
+//! helper functions for conversion between internal structures and Protobuf
 use crate::crypto::TokenSignature;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
