@@ -4,7 +4,6 @@ use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::{RistrettoPoint, CompressedRistretto}, scalar::Scalar,
     traits::Identity,
 };
-use hmac::Hmac;
 use rand::prelude::*;
 use sha2::{Digest, Sha512};
 use std::ops::Deref;
@@ -30,15 +29,12 @@ impl KeyPair {
       KeyPair { private, public }
     }
 
-    pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
+    #[allow(dead_code)]
+    fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
-        // FIXME: maybe there's a simpler hashing process
-        let e = hash_points(&[
-            self.public,
-            hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
-        ]);
+        let e = hash_message(self.public, message);
         let z = r * d - e * self.private;
         (d, z)
     }
@@ -52,12 +48,10 @@ impl KeyPair {
     }
 }
 
-pub fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
+#[allow(dead_code)]
+fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
     let (d, z) = signature;
-    let e = hash_points(&[
-        *public,
-        hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
-    ]);
+    let e = hash_message(*public, message);
     let d_inv = d.invert();
     let A = z * d_inv * RISTRETTO_BASEPOINT_POINT + e * d_inv * public;
 
@@ -218,12 +212,6 @@ impl TokenSignature {
             return Err(error::Signature::InvalidSignature);
         }
     }
-}
-
-fn hash_to_curve(point: RistrettoPoint, data: &[u8]) -> RistrettoPoint {
-    let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
-
-    RistrettoPoint::from_hash(h)
 }
 
 //FIXME: is the output value in the right set?
