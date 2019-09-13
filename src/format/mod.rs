@@ -75,8 +75,8 @@ impl SerializedBiscuit {
     }
 
     /// serializes the token
-    pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
-        let b = schema::Biscuit {
+    pub fn to_proto(&self) -> schema::Biscuit {
+        schema::Biscuit {
             authority: self.authority.clone(),
             blocks: self.blocks.clone(),
             keys: self
@@ -85,7 +85,12 @@ impl SerializedBiscuit {
                 .map(|k| Vec::from(&k.0.compress().to_bytes()[..]))
                 .collect(),
             signature: token_sig_to_proto_sig(&self.signature),
-        };
+        }
+    }
+
+    /// serializes the token
+    pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
+        let b = self.to_proto();
 
         let mut v = Vec::new();
 
