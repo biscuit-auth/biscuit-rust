@@ -1,3 +1,5 @@
+//! error types
+//!
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     InternalError,

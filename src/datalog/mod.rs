@@ -1,3 +1,4 @@
+//! Logic language implementation for caveats
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;

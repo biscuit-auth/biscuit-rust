@@ -1,3 +1,4 @@
+//! token serialization/deserialization
 use super::crypto::{KeyPair, TokenSignature};
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use prost::Message;
@@ -15,6 +16,10 @@ pub mod convert;
 
 use self::convert::*;
 
+/// Intermediate structure for token serialization
+///
+/// This structure contains the blocks serialized to byte arrays. Those arrays
+/// will be used for the signature
 #[derive(Clone, Debug)]
 pub struct SerializedBiscuit {
     pub authority: Vec<u8>,
@@ -63,6 +68,7 @@ impl SerializedBiscuit {
         }
     }
 
+    /// serializes the token
     pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
         let b = schema::Biscuit {
             authority: self.authority.clone(),
@@ -82,6 +88,7 @@ impl SerializedBiscuit {
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
 
+    /// creates a new token
     pub fn new<T: Rng + CryptoRng>(
         rng: &mut T,
         keypair: &KeyPair,
@@ -104,6 +111,7 @@ impl SerializedBiscuit {
         })
     }
 
+    /// adds a new block, serializes it and sign a new token
     pub fn append<T: Rng + CryptoRng>(
         &self,
         rng: &mut T,
@@ -136,6 +144,7 @@ impl SerializedBiscuit {
         Ok(t)
     }
 
+    /// checks the signature on a deserialized token
     pub fn verify(&self, public: PublicKey) -> Result<(), error::Format> {
         if self.keys.is_empty() {
             return Err(error::Format::EmptyKeys);
