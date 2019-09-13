@@ -4,12 +4,10 @@ use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::{RistrettoPoint, CompressedRistretto}, scalar::Scalar,
     traits::Identity,
 };
-use hmac::{Hmac, Mac};
+use hmac::Hmac;
 use rand::prelude::*;
 use sha2::{Digest, Sha512};
 use std::ops::Deref;
-
-type HmacSha512 = Hmac<Sha512>;
 
 pub struct KeyPair {
     pub(crate)  private: Scalar,
@@ -35,11 +33,11 @@ impl KeyPair {
     pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = ECVRF_hash_points(&[A]);
+        let d = hash_points(&[A]);
         // FIXME: maybe there's a simpler hashing process
-        let e = ECVRF_hash_points(&[
+        let e = hash_points(&[
             self.public,
-            ECVRF_hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
+            hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
         ]);
         let z = r * d - e * self.private;
         (d, z)
@@ -56,14 +54,14 @@ impl KeyPair {
 
 pub fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
     let (d, z) = signature;
-    let e = ECVRF_hash_points(&[
+    let e = hash_points(&[
         *public,
-        ECVRF_hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
+        hash_to_curve(RISTRETTO_BASEPOINT_POINT, message),
     ]);
     let d_inv = d.invert();
     let A = z * d_inv * RISTRETTO_BASEPOINT_POINT + e * d_inv * public;
 
-    ECVRF_hash_points(&[A]) == *d
+    hash_points(&[A]) == *d
 }
 
 pub struct PrivateKey(pub(crate) Scalar);
@@ -144,7 +142,7 @@ impl TokenSignature {
     pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = ECVRF_hash_points(&[A]);
+        let d = hash_points(&[A]);
         let e = hash_message(keypair.public, message);
         let z = r * d - e * keypair.private;
 
@@ -162,7 +160,7 @@ impl TokenSignature {
     ) -> Self {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = ECVRF_hash_points(&[A]);
+        let d = hash_points(&[A]);
         let e = hash_message(keypair.public, message);
         let z = r * d - e * keypair.private;
 
@@ -199,7 +197,7 @@ impl TokenSignature {
             .parameters
             .iter()
             .map(|A| {
-                let d = ECVRF_hash_points(&[*A]);
+                let d = hash_points(&[*A]);
                 d * A
             })
             .fold(RistrettoPoint::identity(), |acc, point| acc + point);
@@ -222,16 +220,14 @@ impl TokenSignature {
     }
 }
 
-//FIXME: the ECVRF_hash_to_curve1 looks like a hash and pray, but since
-// curve25519-dalek already has a hash to curve function, we can reuse it instead?
-pub fn ECVRF_hash_to_curve(point: RistrettoPoint, data: &[u8]) -> RistrettoPoint {
+fn hash_to_curve(point: RistrettoPoint, data: &[u8]) -> RistrettoPoint {
     let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
 
     RistrettoPoint::from_hash(h)
 }
 
 //FIXME: is the output value in the right set?
-pub fn ECVRF_hash_points(points: &[RistrettoPoint]) -> Scalar {
+fn hash_points(points: &[RistrettoPoint]) -> Scalar {
     let mut h = Sha512::new();
     for point in points.iter() {
         h.input(point.compress().as_bytes());
@@ -240,47 +236,8 @@ pub fn ECVRF_hash_points(points: &[RistrettoPoint]) -> Scalar {
     Scalar::from_hash(h)
 }
 
-pub fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
+fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
     let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
-
-    Scalar::from_hash(h)
-}
-
-pub fn add_points(points: &[RistrettoPoint]) -> RistrettoPoint {
-    assert!(points.len() > 0);
-
-    if points.len() == 1 {
-        points[0]
-    } else {
-        let mut it = points.iter();
-        let first = it.next().expect("iterator is not empty");
-        it.fold(*first, |acc, pk| acc + pk)
-    }
-}
-
-pub fn ECVRF_nonce(sk: Scalar, point: RistrettoPoint) -> Scalar {
-    let k = [0u8; 64];
-    let v = [1u8; 64];
-
-    let mut mac = HmacSha512::new_varkey(&k[..]).unwrap();
-    mac.input(&v[..]);
-    mac.input(&[0]);
-    mac.input(&sk.as_bytes()[..]);
-    mac.input(point.compress().as_bytes());
-
-    let k = mac.result().code();
-
-    let mut mac = HmacSha512::new_varkey(&k[..]).unwrap();
-    mac.input(&v[..]);
-    mac.input(&[1]);
-    mac.input(&sk.as_bytes()[..]);
-    mac.input(point.compress().as_bytes());
-
-    let k = mac.result().code();
-
-    // the process in RFC 6979 is a bit ore complex than that
-    let mut h = Sha512::new();
-    h.input(k);
 
     Scalar::from_hash(h)
 }
