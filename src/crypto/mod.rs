@@ -70,6 +70,7 @@ impl PrivateKey {
   }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) RistrettoPoint);
 
 impl PublicKey {
@@ -82,23 +83,27 @@ impl PublicKey {
   }
 }
 
-pub struct Token {
+#[allow(dead_code)]
+/// test structure for aggregated signatures
+struct Token {
     pub messages: Vec<Vec<u8>>,
-    pub keys: Vec<RistrettoPoint>,
+    pub keys: Vec<PublicKey>,
     pub signature: TokenSignature,
 }
 
 impl Token {
+    #[allow(dead_code)]
     pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let signature = TokenSignature::new(rng, keypair, message);
 
         Token {
             messages: vec![message.to_owned()],
-            keys: vec![keypair.public],
+            keys: vec![keypair.public()],
             signature,
         }
     }
 
+    #[allow(dead_code)]
     pub fn append<T: Rng + CryptoRng>(
         &self,
         rng: &mut T,
@@ -116,11 +121,12 @@ impl Token {
         };
 
         t.messages.push(message.to_owned());
-        t.keys.push(keypair.public);
+        t.keys.push(keypair.public());
 
         t
     }
 
+    #[allow(dead_code)]
     pub fn verify(&self) -> Result<(), error::Signature> {
         self.signature.verify(&self.keys, &self.messages)
     }
@@ -169,7 +175,7 @@ impl TokenSignature {
 
     pub fn verify<M: Deref<Target = [u8]>>(
         &self,
-        public_keys: &[RistrettoPoint],
+        public_keys: &[PublicKey],
         messages: &[M],
     ) -> Result<(), error::Signature> {
         if !(public_keys.len() == messages.len() && public_keys.len() == self.parameters.len()) {
@@ -182,8 +188,8 @@ impl TokenSignature {
             .iter()
             .zip(messages)
             .map(|(pubkey, message)| {
-                let e = hash_message(*pubkey, message);
-                e * pubkey
+                let e = hash_message((*pubkey).0, message);
+                e * pubkey.0
             })
             .fold(RistrettoPoint::identity(), |acc, point| acc + point);
 

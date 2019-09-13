@@ -1,6 +1,6 @@
 //! token serialization/deserialization
 use super::crypto::{KeyPair, TokenSignature};
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::ristretto::CompressedRistretto;
 use prost::Message;
 use rand::{CryptoRng, Rng};
 use crate::crypto::PublicKey;
@@ -24,7 +24,7 @@ use self::convert::*;
 pub struct SerializedBiscuit {
     pub authority: Vec<u8>,
     pub blocks: Vec<Vec<u8>>,
-    pub keys: Vec<RistrettoPoint>,
+    pub keys: Vec<PublicKey>,
     pub signature: TokenSignature,
 }
 
@@ -39,7 +39,7 @@ impl SerializedBiscuit {
         for key in data.keys {
             if key.len() == 32 {
                 if let Some(k) = CompressedRistretto::from_slice(&key[..]).decompress() {
-                    keys.push(k);
+                    keys.push(PublicKey(k));
                 } else {
                     return Err(error::Format::DeserializationError(format!(
                         "deserialization error: cannot decompress key point"
@@ -76,7 +76,7 @@ impl SerializedBiscuit {
             keys: self
                 .keys
                 .iter()
-                .map(|k| Vec::from(&k.compress().to_bytes()[..]))
+                .map(|k| Vec::from(&k.0.compress().to_bytes()[..]))
                 .collect(),
             signature: token_sig_to_proto_sig(&self.signature),
         };
@@ -106,7 +106,7 @@ impl SerializedBiscuit {
         Ok(SerializedBiscuit {
             authority: v,
             blocks: vec![],
-            keys: vec![keypair.public],
+            keys: vec![keypair.public()],
             signature,
         })
     }
@@ -139,7 +139,7 @@ impl SerializedBiscuit {
         };
 
         t.blocks.push(v);
-        t.keys.push(keypair.public);
+        t.keys.push(keypair.public());
 
         Ok(t)
     }
@@ -149,7 +149,7 @@ impl SerializedBiscuit {
         if self.keys.is_empty() {
             return Err(error::Format::EmptyKeys);
         }
-        if self.keys[0] != public.0 {
+        if self.keys[0] != public {
             return Err(error::Format::UnknownPublicKey);
         }
 
