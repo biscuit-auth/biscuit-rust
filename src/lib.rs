@@ -99,8 +99,8 @@
 //!   // - one for /a/file2.txt and a read operation
 //!
 //!   let mut v1 = Verifier::new();
-//!   v1.resource("/a/file1.txt");
-//!   v1.operation("read");
+//!   v1.add_resource("/a/file1.txt");
+//!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
 //!   v1.add_rule(rule("read_right",
 //!     &[s("read_right")],
@@ -108,16 +108,16 @@
 //!   ));
 //!
 //!   let mut v2 = Verifier::new();
-//!   v2.resource("/a/file1.txt");
-//!   v2.operation("write");
+//!   v2.add_resource("/a/file1.txt");
+//!   v2.add_operation("write");
 //!   v2.add_rule(rule("write_right",
 //!     &[s("write_right")],
 //!     &[pred("right", &[s("authority"), string("/a/file1.txt"), s("write")])]
 //!   ));
 //!
 //!   let mut v3 = Verifier::new();
-//!   v3.resource("/a/file2.txt");
-//!   v3.operation("read");
+//!   v3.add_resource("/a/file2.txt");
+//!   v3.add_operation("read");
 //!   v2.add_rule(rule("read_right",
 //!     &[s("read_right")],
 //!     &[pred("right", &[s("authority"), string("/a/file2.txt"), s("read")])]

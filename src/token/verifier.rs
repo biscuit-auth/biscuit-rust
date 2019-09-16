@@ -31,17 +31,19 @@ impl Verifier {
         self.caveats.push(caveat);
     }
 
-    pub fn resource(&mut self, resource: &str) {
+    pub fn add_resource(&mut self, resource: &str) {
         self.facts
             .push(fact("resource", &[s("ambient"), string(resource)]));
     }
 
-    pub fn operation(&mut self, operation: &str) {
+    pub fn add_operation(&mut self, operation: &str) {
         self.facts
             .push(fact("operation", &[s("ambient"), s(operation)]));
     }
 
-    pub fn time(&mut self) {
+    pub fn set_time(&mut self) {
+        self.facts.retain(|f| f.0.name != "time");
+
         self.facts
             .push(fact("time", &[s("ambient"), date(&SystemTime::now())]));
     }

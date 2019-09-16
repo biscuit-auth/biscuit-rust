@@ -721,8 +721,8 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("/folder1/file1");
-            verifier.operation("read");
+            verifier.add_resource("/folder1/file1");
+            verifier.add_operation("read");
 
             let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
@@ -731,8 +731,8 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("/folder2/file3");
-            verifier.operation("read");
+            verifier.add_resource("/folder2/file3");
+            verifier.add_operation("read");
 
             let res = verifier.verify(&biscuit2);
             println!("res2: {:?}", res);
@@ -752,8 +752,8 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("/folder2/file1");
-            verifier.operation("write");
+            verifier.add_resource("/folder2/file1");
+            verifier.add_operation("write");
 
             let res = verifier.verify(&biscuit2);
             println!("res3: {:?}", res);
@@ -792,9 +792,9 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("file1");
-            verifier.operation("read");
-            verifier.time();
+            verifier.add_resource("file1");
+            verifier.add_operation("read");
+            verifier.set_time();
 
             let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
@@ -803,9 +803,9 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("file1");
-            verifier.operation("read");
-            verifier.time();
+            verifier.add_resource("file1");
+            verifier.add_operation("read");
+            verifier.set_time();
             verifier.revocation_check(&[0, 1, 2, 5, 1234]);
 
             let res = verifier.verify(&biscuit2);
@@ -849,8 +849,8 @@ mod tests {
         //panic!();
         {
             let mut verifier = Verifier::new();
-            verifier.resource("/folder1/file1");
-            verifier.operation("read");
+            verifier.add_resource("/folder1/file1");
+            verifier.add_operation("read");
 
             let res = verifier.verify(&biscuit2);
             println!("res1: {:?}", res);
@@ -868,8 +868,8 @@ mod tests {
 
         {
             let mut verifier = Verifier::new();
-            verifier.resource("/folder1/file1");
-            verifier.operation("read");
+            verifier.add_resource("/folder1/file1");
+            verifier.add_operation("read");
 
             let res = verifier.verify(&biscuit3);
             println!("res1: {:?}", res);
