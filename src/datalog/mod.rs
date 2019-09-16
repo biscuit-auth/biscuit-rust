@@ -559,7 +559,7 @@ impl SymbolTable {
             .map(|id| match id {
                 ID::Variable(i) => format!("{}?", i),
                 ID::Integer(i) => i.to_string(),
-                ID::Str(s) => s.clone(),
+                ID::Str(s) => format!("\"{}\"", s),
                 ID::Symbol(index) => format!("#{}", self.symbols[*index as usize]),
                 ID::Date(d) => {
                     let t = UNIX_EPOCH + Duration::from_secs(*d);
