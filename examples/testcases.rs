@@ -377,7 +377,7 @@ fn missing_authority_tag<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 
   let data = biscuit2.to_vec().unwrap();
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
-  write_testcase(target, "test6_missing_authority_tag", &data[..]);
+  write_testcase(target, "test7_missing_authority_tag", &data[..]);
 }
 
 fn invalid_block_fact_authority<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
@@ -411,7 +411,7 @@ fn invalid_block_fact_authority<T:Rng+CryptoRng>(rng: &mut T, target: &str, root
 
   let data = biscuit2.to_vec().unwrap();
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
-  write_testcase(target, "test7_invalid_block_fact_authority", &data[..]);
+  write_testcase(target, "test8_invalid_block_fact_authority", &data[..]);
 }
 
 fn invalid_block_fact_ambient<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
@@ -445,7 +445,7 @@ fn invalid_block_fact_ambient<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: 
 
   let data = biscuit2.to_vec().unwrap();
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
-  write_testcase(target, "test8_invalid_block_fact_ambient", &data[..]);
+  write_testcase(target, "test9_invalid_block_fact_ambient", &data[..]);
 }
 
 fn separate_block_validation<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
@@ -481,7 +481,7 @@ fn separate_block_validation<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &
 
   let data = biscuit3.to_vec().unwrap();
   println!("validation: {:?}", validate_token(root, &data[..], vec![fact("resource", &[s("ambient"), string("file1")])], vec![], vec![]));
-  write_testcase(target, "test9_separate_block_validation", &data[..]);
+  write_testcase(target, "test10_separate_block_validation", &data[..]);
 }
 
 fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
@@ -514,6 +514,6 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   println!("validation: {:?}", validate_token(root, &data[..],
     vec![fact("resource", &[s("ambient"), string("file1")]), fact("operation", &[s("ambient"), s("read")]), fact("time", &[s("ambient"), date(&SystemTime::now())])],
     vec![], vec![]));
-  write_testcase(target, "test10_expired_token", &data[..]);
+  write_testcase(target, "test11_expired_token", &data[..]);
 }
 
