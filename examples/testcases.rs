@@ -102,7 +102,7 @@ fn basic_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -118,7 +118,7 @@ fn basic_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -137,7 +137,7 @@ fn different_root_key<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
 
-  let biscuit1 = Biscuit::new(rng, &root2, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root2, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -153,7 +153,7 @@ fn different_root_key<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -173,7 +173,7 @@ fn invalid_signature_format<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &K
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -189,7 +189,7 @@ fn invalid_signature_format<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &K
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -214,7 +214,7 @@ fn random_block<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -230,7 +230,7 @@ fn random_block<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -256,7 +256,7 @@ fn invalid_signature<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair)
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -272,7 +272,7 @@ fn invalid_signature<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair)
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -295,7 +295,7 @@ fn reordered_blocks<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -311,7 +311,7 @@ fn reordered_blocks<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -326,7 +326,7 @@ fn reordered_blocks<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
 
   let keypair3 = KeyPair::new(rng);
   let biscuit3 = biscuit2
-    .append(rng, &keypair3, block3.to_block())
+    .append(rng, &keypair3, block3.build())
     .unwrap();
 
   let mut serialized = biscuit3.container().unwrap().clone();
@@ -356,7 +356,7 @@ fn missing_authority_tag<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyP
   authority_block.add_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
   authority_block.add_fact(&fact("right", &[string("file1"), s("write")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -370,7 +370,7 @@ fn missing_authority_tag<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -388,7 +388,7 @@ fn invalid_block_fact_authority<T:Rng+CryptoRng>(rng: &mut T, target: &str, root
 
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -404,7 +404,7 @@ fn invalid_block_fact_authority<T:Rng+CryptoRng>(rng: &mut T, target: &str, root
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -422,7 +422,7 @@ fn invalid_block_fact_ambient<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: 
 
   authority_block.add_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -438,7 +438,7 @@ fn invalid_block_fact_ambient<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: 
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -453,14 +453,14 @@ fn separate_block_validation<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &
 
   let symbols = default_symbol_table();
   let authority_block = BlockBuilder::new(0, symbols);
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
   let mut block2 = biscuit1.create_block();
 
   block2.add_fact(&fact("test", &[s("write")]));
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   let mut block3 = biscuit2.create_block();
@@ -474,7 +474,7 @@ fn separate_block_validation<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &
 
   let keypair3 = KeyPair::new(rng);
   let biscuit3 = biscuit2
-    .append(rng, &keypair3, block3.to_block())
+    .append(rng, &keypair3, block3.build())
     .unwrap();
 
   println!("biscuit3: {}", biscuit3.print());
@@ -490,7 +490,7 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
   let symbols = default_symbol_table();
   let authority_block = BlockBuilder::new(0, symbols);
 
-  let biscuit1 = Biscuit::new(rng, &root, authority_block.to_block()).unwrap();
+  let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
 
   let mut block2 = biscuit1.create_block();
 
@@ -505,7 +505,7 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
   let keypair2 = KeyPair::new(rng);
   let biscuit2 = biscuit1
-    .append(rng, &keypair2, block2.to_block())
+    .append(rng, &keypair2, block2.build())
     .unwrap();
 
   println!("biscuit2 (1 caveat): {}", biscuit2.print());

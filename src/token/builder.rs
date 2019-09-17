@@ -1,8 +1,11 @@
-use super::Block;
+use super::{Biscuit, Block};
 use crate::datalog::{
     self, Constraint, ConstraintKind, DateConstraint, StrConstraint, SymbolTable, ID,
 };
+use crate::crypto::KeyPair;
+use crate::error;
 use std::time::{SystemTime, UNIX_EPOCH};
+use rand::{CryptoRng, Rng};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -24,14 +27,6 @@ impl BlockBuilder {
         }
     }
 
-    pub fn symbol_add(&mut self, s: &str) -> ID {
-        self.symbols.add(s)
-    }
-
-    pub fn symbol_insert(&mut self, s: &str) -> u64 {
-        self.symbols.insert(s)
-    }
-
     pub fn add_fact(&mut self, fact: &Fact) {
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
@@ -42,7 +37,7 @@ impl BlockBuilder {
         self.caveats.push(c);
     }
 
-    pub fn to_block(mut self) -> Block {
+    pub fn build(mut self) -> Block {
         let new_syms = self.symbols.symbols.split_off(self.symbols_start);
 
         self.symbols.symbols = new_syms;
@@ -52,18 +47,6 @@ impl BlockBuilder {
             symbols: self.symbols,
             facts: self.facts,
             caveats: self.caveats,
-        }
-    }
-
-    pub fn add_right(&mut self, resource: &str, right: &str) -> bool {
-        if self.index != 0 {
-            false
-        } else {
-            self.add_fact(&fact(
-                "right",
-                &[s("authority"), string(resource), s(right)],
-            ));
-            true
         }
     }
 
@@ -148,6 +131,72 @@ impl BlockBuilder {
 
     pub fn revocation_id(&mut self, id: i64) {
         self.add_fact(&fact("revocation_id", &[int(id)]));
+    }
+}
+
+pub struct BiscuitBuilder<'a, 'b, R: Rng+CryptoRng> {
+    rng: &'a mut R,
+    root: &'b KeyPair,
+    pub symbols_start: usize,
+    pub symbols: SymbolTable,
+    pub facts: Vec<datalog::Fact>,
+    pub rules: Vec<datalog::Rule>,
+}
+
+impl<'a, 'b, R: Rng+CryptoRng> BiscuitBuilder<'a, 'b, R> {
+    pub fn new(rng: &'a mut R, root: &'b KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a, 'b, R> {
+        BiscuitBuilder {
+            rng,
+            root,
+            symbols_start: base_symbols.symbols.len(),
+            symbols: base_symbols,
+            facts: vec![],
+            rules: vec![],
+        }
+    }
+
+    pub fn add_authority_fact(&mut self, fact: &Fact) {
+        let mut fact = fact.clone();
+        let authority_symbol = Atom::Symbol("authority".to_string());
+        if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
+          fact.0.ids.insert(0, authority_symbol);
+        }
+
+        let f = fact.convert(&mut self.symbols);
+        self.facts.push(f);
+    }
+
+    pub fn add_authority_rule(&mut self, rule: &Rule) {
+        let mut rule = rule.clone();
+        let authority_symbol = Atom::Symbol("authority".to_string());
+        if rule.0.ids.is_empty() || rule.0.ids[0] != authority_symbol {
+          rule.0.ids.insert(0, authority_symbol);
+        }
+
+        let r = rule.convert(&mut self.symbols);
+        self.rules.push(r);
+    }
+
+    pub fn add_right(&mut self, resource: &str, right: &str) {
+        self.add_authority_fact(&fact(
+            "right",
+            &[s("authority"), string(resource), s(right)],
+        ));
+    }
+
+    pub fn build(mut self) -> Result<Biscuit, error::Token> {
+        let new_syms = self.symbols.symbols.split_off(self.symbols_start);
+
+        self.symbols.symbols = new_syms;
+
+        let authority_block = Block {
+            index: 0,
+            symbols: self.symbols,
+            facts: self.facts,
+            caveats: self.rules,
+        };
+
+        Biscuit::new(self.rng, self.root, authority_block)
     }
 }
 
