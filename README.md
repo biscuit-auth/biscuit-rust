@@ -35,17 +35,17 @@ fn main() {
   let token1 = {
     // the first block of the token is the authority block. It contains global
     // information like which operation types are available
-    let mut builder = Biscuit::create_authority_block();
+    let mut builder = Biscuit::builder(&mut rng, &root);
 
     // let's define some access rights
     // every fact added to the authority block must have the authority fact
-    builder.add_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
-    builder.add_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
-    builder.add_fact(&fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
-    builder.add_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
+    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
+    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
+    builder.add_authority_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
 
     // we can now create the token
-    let biscuit = Biscuit::new(&mut rng, &root, builder.to_block()).unwrap();
+    let biscuit = builder.build().unwrap();
     println!("biscuit (authority): {}", biscuit.print());
 
     biscuit.to_vec().unwrap()
@@ -80,7 +80,7 @@ fn main() {
 
     let keypair = KeyPair::new(&mut rng);
     // we can now create a new token
-    let biscuit = deser.append(&mut rng, &keypair, builder.to_block()).unwrap();
+    let biscuit = deser.append(&mut rng, &keypair, builder.build()).unwrap();
     println!("biscuit (authority): {}", biscuit.print());
 
     biscuit.to_vec().unwrap()
