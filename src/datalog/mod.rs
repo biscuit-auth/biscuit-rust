@@ -147,7 +147,7 @@ impl Constraint {
             (ID::Str(s), ConstraintKind::Str(c)) => match c {
                 StrConstraint::Prefix(pref) => s.as_str().starts_with(pref.as_str()),
                 StrConstraint::Suffix(suff) => s.as_str().ends_with(suff.as_str()),
-                StrConstraint::Equal(s2) => &s == &s2,
+                StrConstraint::Equal(s2) => s == s2,
                 StrConstraint::In(h) => h.contains(s),
                 StrConstraint::NotIn(h) => !h.contains(s),
             },
@@ -331,7 +331,7 @@ pub struct MatchedVariables(pub HashMap<u32, Option<ID>>);
 
 impl MatchedVariables {
     pub fn new(import: HashSet<u32>) -> Self {
-        MatchedVariables(import.iter().map(|key| (key.clone(), None)).collect())
+        MatchedVariables(import.iter().map(|key| (*key, None)).collect())
     }
 
     pub fn insert(&mut self, key: u32, value: &ID) -> bool {
@@ -420,8 +420,10 @@ pub fn var(name: &str) -> ID {
     let mut hasher = Sha256::new();
     hasher.input(name);
     let res = hasher.result();
-    let id: u32 =
-        res[0] as u32 + ((res[1] as u32) << 8) + ((res[2] as u32) << 16) + ((res[3] as u32) << 24);
+    let id: u32 = u32::from(res[0])
+        + (u32::from(res[1]) << 8)
+        + (u32::from(res[2]) << 16)
+        + (u32::from(res[3]) << 24);
     ID::Variable(id)
 }
 
@@ -442,7 +444,7 @@ pub fn match_preds(pred1: &Predicate, pred2: &Predicate) -> bool {
             })
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct World {
     pub facts: HashSet<Fact>,
     pub rules: Vec<Rule>,
@@ -450,10 +452,7 @@ pub struct World {
 
 impl World {
     pub fn new() -> Self {
-        World {
-            facts: HashSet::new(),
-            rules: Vec::new(),
-        }
+        World::default()
     }
 
     pub fn add_fact(&mut self, fact: Fact) {
@@ -487,24 +486,23 @@ impl World {
     }
 
     pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
-        let facts =
-            self.facts
-                .iter()
-                .filter(|f| {
-                    &f.predicate.name == &pred.name
-                        && f.predicate.ids.iter().zip(&pred.ids).all(|(fid, pid)| {
-                            match (fid, pid) {
-                                (ID::Symbol(_), ID::Variable(_)) => true,
-                                (ID::Symbol(i), ID::Symbol(ref j)) => i == j,
-                                (ID::Integer(i), ID::Integer(ref j)) => i == j,
-                                (ID::Str(i), ID::Str(ref j)) => i == j,
-                                _ => false,
-                            }
+        self.facts
+            .iter()
+            .filter(|f| {
+                f.predicate.name == pred.name
+                    && f.predicate
+                        .ids
+                        .iter()
+                        .zip(&pred.ids)
+                        .all(|(fid, pid)| match (fid, pid) {
+                            (ID::Symbol(_), ID::Variable(_)) => true,
+                            (ID::Symbol(i), ID::Symbol(ref j)) => i == j,
+                            (ID::Integer(i), ID::Integer(ref j)) => i == j,
+                            (ID::Str(i), ID::Str(ref j)) => i == j,
+                            _ => false,
                         })
-                })
-                .collect::<Vec<_>>();
-
-        facts
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn query_rule(&self, rule: Rule) -> Vec<Fact> {
@@ -514,16 +512,14 @@ impl World {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
     pub symbols: Vec<String>,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
-        SymbolTable {
-            symbols: Vec::new(),
-        }
+        SymbolTable::default()
     }
 
     pub fn insert(&mut self, s: &str) -> Symbol {
@@ -563,7 +559,7 @@ impl SymbolTable {
     }
 
     pub fn print_fact(&self, f: &Fact) -> String {
-        format!("{}", self.print_predicate(&f.predicate))
+        self.print_predicate(&f.predicate)
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {

@@ -77,7 +77,7 @@ impl PrivateKey {
     }
 
     pub fn from_bytes(&self, bytes: [u8; 32]) -> Option<Self> {
-        Scalar::from_canonical_bytes(bytes).map(|s| PrivateKey(s))
+        Scalar::from_canonical_bytes(bytes).map(PrivateKey)
     }
 }
 
@@ -92,7 +92,7 @@ impl PublicKey {
     pub fn from_bytes(&self, bytes: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(bytes)
             .decompress()
-            .map(|p| PublicKey(p))
+            .map(PublicKey)
     }
 }
 
@@ -159,7 +159,7 @@ impl TokenSignature {
 
         TokenSignature {
             parameters: vec![A],
-            z: z,
+            z,
         }
     }
 
@@ -221,7 +221,7 @@ impl TokenSignature {
         if RistrettoPoint::identity() == res {
             Ok(())
         } else {
-            return Err(error::Signature::InvalidSignature);
+            Err(error::Signature::InvalidSignature)
         }
     }
 }

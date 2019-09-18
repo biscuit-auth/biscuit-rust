@@ -47,9 +47,9 @@ impl SerializedBiscuit {
                 if let Some(k) = CompressedRistretto::from_slice(&key[..]).decompress() {
                     keys.push(PublicKey(k));
                 } else {
-                    return Err(error::Format::DeserializationError(format!(
-                        "deserialization error: cannot decompress key point"
-                    )));
+                    return Err(error::Format::DeserializationError(
+                        "deserialization error: cannot decompress key point".to_string(),
+                    ));
                 }
             } else {
                 return Err(error::Format::DeserializationError(format!(

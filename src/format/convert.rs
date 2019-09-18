@@ -26,9 +26,9 @@ pub fn proto_sig_to_token_sig(input: schema::Signature) -> Result<TokenSignature
             if let Some(d) = CompressedRistretto::from_slice(&data[..]).decompress() {
                 parameters.push(d);
             } else {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: cannot decompress parameters point"
-                )));
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: cannot decompress parameters point".to_string(),
+                ));
             }
         } else {
             return Err(error::Format::DeserializationError(format!(
@@ -44,9 +44,9 @@ pub fn proto_sig_to_token_sig(input: schema::Signature) -> Result<TokenSignature
         if let Some(d) = Scalar::from_canonical_bytes(bytes) {
             d
         } else {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: non canonical z scalar"
-            )));
+            return Err(error::Format::DeserializationError(
+                "deserialization error: non canonical z scalar".to_string(),
+            ));
         }
     } else {
         return Err(error::Format::DeserializationError(format!(
@@ -211,9 +211,9 @@ pub fn proto_id_to_token_id(input: &schema::Id) -> Result<ID, error::Format> {
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid id kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid id kind".to_string(),
+        ));
     };
 
     match kind {
@@ -244,9 +244,9 @@ pub fn proto_id_to_token_id(input: &schema::Id) -> Result<ID, error::Format> {
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid id"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid id".to_string(),
+    ))
 }
 
 pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::Constraint {
@@ -296,9 +296,9 @@ pub fn proto_constraint_to_token_constraint(
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid constraint kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid constraint kind".to_string(),
+        ));
     };
 
     match kind {
@@ -336,9 +336,9 @@ pub fn proto_constraint_to_token_constraint(
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid constraint"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid constraint".to_string(),
+    ))
 }
 
 pub fn token_int_constraint_to_proto_int_constraint(
@@ -428,9 +428,9 @@ pub fn proto_int_constraint_to_token_int_constraint(
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid int constraint kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid int constraint kind".to_string(),
+        ));
     };
 
     match kind {
@@ -473,9 +473,9 @@ pub fn proto_int_constraint_to_token_int_constraint(
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid id"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid id".to_string(),
+    ))
 }
 
 pub fn token_str_constraint_to_proto_str_constraint(
@@ -535,9 +535,9 @@ pub fn proto_str_constraint_to_token_str_constraint(
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid string constraint kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid string constraint kind".to_string(),
+        ));
     };
 
     match kind {
@@ -570,9 +570,9 @@ pub fn proto_str_constraint_to_token_str_constraint(
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid string constraint"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid string constraint".to_string(),
+    ))
 }
 
 pub fn token_date_constraint_to_proto_date_constraint(
@@ -602,9 +602,9 @@ pub fn proto_date_constraint_to_token_date_constraint(
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid date constraint kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid date constraint kind".to_string(),
+        ));
     };
 
     match kind {
@@ -620,9 +620,9 @@ pub fn proto_date_constraint_to_token_date_constraint(
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid date constraint"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid date constraint".to_string(),
+    ))
 }
 
 pub fn token_symbol_constraint_to_proto_symbol_constraint(
@@ -652,9 +652,9 @@ pub fn proto_symbol_constraint_to_token_symbol_constraint(
     let kind = if let Some(i) = Kind::from_i32(input.kind) {
         i
     } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid symbol constraint kind"
-        )));
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid symbol constraint kind".to_string(),
+        ));
     };
 
     match kind {
@@ -672,7 +672,7 @@ pub fn proto_symbol_constraint_to_token_symbol_constraint(
         }
     }
 
-    Err(error::Format::DeserializationError(format!(
-        "deserialization error: invalid symbol constraint"
-    )))
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid symbol constraint".to_string(),
+    ))
 }

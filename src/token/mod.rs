@@ -350,12 +350,11 @@ impl Biscuit {
         for (i, block) in self.blocks.iter().enumerate() {
             let w = world.clone();
 
-            match block.check(i, w, symbols, &ambient_caveats) {
-                Err(e) => match e {
+            if let Err(e) = block.check(i, w, symbols, &ambient_caveats) {
+                match e {
                     error::Logic::FailedCaveats(mut e) => errors.extend(e.drain(..)),
                     e => return Err(e),
-                },
-                Ok(_) => {}
+                }
             }
         }
 
