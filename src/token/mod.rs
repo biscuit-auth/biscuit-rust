@@ -9,6 +9,7 @@ use rand::{CryptoRng, Rng};
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
+use verifier::Verifier;
 
 pub mod builder;
 pub mod sealed;
@@ -110,8 +111,8 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from(slice: &[u8], root: PublicKey) -> Result<Self, error::Token> {
-        let container = SerializedBiscuit::from_slice(slice, root).map_err(error::Token::Format)?;
+    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
+        let container = SerializedBiscuit::from_slice(slice).map_err(error::Token::Format)?;
 
         let authority: Block = schema::Block::decode(&container.authority)
             .map_err(|e| {
@@ -254,6 +255,25 @@ impl Biscuit {
       self.container.as_ref()
     }
 
+    pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Token> {
+      self.container.as_ref().map(|c| c.check_root_key(root).map_err(error::Token::Format)).unwrap_or(Err(error::Token::Sealed))?;
+      Ok(())
+    }
+
+    pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
+      self.check_root_key(root)?;
+
+      Ok(Verifier::new(self))
+    }
+
+    pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
+      if self.container.is_some() {
+        Err(error::Token::InternalError)
+      } else {
+        Ok(Verifier::new(self))
+      }
+    }
+
     /// checks the caveats of a token, in the context of the request it comes with
     ///
     /// the verifier provides ambient facts (that must carry the "ambient" tag) like
@@ -265,7 +285,7 @@ impl Biscuit {
     ///
     /// the symbol table argument is generated from the token's symbol table, adding
     /// new symbols as needed from ambient facts and rules
-    pub fn check(
+    pub(crate) fn check(
         &self,
         symbols: &SymbolTable,
         mut ambient_facts: Vec<Fact>,
@@ -536,7 +556,6 @@ impl Block {
 #[cfg(test)]
 mod tests {
     use super::builder::{fact, pred, rule, s, var};
-    use super::verifier::Verifier;
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
@@ -596,7 +615,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
 
             // new caveat: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
@@ -625,7 +644,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2).unwrap();
 
             // new caveat: can only access file1
             let mut block3 = biscuit2_deser.create_block();
@@ -648,7 +667,8 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3).unwrap();
+        final_token.check_root_key(root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
         {
             let mut symbols = final_token.symbols.clone();
@@ -721,21 +741,21 @@ mod tests {
             .unwrap();
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder2/file3");
             verifier.add_operation("read");
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
@@ -752,11 +772,11 @@ mod tests {
         }
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier =biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder2/file1");
             verifier.add_operation("write");
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
@@ -791,24 +811,24 @@ mod tests {
             .unwrap();
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
             verifier.revocation_check(&[0, 1, 2, 5, 1234]);
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res3: {:?}", res);
 
             // error message should be like this:
@@ -846,11 +866,11 @@ mod tests {
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
 
-            let res = verifier.verify(&biscuit2);
+            let res = verifier.verify();
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -865,11 +885,11 @@ mod tests {
         let biscuit3 = Biscuit::from_sealed(&sealed, &secret[..]).unwrap();
 
         {
-            let mut verifier = Verifier::new();
+            let mut verifier = biscuit3.verify_sealed().unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
 
-            let res = verifier.verify(&biscuit3);
+            let res = verifier.verify();
             println!("res1: {:?}", res);
             res.unwrap();
         }

@@ -23,9 +23,9 @@
 //! extern crate rand;
 //! extern crate biscuit;
 //!
-//! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}};
+//! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
 //!
-//! fn main() {
+//! fn main() -> Result<(), error::Token> {
 //!   let mut rng = rand::thread_rng();
 //!
 //!   // let's generate the root key pair. The root public key will be necessary
@@ -47,10 +47,10 @@
 //!     builder.add_authority_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
 //!
 //!     // we can now create the token
-//!     let biscuit = builder.build().unwrap();
+//!     let biscuit = builder.build()?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
-//!     biscuit.to_vec().unwrap()
+//!     biscuit.to_vec()?
 //!   };
 //!
 //!   // this token is only 266 bytes, holding the authority data and the signature
@@ -60,7 +60,7 @@
 //!   // we want to limit access to `/a/file1.txt` and to read operations
 //!   let token2 = {
 //!     // the token is deserialized, the signature is verified
-//!     let deser = Biscuit::from(&token1, public_key).unwrap();
+//!     let deser = Biscuit::from(&token1)?;
 //!
 //!     let mut builder = deser.create_block();
 //!
@@ -82,10 +82,10 @@
 //!
 //!     let keypair = KeyPair::new(&mut rng);
 //!     // we can now create a new token
-//!     let biscuit = deser.append(&mut rng, &keypair, builder.build()).unwrap();
+//!     let biscuit = deser.append(&mut rng, &keypair, builder.build())?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
-//!     biscuit.to_vec().unwrap()
+//!     biscuit.to_vec()?
 //!   };
 //!
 //!   // this new token fits in 402 bytes
@@ -93,12 +93,15 @@
 //!
 //!   /************** VERIFICATION ****************/
 //!
+//!   // let's deserialize the token:
+//!   let biscuit2 = Biscuit::from(&token2)?;
+//!
 //!   // let's define 3 verifiers (corresponding to 3 different requests):
 //!   // - one for /a/file1.txt and a read operation
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let mut v1 = Verifier::new();
+//!   let mut v1 = biscuit2.verify(public_key)?;
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
@@ -107,7 +110,7 @@
 //!     &[pred("right", &[s("authority"), string("/a/file1.txt"), s("read")])]
 //!   ));
 //!
-//!   let mut v2 = Verifier::new();
+//!   let mut v2 = biscuit2.verify(public_key)?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
 //!   v2.add_rule(rule("write_right",
@@ -115,7 +118,7 @@
 //!     &[pred("right", &[s("authority"), string("/a/file1.txt"), s("write")])]
 //!   ));
 //!
-//!   let mut v3 = Verifier::new();
+//!   let mut v3 = biscuit2.verify(public_key)?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
 //!   v2.add_rule(rule("read_right",
@@ -123,21 +126,14 @@
 //!     &[pred("right", &[s("authority"), string("/a/file2.txt"), s("read")])]
 //!   ));
 //!
-//!   // let's deserialize the tokens:
-//!   let biscuit1 = Biscuit::from(&token1, public_key).unwrap();
-//!   let biscuit2 = Biscuit::from(&token2, public_key).unwrap();
-//!
-//!   // the first token, that specifies no restrictions, passes all verifiers:
-//!   assert!(v1.verify(&biscuit1).is_ok());
-//!   assert!(v2.verify(&biscuit1).is_ok());
-//!   assert!(v3.verify(&biscuit1).is_ok());
-//!
-//!   // the second token restricts to read operations:
-//!   assert!(v1.verify(&biscuit2).is_ok());
+//!   // the token restricts to read operations:
+//!   assert!(v1.verify().is_ok());
 //!   // the second verifier requested a read operation
-//!   assert!(v2.verify(&biscuit2).is_err());
+//!   assert!(v2.verify().is_err());
 //!   // the third verifier requests /a/file2.txt
-//!   assert!(v3.verify(&biscuit2).is_err());
+//!   assert!(v3.verify().is_err());
+//!
+//!   Ok(())
 //! }
 //! ```
 //!

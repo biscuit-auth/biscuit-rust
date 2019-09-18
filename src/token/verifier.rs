@@ -4,15 +4,17 @@ use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
 use crate::error;
 use std::time::SystemTime;
 
-pub struct Verifier {
+pub struct Verifier<'a> {
+    token: &'a Biscuit,
     facts: Vec<Fact>,
     rules: Vec<Rule>,
     caveats: Vec<Rule>,
 }
 
-impl Verifier {
-    pub fn new() -> Self {
+impl<'a> Verifier<'a> {
+    pub(crate) fn new(token: &'a Biscuit) -> Self {
         Verifier {
+            token,
             facts: vec![],
             rules: vec![],
             caveats: vec![],
@@ -61,8 +63,8 @@ impl Verifier {
         self.add_caveat(caveat);
     }
 
-    pub fn verify(&self, token: &Biscuit) -> Result<(), error::Logic> {
-        let mut symbols = token.symbols.clone();
+    pub fn verify(&self) -> Result<(), error::Logic> {
+        let mut symbols = self.token.symbols.clone();
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
@@ -80,6 +82,6 @@ impl Verifier {
             ambient_caveats.push(caveat.convert(&mut symbols));
         }
 
-        token.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
+        self.token.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
     }
 }

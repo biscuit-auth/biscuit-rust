@@ -7,7 +7,7 @@ extern crate prost;
 use rand::prelude::*;
 use curve25519_dalek::scalar::Scalar;
 use prost::Message;
-use biscuit::token::{Biscuit, default_symbol_table, builder::*, verifier::Verifier};
+use biscuit::token::{Biscuit, default_symbol_table, builder::*};
 use biscuit::crypto::KeyPair;
 use biscuit::error;
 use std::fs::File;
@@ -66,9 +66,9 @@ fn main() {
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient_rules: Vec<Rule>, ambient_caveats: Vec<Rule>) -> Result<(), error::Token> {
-  let token = Biscuit::from(&data[..], root.public())?;
+  let token = Biscuit::from(&data[..])?;
 
-  let mut verifier = Verifier::new();
+  let mut verifier = token.verify(root.public())?;
   for fact in ambient_facts {
     verifier.add_fact(fact);
   }
@@ -79,7 +79,7 @@ fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient
     verifier.add_caveat(caveat);
   }
 
-  verifier.verify(&token).map_err(error::Token::FailedLogic)
+  verifier.verify().map_err(error::Token::FailedLogic)
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {

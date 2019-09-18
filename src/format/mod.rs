@@ -35,7 +35,7 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice(slice: &[u8], public_key: PublicKey) -> Result<Self, error::Format> {
+    pub fn from_slice(slice: &[u8]) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
@@ -68,7 +68,7 @@ impl SerializedBiscuit {
             signature,
         };
 
-        match deser.verify(public_key) {
+        match deser.verify() {
             Ok(()) => Ok(deser),
             Err(e) => Err(e),
         }
@@ -156,12 +156,9 @@ impl SerializedBiscuit {
     }
 
     /// checks the signature on a deserialized token
-    pub fn verify(&self, public: PublicKey) -> Result<(), error::Format> {
+    pub fn verify(&self) -> Result<(), error::Format> {
         if self.keys.is_empty() {
             return Err(error::Format::EmptyKeys);
-        }
-        if self.keys[0] != public {
-            return Err(error::Format::UnknownPublicKey);
         }
 
         let mut blocks = Vec::new();
@@ -171,5 +168,16 @@ impl SerializedBiscuit {
         self.signature
             .verify(&self.keys, &blocks)
             .map_err(error::Format::Signature)
+    }
+
+    pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Format> {
+        if self.keys.is_empty() {
+            return Err(error::Format::EmptyKeys);
+        }
+        if self.keys[0] != root {
+            return Err(error::Format::UnknownPublicKey);
+        }
+
+        Ok(())
     }
 }
