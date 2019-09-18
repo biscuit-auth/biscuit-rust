@@ -548,6 +548,12 @@ impl SymbolTable {
             .map(|i| i as u64)
     }
 
+    pub fn print_world(&self, w: &World) -> String {
+        let facts = w.facts.iter().map(|f| self.print_fact(f)).collect::<Vec<_>>();
+        let rules = w.rules.iter().map(|r| self.print_rule(r)).collect::<Vec<_>>();
+        format!("World {{\n\tfacts: {:#?}\n\trules: {:#?}\n}}", facts, rules)
+    }
+
     pub fn print_fact(&self, f: &Fact) -> String {
         format!("{}", self.print_predicate(&f.predicate))
     }
