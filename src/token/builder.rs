@@ -64,7 +64,7 @@ impl BlockBuilder {
         self.add_caveat(&caveat);
     }
 
-    pub fn resource(&mut self, resource: &str) {
+    pub fn check_resource(&mut self, resource: &str) {
         let caveat = rule(
           "resource_check",
           &[s("resource_check")],
@@ -74,7 +74,7 @@ impl BlockBuilder {
         self.add_caveat(&caveat);
     }
 
-    pub fn operation(&mut self, operation: &str) {
+    pub fn check_operation(&mut self, operation: &str) {
         let caveat = rule(
           "operation_check",
           &[s("operation_check")],

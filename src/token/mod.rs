@@ -55,7 +55,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///
 ///   // we can create a new block builder from that token
 ///   let mut builder2 = token1.create_block();
-///   builder2.operation("read");
+///   builder2.check_operation("read");
 ///
 ///   let keypair2 = KeyPair::new(&mut rng);
 ///   let token2 = token1.append(&mut rng, &keypair2, builder2.build()).unwrap();
