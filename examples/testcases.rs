@@ -63,6 +63,10 @@ fn main() {
 
     println!("\n------------------------------\n");
     expired_token(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    authority_rules(&mut rng, &target, &root);
+
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], ambient_facts: Vec<Fact>, ambient_rules: Vec<Rule>, ambient_caveats: Vec<Rule>) -> Result<(), error::Token> {
@@ -513,5 +517,70 @@ fn expired_token<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     vec![fact("resource", &[s("ambient"), string("file1")]), fact("operation", &[s("ambient"), s("read")]), fact("time", &[s("ambient"), date(&SystemTime::now())])],
     vec![], vec![]));
   write_testcase(target, "test11_expired_token", &data[..]);
+}
+
+fn authority_rules<T:Rng+CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+  println!("## authority rules: test12_authority_rules.bc");
+
+  let mut builder = Biscuit::builder(rng, &root);
+  builder.add_authority_rule(&rule(
+      "right",
+      &[symbol("authority"), variable(1), symbol("read")],
+      &[
+        pred("resource", &[s("ambient"), variable(1)]),
+        pred("owner", &[s("ambient"), variable(0), variable(1)]),
+      ],
+  ));
+  builder.add_authority_rule(&rule(
+      "right",
+      &[symbol("authority"), variable(1), symbol("write")],
+      &[
+        pred("resource", &[s("ambient"), variable(1)]),
+        pred("owner", &[s("ambient"), variable(0), variable(1)]),
+      ],
+  ));
+
+
+  let biscuit1 = builder.build().unwrap();
+
+  let mut block2 = biscuit1.create_block();
+
+  block2.add_caveat(&rule(
+    "caveat1",
+    &[variable(0), variable(1)],
+    &[
+      pred("right", &[s("authority"), var(0), var(1)]),
+      pred("resource", &[s("ambient"), var(0)]),
+      pred("operation", &[s("ambient"), var(1)]),
+    ],
+  ));
+  block2.add_caveat(&rule(
+    "caveat2",
+    &[variable(0)],
+    &[
+      pred("resource", &[s("ambient"), var(0)]),
+      pred("owner", &[s("ambient"), symbol("alice"), var(0)]),
+    ],
+  ));
+
+
+  let keypair2 = KeyPair::new(rng);
+  let biscuit2 = biscuit1
+    .append(rng, &keypair2, block2.build())
+    .unwrap();
+
+  println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+
+  let data = biscuit2.to_vec().unwrap();
+  println!("validation: `{:?}`",
+    validate_token(
+      root, &data[..],
+      vec![
+        fact("resource", &[s("ambient"), string("file1")]),
+        fact("operation", &[s("ambient"), s("read")]),
+        fact("owner", &[s("ambient"), s("alice"), string("file1")]) ],
+      vec![], vec![]));
+
+  write_testcase(target, "test12_authority_rules", &data[..]);
 }
 

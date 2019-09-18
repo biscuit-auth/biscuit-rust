@@ -376,6 +376,13 @@ pub fn s(s: &str) -> Atom {
     Atom::Symbol(s.to_string())
 }
 
+/// creates a symbol
+///
+/// once the block is generated, this symbol will be added to the symbol table if needed
+pub fn symbol(s: &str) -> Atom {
+    Atom::Symbol(s.to_string())
+}
+
 /// creates a date
 ///
 /// internally the date will be stored as seconds since UNIX_EPOCH
@@ -386,5 +393,10 @@ pub fn date(t: &SystemTime) -> Atom {
 
 /// creates a variable for a rule
 pub fn var(i: u32) -> Atom {
+    Atom::Variable(i)
+}
+
+/// creates a variable for a rule
+pub fn variable(i: u32) -> Atom {
     Atom::Variable(i)
 }
