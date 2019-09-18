@@ -549,8 +549,16 @@ impl SymbolTable {
     }
 
     pub fn print_world(&self, w: &World) -> String {
-        let facts = w.facts.iter().map(|f| self.print_fact(f)).collect::<Vec<_>>();
-        let rules = w.rules.iter().map(|r| self.print_rule(r)).collect::<Vec<_>>();
+        let facts = w
+            .facts
+            .iter()
+            .map(|f| self.print_fact(f))
+            .collect::<Vec<_>>();
+        let rules = w
+            .rules
+            .iter()
+            .map(|r| self.print_rule(r))
+            .collect::<Vec<_>>();
         format!("World {{\n\tfacts: {:#?}\n\trules: {:#?}\n}}", facts, rules)
     }
 
@@ -1035,11 +1043,10 @@ mod tests {
         w.add_fact(fact(right, &[&authority, &file2, &read]));
         w.add_fact(fact(right, &[&authority, &file1, &write]));
 
-
         let res = w.query_rule(rule(
             caveat1,
             &[&file1],
-            &[pred(resource, &[&ambient, &file1])]
+            &[pred(resource, &[&ambient, &file1])],
         ));
 
         for fact in &res {
@@ -1052,10 +1059,10 @@ mod tests {
             caveat2,
             &[ID::Variable(0)],
             &[
-              pred(resource, &[&ambient, &ID::Variable(0)]),
-              pred(operation, &[&ambient, &read]),
-              pred(right, &[&authority, &ID::Variable(0), &read])
-            ]
+                pred(resource, &[&ambient, &ID::Variable(0)]),
+                pred(operation, &[&ambient, &read]),
+                pred(right, &[&authority, &ID::Variable(0), &read]),
+            ],
         ));
 
         for fact in &res {
@@ -1063,5 +1070,5 @@ mod tests {
         }
 
         assert!(res.is_empty());
-      }
+    }
 }

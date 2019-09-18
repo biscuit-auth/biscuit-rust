@@ -252,26 +252,29 @@ impl Biscuit {
 
     /// returns the internal representation of the token
     pub fn container(&self) -> Option<&SerializedBiscuit> {
-      self.container.as_ref()
+        self.container.as_ref()
     }
 
     pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Token> {
-      self.container.as_ref().map(|c| c.check_root_key(root).map_err(error::Token::Format)).unwrap_or(Err(error::Token::Sealed))?;
-      Ok(())
+        self.container
+            .as_ref()
+            .map(|c| c.check_root_key(root).map_err(error::Token::Format))
+            .unwrap_or(Err(error::Token::Sealed))?;
+        Ok(())
     }
 
     pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
-      self.check_root_key(root)?;
+        self.check_root_key(root)?;
 
-      Ok(Verifier::new(self))
+        Ok(Verifier::new(self))
     }
 
     pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
-      if self.container.is_some() {
-        Err(error::Token::InternalError)
-      } else {
-        Ok(Verifier::new(self))
-      }
+        if self.container.is_some() {
+            Err(error::Token::InternalError)
+        } else {
+            Ok(Verifier::new(self))
+        }
     }
 
     /// checks the caveats of a token, in the context of the request it comes with
@@ -328,9 +331,7 @@ impl Biscuit {
 
         for fact in ambient_facts.drain(..) {
             if fact.predicate.ids[0] != ID::Symbol(ambient_index) {
-                return Err(error::Logic::InvalidAmbientFact(
-                    symbols.print_fact(&fact),
-                ));
+                return Err(error::Logic::InvalidAmbientFact(symbols.print_fact(&fact)));
             }
 
             world.facts.insert(fact);
@@ -365,12 +366,19 @@ impl Biscuit {
         }
     }
 
-    pub fn builder<'a, 'b, R: Rng + CryptoRng>(rng: &'a mut R, root: &'b KeyPair) -> BiscuitBuilder<'a, 'b, R> {
-      Biscuit::builder_with_symbols(rng, root, default_symbol_table())
+    pub fn builder<'a, 'b, R: Rng + CryptoRng>(
+        rng: &'a mut R,
+        root: &'b KeyPair,
+    ) -> BiscuitBuilder<'a, 'b, R> {
+        Biscuit::builder_with_symbols(rng, root, default_symbol_table())
     }
 
-    pub fn builder_with_symbols<'a, 'b, R: Rng + CryptoRng>(rng: &'a mut R, root: &'b KeyPair, symbols: SymbolTable) -> BiscuitBuilder<'a, 'b, R> {
-      BiscuitBuilder::new(rng, root, symbols)
+    pub fn builder_with_symbols<'a, 'b, R: Rng + CryptoRng>(
+        rng: &'a mut R,
+        root: &'b KeyPair,
+        symbols: SymbolTable,
+    ) -> BiscuitBuilder<'a, 'b, R> {
+        BiscuitBuilder::new(rng, root, symbols)
     }
 
     /// creates a new block builder
@@ -772,7 +780,7 @@ mod tests {
         }
 
         {
-            let mut verifier =biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder2/file1");
             verifier.add_operation("write");
 

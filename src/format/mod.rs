@@ -5,10 +5,10 @@
 //! - serialization of Biscuit blocks to Protobuf then `Vec<u8>`
 //! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{KeyPair, TokenSignature};
+use crate::crypto::PublicKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use prost::Message;
 use rand::{CryptoRng, Rng};
-use crate::crypto::PublicKey;
 
 use super::error;
 use super::token::Block;

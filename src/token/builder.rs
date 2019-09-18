@@ -1,11 +1,11 @@
 use super::{Biscuit, Block};
+use crate::crypto::KeyPair;
 use crate::datalog::{
     self, Constraint, ConstraintKind, DateConstraint, StrConstraint, SymbolTable, ID,
 };
-use crate::crypto::KeyPair;
 use crate::error;
-use std::time::{SystemTime, UNIX_EPOCH};
 use rand::{CryptoRng, Rng};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -66,9 +66,9 @@ impl BlockBuilder {
 
     pub fn check_resource(&mut self, resource: &str) {
         let caveat = rule(
-          "resource_check",
-          &[s("resource_check")],
-          &[pred("resource", &[s("ambient"), string(resource)])],
+            "resource_check",
+            &[s("resource_check")],
+            &[pred("resource", &[s("ambient"), string(resource)])],
         );
 
         self.add_caveat(&caveat);
@@ -76,9 +76,9 @@ impl BlockBuilder {
 
     pub fn check_operation(&mut self, operation: &str) {
         let caveat = rule(
-          "operation_check",
-          &[s("operation_check")],
-          &[pred("operation", &[s("ambient"), s(operation)])],
+            "operation_check",
+            &[s("operation_check")],
+            &[pred("operation", &[s("ambient"), s(operation)])],
         );
 
         self.add_caveat(&caveat);
@@ -134,7 +134,7 @@ impl BlockBuilder {
     }
 }
 
-pub struct BiscuitBuilder<'a, 'b, R: Rng+CryptoRng> {
+pub struct BiscuitBuilder<'a, 'b, R: Rng + CryptoRng> {
     rng: &'a mut R,
     root: &'b KeyPair,
     pub symbols_start: usize,
@@ -143,8 +143,12 @@ pub struct BiscuitBuilder<'a, 'b, R: Rng+CryptoRng> {
     pub rules: Vec<datalog::Rule>,
 }
 
-impl<'a, 'b, R: Rng+CryptoRng> BiscuitBuilder<'a, 'b, R> {
-    pub fn new(rng: &'a mut R, root: &'b KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a, 'b, R> {
+impl<'a, 'b, R: Rng + CryptoRng> BiscuitBuilder<'a, 'b, R> {
+    pub fn new(
+        rng: &'a mut R,
+        root: &'b KeyPair,
+        base_symbols: SymbolTable,
+    ) -> BiscuitBuilder<'a, 'b, R> {
         BiscuitBuilder {
             rng,
             root,
@@ -159,7 +163,7 @@ impl<'a, 'b, R: Rng+CryptoRng> BiscuitBuilder<'a, 'b, R> {
         let mut fact = fact.clone();
         let authority_symbol = Atom::Symbol("authority".to_string());
         if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
-          fact.0.ids.insert(0, authority_symbol);
+            fact.0.ids.insert(0, authority_symbol);
         }
 
         let f = fact.convert(&mut self.symbols);
@@ -170,7 +174,7 @@ impl<'a, 'b, R: Rng+CryptoRng> BiscuitBuilder<'a, 'b, R> {
         let mut rule = rule.clone();
         let authority_symbol = Atom::Symbol("authority".to_string());
         if rule.0.ids.is_empty() || rule.0.ids[0] != authority_symbol {
-          rule.0.ids.insert(0, authority_symbol);
+            rule.0.ids.insert(0, authority_symbol);
         }
 
         let r = rule.convert(&mut self.symbols);

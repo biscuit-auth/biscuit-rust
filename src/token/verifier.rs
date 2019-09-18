@@ -82,6 +82,7 @@ impl<'a> Verifier<'a> {
             ambient_caveats.push(caveat.convert(&mut symbols));
         }
 
-        self.token.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
+        self.token
+            .check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
     }
 }

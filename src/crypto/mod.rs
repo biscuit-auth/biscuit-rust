@@ -10,7 +10,9 @@
 #![allow(non_snake_case)]
 use super::error;
 use curve25519_dalek::{
-    constants::RISTRETTO_BASEPOINT_POINT, ristretto::{RistrettoPoint, CompressedRistretto}, scalar::Scalar,
+    constants::RISTRETTO_BASEPOINT_POINT,
+    ristretto::{CompressedRistretto, RistrettoPoint},
+    scalar::Scalar,
     traits::Identity,
 };
 use rand::prelude::*;
@@ -18,7 +20,7 @@ use sha2::{Digest, Sha512};
 use std::ops::Deref;
 
 pub struct KeyPair {
-    pub(crate)  private: Scalar,
+    pub(crate) private: Scalar,
     pub(crate) public: RistrettoPoint,
 }
 
@@ -31,11 +33,11 @@ impl KeyPair {
     }
 
     pub fn from(key: PrivateKey) -> Self {
-      let private = key.0;
+        let private = key.0;
 
-      let public = private * RISTRETTO_BASEPOINT_POINT;
+        let public = private * RISTRETTO_BASEPOINT_POINT;
 
-      KeyPair { private, public }
+        KeyPair { private, public }
     }
 
     #[allow(dead_code)]
@@ -70,26 +72,28 @@ fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar))
 pub struct PrivateKey(pub(crate) Scalar);
 
 impl PrivateKey {
-  pub fn to_bytes(&self) -> [u8; 32] {
-    self.0.to_bytes()
-  }
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
 
-  pub fn from_bytes(&self, bytes: [u8;32]) -> Option<Self> {
-    Scalar::from_canonical_bytes(bytes).map(|s| PrivateKey(s))
-  }
+    pub fn from_bytes(&self, bytes: [u8; 32]) -> Option<Self> {
+        Scalar::from_canonical_bytes(bytes).map(|s| PrivateKey(s))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) RistrettoPoint);
 
 impl PublicKey {
-  pub fn to_bytes(&self) -> [u8; 32] {
-    self.0.compress().to_bytes()
-  }
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.compress().to_bytes()
+    }
 
-  pub fn from_bytes(&self, bytes: &[u8]) -> Option<Self> {
-    CompressedRistretto::from_slice(bytes).decompress().map(|p| PublicKey(p))
-  }
+    pub fn from_bytes(&self, bytes: &[u8]) -> Option<Self> {
+        CompressedRistretto::from_slice(bytes)
+            .decompress()
+            .map(|p| PublicKey(p))
+    }
 }
 
 #[allow(dead_code)]
@@ -119,9 +123,7 @@ impl Token {
         keypair: &KeyPair,
         message: &[u8],
     ) -> Self {
-        let signature = self
-            .signature
-            .sign(rng, keypair, message);
+        let signature = self.signature.sign(rng, keypair, message);
 
         let mut t = Token {
             messages: self.messages.clone(),
@@ -161,12 +163,7 @@ impl TokenSignature {
         }
     }
 
-    pub fn sign<T: Rng + CryptoRng>(
-        &self,
-        rng: &mut T,
-        keypair: &KeyPair,
-        message: &[u8],
-    ) -> Self {
+    pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
