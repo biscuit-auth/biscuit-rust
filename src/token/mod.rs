@@ -5,7 +5,7 @@ use super::error;
 use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
-use rand::{CryptoRng, Rng};
+use rand_core::{CryptoRng, RngCore};
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
@@ -76,7 +76,7 @@ impl Biscuit {
     /// the public part of the root keypair must be used for verification
     ///
     /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
-    pub fn new<T: Rng + CryptoRng>(
+    pub fn new<T: RngCore + CryptoRng>(
         rng: &mut T,
         root: &KeyPair,
         authority: Block,
@@ -365,14 +365,14 @@ impl Biscuit {
         }
     }
 
-    pub fn builder<'a, 'b, R: Rng + CryptoRng>(
+    pub fn builder<'a, 'b, R: RngCore + CryptoRng>(
         rng: &'a mut R,
         root: &'b KeyPair,
     ) -> BiscuitBuilder<'a, 'b, R> {
         Biscuit::builder_with_symbols(rng, root, default_symbol_table())
     }
 
-    pub fn builder_with_symbols<'a, 'b, R: Rng + CryptoRng>(
+    pub fn builder_with_symbols<'a, 'b, R: RngCore + CryptoRng>(
         rng: &'a mut R,
         root: &'b KeyPair,
         symbols: SymbolTable,
@@ -389,7 +389,7 @@ impl Biscuit {
     ///
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
-    pub fn append<T: Rng + CryptoRng>(
+    pub fn append<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
         keypair: &KeyPair,

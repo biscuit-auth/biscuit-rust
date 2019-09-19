@@ -15,7 +15,7 @@ use curve25519_dalek::{
     scalar::Scalar,
     traits::Identity,
 };
-use rand::prelude::*;
+use rand_core::{RngCore, CryptoRng};
 use sha2::{Digest, Sha512};
 use std::ops::Deref;
 
@@ -25,7 +25,7 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    pub fn new<T: Rng + CryptoRng>(rng: &mut T) -> Self {
+    pub fn new<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
         let private = Scalar::random(rng);
         let public = private * RISTRETTO_BASEPOINT_POINT;
 
@@ -41,7 +41,7 @@ impl KeyPair {
     }
 
     #[allow(dead_code)]
-    fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
+    fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
@@ -106,7 +106,7 @@ struct Token {
 
 impl Token {
     #[allow(dead_code)]
-    pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+    pub fn new<T: RngCore + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let signature = TokenSignature::new(rng, keypair, message);
 
         Token {
@@ -117,7 +117,7 @@ impl Token {
     }
 
     #[allow(dead_code)]
-    pub fn append<T: Rng + CryptoRng>(
+    pub fn append<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
         keypair: &KeyPair,
@@ -150,7 +150,7 @@ pub struct TokenSignature {
 }
 
 impl TokenSignature {
-    pub fn new<T: Rng + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+    pub fn new<T: RngCore + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
@@ -163,7 +163,7 @@ impl TokenSignature {
         }
     }
 
-    pub fn sign<T: Rng + CryptoRng>(&self, rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+    pub fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
         let r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
@@ -245,6 +245,8 @@ fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand_core::SeedableRng;
+    use rand::prelude::*;
 
     #[test]
     fn basic_signature() {

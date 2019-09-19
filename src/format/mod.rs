@@ -8,7 +8,7 @@ use super::crypto::{KeyPair, TokenSignature};
 use crate::crypto::PublicKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use prost::Message;
-use rand::{CryptoRng, Rng};
+use rand_core::{CryptoRng, RngCore};
 
 use super::error;
 use super::token::Block;
@@ -100,7 +100,7 @@ impl SerializedBiscuit {
     }
 
     /// creates a new token
-    pub fn new<T: Rng + CryptoRng>(
+    pub fn new<T: RngCore + CryptoRng>(
         rng: &mut T,
         keypair: &KeyPair,
         authority: &Block,
@@ -123,7 +123,7 @@ impl SerializedBiscuit {
     }
 
     /// adds a new block, serializes it and sign a new token
-    pub fn append<T: Rng + CryptoRng>(
+    pub fn append<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
         keypair: &KeyPair,

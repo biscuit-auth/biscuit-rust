@@ -4,7 +4,7 @@ use crate::datalog::{
     self, Constraint, ConstraintKind, DateConstraint, StrConstraint, SymbolTable, ID,
 };
 use crate::error;
-use rand::{CryptoRng, Rng};
+use rand_core::{CryptoRng, RngCore};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
@@ -134,7 +134,7 @@ impl BlockBuilder {
     }
 }
 
-pub struct BiscuitBuilder<'a, 'b, R: Rng + CryptoRng> {
+pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     rng: &'a mut R,
     root: &'b KeyPair,
     pub symbols_start: usize,
@@ -143,7 +143,7 @@ pub struct BiscuitBuilder<'a, 'b, R: Rng + CryptoRng> {
     pub rules: Vec<datalog::Rule>,
 }
 
-impl<'a, 'b, R: Rng + CryptoRng> BiscuitBuilder<'a, 'b, R> {
+impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
     pub fn new(
         rng: &'a mut R,
         root: &'b KeyPair,
