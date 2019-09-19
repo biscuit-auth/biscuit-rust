@@ -14,8 +14,8 @@ prost = "0.5"
 bytes = "0.4"
 prost-types = "0.5"
 
-[build-dependencies]
-prost-build = "0.5"
+#[build-dependencies]
+#prost-build = "0.5"
 
 [dev-dependencies]
 hex = "0.3"
