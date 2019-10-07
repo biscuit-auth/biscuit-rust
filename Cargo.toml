@@ -6,7 +6,11 @@ edition = "2018"
 build = "build.rs"
 license = "Apache-2.0"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
+rand = { version = "0.6", features = ["wasm-bindgen"] }
 rand_core = "^0.3"
 sha2 = "^0.8"
 hmac = "^0.7"
@@ -14,10 +18,10 @@ curve25519-dalek = "1.0"
 prost = "0.5"
 bytes = "0.4"
 prost-types = "0.5"
+wasm-bindgen = "0.2"
 
 #[build-dependencies]
 #prost-build = "0.5"
 
 [dev-dependencies]
 hex = "0.3"
-rand = "0.6"
