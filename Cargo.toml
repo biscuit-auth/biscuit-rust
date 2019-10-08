@@ -10,6 +10,8 @@ license = "Apache-2.0"
 crate-type = ["cdylib"]
 
 [dependencies]
+serde = "^1.0.59"
+serde_derive = "^1.0.59"
 rand = { version = "0.6", features = ["wasm-bindgen"] }
 rand_core = "^0.3"
 sha2 = "^0.8"
@@ -18,7 +20,7 @@ curve25519-dalek = "1.0"
 prost = "0.5"
 bytes = "0.4"
 prost-types = "0.5"
-wasm-bindgen = "0.2"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
 #[build-dependencies]
 #prost-build = "0.5"
