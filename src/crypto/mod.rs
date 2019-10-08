@@ -18,10 +18,24 @@ use curve25519_dalek::{
 use rand_core::{RngCore, CryptoRng};
 use sha2::{Digest, Sha512};
 use std::ops::Deref;
+use wasm_bindgen::prelude::*;
 
+
+#[wasm_bindgen]
 pub struct KeyPair {
     pub(crate) private: Scalar,
     pub(crate) public: RistrettoPoint,
+}
+
+#[wasm_bindgen]
+pub fn keypair_new() -> KeyPair {
+    let mut rng = OsRng::new().unwrap();
+    KeyPair::new(&mut rng)
+}
+
+#[wasm_bindgen]
+pub fn get_keypair_public(keypair: KeyPair) -> PublicKey {
+    keypair.public()
 }
 
 impl KeyPair {
@@ -69,6 +83,7 @@ fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar))
     hash_points(&[A]) == *d
 }
 
+#[wasm_bindgen]
 pub struct PrivateKey(pub(crate) Scalar);
 
 impl PrivateKey {
@@ -81,6 +96,7 @@ impl PrivateKey {
     }
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) RistrettoPoint);
 

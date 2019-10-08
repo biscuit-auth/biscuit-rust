@@ -1,6 +1,6 @@
 //! error types
 //!
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Token {
     InternalError,
     /// error deserializing or verifying the token
@@ -17,13 +17,13 @@ pub enum Token {
     FailedLogic(Logic),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct InvalidBlockIndex {
     pub expected: u32,
     pub found: u32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Format {
     /// failed verifying the signature
     Signature(Signature),
@@ -43,7 +43,7 @@ pub enum Format {
     BlockSerializationError(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Signature {
     /// could not parse the signature elements
     InvalidFormat,
@@ -51,7 +51,7 @@ pub enum Signature {
     InvalidSignature,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Logic {
     /// a fact of the authority block did not have the authority tag
     InvalidAuthorityFact(String),
@@ -63,7 +63,7 @@ pub enum Logic {
     FailedCaveats(Vec<FailedCaveat>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum FailedCaveat {
     /// a caveat failed in a block
     Block(FailedBlockCaveat),
@@ -71,7 +71,7 @@ pub enum FailedCaveat {
     Verifier(FailedVerifierCaveat),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct FailedBlockCaveat {
     pub block_id: u32,
     pub caveat_id: u32,
@@ -79,7 +79,7 @@ pub struct FailedBlockCaveat {
     pub rule: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct FailedVerifierCaveat {
     /// if block 0, it was an authority caveat
     pub block_id: u32,

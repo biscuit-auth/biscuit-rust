@@ -10,6 +10,7 @@ use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
 use verifier::Verifier;
+use wasm_bindgen::prelude::*;
 
 pub mod builder;
 pub mod sealed;
@@ -62,6 +63,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   let token2 = token1.append(&mut rng, &keypair2, builder2.build()).unwrap();
 /// }
 /// ```
+#[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct Biscuit {
     authority: Block,

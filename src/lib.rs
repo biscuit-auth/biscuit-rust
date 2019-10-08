@@ -219,6 +219,9 @@ extern crate prost_types;
 extern crate rand_core;
 extern crate sha2;
 
+#[macro_use]
+extern crate serde_derive;
+
 pub mod crypto;
 pub mod datalog;
 pub mod error;

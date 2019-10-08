@@ -5,7 +5,9 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
+use rand::rngs::OsRng;
 use std::time::{SystemTime, UNIX_EPOCH};
+use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -142,6 +144,74 @@ impl BlockBuilder {
     }
 }
 
+
+#[wasm_bindgen]
+pub struct BiscuitBuilderBind {
+    symbols_start: usize,
+    symbols: SymbolTable,
+    facts: Vec<datalog::Fact>,
+    rules: Vec<datalog::Rule>,
+}
+
+#[wasm_bindgen]
+impl BiscuitBuilderBind {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            symbols_start: 0,
+            symbols: SymbolTable::new(),
+            facts: vec![],
+            rules: vec![],
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn add_authority_fact(&mut self, mut fact: FactBind) {
+        let authority_symbol = Atom::Symbol("authority".to_string());
+        if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
+            fact.0.ids.insert(0, authority_symbol);
+        }
+
+        let f = fact.convert(&mut self.symbols);
+        self.facts.push(f);
+    }
+
+    #[wasm_bindgen]
+    pub fn add_authority_rule(&mut self, mut rule_bind: RuleBind) {
+        let authority_symbol = Atom::Symbol("authority".to_string());
+        if rule_bind.rule.0.ids.is_empty() || rule_bind.rule.0.ids[0] != authority_symbol {
+            rule_bind.rule.0.ids.insert(0, authority_symbol);
+        }
+
+        let r = rule_bind.rule.convert(&mut self.symbols);
+        self.rules.push(r);
+    }
+
+    pub fn add_right(&mut self, resource: &str, right: &str) {
+        self.add_authority_fact(FactBind(Predicate{
+            name: "right".to_string(),
+            ids: vec![s("authority"), string(resource), s(right)],
+        }));
+    }
+
+    pub fn build(mut self,root: KeyPair) -> Result<Biscuit, JsValue> {
+        let mut rng = OsRng::new().expect("os range");
+        let new_syms = self.symbols.symbols.split_off(self.symbols_start);
+
+        self.symbols.symbols = new_syms;
+
+        let authority_block = Block {
+            index: 0,
+            symbols: self.symbols,
+            facts: self.facts,
+            caveats: self.rules,
+        };
+
+        Biscuit::new(&mut rng, &root, authority_block).map_err(|e| JsValue::from_serde(&e).unwrap())
+    }
+}
+
+
 pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     rng: &'a mut R,
     root: &'b KeyPair,
@@ -217,6 +287,24 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
         };
 
         Biscuit::new(self.rng, self.root, authority_block)
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct AtomBind {
+    atom: Atom,
+}
+
+impl From<Atom> for AtomBind {
+    fn from(atom: Atom) -> Self {
+        AtomBind{atom}
+    }
+}
+
+impl Into<Atom> for AtomBind {
+    fn into(self) -> Atom {
+        self.atom
     }
 }
 
@@ -296,6 +384,17 @@ impl AsRef<Predicate> for Predicate {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Fact(pub Predicate);
 
+#[wasm_bindgen]
+pub struct FactBind(Predicate);
+
+impl FactBind {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
+        datalog::Fact {
+            predicate: self.0.convert(symbols),
+        }
+    }
+}
+
 impl Fact {
     pub fn new(name: String, ids: &[Atom]) -> Fact {
         Fact(Predicate::new(name, ids))
@@ -308,6 +407,12 @@ impl Fact {
             predicate: self.0.convert(symbols),
         }
     }
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleBind{
+    rule: Rule
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -380,6 +485,12 @@ pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<datalog::C
 }
 
 /// creates an integer value
+#[wasm_bindgen]
+pub fn int_bind(i: i64) -> AtomBind {
+    AtomBind::from(Atom::Integer(i))
+}
+
+/// creates an integer value
 pub fn int(i: i64) -> Atom {
     Atom::Integer(i)
 }
@@ -389,6 +500,11 @@ pub fn string(s: &str) -> Atom {
     Atom::Str(s.to_string())
 }
 
+#[wasm_bindgen]
+pub fn string_bind(s: String) -> AtomBind {
+    AtomBind::from(Atom::Str(s))
+}
+
 /// creates a symbol
 ///
 /// once the block is generated, this symbol will be added to the symbol table if needed
@@ -396,11 +512,21 @@ pub fn s(s: &str) -> Atom {
     Atom::Symbol(s.to_string())
 }
 
+#[wasm_bindgen]
+pub fn s_bind(s: String) -> AtomBind {
+    AtomBind::from(Atom::Symbol(s))
+}
+
 /// creates a symbol
 ///
 /// once the block is generated, this symbol will be added to the symbol table if needed
 pub fn symbol(s: &str) -> Atom {
     Atom::Symbol(s.to_string())
+}
+
+#[wasm_bindgen]
+pub fn symbol_bind(s: String) -> AtomBind {
+    AtomBind::from(Atom::Symbol(s))
 }
 
 /// creates a date
