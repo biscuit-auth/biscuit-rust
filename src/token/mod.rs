@@ -503,6 +503,10 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     )
 }
 
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct BlockBind(Block);
+
 #[derive(Clone, Debug)]
 pub struct Block {
     /// position of the block

@@ -512,7 +512,7 @@ impl World {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct SymbolTable {
     pub symbols: Vec<String>,
 }

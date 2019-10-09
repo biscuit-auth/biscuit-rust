@@ -27,17 +27,6 @@ pub struct KeyPair {
     pub(crate) public: RistrettoPoint,
 }
 
-#[wasm_bindgen]
-pub fn keypair_new() -> KeyPair {
-    let mut rng = OsRng::new().unwrap();
-    KeyPair::new(&mut rng)
-}
-
-#[wasm_bindgen]
-pub fn get_keypair_public(keypair: KeyPair) -> PublicKey {
-    keypair.public()
-}
-
 impl KeyPair {
     pub fn new<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
         let private = Scalar::random(rng);
