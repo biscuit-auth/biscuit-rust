@@ -24,6 +24,12 @@ impl FactBind {
     }
 }
 
+impl Into<Fact> for FactBind {
+    fn into(self) -> Fact {
+        Fact::from(self.0)
+    }
+}
+
 #[wasm_bindgen]
 pub fn fact_bind(name: &str, ids: JsValue) -> FactBind {
     let ids: Vec<Atom> = ids.into_serde().expect("incorrect atom vec");
@@ -31,9 +37,34 @@ pub fn fact_bind(name: &str, ids: JsValue) -> FactBind {
 }
 
 #[wasm_bindgen]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct RuleBind{
     rule: Rule
+}
+
+impl RuleBind {
+    pub fn get_inner_rule(self) -> Rule {
+        self.rule
+    }
+}
+
+impl From<Rule> for RuleBind {
+    fn from(rule: Rule) -> Self {
+        Self{ rule }
+    }
+}
+
+#[wasm_bindgen]
+pub fn rule_bind(
+    head_name: &str,
+    head_ids: JsValue,
+    predicates: JsValue,
+) -> RuleBind {
+    let head_ids: Vec<Atom> = head_ids.into_serde().unwrap();
+    let predicates: Vec<Predicate> = predicates.into_serde().unwrap();
+    RuleBind {
+        rule: rule(head_name, head_ids.as_slice(), &predicates),
+    }
 }
 
 #[wasm_bindgen]

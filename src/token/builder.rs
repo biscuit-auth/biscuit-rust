@@ -260,7 +260,7 @@ impl AsRef<Atom> for Atom {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Deserialize)]
 pub struct Predicate {
     pub name: String,
     pub ids: Vec<Atom>,
@@ -303,6 +303,12 @@ impl Fact {
     }
 }
 
+impl From<Predicate> for Fact {
+    fn from(predicate: Predicate) -> Self {
+        Self(predicate)
+    }
+}
+
 impl Fact {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
         datalog::Fact {
@@ -311,7 +317,7 @@ impl Fact {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Rule(
     pub Predicate,
     pub Vec<Predicate>,

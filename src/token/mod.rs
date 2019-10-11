@@ -482,6 +482,18 @@ impl Biscuit {
             blocks.join(",\n\t")
         )
     }
+
+    pub fn symbols(&self) -> &SymbolTable {
+        &self.symbols
+    }
+
+    pub fn blocks(&self) -> &[Block] {
+        self.blocks.as_slice()
+    }
+
+    pub fn get_container(self) -> Option<SerializedBiscuit> {
+        self.container
+    }
 }
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
@@ -502,10 +514,6 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         caveats.join(",\n\t\t\t"),
     )
 }
-
-#[wasm_bindgen]
-#[derive(Clone, Debug)]
-pub struct BlockBind(Block);
 
 #[derive(Clone, Debug)]
 pub struct Block {

@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub type Symbol = u64;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Deserialize)]
 pub enum ID {
     Symbol(Symbol),
     Variable(u32),
@@ -34,7 +34,7 @@ impl AsRef<ID> for ID {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Deserialize)]
 pub struct Predicate {
     pub name: Symbol,
     pub ids: Vec<ID>,
@@ -75,7 +75,7 @@ pub struct Rule {
     pub constraints: Vec<Constraint>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Constraint {
     pub id: u32,
     pub kind: ConstraintKind,
@@ -87,7 +87,7 @@ impl AsRef<Constraint> for Constraint {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum ConstraintKind {
     Int(IntConstraint),
     Str(StrConstraint),
@@ -95,7 +95,7 @@ pub enum ConstraintKind {
     Symbol(SymbolConstraint),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum IntConstraint {
     Lower(i64),
     Larger(i64),
@@ -106,7 +106,7 @@ pub enum IntConstraint {
     NotIn(HashSet<i64>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum StrConstraint {
     Prefix(String),
     Suffix(String),
@@ -115,13 +115,13 @@ pub enum StrConstraint {
     NotIn(HashSet<String>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum DateConstraint {
     Before(u64),
     After(u64),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum SymbolConstraint {
     In(HashSet<u64>),
     NotIn(HashSet<u64>),
