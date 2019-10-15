@@ -347,6 +347,17 @@ impl Biscuit {
         world.rules = ambient_rules;
 
         let mut errors = vec![];
+
+        for (i, caveat) in ambient_caveats.iter().enumerate() {
+            let res = world.query_rule(caveat.clone());
+            if res.is_empty() {
+                errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
+                    caveat_id: i as u32,
+                    rule: symbols.print_rule(caveat),
+                }));
+            }
+        }
+
         for (i, block) in self.blocks.iter().enumerate() {
             let w = world.clone();
 
@@ -900,5 +911,31 @@ mod tests {
             println!("res1: {:?}", res);
             res.unwrap();
         }
+    }
+
+    #[test]
+    fn verif_no_blocks() {
+      use crate::token::builder::*;
+
+      let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+      let root = KeyPair::new(&mut rng);
+
+      let mut builder = Biscuit::builder(&mut rng, &root);
+
+      builder.add_authority_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
+      builder.add_authority_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
+      builder.add_authority_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
+
+      let biscuit1 = builder.build().unwrap();
+      println!("{}", biscuit1.print());
+
+      let mut v = biscuit1.verify(root.public()).expect("omg verifier");
+
+      v.add_caveat(rule("right",
+          &[s("right")],
+          &[pred("right", &[s("authority"), string("file2"), s("write")])]
+      ));
+
+      assert!(v.verify().is_err());
     }
 }
