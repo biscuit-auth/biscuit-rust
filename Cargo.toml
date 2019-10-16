@@ -7,7 +7,7 @@ build = "build.rs"
 license = "Apache-2.0"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["rlib"]
 
 [dependencies]
 serde = "^1.0.59"
@@ -27,3 +27,4 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
 [dev-dependencies]
 hex = "0.3"
+wasm-bindgen-test = "0.3"
