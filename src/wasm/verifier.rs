@@ -1,5 +1,5 @@
 use super::builder::*;
-use crate::token::Biscuit;
+use super::BiscuitBinder;
 use crate::token::builder::*;
 use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
 
@@ -76,8 +76,8 @@ impl VerifierBind {
     }
 
     #[wasm_bindgen]
-    pub fn verify(&self, biscuit: Biscuit) -> Result<(), JsValue> {
-        let mut symbols = biscuit.symbols().clone();
+    pub fn verify(&self, biscuit: BiscuitBinder) -> Result<(), JsValue> {
+        let mut symbols = biscuit.0.symbols().clone();
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
@@ -95,7 +95,7 @@ impl VerifierBind {
             ambient_caveats.push(caveat.convert(&mut symbols));
         }
 
-        biscuit.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
+        biscuit.0.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
             .map_err(|e| JsValue::from_serde(&e).expect("error serde"))
     }
 }

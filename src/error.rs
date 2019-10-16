@@ -51,7 +51,7 @@ pub enum Signature {
     InvalidSignature,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Logic {
     /// a fact of the authority block did not have the authority tag
     InvalidAuthorityFact(String),
@@ -63,7 +63,7 @@ pub enum Logic {
     FailedCaveats(Vec<FailedCaveat>),
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum FailedCaveat {
     /// a caveat failed in a block
     Block(FailedBlockCaveat),
@@ -71,7 +71,7 @@ pub enum FailedCaveat {
     Verifier(FailedVerifierCaveat),
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FailedBlockCaveat {
     pub block_id: u32,
     pub caveat_id: u32,
@@ -79,7 +79,7 @@ pub struct FailedBlockCaveat {
     pub rule: String,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FailedVerifierCaveat {
     /// if block 0, it was an authority caveat
     pub block_id: u32,

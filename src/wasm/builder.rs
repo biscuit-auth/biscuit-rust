@@ -1,4 +1,3 @@
-//use::crate::token::{Biscuit, Block, BlockBind};
 use crate::token::builder::*;
 use crate::token::{Biscuit, Block};
 use crate::token::default_symbol_table;
@@ -6,6 +5,8 @@ use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable};
 use wasm_bindgen::prelude::*;
 use rand::rngs::OsRng;
+
+use super::BiscuitBinder;
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
@@ -130,7 +131,7 @@ impl BiscuitBuilderBind {
     }
 
     #[wasm_bindgen]
-    pub fn build(mut self,root: KeyPair) -> Result<Biscuit, JsValue> {
+    pub fn build(mut self,root: KeyPair) -> Result<BiscuitBinder, JsValue> {
         let mut rng = OsRng::new().expect("os range");
         let new_syms = self.symbols.symbols.split_off(self.symbols_start);
 
@@ -144,6 +145,7 @@ impl BiscuitBuilderBind {
         };
 
         Biscuit::new(&mut rng, &root, authority_block).map_err(|e| JsValue::from_serde(&e).unwrap())
+            .map(|biscuit| BiscuitBinder(biscuit))
     }
 }
 
