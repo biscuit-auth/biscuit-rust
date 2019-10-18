@@ -1,4 +1,5 @@
-use crate::token::builder::BlockBuilder;
+use crate::token::builder::{BlockBuilder};
+use crate::datalog::SymbolTable;
 use crate::token::*;
 use crate::error;
 use crate::crypto::KeyPair;
@@ -12,16 +13,32 @@ pub mod crypto;
 pub mod verifier;
 
 #[wasm_bindgen]
+pub struct SymbolTableBind(SymbolTable);
+
+#[wasm_bindgen]
+pub fn default_symbol_table() -> SymbolTableBind {
+    let mut syms = SymbolTable::new();
+    syms.insert("authority");
+    syms.insert("ambient");
+    syms.insert("resource");
+    syms.insert("operation");
+    syms.insert("right");
+    syms.insert("current_time");
+    syms.insert("revocation_id");
+
+    SymbolTableBind(syms)
+}
+
+#[wasm_bindgen]
 pub struct BlockBind(Block);
 
 #[wasm_bindgen]
 impl BlockBind {
     #[wasm_bindgen(constructor)]
-    pub fn new(index: u32, symbols: JsValue) -> BlockBind {
-        let symbols = symbols.into_serde().expect("malformated symbols");
+    pub fn new(index: u32, symbols: SymbolTableBind) -> BlockBind {
         BlockBind(Block {
             index,
-            symbols,
+            symbols: symbols.0,
             facts: vec![],
             caveats: vec![],
         })
@@ -44,6 +61,17 @@ pub struct BlockBuilderBind(BlockBuilder);
 
 #[wasm_bindgen]
 impl BlockBuilderBind {
+    #[wasm_bindgen(constructor)]
+    pub fn new(index: u32, symbols: JsValue) -> Self {
+        let symbols = symbols.into_serde().expect("Can't format symbols table");
+        Self(BlockBuilder::new(index, symbols))
+    }
+
+    #[wasm_bindgen()]
+    pub fn new_with_default_symbols() -> Self {
+        Self(BlockBuilder::new(0, default_symbol_table().0))
+    }
+
     pub fn add_fact(&mut self, fact: FactBind) {
         let f = fact.convert(&mut self.0.symbols);
         self.0.facts.push(f);
@@ -76,10 +104,19 @@ pub struct BiscuitBinder(Biscuit);
 
 #[wasm_bindgen]
 impl BiscuitBinder {
+    #[wasm_bindgen(constructor)]
+    pub fn  new(root: &KeyPair, block: BlockBind) -> Result<BiscuitBinder, JsValue> {
+        let mut rng = OsRng::new().expect("can't create OS rng");
+
+        Biscuit::new(&mut rng, root, block.0)
+            .map_err(|e| JsValue::from_serde(&e).expect("error serde"))
+            .map(|biscuit| BiscuitBinder(biscuit))
+    }
+
+
     pub fn from_biscuit(biscuit: &Biscuit) -> Self {
         BiscuitBinder(biscuit.clone())
     }
-
 
     #[wasm_bindgen]
     pub fn from(slice: &[u8]) -> Result<BiscuitBinder, JsValue> {
