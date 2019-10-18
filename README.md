@@ -161,6 +161,24 @@ fn main() {
 }
 ```
 
+## WebAssembly
+
+The project support the `wasm32-unknown-unknown` compilation target. We export the biscuit API in WebAssembly in order to allow other languages to use Biscuit.
+The wasm binding has been done with [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen), a facilitating high-level interactions between wasm modules and JavaScript.
+
+### Compile for WebAssembly
+
+We use the tool [wasm-pack](https://github.com/rustwasm/wasm-pack). It helps to build a rust-generated WebAssembly package that could be publish to the npm registry, or otherwise use alongside any javascript packages in workflows e.g.: webpack.
+
+`wasm-pack build`
+
+### Run the test
+
+Run the tests with:
+`wasm-pack test --node`
+
+NOTE: By default, the tests are generated to target Node.js, but you can configure tests to run inside headless browsers as well.
+
 ## Concepts
 
 ### blocks
