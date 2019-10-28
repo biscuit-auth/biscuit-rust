@@ -18,11 +18,12 @@ fn wasm_create_biscuit_with_authority_fact_only_and_verify_should_fail_on_caveat
     let res = create_biscuit_with_authority_fact_and_verify_should_fail_on_caveat();
 
     if let Err(e) = res {
-        let err: error::Logic = e.into_serde().expect("yolo");
+        let err: error::Logic = e.into_serde().expect("expected error::Logic");
         assert_eq!(
             error::Logic::FailedCaveats(
                 vec![
                     Verifier(error::FailedVerifierCaveat{
+                        block_id: 0,
                         caveat_id: 0,
                         rule: "right(#right) <- right(#authority, \"file2\", #write) | ".to_string() })
                 ]
@@ -37,5 +38,10 @@ fn wasm_create_biscuit_with_authority_fact_only_and_verify_should_fail_on_caveat
 #[wasm_bindgen_test]
 fn wasm_create_block_with_authority_fact_only_and_verify() {
     let res = create_block_with_authority_fact_and_verify();
+
+    if let Err(e) = res {
+        panic!("{:#?}", e)
+    }
+
     assert!(res.is_ok())
 }

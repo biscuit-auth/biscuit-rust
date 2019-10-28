@@ -11,7 +11,8 @@ use wasm_bindgen::prelude::*;
 pub struct VerifierBind {
     facts: Vec<Fact>,
     rules: Vec<Rule>,
-    caveats: Vec<Rule>,
+    block_caveats: Vec<Rule>,
+    authority_caveats: Vec<Rule>,
 }
 
 #[wasm_bindgen]
@@ -21,7 +22,8 @@ impl VerifierBind {
         VerifierBind{
             facts: vec![],
             rules: vec![],
-            caveats: vec![],
+            block_caveats: vec![],
+            authority_caveats: vec![],
         }
     }
 
@@ -36,8 +38,13 @@ impl VerifierBind {
     }
 
     #[wasm_bindgen]
-    pub fn add_caveat(&mut self, caveat: RuleBind) {
-        self.caveats.push(caveat.get_inner_rule());
+    pub fn add_block_caveat(&mut self, caveat: RuleBind) {
+        self.block_caveats.push(caveat.get_inner_rule());
+    }
+
+    #[wasm_bindgen]
+    pub fn add_authority_caveats(&mut self, caveat: RuleBind) {
+        self.block_caveats.push(caveat.get_inner_rule());
     }
 
     #[wasm_bindgen]
@@ -72,7 +79,7 @@ impl VerifierBind {
                 kind: ConstraintKind::Int(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );
-        self.add_caveat(RuleBind::from(caveat));
+        self.add_block_caveat(RuleBind::from(caveat));
     }
 
     #[wasm_bindgen]
@@ -81,7 +88,8 @@ impl VerifierBind {
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
-        let mut ambient_caveats = vec![];
+        let mut authority_caveats = vec![];
+        let mut block_caveats = vec![];
 
         for fact in self.facts.iter() {
             ambient_facts.push(fact.convert(&mut symbols));
@@ -91,11 +99,15 @@ impl VerifierBind {
             ambient_rules.push(rule.convert(&mut symbols));
         }
 
-        for caveat in self.caveats.iter() {
-            ambient_caveats.push(caveat.convert(&mut symbols));
+        for caveat in self.authority_caveats.iter() {
+            authority_caveats.push(caveat.convert(&mut symbols));
         }
 
-        biscuit.0.check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
+        for caveat in self.block_caveats.iter() {
+            block_caveats.push(caveat.convert(&mut symbols));
+        }
+
+        biscuit.0.check(&symbols, ambient_facts, ambient_rules, authority_caveats, block_caveats)
             .map_err(|e| JsValue::from_serde(&e).expect("error serde"))
     }
 }
