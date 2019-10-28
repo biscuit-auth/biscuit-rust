@@ -8,7 +8,8 @@ pub struct Verifier<'a> {
     token: &'a Biscuit,
     facts: Vec<Fact>,
     rules: Vec<Rule>,
-    caveats: Vec<Rule>,
+    block_caveats: Vec<Rule>,
+    authority_caveats: Vec<Rule>,
 }
 
 impl<'a> Verifier<'a> {
@@ -17,7 +18,8 @@ impl<'a> Verifier<'a> {
             token,
             facts: vec![],
             rules: vec![],
-            caveats: vec![],
+            block_caveats: vec![],
+            authority_caveats: vec![],
         }
     }
 
@@ -29,8 +31,18 @@ impl<'a> Verifier<'a> {
         self.rules.push(rule);
     }
 
-    pub fn add_caveat(&mut self, caveat: Rule) {
-        self.caveats.push(caveat);
+    /// block level caveats
+    ///
+    /// these caveats will be tested on each block
+    pub fn add_block_caveat(&mut self, caveat: Rule) {
+        self.block_caveats.push(caveat);
+    }
+
+    /// caveats for authority level data
+    ///
+    /// these caveats will be tested once for the entire token
+    pub fn add_authority_caveat(&mut self, caveat: Rule) {
+        self.authority_caveats.push(caveat);
     }
 
     pub fn add_resource(&mut self, resource: &str) {
@@ -60,7 +72,7 @@ impl<'a> Verifier<'a> {
                 kind: ConstraintKind::Int(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );
-        self.add_caveat(caveat);
+        self.add_block_caveat(caveat);
     }
 
     pub fn verify(&self) -> Result<(), error::Logic> {
@@ -68,7 +80,8 @@ impl<'a> Verifier<'a> {
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
-        let mut ambient_caveats = vec![];
+        let mut authority_caveats = vec![];
+        let mut block_caveats = vec![];
 
         for fact in self.facts.iter() {
             ambient_facts.push(fact.convert(&mut symbols));
@@ -78,11 +91,15 @@ impl<'a> Verifier<'a> {
             ambient_rules.push(rule.convert(&mut symbols));
         }
 
-        for caveat in self.caveats.iter() {
-            ambient_caveats.push(caveat.convert(&mut symbols));
+        for caveat in self.authority_caveats.iter() {
+            authority_caveats.push(caveat.convert(&mut symbols));
+        }
+
+        for caveat in self.block_caveats.iter() {
+            block_caveats.push(caveat.convert(&mut symbols));
         }
 
         self.token
-            .check(&symbols, ambient_facts, ambient_rules, ambient_caveats)
+            .check(&symbols, ambient_facts, ambient_rules, authority_caveats, block_caveats)
     }
 }
