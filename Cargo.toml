@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"]
 edition = "2018"
 build = "build.rs"
+license = "Apache-2.0"
 
 [dependencies]
 rand_core = "^0.3"

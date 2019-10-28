@@ -209,3 +209,14 @@ To reduce the size of tokens, the language supports a data type called "symbol".
 They can be used for pretty printing of a fact or rule. As an example, with a table containing ["resource", "operation", "read", "caveat1"], we could have the following rule: #4 <- #0("file.txt") & #1(#2)that would be printed ascaveat1 <- resoucr("file.txt") & operation(read)`
 
 biscuit implementations come with a default symbol table to avoid transmitting frequent values with every token.
+
+## License
+
+Licensed under Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in the work by you, as defined in the Apache-2.0
+license, shall be licensed as above, without any additional terms or
+conditions.
