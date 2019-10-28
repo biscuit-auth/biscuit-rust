@@ -34,6 +34,8 @@ pub struct Block {
     #[prost(message, repeated, tag="3")]
     pub facts: ::std::vec::Vec<Fact>,
     #[prost(message, repeated, tag="4")]
+    pub rules: ::std::vec::Vec<Rule>,
+    #[prost(message, repeated, tag="5")]
     pub caveats: ::std::vec::Vec<Rule>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

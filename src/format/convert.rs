@@ -63,6 +63,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
         index: input.index,
         symbols: input.symbols.symbols.clone(),
         facts: input.facts.iter().map(token_fact_to_proto_fact).collect(),
+        rules: input.rules.iter().map(token_rule_to_proto_rule).collect(),
         caveats: input.caveats.iter().map(token_rule_to_proto_rule).collect(),
     }
 }
@@ -71,6 +72,11 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
     let mut facts = vec![];
     for fact in input.facts.iter() {
         facts.push(proto_fact_to_token_fact(fact)?);
+    }
+
+    let mut rules = vec![];
+    for rule in input.rules.iter() {
+        rules.push(proto_rule_to_token_rule(rule)?);
     }
 
     let mut caveats = vec![];
@@ -84,6 +90,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
             symbols: input.symbols.clone(),
         },
         facts,
+        rules,
         caveats,
     })
 }

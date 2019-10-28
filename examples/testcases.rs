@@ -72,6 +72,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     verifier_authority_caveats(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    authority_caveats(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -746,23 +749,6 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     println!("## verifier authority caveats: test13_verifier_authority_caveats.bc");
 
     let mut builder = Biscuit::builder(rng, &root);
-    /*builder.add_authority_rule(&rule(
-        "right",
-        &[symbol("authority"), variable(1), symbol("read")],
-        &[
-            pred("resource", &[s("ambient"), variable(1)]),
-            pred("owner", &[s("ambient"), variable(0), variable(1)]),
-        ],
-    ));
-    builder.add_authority_rule(&rule(
-        "right",
-        &[symbol("authority"), variable(1), symbol("write")],
-        &[
-            pred("resource", &[s("ambient"), variable(1)]),
-            pred("owner", &[s("ambient"), variable(0), variable(1)]),
-        ],
-    ));
-    */
 
     builder.add_authority_fact(&fact(
         "right",
@@ -792,6 +778,41 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
               pred("operation", &[s("ambient"), var(1)]),
               ],
             )],
+            vec![]
+        )
+    );
+
+    write_testcase(target, "test13_verifier_authority_caveats", &data[..]);
+}
+
+fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## authority caveats: test14_authority_caveats.bc");
+
+    let mut builder = Biscuit::builder(rng, &root);
+
+    builder.add_authority_caveat(&rule(
+              "caveat1",
+              &[variable(0), variable(1)],
+              &[
+              pred("resource", &[s("ambient"), string("file1")]),
+              ],
+            ));
+
+    let biscuit1 = builder.build().unwrap();
+    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+    let data = biscuit1.to_vec().unwrap();
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file2")]),
+                fact("operation", &[s("ambient"), s("read")]),
+            ],
+            vec![],
+            vec![],
             vec![]
         )
     );

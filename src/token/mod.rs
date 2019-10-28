@@ -313,8 +313,7 @@ impl Biscuit {
             world.facts.insert(fact);
         }
 
-        // autority caveats are actually rules
-        for rule in self.authority.caveats.iter().cloned() {
+        for rule in self.authority.rules.iter().cloned() {
             world.rules.push(rule);
         }
 
@@ -351,7 +350,19 @@ impl Biscuit {
 
         let mut errors = vec![];
 
-        // authority level caveast
+        // authority caveats provided by the authority block
+        for (i, caveat) in self.authority.caveats.iter().enumerate() {
+            let res = world.query_rule(caveat.clone());
+            if res.is_empty() {
+                errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
+                    block_id: 0,
+                    caveat_id: i as u32,
+                    rule: symbols.print_rule(caveat),
+                }));
+            }
+        }
+
+        // authority level caveats provided by the verifier
         for (i, caveat) in authority_caveats.iter().enumerate() {
             let res = world.query_rule(caveat.clone());
             if res.is_empty() {
@@ -473,18 +484,20 @@ impl Biscuit {
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     let facts: Vec<_> = block.facts.iter().map(|f| symbols.print_fact(f)).collect();
-    let rules: Vec<_> = block
+    let rules: Vec<_> = block.rules.iter().map(|r| symbols.print_rule(r)).collect();
+    let caveats: Vec<_> = block
         .caveats
         .iter()
         .map(|r| symbols.print_rule(r))
         .collect();
 
     format!(
-        "Block[{}] {{\n\t\tsymbols: {:?}\n\t\tfacts: [\n\t\t\t{}]\n\t\trules:[\n\t\t\t{}]\n}}",
+        "Block[{}] {{\n\t\tsymbols: {:?}\n\t\tfacts: [\n\t\t\t{}]\n\t\trules:[\n\t\t\t{}]\n\t\tcaveats:[\n\t\t\t{}]\n}}",
         block.index,
         block.symbols.symbols,
         facts.join(",\n\t\t\t"),
-        rules.join(",\n\t\t\t")
+        rules.join(",\n\t\t\t"),
+        caveats.join(",\n\t\t\t"),
     )
 }
 
@@ -496,6 +509,8 @@ pub struct Block {
     pub symbols: SymbolTable,
     /// list of facts provided by this block
     pub facts: Vec<Fact>,
+    /// list of rules provided by this block
+    pub rules: Vec<Rule>,
     /// caveats that the token and ambient data must validate
     pub caveats: Vec<Rule>,
 }
@@ -509,6 +524,7 @@ impl Block {
             index,
             symbols: base_symbols,
             facts: vec![],
+            rules: vec![],
             caveats: vec![],
         }
     }

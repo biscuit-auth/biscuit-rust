@@ -13,6 +13,7 @@ pub struct BlockBuilder {
     pub symbols_start: usize,
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
+    pub rules: Vec<datalog::Rule>,
     pub caveats: Vec<datalog::Rule>,
 }
 
@@ -23,6 +24,7 @@ impl BlockBuilder {
             symbols_start: base_symbols.symbols.len(),
             symbols: base_symbols,
             facts: vec![],
+            rules: vec![],
             caveats: vec![],
         }
     }
@@ -30,6 +32,11 @@ impl BlockBuilder {
     pub fn add_fact(&mut self, fact: &Fact) {
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
+    }
+
+    pub fn add_rule(&mut self, rule: &Rule) {
+        let c = rule.convert(&mut self.symbols);
+        self.rules.push(c);
     }
 
     pub fn add_caveat(&mut self, caveat: &Rule) {
@@ -46,6 +53,7 @@ impl BlockBuilder {
             index: self.index,
             symbols: self.symbols,
             facts: self.facts,
+            rules: self.rules,
             caveats: self.caveats,
         }
     }
@@ -141,6 +149,7 @@ pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
+    pub caveats: Vec<datalog::Rule>,
 }
 
 impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
@@ -156,6 +165,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
+            caveats: vec![],
         }
     }
 
@@ -181,6 +191,11 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
         self.rules.push(r);
     }
 
+    pub fn add_authority_caveat(&mut self, caveat: &Rule) {
+        let r = caveat.convert(&mut self.symbols);
+        self.caveats.push(r);
+    }
+
     pub fn add_right(&mut self, resource: &str, right: &str) {
         self.add_authority_fact(&fact(
             "right",
@@ -197,7 +212,8 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
             index: 0,
             symbols: self.symbols,
             facts: self.facts,
-            caveats: self.rules,
+            rules: self.rules,
+            caveats: self.caveats,
         };
 
         Biscuit::new(self.rng, self.root, authority_block)
