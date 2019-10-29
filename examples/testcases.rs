@@ -7,12 +7,16 @@ extern crate rand;
 use biscuit::crypto::KeyPair;
 use biscuit::error;
 use biscuit::token::{builder::*, default_symbol_table, Biscuit};
+use biscuit::datalog::{Constraint, ConstraintKind, StrConstraint, DateConstraint};
 use curve25519_dalek::scalar::Scalar;
 use prost::Message;
 use rand::prelude::*;
-use std::fs::File;
-use std::io::Write;
-use std::time::*;
+use std::{
+  fs::File,
+  io::Write,
+  time::*,
+  collections::HashSet
+};
 
 fn main() {
     let mut args = std::env::args();
@@ -75,6 +79,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     authority_caveats(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    block_rules(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -818,4 +825,112 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     );
 
     write_testcase(target, "test13_verifier_authority_caveats", &data[..]);
+}
+
+fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## block rules: test15_block_rules.bc");
+
+    let mut builder = Biscuit::builder(rng, &root);
+    builder.add_authority_fact(&fact(
+        "right",
+        &[s("authority"), string("file1"), s("read")],
+    ));
+    builder.add_authority_fact(&fact(
+        "right",
+        &[s("authority"), string("file2"), s("read")],
+    ));
+
+    let biscuit1 = builder.build().unwrap();
+
+    let mut block2 = biscuit1.create_block();
+
+    // timestamp for Thursday, December 31, 2030 1:59:59 PM GMT+01:00
+    let date1 = 1924952399;
+
+    // generate valid_date("file1") if before date1
+    block2.add_rule(&constrained_rule(
+        "valid_date",
+        &[string("file1")],
+        &[
+            pred("time", &[s("ambient"), variable(0)]),
+            pred("resource", &[s("ambient"), string("file1")]),
+        ],
+        &[Constraint {
+          id: 0,
+          kind: ConstraintKind::Date(DateConstraint::Before(date1)),
+        }]
+    ));
+
+    // timestamp for Friday, December 31, 1999 1:59:59 PM GMT+01:00
+    let date2 = 946645199;
+
+    let mut strings = HashSet::new();
+    strings.insert("file1".to_string());
+
+    // generate a valid date fact for any file other than "file1" if before date2
+    block2.add_rule(&constrained_rule(
+        "valid_date",
+        &[variable(1)],
+        &[
+            pred("time", &[s("ambient"), variable(0)]),
+            pred("resource", &[s("ambient"), variable(1)]),
+        ],
+        &[
+          Constraint {
+            id: 0,
+            kind: ConstraintKind::Date(DateConstraint::Before(date2)),
+          },
+          Constraint {
+            id: 1,
+            kind: ConstraintKind::Str(StrConstraint::NotIn(strings))
+          }
+        ]
+    ));
+
+    block2.add_caveat(&rule(
+        "caveat1",
+        &[variable(0)],
+        &[
+            pred("valid_date", &[variable(0)]),
+            pred("resource", &[s("ambient"), var(0)]),
+        ]
+    ));
+
+    let keypair2 = KeyPair::new(rng);
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+
+    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+
+    let data = biscuit2.to_vec().unwrap();
+    println!(
+        "validation for \"file1\": `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file1")]),
+                fact("time", &[s("ambient"), date(&SystemTime::now())])
+            ],
+            vec![],
+            vec![],
+            vec![]
+        )
+    );
+
+    println!(
+        "validation for \"file2\": `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file2")]),
+                fact("time", &[s("ambient"), date(&SystemTime::now())])
+            ],
+            vec![],
+            vec![],
+            vec![]
+        )
+    );
+
+    write_testcase(target, "test15_block_rules", &data[..]);
 }

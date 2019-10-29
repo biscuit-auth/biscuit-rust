@@ -560,6 +560,10 @@ impl Block {
             world.facts.insert(fact);
         }
 
+        for rule in self.rules.iter().cloned() {
+            world.rules.push(rule);
+        }
+
         world.run();
 
         let mut errors = vec![];
