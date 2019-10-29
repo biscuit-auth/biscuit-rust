@@ -292,7 +292,7 @@ impl Biscuit {
     ///
     /// the symbol table argument is generated from the token's symbol table, adding
     /// new symbols as needed from ambient facts and rules
-    pub(crate) fn check(
+    pub fn check(
         &self,
         symbols: &SymbolTable,
         mut ambient_facts: Vec<Fact>,

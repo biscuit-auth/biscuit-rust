@@ -1,5 +1,8 @@
 //! error types
 //!
+
+use serde::{Serialize, Deserialize};
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum Token {
     InternalError,

@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use serde::{Serialize, Deserialize};
 
 pub type Symbol = u64;
 

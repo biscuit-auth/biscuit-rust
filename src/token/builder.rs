@@ -6,6 +6,7 @@ use crate::datalog::{
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
 use std::time::{SystemTime, UNIX_EPOCH};
+use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {

@@ -10,9 +10,7 @@ license = "Apache-2.0"
 crate-type = ["rlib"]
 
 [dependencies]
-serde = "^1.0.59"
-serde_derive = "^1.0.59"
-rand = { version = "0.6", features = ["wasm-bindgen"] }
+serde = { version = "^1.0.59", features = ["derive"] }
 rand_core = "^0.3"
 sha2 = "^0.8"
 hmac = "^0.7"
@@ -28,3 +26,4 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 [dev-dependencies]
 hex = "0.3"
 wasm-bindgen-test = "0.3"
+rand = { version = "0.6", features = ["wasm-bindgen"] }
