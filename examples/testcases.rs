@@ -798,19 +798,32 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     let mut builder = Biscuit::builder(rng, &root);
 
     builder.add_authority_caveat(&rule(
-              "caveat1",
-              &[variable(0), variable(1)],
-              &[
-              pred("resource", &[s("ambient"), string("file1")]),
-              ],
-            ));
+        "caveat1",
+        &[string("file1")],
+        &[pred("resource", &[s("ambient"), string("file1")])],
+    ));
 
     let biscuit1 = builder.build().unwrap();
     println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
     let data = biscuit1.to_vec().unwrap();
     println!(
-        "validation: `{:?}`",
+        "validation for \"file1\": `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file1")]),
+                fact("operation", &[s("ambient"), s("read")]),
+            ],
+            vec![],
+            vec![],
+            vec![]
+        )
+    );
+
+    println!(
+        "validation for \"file2\": `{:?}`",
         validate_token(
             root,
             &data[..],
