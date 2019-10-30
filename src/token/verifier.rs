@@ -78,6 +78,11 @@ impl<'a> Verifier<'a> {
     pub fn verify(&self) -> Result<(), error::Token> {
         let mut symbols = self.token.symbols.clone();
 
+        //FIXME: should check for the presence of any other symbol ion the token
+        if symbols.get("authority").is_none() || symbols.get("ambient").is_none() {
+          return Err(error::Token::MissingSymbols);
+        }
+
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
         let mut authority_caveats = vec![];

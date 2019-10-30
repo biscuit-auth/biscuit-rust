@@ -11,6 +11,8 @@ pub enum Token {
     InvalidBlockIndex(InvalidBlockIndex),
     /// multiple blocks declare the same symbols
     SymbolTableOverlap,
+    /// the symbol table is missing either "authority" or "ambient"
+    MissingSymbols,
     /// tried to append a block to a sealed token
     Sealed,
     /// caveat validation failed
