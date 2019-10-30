@@ -811,7 +811,7 @@ mod tests {
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
-                Err(Logic::FailedCaveats(vec![FailedCaveat::Block(
+                Err(Token::FailedLogic(Logic::FailedCaveats(vec![FailedCaveat::Block(
                     FailedBlockCaveat {
                         block_id: 0,
                         caveat_id: 0,
@@ -819,7 +819,7 @@ mod tests {
                             "prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*"
                         )
                     }
-                ),]))
+                ),])))
             );
         }
 
@@ -831,10 +831,10 @@ mod tests {
             let res = verifier.verify();
             println!("res3: {:?}", res);
             assert_eq!(res,
-              Err(Logic::FailedCaveats(vec![
+              Err(Token::FailedLogic(Logic::FailedCaveats(vec![
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*") }),
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
-              ])));
+              ]))));
         }
     }
 
@@ -974,8 +974,8 @@ mod tests {
       let res = v.verify();
       println!("res: {:?}", res);
       assert_eq!(res,
-        Err(Logic::FailedCaveats(vec![
+        Err(Token::FailedLogic(Logic::FailedCaveats(vec![
           FailedCaveat::Verifier(FailedVerifierCaveat { block_id: 0, caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
-      ])));
+      ]))));
     }
 }

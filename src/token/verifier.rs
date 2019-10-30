@@ -75,7 +75,7 @@ impl<'a> Verifier<'a> {
         self.add_block_caveat(caveat);
     }
 
-    pub fn verify(&self) -> Result<(), error::Logic> {
+    pub fn verify(&self) -> Result<(), error::Token> {
         let mut symbols = self.token.symbols.clone();
 
         let mut ambient_facts = vec![];
@@ -105,6 +105,6 @@ impl<'a> Verifier<'a> {
             ambient_rules,
             authority_caveats,
             block_caveats,
-        )
+        ).map_err(error::Token::FailedLogic)
     }
 }

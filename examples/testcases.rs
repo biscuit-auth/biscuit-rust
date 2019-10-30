@@ -108,7 +108,7 @@ fn validate_token(
         verifier.add_block_caveat(caveat);
     }
 
-    verifier.verify().map_err(error::Token::FailedLogic)
+    verifier.verify()
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
