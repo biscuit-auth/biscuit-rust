@@ -79,9 +79,9 @@ impl Biscuit {
     pub fn new<T: RngCore + CryptoRng>(
         rng: &mut T,
         root: &KeyPair,
+        mut symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
-        let mut symbols = default_symbol_table();
         let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
         let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
 

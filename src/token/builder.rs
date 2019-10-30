@@ -204,19 +204,17 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
     }
 
     pub fn build(mut self) -> Result<Biscuit, error::Token> {
-        let new_syms = self.symbols.symbols.split_off(self.symbols_start);
-
-        self.symbols.symbols = new_syms;
+        let new_syms = SymbolTable { symbols: self.symbols.symbols.split_off(self.symbols_start) };
 
         let authority_block = Block {
             index: 0,
-            symbols: self.symbols,
+            symbols: new_syms,
             facts: self.facts,
             rules: self.rules,
             caveats: self.caveats,
         };
 
-        Biscuit::new(self.rng, self.root, authority_block)
+        Biscuit::new(self.rng, self.root, self.symbols, authority_block)
     }
 }
 

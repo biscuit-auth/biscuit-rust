@@ -122,23 +122,22 @@ fn write_testcase(target: &str, name: &str, data: &[u8]) {
 fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## basic token: test1_basic.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -176,15 +175,14 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
     println!("## different root key: test2_different_root_key.bc");
 
     let root2 = KeyPair::new(rng);
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root2);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root2, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -221,23 +219,22 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid signature format: test3_invalid_signature_format.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -279,23 +276,22 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
 fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## random block: test4_random_block.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -338,23 +334,22 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid signature: test5_invalid_signature.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -394,23 +389,22 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
 fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## reordered blocks: test6_reordered_blocks.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -471,8 +465,7 @@ fn missing_authority_tag<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
     println!("## missing authority tag: test7_missing_authority_tag.bc");
 
     let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
-
+    let mut authority_block = BlockBuilder::new(0, symbols.clone());
     authority_block.add_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
@@ -482,8 +475,7 @@ fn missing_authority_tag<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
         &[s("authority"), string("file2"), s("read")],
     ));
     authority_block.add_fact(&fact("right", &[string("file1"), s("write")]));
-
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = Biscuit::new(rng, &root, symbols, authority_block.build()).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -516,15 +508,14 @@ fn missing_authority_tag<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
 fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid block fact with authority tag: test8_invalid_block_fact_authority.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -562,15 +553,14 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
 fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid block fact with ambient tag: test9_invalid_block_fact_ambient.bc");
 
-    let symbols = default_symbol_table();
-    let mut authority_block = BlockBuilder::new(0, symbols);
+    let mut builder = Biscuit::builder(rng, &root);
 
-    authority_block.add_fact(&fact(
+    builder.add_authority_fact(&fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -605,9 +595,8 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## separate block validation (facts from one block should not be usable in another one): test10_separate_block_validation.bc");
 
-    let symbols = default_symbol_table();
-    let authority_block = BlockBuilder::new(0, symbols);
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let mut builder = Biscuit::builder(rng, &root);
+    let biscuit1 = builder.build().unwrap();
     let mut block2 = biscuit1.create_block();
 
     block2.add_fact(&fact("test", &[s("write")]));
@@ -641,10 +630,8 @@ fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
 fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## expired token: test11_expired_token.bc");
 
-    let symbols = default_symbol_table();
-    let authority_block = BlockBuilder::new(0, symbols);
-
-    let biscuit1 = Biscuit::new(rng, &root, authority_block.build()).unwrap();
+    let mut builder = Biscuit::builder(rng, &root);
+    let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
 
