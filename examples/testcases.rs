@@ -837,11 +837,11 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         )
     );
 
-    write_testcase(target, "test13_verifier_authority_caveats", &data[..]);
+    write_testcase(target, "test14_authority_caveats", &data[..]);
 }
 
 fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
-    println!("## block rules: test14_block_rules.bc");
+    println!("## block rules: test15_block_rules.bc");
 
     let mut builder = Biscuit::builder(rng, &root);
     builder.add_authority_fact(&fact(
@@ -945,5 +945,5 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         )
     );
 
-    write_testcase(target, "test14_block_rules", &data[..]);
+    write_testcase(target, "test15_block_rules", &data[..]);
 }
