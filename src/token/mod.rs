@@ -112,6 +112,11 @@ impl Biscuit {
 
     /// deserializes a token and validates the signature using the root public key
     pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
+      Biscuit::from_with_symbols(slice, default_symbol_table())
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::from_slice(slice).map_err(error::Token::Format)?;
 
         let authority: Block = schema::Block::decode(&container.authority)
@@ -151,7 +156,6 @@ impl Biscuit {
             index += 1;
         }
 
-        let mut symbols = default_symbol_table();
         symbols
             .symbols
             .extend(authority.symbols.symbols.iter().cloned());
@@ -172,8 +176,13 @@ impl Biscuit {
         })
     }
 
-    /// deserializes a sealed token and checks its signature with the secret
+    /// deserializes a sealed token and checks its signature with the secret, using a custom symbol table
     pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, error::Token> {
+      Biscuit::from_sealed_with_symbols(slice, secret, default_symbol_table())
+    }
+
+    /// deserializes a sealed token and checks its signature with the secret
+    pub fn from_sealed_with_symbols(slice: &[u8], secret: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container =
             sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
 
@@ -214,7 +223,6 @@ impl Biscuit {
             index += 1;
         }
 
-        let mut symbols = default_symbol_table();
         symbols
             .symbols
             .extend(authority.symbols.symbols.iter().cloned());
