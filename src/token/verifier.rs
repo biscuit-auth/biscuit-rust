@@ -1,6 +1,5 @@
-use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule};
+use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule, Constraint, ConstraintKind, IntConstraint};
 use super::Biscuit;
-use crate::datalog::{Constraint, ConstraintKind, IntConstraint};
 use crate::error;
 use std::time::SystemTime;
 
@@ -69,7 +68,7 @@ impl<'a> Verifier<'a> {
             &[pred("revocation_id", &[Atom::Variable(0)])],
             &[Constraint {
                 id: 0,
-                kind: ConstraintKind::Int(IntConstraint::NotIn(ids.iter().cloned().collect())),
+                kind: ConstraintKind::Integer(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );
         self.add_block_caveat(caveat);

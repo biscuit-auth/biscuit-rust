@@ -1,11 +1,14 @@
 use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{
-    self, Constraint, ConstraintKind, DateConstraint, StrConstraint, SymbolTable, ID,
+    self, SymbolTable, ID,
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
+
+// reexport those because the builder uses the same definitions
+pub use crate::datalog::{IntConstraint, StrConstraint};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -99,7 +102,7 @@ impl BlockBuilder {
             &[pred("resource", &[s("ambient"), Atom::Variable(0)])],
             &[Constraint {
                 id: 0,
-                kind: ConstraintKind::Str(StrConstraint::Prefix(prefix.to_string())),
+                kind: ConstraintKind::String(datalog::StrConstraint::Prefix(prefix.to_string())),
             }],
         );
 
@@ -113,7 +116,7 @@ impl BlockBuilder {
             &[pred("resource", &[s("ambient"), Atom::Variable(0)])],
             &[Constraint {
                 id: 0,
-                kind: ConstraintKind::Str(StrConstraint::Suffix(suffix.to_string())),
+                kind: ConstraintKind::String(datalog::StrConstraint::Suffix(suffix.to_string())),
             }],
         );
 
@@ -121,16 +124,13 @@ impl BlockBuilder {
     }
 
     pub fn expiration_date(&mut self, date: SystemTime) {
-        let dur = date.duration_since(UNIX_EPOCH).unwrap();
-        let d = dur.as_secs();
-
         let caveat = constrained_rule(
             "expiration",
             &[Atom::Variable(0)],
             &[pred("time", &[s("ambient"), Atom::Variable(0)])],
             &[Constraint {
                 id: 0,
-                kind: ConstraintKind::Date(DateConstraint::Before(d)),
+                kind: ConstraintKind::Date(DateConstraint::Before(date)),
             }],
         );
 
@@ -309,10 +309,76 @@ impl Fact {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Constraint {
+    pub id: u32,
+    pub kind: ConstraintKind,
+}
+
+impl Constraint {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Constraint {
+        datalog::Constraint {
+          id: self.id,
+          kind: self.kind.convert(symbols),
+        }
+    }
+}
+
+impl AsRef<Constraint> for Constraint {
+    fn as_ref(&self) -> &Constraint {
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConstraintKind {
+    Integer(datalog::IntConstraint),
+    String(datalog::StrConstraint),
+    Date(DateConstraint),
+    Symbol(SymbolConstraint),
+}
+
+impl ConstraintKind {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::ConstraintKind {
+      match self {
+        ConstraintKind::Integer(i) => datalog::ConstraintKind::Int(i.clone()),
+        ConstraintKind::String(s) => datalog::ConstraintKind::Str(s.clone()),
+        ConstraintKind::Date(DateConstraint::Before(date)) => {
+          let dur = date.duration_since(UNIX_EPOCH).expect("date should be after Unix Epoch");
+          datalog::ConstraintKind::Date(datalog::DateConstraint::Before(dur.as_secs()))
+        },
+        ConstraintKind::Date(DateConstraint::After(date)) => {
+          let dur = date.duration_since(UNIX_EPOCH).expect("date should be after Unix Epoch");
+          datalog::ConstraintKind::Date(datalog::DateConstraint::After(dur.as_secs()))
+        }
+        ConstraintKind::Symbol(SymbolConstraint::In(h)) => {
+          let hset = h.iter().map(|s| symbols.insert(&s)).collect();
+          datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::In(hset))
+        },
+        ConstraintKind::Symbol(SymbolConstraint::NotIn(h)) => {
+          let hset = h.iter().map(|s| symbols.insert(&s)).collect();
+          datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::NotIn(hset))
+        },
+      }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DateConstraint {
+    Before(SystemTime),
+    After(SystemTime),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SymbolConstraint {
+    In(HashSet<String>),
+    NotIn(HashSet<String>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Rule(
     pub Predicate,
     pub Vec<Predicate>,
-    pub Vec<datalog::Constraint>,
+    pub Vec<Constraint>,
 );
 
 impl Rule {
@@ -326,7 +392,7 @@ impl Rule {
         }
 
         for c in self.2.iter() {
-            constraints.push(c.clone());
+            constraints.push(c.convert(symbols));
         }
 
         datalog::Rule {
@@ -364,7 +430,7 @@ pub fn rule<I: AsRef<Atom>, P: AsRef<Predicate>>(
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<datalog::Constraint>>(
+pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<Constraint>>(
     head_name: &str,
     head_ids: &[I],
     predicates: &[P],
