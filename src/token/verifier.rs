@@ -1,7 +1,7 @@
 use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule, Constraint, ConstraintKind, IntConstraint};
 use super::Biscuit;
 use crate::error;
-use std::time::SystemTime;
+use std::{time::SystemTime, collections::HashMap};
 
 pub struct Verifier<'a> {
     token: &'a Biscuit,
@@ -9,6 +9,7 @@ pub struct Verifier<'a> {
     rules: Vec<Rule>,
     block_caveats: Vec<Rule>,
     authority_caveats: Vec<Rule>,
+    queries: HashMap<String, Rule>,
 }
 
 impl<'a> Verifier<'a> {
@@ -19,6 +20,7 @@ impl<'a> Verifier<'a> {
             rules: vec![],
             block_caveats: vec![],
             authority_caveats: vec![],
+            queries: HashMap::new(),
         }
     }
 
@@ -28,6 +30,10 @@ impl<'a> Verifier<'a> {
 
     pub fn add_rule(&mut self, rule: Rule) {
         self.rules.push(rule);
+    }
+
+    pub fn add_query<S: Into<String>>(&mut self, name: S, rule: Rule) {
+        self.queries.insert(name.into(), rule);
     }
 
     /// block level caveats
@@ -74,7 +80,7 @@ impl<'a> Verifier<'a> {
         self.add_block_caveat(caveat);
     }
 
-    pub fn verify(&self) -> Result<(), error::Token> {
+    pub fn verify(&self) -> Result<HashMap<String, HashMap<u32, Vec<Fact>>>, error::Token> {
         let mut symbols = self.token.symbols.clone();
 
         //FIXME: should check for the presence of any other symbol ion the token
@@ -86,6 +92,7 @@ impl<'a> Verifier<'a> {
         let mut ambient_rules = vec![];
         let mut authority_caveats = vec![];
         let mut block_caveats = vec![];
+        let mut queries = HashMap::new();
 
         for fact in self.facts.iter() {
             ambient_facts.push(fact.convert(&mut symbols));
@@ -103,12 +110,27 @@ impl<'a> Verifier<'a> {
             block_caveats.push(caveat.convert(&mut symbols));
         }
 
+        for (key, query) in self.queries.iter() {
+            queries.insert(key.clone(), query.convert(&mut symbols));
+        }
+
         self.token.check(
             &symbols,
             ambient_facts,
             ambient_rules,
             authority_caveats,
             block_caveats,
+            queries,
         ).map_err(error::Token::FailedLogic)
+         .map(|mut query_results| {
+           query_results.drain().map(|(name, mut result)| {
+             (
+               name,
+               result.drain().map(|(block_id, mut facts)| {
+                 (block_id, facts.drain(..).map(|f| Fact::convert_from(&f, &symbols)).collect())
+               }).collect()
+             )
+           }).collect()
+         })
     }
 }

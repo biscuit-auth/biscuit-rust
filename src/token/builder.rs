@@ -237,6 +237,16 @@ impl Atom {
             Atom::Date(d) => ID::Date(*d),
         }
     }
+
+    pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
+      match f {
+        ID::Symbol(s) => Atom::Symbol(symbols.print_symbol(*s)),
+        ID::Variable(i) => Atom::Variable(*i),
+        ID::Integer(i) => Atom::Integer(*i),
+        ID::Str(s) => Atom::Str(s.clone()),
+        ID::Date(d) => Atom::Date(*d),
+      }
+    }
 }
 
 impl From<&Atom> for Atom {
@@ -274,9 +284,14 @@ impl Predicate {
 
         datalog::Predicate { name, ids }
     }
-}
 
-impl Predicate {
+    pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
+        Predicate {
+          name: symbols.print_symbol(p.name),
+          ids: p.ids.iter().map(|id| Atom::convert_from(&id, symbols)).collect(),
+        }
+    }
+
     pub fn new(name: String, ids: &[Atom]) -> Predicate {
         Predicate {
             name,
@@ -305,6 +320,10 @@ impl Fact {
         datalog::Fact {
             predicate: self.0.convert(symbols),
         }
+    }
+
+    pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
+        Fact(Predicate::convert_from(&f.predicate, symbols))
     }
 }
 

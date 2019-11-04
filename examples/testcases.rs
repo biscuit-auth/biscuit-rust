@@ -107,7 +107,8 @@ fn validate_token(
         verifier.add_block_caveat(caveat);
     }
 
-    verifier.verify()
+    verifier.verify()?;
+    Ok(())
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {

@@ -544,6 +544,10 @@ impl SymbolTable {
             .map(|i| i as u64)
     }
 
+    pub fn print_symbol(&self, s: Symbol) -> String {
+      self.symbols.get(s as usize).map(|s| s.to_string()).unwrap_or_else(|| format!("<invalid symbol #{}", s))
+    }
+
     pub fn print_world(&self, w: &World) -> String {
         let facts = w
             .facts

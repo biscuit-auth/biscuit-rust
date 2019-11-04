@@ -6,7 +6,7 @@ use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::format::{convert::proto_block_to_token_block, schema};
 use verifier::Verifier;
@@ -298,6 +298,9 @@ impl Biscuit {
     ///
     /// the symbol table argument is generated from the token's symbol table, adding
     /// new symbols as needed from ambient facts and rules
+    ///
+    /// if successful, it returns answers to the verifier queries as a HashMap indexed
+    /// by the query name. Each query result contains a HashMap of block id -> Vec of Facts
     pub(crate) fn check(
         &self,
         symbols: &SymbolTable,
@@ -305,7 +308,8 @@ impl Biscuit {
         ambient_rules: Vec<Rule>,
         authority_caveats: Vec<Rule>,
         block_caveats: Vec<Rule>,
-    ) -> Result<(), error::Logic> {
+        queries: HashMap<String, Rule>,
+    ) -> Result<HashMap<String, HashMap<u32, Vec<Fact>>>, error::Logic> {
         let mut world = World::new();
 
         let authority_index = symbols.get("authority").unwrap();
@@ -382,10 +386,19 @@ impl Biscuit {
             }
         }
 
+        let mut query_results = HashMap::new();
+        for (name, rule) in queries.iter() {
+          let res = world.query_rule(rule.clone());
+          if !res.is_empty() {
+            let entry = query_results.entry(name.clone()).or_insert_with(HashMap::new);
+            (*entry).insert(0, res);
+          }
+        }
+
         for (i, block) in self.blocks.iter().enumerate() {
             let w = world.clone();
 
-            if let Err(e) = block.check(i, w, symbols, &block_caveats) {
+            if let Err(e) = block.check(i, w, symbols, &block_caveats, &queries, &mut query_results) {
                 match e {
                     error::Logic::FailedCaveats(mut e) => errors.extend(e.drain(..)),
                     e => return Err(e),
@@ -394,7 +407,7 @@ impl Biscuit {
         }
 
         if errors.is_empty() {
-            Ok(())
+            Ok(query_results)
         } else {
             Err(error::Logic::FailedCaveats(errors))
         }
@@ -551,6 +564,8 @@ impl Block {
         mut world: World,
         symbols: &SymbolTable,
         verifier_caveats: &[Rule],
+        queries: &HashMap<String, Rule>,
+        query_results: &mut HashMap<String, HashMap<u32, Vec<Fact>>>,
     ) -> Result<(), error::Logic> {
         let authority_index = symbols.get("authority").unwrap();
         let ambient_index = symbols.get("ambient").unwrap();
@@ -597,6 +612,14 @@ impl Block {
             }
         }
 
+        for (name, rule) in queries.iter() {
+          let res = world.query_rule(rule.clone());
+          if !res.is_empty() {
+            let entry = query_results.entry(name.clone()).or_insert_with(HashMap::new);
+            (*entry).insert(i as u32, res);
+          }
+        }
+
         if errors.is_empty() {
             Ok(())
         } else {
@@ -607,7 +630,7 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::builder::{fact, pred, rule, s, var};
+    use super::builder::{fact, pred, rule, s, var, int};
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
@@ -737,7 +760,7 @@ mod tests {
 
             //println!("final token: {:#?}", final_token);
             //println!("ambient facts: {:#?}", ambient_facts);
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![]);
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![], HashMap::new());
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -755,7 +778,7 @@ mod tests {
                 ambient_facts.push(fact.convert(&mut symbols));
             }
 
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![]);
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![], HashMap::new());
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
@@ -978,4 +1001,61 @@ mod tests {
           FailedCaveat::Verifier(FailedVerifierCaveat { block_id: 0, caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
       ]))));
     }
+
+    #[test]
+    fn verifier_queries() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new(&mut rng);
+
+        let mut builder = Biscuit::builder(&mut rng, &root);
+
+        builder.add_right("file1", "read");
+        builder.add_right("file2", "read");
+
+        let biscuit1 = builder.build().unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1.print());
+
+        let mut block2 = biscuit1.create_block();
+
+        block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
+        block2.revocation_id(1234);
+
+        let keypair2 = KeyPair::new(&mut rng);
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.build())
+            .unwrap();
+
+        let mut block3 = biscuit2.create_block();
+
+        block3.expiration_date(SystemTime::now() + Duration::from_secs(10));
+        block3.revocation_id(5678);
+
+        let keypair3 = KeyPair::new(&mut rng);
+        let biscuit3 = biscuit2
+            .append(&mut rng, &keypair3, block3.build())
+            .unwrap();
+        {
+            let mut verifier = biscuit3.verify(root.public()).unwrap();
+            verifier.add_resource("file1");
+            verifier.add_operation("read");
+            verifier.set_time();
+            verifier.add_query("revocation_ids", rule(
+                "revocation_id_verif",
+                &[builder::Atom::Variable(0)],
+                &[pred("revocation_id", &[builder::Atom::Variable(0)])]
+            ));
+
+            let res = verifier.verify();
+            println!("res1: {:?}", res);
+            assert_eq!(
+              res.unwrap().get("revocation_ids").unwrap(),
+              &[
+                (0, vec![fact("revocation_id_verif", &[int(1234)])]),
+                (1, vec![fact("revocation_id_verif", &[int(5678)])]),
+              ].iter().cloned().collect()
+            );
+        }
+    }
+
 }
