@@ -65,6 +65,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
         facts: input.facts.iter().map(token_fact_to_proto_fact).collect(),
         rules: input.rules.iter().map(token_rule_to_proto_rule).collect(),
         caveats: input.caveats.iter().map(token_rule_to_proto_rule).collect(),
+        context: input.context.clone(),
     }
 }
 
@@ -84,6 +85,8 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         caveats.push(proto_rule_to_token_rule(caveat)?);
     }
 
+    let context = input.context.clone();
+
     Ok(Block {
         index: input.index,
         symbols: SymbolTable {
@@ -92,6 +95,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         facts,
         rules,
         caveats,
+        context,
     })
 }
 

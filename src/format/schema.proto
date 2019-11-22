@@ -26,6 +26,7 @@ message Block {
   repeated Fact   facts = 3;
   repeated Rule   rules = 4;
   repeated Rule   caveats = 5;
+  optional string context = 6;
 }
 
 message Fact {

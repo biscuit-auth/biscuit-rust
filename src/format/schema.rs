@@ -37,6 +37,8 @@ pub struct Block {
     pub rules: ::std::vec::Vec<Rule>,
     #[prost(message, repeated, tag="5")]
     pub caveats: ::std::vec::Vec<Rule>,
+    #[prost(string, optional, tag="6")]
+    pub context: ::std::option::Option<std::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Fact {

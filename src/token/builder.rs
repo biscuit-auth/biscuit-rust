@@ -18,6 +18,7 @@ pub struct BlockBuilder {
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
     pub caveats: Vec<datalog::Rule>,
+    pub context: Option<String>,
 }
 
 impl BlockBuilder {
@@ -29,6 +30,7 @@ impl BlockBuilder {
             facts: vec![],
             rules: vec![],
             caveats: vec![],
+            context: None,
         }
     }
 
@@ -47,6 +49,10 @@ impl BlockBuilder {
         self.caveats.push(c);
     }
 
+    pub fn set_context(&mut self, context: String) {
+        self.context = Some(context);
+    }
+
     pub fn build(mut self) -> Block {
         let new_syms = self.symbols.symbols.split_off(self.symbols_start);
 
@@ -58,6 +64,7 @@ impl BlockBuilder {
             facts: self.facts,
             rules: self.rules,
             caveats: self.caveats,
+            context: self.context,
         }
     }
 
@@ -150,6 +157,7 @@ pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
     pub caveats: Vec<datalog::Rule>,
+    pub context: Option<String>,
 }
 
 impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
@@ -166,6 +174,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
             facts: vec![],
             rules: vec![],
             caveats: vec![],
+            context: None,
         }
     }
 
@@ -203,6 +212,10 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
         ));
     }
 
+    pub fn set_context(&mut self, context: String) {
+        self.context = Some(context);
+    }
+
     pub fn build(mut self) -> Result<Biscuit, error::Token> {
         let new_syms = SymbolTable { symbols: self.symbols.symbols.split_off(self.symbols_start) };
 
@@ -212,6 +225,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
             facts: self.facts,
             rules: self.rules,
             caveats: self.caveats,
+            context: self.context,
         };
 
         Biscuit::new(self.rng, self.root, self.symbols, authority_block)

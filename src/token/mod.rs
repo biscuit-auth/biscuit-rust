@@ -534,6 +534,9 @@ pub struct Block {
     pub rules: Vec<Rule>,
     /// caveats that the token and ambient data must validate
     pub caveats: Vec<Rule>,
+    /// contextual information that can be looked up before the verification
+    /// (as an example, a user id to query rights into a database)
+    pub context: Option<String>,
 }
 
 impl Block {
@@ -547,6 +550,7 @@ impl Block {
             facts: vec![],
             rules: vec![],
             caveats: vec![],
+            context: None,
         }
     }
 
