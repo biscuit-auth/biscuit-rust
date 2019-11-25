@@ -500,6 +500,7 @@ pub fn token_str_constraint_to_proto_str_constraint(
             prefix: Some(s.clone()),
             suffix: None,
             equal: None,
+            regex: None,
             in_set: vec![],
             not_in_set: vec![],
         },
@@ -508,6 +509,7 @@ pub fn token_str_constraint_to_proto_str_constraint(
             prefix: None,
             suffix: Some(s.clone()),
             equal: None,
+            regex: None,
             in_set: vec![],
             not_in_set: vec![],
         },
@@ -516,14 +518,25 @@ pub fn token_str_constraint_to_proto_str_constraint(
             prefix: None,
             suffix: None,
             equal: Some(s.clone()),
+            regex: None,
             in_set: vec![],
             not_in_set: vec![],
+        },
+        StrConstraint::Regex(r) => schema::StringConstraint {
+            kind: Kind::Regex as i32,
+            prefix: None,
+            suffix: None,
+            equal: None,
+            in_set: vec![],
+            not_in_set: vec![],
+            regex: Some(r.clone()),
         },
         StrConstraint::In(s) => schema::StringConstraint {
             kind: Kind::In as i32,
             prefix: None,
             suffix: None,
             equal: None,
+            regex: None,
             in_set: s.iter().cloned().collect(),
             not_in_set: vec![],
         },
@@ -532,6 +545,7 @@ pub fn token_str_constraint_to_proto_str_constraint(
             prefix: None,
             suffix: None,
             equal: None,
+            regex: None,
             in_set: vec![],
             not_in_set: s.iter().cloned().collect(),
         },
@@ -565,6 +579,11 @@ pub fn proto_str_constraint_to_token_str_constraint(
         Kind::Equal => {
             if let Some(ref s) = input.equal {
                 return Ok(StrConstraint::Equal(s.clone()));
+            }
+        }
+        Kind::Regex => {
+            if let Some(ref r) = input.regex {
+                return Ok(StrConstraint::Regex(r.clone()));
             }
         }
         Kind::In => {

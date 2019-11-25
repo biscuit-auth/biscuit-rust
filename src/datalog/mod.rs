@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use regex::Regex;
 
 pub type Symbol = u64;
 
@@ -113,6 +114,7 @@ pub enum StrConstraint {
     Equal(String),
     In(HashSet<String>),
     NotIn(HashSet<String>),
+    Regex(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -148,6 +150,14 @@ impl Constraint {
                 StrConstraint::Prefix(pref) => s.as_str().starts_with(pref.as_str()),
                 StrConstraint::Suffix(suff) => s.as_str().ends_with(suff.as_str()),
                 StrConstraint::Equal(s2) => s == s2,
+                StrConstraint::Regex(r) => {
+                  if let Some(re) = Regex::new(r).ok() {
+                    re.is_match(s)
+                  } else {
+                    // an invalid regex will never match
+                    false
+                  }
+                },
                 StrConstraint::In(h) => h.contains(s),
                 StrConstraint::NotIn(h) => !h.contains(s),
             },
@@ -603,6 +613,7 @@ impl SymbolTable {
             ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("{}? matches {}*", c.id, i),
             ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("{}? matches *{}", c.id, i),
             ConstraintKind::Str(StrConstraint::Equal(i)) => format!("{}? == {}", c.id, i),
+            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("{}? matches /{}/", c.id, i),
             ConstraintKind::Str(StrConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
             ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("{}? not in {:?}", c.id, i),
             ConstraintKind::Date(DateConstraint::Before(i)) => format!("{}? <= {:?}", c.id, i),

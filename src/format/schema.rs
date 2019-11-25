@@ -158,6 +158,8 @@ pub struct StringConstraint {
     pub in_set: ::std::vec::Vec<std::string::String>,
     #[prost(string, repeated, tag="6")]
     pub not_in_set: ::std::vec::Vec<std::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub regex: ::std::option::Option<std::string::String>,
 }
 pub mod string_constraint {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -168,6 +170,7 @@ pub mod string_constraint {
         Equal = 2,
         In = 3,
         NotIn = 4,
+        Regex = 5,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

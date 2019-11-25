@@ -81,6 +81,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     block_rules(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    regex_constraint(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -595,7 +598,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## separate block validation (facts from one block should not be usable in another one): test10_separate_block_validation.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let builder = Biscuit::builder(rng, &root);
     let biscuit1 = builder.build().unwrap();
     let mut block2 = biscuit1.create_block();
 
@@ -630,7 +633,7 @@ fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
 fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## expired token: test11_expired_token.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let builder = Biscuit::builder(rng, &root);
     let biscuit1 = builder.build().unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -933,4 +936,58 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     );
 
     write_testcase(target, "test15_block_rules", &data[..]);
+}
+
+fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## regex_constraint: test16_regex_constraint.bc");
+
+    let mut builder = Biscuit::builder(rng, &root);
+
+    builder.add_authority_caveat(&constrained_rule(
+        "resource_match",
+        &[variable(0)],
+        &[
+            pred("resource", &[s("ambient"), variable(0)]),
+        ],
+        &[
+          Constraint {
+            id: 0,
+            kind: ConstraintKind::String(StrConstraint::Regex("file[0-9]+.txt".to_string())),
+          },
+        ]
+    ));
+
+    let biscuit1 = builder.build().unwrap();
+    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+    let data = biscuit1.to_vec().unwrap();
+    println!(
+        "validation for \"file1\": `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file1")]),
+            ],
+            vec![],
+            vec![],
+            vec![]
+        )
+    );
+
+    println!(
+        "validation for \"file123.txt\": `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[s("ambient"), string("file123.txt")]),
+            ],
+            vec![],
+            vec![],
+            vec![]
+        )
+    );
+
+    write_testcase(target, "test16_regex_constraint", &data[..]);
 }

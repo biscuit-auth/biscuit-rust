@@ -218,6 +218,7 @@ extern crate prost;
 extern crate prost_types;
 extern crate rand_core;
 extern crate sha2;
+extern crate regex;
 
 pub mod crypto;
 pub mod datalog;
