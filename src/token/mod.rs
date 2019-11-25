@@ -495,7 +495,7 @@ impl Biscuit {
             .collect();
 
         format!(
-            "Biscuit {{\n\tsymbols: {:?}\n\tauthority:\n{}\n\tblocks: [\n\t\t{}]\n}}",
+            "Biscuit {{\n    symbols: {:?}\n    authority: {}\n    blocks: [\n        {}\n    ]\n}}",
             self.symbols.symbols,
             authority,
             blocks.join(",\n\t")
@@ -512,13 +512,31 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         .map(|r| symbols.print_rule(r))
         .collect();
 
+
+    let facts = if facts.is_empty() {
+      String::new()
+    } else {
+      format!("\n                {}\n            ", facts.join(",\n                "))
+    };
+    let rules = if rules.is_empty() {
+      String::new()
+    } else {
+      format!("\n                {}\n            ", rules.join(",\n                "))
+    };
+    let caveats = if caveats.is_empty() {
+      String::new()
+    } else {
+      format!("\n                {}\n            ", caveats.join(",\n                "))
+    };
+
     format!(
-        "Block[{}] {{\n\t\tsymbols: {:?}\n\t\tfacts: [\n\t\t\t{}]\n\t\trules:[\n\t\t\t{}]\n\t\tcaveats:[\n\t\t\t{}]\n}}",
+        "Block[{}] {{\n            symbols: {:?}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            caveats: [{}]\n        }}",
         block.index,
         block.symbols.symbols,
-        facts.join(",\n\t\t\t"),
-        rules.join(",\n\t\t\t"),
-        caveats.join(",\n\t\t\t"),
+        block.context.as_ref().map(|s| s.as_str()).unwrap_or(""),
+        facts,
+        rules,
+        caveats,
     )
 }
 
