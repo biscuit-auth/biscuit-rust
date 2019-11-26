@@ -1,0 +1,59 @@
+language: rust
+dist: trusty
+cache: cargo
+
+rust:
+  - nightly
+  - beta
+  - stable
+
+before_script:
+  - eval git pull --rebase https://github.com/clevercloud/biscuit-rust master
+  - eval git log --pretty=oneline HEAD~5..HEAD
+
+matrix:
+  include:
+    - rust: nightly
+      before_script:
+        - export PATH=$HOME/.cargo/bin:$PATH
+        - cargo install cargo-update   || echo "cargo-update already installed"
+        - cargo install cargo-travis   || echo "cargo-travis already installed"
+        - cargo install cargo-benchcmp || echo "cargo-benchcmp already installed"
+        - cargo install-update -a
+    - rust: nightly
+      script:
+        - eval cargo test --no-default-features
+
+script:
+  - eval cargo build --verbose
+  - eval cargo test --verbose
+
+after_success: |
+  case "$TRAVIS_RUST_VERSION" in
+    nightly)
+      cargo bench --verbose
+      cargo coveralls --verbose
+      cargo bench --verbose
+      ;;
+    *)
+      ;;
+  esac
+
+
+addons:
+    apt:
+        packages:
+            - libcurl4-openssl-dev
+            - libelf-dev
+            - libdw-dev
+            - binutils-dev
+            - cmake
+        sources:
+            - kalakris-cmake
+
+cache:
+  directories:
+    - /home/travis/.cargo
+
+before_cache:
+  - rm -rf /home/travis/.cargo/registry
