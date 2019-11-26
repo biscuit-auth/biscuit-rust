@@ -1,7 +1,7 @@
 #![feature(test)]
 extern crate test;
 
-extern crate biscuit;
+extern crate biscuit_auth as biscuit;
 extern crate rand;
 
 use rand::rngs::OsRng;
@@ -10,7 +10,7 @@ use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
 
 #[bench]
 fn create_block_1(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng = OsRng;
   let root = KeyPair::new(&mut rng);
 
   let mut builder = Biscuit::builder(&mut rng, &root);
@@ -36,7 +36,7 @@ fn create_block_1(b: &mut Bencher) {
 
 #[bench]
 fn append_block_2(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
 
@@ -70,7 +70,7 @@ fn append_block_2(b: &mut Bencher) {
 
 #[bench]
 fn append_block_5(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
   let keypair3 = KeyPair::new(&mut rng);
@@ -123,7 +123,7 @@ fn append_block_5(b: &mut Bencher) {
 
 #[bench]
 fn verify_block_2(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
 
@@ -162,7 +162,7 @@ fn verify_block_2(b: &mut Bencher) {
 
 #[bench]
 fn verify_block_5(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
   let keypair3 = KeyPair::new(&mut rng);
@@ -222,7 +222,7 @@ fn verify_block_5(b: &mut Bencher) {
 
 #[bench]
 fn check_signature_2(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
 
@@ -258,7 +258,7 @@ fn check_signature_2(b: &mut Bencher) {
 
 #[bench]
 fn check_signature_5(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
   let keypair3 = KeyPair::new(&mut rng);
@@ -314,7 +314,7 @@ fn check_signature_5(b: &mut Bencher) {
 
 #[bench]
 fn caveats_block_2(b: &mut Bencher) {
-  let mut rng: OsRng = OsRng::new().unwrap();
+  let mut rng: OsRng = OsRng;
   let root = KeyPair::new(&mut rng);
   let keypair2 = KeyPair::new(&mut rng);
 
