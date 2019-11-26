@@ -3,7 +3,7 @@ use biscuit::crypto::KeyPair;
 use biscuit::token::builder::*;
 use biscuit::token::*;
 
-use rand::{SeedableRng, StdRng};
+use rand::{SeedableRng, prelude::StdRng};
 
 fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
