@@ -76,7 +76,7 @@ impl PrivateKey {
         self.0.to_bytes()
     }
 
-    pub fn from_bytes(&self, bytes: [u8; 32]) -> Option<Self> {
+    pub fn from_bytes(bytes: [u8; 32]) -> Option<Self> {
         Scalar::from_canonical_bytes(bytes).map(PrivateKey)
     }
 }
@@ -89,7 +89,7 @@ impl PublicKey {
         self.0.compress().to_bytes()
     }
 
-    pub fn from_bytes(&self, bytes: &[u8]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(bytes)
             .decompress()
             .map(PublicKey)
