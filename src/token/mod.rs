@@ -485,6 +485,17 @@ impl Biscuit {
         })
     }
 
+    pub fn context(&self) -> Vec<Option<String>> {
+      let mut res = vec![];
+      res.push(self.authority.context.clone());
+
+      for b in self.blocks.iter() {
+        res.push(b.context.clone());
+      }
+
+      res
+    }
+
     /// pretty printer for this token
     pub fn print(&self) -> String {
         let authority = print_block(&self.symbols, &self.authority);
