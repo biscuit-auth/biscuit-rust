@@ -1,5 +1,5 @@
 [package]
-name = "biscuit"
+name = "biscuit-auth"
 version = "0.1.0"
 authors = ["Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"]
 edition = "2018"

@@ -1,4 +1,4 @@
-extern crate biscuit;
+extern crate biscuit_auth as biscuit;
 extern crate curve25519_dalek;
 extern crate hex;
 extern crate prost;

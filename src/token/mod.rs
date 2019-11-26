@@ -37,7 +37,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///
 /// ```rust
 /// extern crate rand;
-/// extern crate biscuit;
+/// extern crate biscuit_auth as biscuit;
 ///
 /// use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
 ///

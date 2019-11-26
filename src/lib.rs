@@ -21,7 +21,7 @@
 //!
 //! ```rust
 //! extern crate rand;
-//! extern crate biscuit;
+//! extern crate biscuit_auth as biscuit;
 //!
 //! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
 //!

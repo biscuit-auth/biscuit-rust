@@ -1,3 +1,4 @@
+use biscuit_auth as biscuit;
 use biscuit::crypto::KeyPair;
 use biscuit::token::builder::*;
 use biscuit::token::*;
