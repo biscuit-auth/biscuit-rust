@@ -225,3 +225,4 @@ pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod token;
+pub mod parser;
