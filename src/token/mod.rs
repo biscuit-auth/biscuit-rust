@@ -50,7 +50,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
 ///   let mut builder = Biscuit::builder(&mut rng, &root);
-///   builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -678,9 +678,9 @@ mod tests {
         let serialized1 = {
             let mut builder = Biscuit::builder(&mut rng, &root);
 
-            builder.add_authority_fact(&fact("right", &[s("authority"), s("file1"), s("read")]));
-            builder.add_authority_fact(&fact("right", &[s("authority"), s("file2"), s("read")]));
-            builder.add_authority_fact(&fact("right", &[s("authority"), s("file1"), s("write")]));
+            builder.add_authority_fact("right(#authority, #file1, #read)").unwrap();
+            builder.add_authority_fact("right(#authority, #file2, #read)").unwrap();
+            builder.add_authority_fact("right(#authority, #file1, #write)").unwrap();
 
             let biscuit1 = builder.build().unwrap();
 
@@ -728,7 +728,7 @@ mod tests {
             // new caveat: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
 
-            block2.add_caveat(&rule(
+            block2.add_caveat(rule(
                 "caveat1",
                 &[var(0)],
                 &[
@@ -736,7 +736,7 @@ mod tests {
                     pred("operation", &[s("ambient"), s("read")]),
                     pred("right", &[s("authority"), var(0), s("read")]),
                 ],
-            ));
+            )).unwrap();
 
             let keypair2 = KeyPair::new(&mut rng);
             let biscuit2 = biscuit1_deser
@@ -757,11 +757,11 @@ mod tests {
             // new caveat: can only access file1
             let mut block3 = biscuit2_deser.create_block();
 
-            block3.add_caveat(&rule(
+            block3.add_caveat(rule(
                 "caveat2",
                 &[s("file1")],
                 &[pred("resource", &[s("ambient"), s("file1")])],
-            ));
+            )).unwrap();
 
             let keypair3 = KeyPair::new(&mut rng);
             let biscuit3 = biscuit2_deser
@@ -1012,9 +1012,9 @@ mod tests {
 
       let mut builder = Biscuit::builder(&mut rng, &root);
 
-      builder.add_authority_fact(&fact("right", &[s("authority"), string("file1"), s("read")]));
-      builder.add_authority_fact(&fact("right", &[s("authority"), string("file2"), s("read")]));
-      builder.add_authority_fact(&fact("right", &[s("authority"), string("file1"), s("write")]));
+      builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")])).unwrap();
+      builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")])).unwrap();
+      builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("write")])).unwrap();
 
       let biscuit1 = builder.build().unwrap();
       println!("{}", biscuit1.print());

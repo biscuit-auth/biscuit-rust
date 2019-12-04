@@ -17,6 +17,8 @@ pub enum Token {
     Sealed,
     /// caveat validation failed
     FailedLogic(Logic),
+    /// Datalog parsing error
+    ParseError,
 }
 
 #[derive(Clone, Debug, PartialEq)]

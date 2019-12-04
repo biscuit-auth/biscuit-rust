@@ -1,3 +1,4 @@
+#![allow(unused_must_use)]
 use biscuit_auth as biscuit;
 use biscuit::crypto::KeyPair;
 use biscuit::token::builder::*;
@@ -11,15 +12,15 @@ fn main() {
 
     let mut builder = Biscuit::builder(&mut rng, &root);
 
-    builder.add_authority_fact(&fact(
+    builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
-    builder.add_authority_fact(&fact(
+    builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file2"), s("read")],
     ));
-    builder.add_authority_fact(&fact(
+    builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("write")],
     ));

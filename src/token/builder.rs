@@ -5,7 +5,7 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
+use std::{convert::TryInto, time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
 
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{IntConstraint, StrConstraint};
@@ -34,19 +34,25 @@ impl BlockBuilder {
         }
     }
 
-    pub fn add_fact(&mut self, fact: &Fact) {
+    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
+        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
+        Ok(())
     }
 
-    pub fn add_rule(&mut self, rule: &Rule) {
-        let c = rule.convert(&mut self.symbols);
-        self.rules.push(c);
+    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
+        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+        let r = rule.convert(&mut self.symbols);
+        self.rules.push(r);
+        Ok(())
     }
 
-    pub fn add_caveat(&mut self, caveat: &Rule) {
-        let c = caveat.convert(&mut self.symbols);
-        self.caveats.push(c);
+    pub fn add_caveat<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
+        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+        let r = rule.convert(&mut self.symbols);
+        self.caveats.push(r);
+        Ok(())
     }
 
     pub fn set_context(&mut self, context: String) {
@@ -79,7 +85,7 @@ impl BlockBuilder {
             ],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn check_resource(&mut self, resource: &str) {
@@ -89,7 +95,7 @@ impl BlockBuilder {
             &[pred("resource", &[s("ambient"), string(resource)])],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn check_operation(&mut self, operation: &str) {
@@ -99,7 +105,7 @@ impl BlockBuilder {
             &[pred("operation", &[s("ambient"), s(operation)])],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn resource_prefix(&mut self, prefix: &str) {
@@ -113,7 +119,7 @@ impl BlockBuilder {
             }],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn resource_suffix(&mut self, suffix: &str) {
@@ -127,7 +133,7 @@ impl BlockBuilder {
             }],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn expiration_date(&mut self, date: SystemTime) {
@@ -141,11 +147,11 @@ impl BlockBuilder {
             }],
         );
 
-        self.add_caveat(&caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn revocation_id(&mut self, id: i64) {
-        self.add_fact(&fact("revocation_id", &[int(id)]));
+        let _ = self.add_fact(fact("revocation_id", &[int(id)]));
     }
 }
 
@@ -178,8 +184,8 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
         }
     }
 
-    pub fn add_authority_fact(&mut self, fact: &Fact) {
-        let mut fact = fact.clone();
+    pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
+        let mut fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         let authority_symbol = Atom::Symbol("authority".to_string());
         if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
             fact.0.ids.insert(0, authority_symbol);
@@ -187,10 +193,11 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
 
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
+        Ok(())
     }
 
-    pub fn add_authority_rule(&mut self, rule: &Rule) {
-        let mut rule = rule.clone();
+    pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
+        let mut rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         let authority_symbol = Atom::Symbol("authority".to_string());
         if rule.0.ids.is_empty() || rule.0.ids[0] != authority_symbol {
             rule.0.ids.insert(0, authority_symbol);
@@ -198,15 +205,18 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
 
         let r = rule.convert(&mut self.symbols);
         self.rules.push(r);
+        Ok(())
     }
 
-    pub fn add_authority_caveat(&mut self, caveat: &Rule) {
+    pub fn add_authority_caveat<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
+        let caveat = rule.try_into().map_err(|_| error::Token::ParseError)?;
         let r = caveat.convert(&mut self.symbols);
         self.caveats.push(r);
+        Ok(())
     }
 
     pub fn add_right(&mut self, resource: &str, right: &str) {
-        self.add_authority_fact(&fact(
+        let _ = self.add_authority_fact(fact(
             "right",
             &[s("authority"), string(resource), s(right)],
         ));

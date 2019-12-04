@@ -41,10 +41,10 @@
 //!
 //!     // let's define some access rights
 //!     // every fact added to the authority block must have the authority fact
-//!     builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
-//!     builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
-//!     builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
-//!     builder.add_authority_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
+//!     builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+//!     builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
+//!     builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
+//!     builder.add_authority_fact(fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -66,7 +66,7 @@
 //!
 //!     // caveats are implemented as logic rules. If the rule produces something,
 //!     // the caveat is successful
-//!     builder.add_caveat(&rule(
+//!     builder.add_caveat(rule(
 //!       // the rule's name
 //!       "caveat",
 //!       // the "head" of the rule, defining the kind of result that is produced

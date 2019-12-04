@@ -1,6 +1,6 @@
 use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule, Constraint, ConstraintKind, IntConstraint};
 use super::Biscuit;
-use crate::error;
+use crate::{error, parser};
 use std::{time::SystemTime, collections::HashMap};
 
 pub struct Verifier<'a> {
@@ -36,6 +36,24 @@ impl<'a> Verifier<'a> {
         self.queries.insert(name.into(), rule);
     }
 
+    pub fn add_fact_str(&mut self, f: &str) -> bool {
+        if let Ok((_, f)) = parser::fact(f) {
+            self.facts.push(f);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn add_rule_str(&mut self, r: &str) -> bool {
+        if let Ok((_, r)) = parser::rule(r) {
+            self.rules.push(r);
+            true
+        } else {
+            false
+        }
+    }
+
     /// block level caveats
     ///
     /// these caveats will be tested on each block
@@ -43,11 +61,29 @@ impl<'a> Verifier<'a> {
         self.block_caveats.push(caveat);
     }
 
+    pub fn add_block_caveat_str(&mut self, r: &str) -> bool {
+        if let Ok((_, r)) = parser::rule(r) {
+            self.block_caveats.push(r);
+            true
+        } else {
+            false
+        }
+    }
+
     /// caveats for authority level data
     ///
     /// these caveats will be tested once for the entire token
     pub fn add_authority_caveat(&mut self, caveat: Rule) {
         self.authority_caveats.push(caveat);
+    }
+
+    pub fn add_authority_caveat_str(&mut self, r: &str) -> bool {
+        if let Ok((_, r)) = parser::rule(r) {
+            self.authority_caveats.push(r);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn add_resource(&mut self, resource: &str) {

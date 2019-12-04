@@ -1,4 +1,4 @@
-use crate::{datalog, token::builder};
+use crate::{datalog, error, token::builder};
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, take_while1},
@@ -12,7 +12,8 @@ use nom::{
     IResult,
 };
 use std::{
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
+    str::FromStr,
     time::{Duration, SystemTime},
 };
 
@@ -38,6 +39,46 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     };
 
     Ok((i, builder::Rule(head, predicates, constraints)))
+}
+
+impl TryFrom<&str> for builder::Fact {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        fact(value)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
+impl TryFrom<&str> for builder::Rule {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        rule(value)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
+impl FromStr for builder::Fact {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fact(s)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
+impl FromStr for builder::Rule {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        rule(s)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
 }
 
 fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
