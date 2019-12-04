@@ -1,7 +1,7 @@
 use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule, Constraint, ConstraintKind, IntConstraint};
 use super::Biscuit;
-use crate::{error, parser};
-use std::{time::SystemTime, collections::HashMap};
+use crate::error;
+use std::{convert::TryInto, time::SystemTime, collections::HashMap};
 
 pub struct Verifier<'a> {
     token: &'a Biscuit,
@@ -24,66 +24,40 @@ impl<'a> Verifier<'a> {
         }
     }
 
-    pub fn add_fact(&mut self, fact: Fact) {
+    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
+        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         self.facts.push(fact);
+        Ok(())
     }
 
-    pub fn add_rule(&mut self, rule: Rule) {
+    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
+        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.rules.push(rule);
+        Ok(())
     }
 
-    pub fn add_query<S: Into<String>>(&mut self, name: S, rule: Rule) {
+    pub fn add_query<S: Into<String>, R: TryInto<Rule>>(&mut self, name: S, rule: R) -> Result<(), error::Token> {
+        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.queries.insert(name.into(), rule);
-    }
-
-    pub fn add_fact_str(&mut self, f: &str) -> bool {
-        if let Ok((_, f)) = parser::fact(f) {
-            self.facts.push(f);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn add_rule_str(&mut self, r: &str) -> bool {
-        if let Ok((_, r)) = parser::rule(r) {
-            self.rules.push(r);
-            true
-        } else {
-            false
-        }
+        Ok(())
     }
 
     /// block level caveats
     ///
     /// these caveats will be tested on each block
-    pub fn add_block_caveat(&mut self, caveat: Rule) {
+    pub fn add_block_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
+        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
         self.block_caveats.push(caveat);
-    }
-
-    pub fn add_block_caveat_str(&mut self, r: &str) -> bool {
-        if let Ok((_, r)) = parser::rule(r) {
-            self.block_caveats.push(r);
-            true
-        } else {
-            false
-        }
+        Ok(())
     }
 
     /// caveats for authority level data
     ///
     /// these caveats will be tested once for the entire token
-    pub fn add_authority_caveat(&mut self, caveat: Rule) {
+    pub fn add_authority_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
+        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
         self.authority_caveats.push(caveat);
-    }
-
-    pub fn add_authority_caveat_str(&mut self, r: &str) -> bool {
-        if let Ok((_, r)) = parser::rule(r) {
-            self.authority_caveats.push(r);
-            true
-        } else {
-            false
-        }
+        Ok(())
     }
 
     pub fn add_resource(&mut self, resource: &str) {
@@ -113,7 +87,7 @@ impl<'a> Verifier<'a> {
                 kind: ConstraintKind::Integer(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );
-        self.add_block_caveat(caveat);
+        let _ = self.add_block_caveat(caveat);
     }
 
     pub fn verify(&self) -> Result<HashMap<String, HashMap<u32, Vec<Fact>>>, error::Token> {

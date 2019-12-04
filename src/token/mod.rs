@@ -1024,7 +1024,7 @@ mod tests {
       v.add_authority_caveat(rule("right",
           &[s("right")],
           &[pred("right", &[s("authority"), string("file2"), s("write")])]
-      ));
+      )).unwrap();
 
       //assert!(v.verify().is_err());
       let res = v.verify();
@@ -1077,7 +1077,7 @@ mod tests {
                 "revocation_id_verif",
                 &[builder::Atom::Variable(0)],
                 &[pred("revocation_id", &[builder::Atom::Variable(0)])]
-            ));
+            )).unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
