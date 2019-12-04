@@ -5,6 +5,7 @@ use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use regex::Regex;
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;
 
@@ -616,8 +617,14 @@ impl SymbolTable {
             ConstraintKind::Str(StrConstraint::Regex(i)) => format!("{}? matches /{}/", c.id, i),
             ConstraintKind::Str(StrConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
             ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("{}? not in {:?}", c.id, i),
-            ConstraintKind::Date(DateConstraint::Before(i)) => format!("{}? <= {:?}", c.id, i),
-            ConstraintKind::Date(DateConstraint::After(i)) => format!("{}? >= {:?}", c.id, i),
+            ConstraintKind::Date(DateConstraint::Before(i)) => {
+              let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
+              format!("{}? <= {:?}", c.id, date.to_rfc3339())
+            },
+            ConstraintKind::Date(DateConstraint::After(i)) => {
+              let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
+              format!("{}? >= {:?}", c.id, date.to_rfc3339())
+            },
             ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
                 format!("{}? not in {:?}", c.id, i)

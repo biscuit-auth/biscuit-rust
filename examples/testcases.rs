@@ -847,7 +847,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
     let mut block2 = biscuit1.create_block();
 
-    // timestamp for Thursday, December 31, 2030 1:59:59 PM GMT+01:00
+    // timestamp for Thursday, December 31, 2030 12:59:59 PM UTC
     let date1 = SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399);
 
     // generate valid_date("file1") if before date1
@@ -864,7 +864,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         }]
     ));
 
-    // timestamp for Friday, December 31, 1999 1:59:59 PM GMT+01:00
+    // timestamp for Friday, December 31, 1999 12:59:59 PM UTC
     let date2 = SystemTime::UNIX_EPOCH + Duration::from_secs(946645199);
 
     let mut strings = HashSet::new();
