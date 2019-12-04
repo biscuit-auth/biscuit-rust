@@ -18,14 +18,18 @@ Non goals:
 In this example we will see how we can create a token, add some caveats, serialize and deserialize a token, append more caveats, and validate those caveats in the context of a request:
 
 ```rust
-use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
+extern crate rand;
+extern crate biscuit_auth as biscuit;
 
-fn main() {
+use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
+
+fn main() -> Result<(), error::Token> {
   let mut rng = rand::thread_rng();
 
   // let's generate the root key pair. The root public key will be necessary
   // to verify the token
   let root = KeyPair::new(&mut rng);
+  let public_key = root.public();
 
   // creating a first token
   let token1 = {
@@ -35,16 +39,16 @@ fn main() {
 
     // let's define some access rights
     // every fact added to the authority block must have the authority fact
-    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
-    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file1.txt"), s("write")]));
-    builder.add_authority_fact(&fact("right", &[s("authority"), string("/a/file2.txt"), s("read")]));
-    builder.add_authority_fact(&fact("right", &[s("authority"), string("/b/file3.txt"), s("write")]));
+    builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)")?;
+    builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #write)")?;
+    builder.add_authority_fact("right(#authority, \"/a/file2.txt\", #read)")?;
+    builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
 
     // we can now create the token
-    let biscuit = builder.build().unwrap();
+    let biscuit = builder.build()?;
     println!("biscuit (authority): {}", biscuit.print());
 
-    biscuit.to_vec().unwrap()
+    biscuit.to_vec()?
   };
 
   // this token is only 266 bytes, holding the authority data and the signature
@@ -54,13 +58,13 @@ fn main() {
   // we want to limit access to `/a/file1.txt` and to read operations
   let token2 = {
     // the token is deserialized, the signature is verified
-    let deser = Biscuit::from(&token1).unwrap();
+    let deser = Biscuit::from(&token1)?;
 
     let mut builder = deser.create_block();
 
     // caveats are implemented as logic rules. If the rule produces something,
     // the caveat is successful
-    builder.add_caveat(&rule(
+    builder.add_caveat(rule(
       // the rule's name
       "caveat",
       // the "head" of the rule, defining the kind of result that is produced
@@ -74,12 +78,15 @@ fn main() {
       ],
     ));
 
+    // the previous caveat could also be written like this
+    // builder.add_caveat("caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
+
     let keypair = KeyPair::new(&mut rng);
     // we can now create a new token
-    let biscuit = deser.append(&mut rng, &keypair, builder.build()).unwrap();
+    let biscuit = deser.append(&mut rng, &keypair, builder.build())?;
     println!("biscuit (authority): {}", biscuit.print());
 
-    biscuit.to_vec().unwrap()
+    biscuit.to_vec()?
   };
 
   // this new token fits in 402 bytes
@@ -87,77 +94,38 @@ fn main() {
 
   /************** VERIFICATION ****************/
 
+  // let's deserialize the token:
+  let biscuit2 = Biscuit::from(&token2)?;
+
   // let's define 3 verifiers (corresponding to 3 different requests):
   // - one for /a/file1.txt and a read operation
   // - one for /a/file1.txt and a write operation
   // - one for /a/file2.txt and a read operation
 
-  let biscuit1 = Biscuit::from(&token1).unwrap();
-
-  let mut v1 = biscuit1.verify(root.public()).unwrap();
+  let mut v1 = biscuit2.verify(public_key)?;
   v1.add_resource("/a/file1.txt");
   v1.add_operation("read");
   // we will check that the token has the corresponding right
-  v1.add_rule(rule("read_right",
-    &[s("read_right")],
-    &[pred("right", &[s("authority"), string("/a/file1.txt"), s("read")])]
-  ));
+  v1.add_rule("read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
 
-  let mut v2 = biscuit1.verify(root.public()).unwrap();
+  let mut v2 = biscuit2.verify(public_key)?;
   v2.add_resource("/a/file1.txt");
   v2.add_operation("write");
-  v2.add_rule(rule("write_right",
-    &[s("write_right")],
-    &[pred("right", &[s("authority"), string("/a/file1.txt"), s("write")])]
-  ));
+  v2.add_rule("write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
 
-  let mut v3 = biscuit1.verify(root.public()).unwrap();
+  let mut v3 = biscuit2.verify(public_key)?;
   v3.add_resource("/a/file2.txt");
   v3.add_operation("read");
-  v2.add_rule(rule("read_right",
-    &[s("read_right")],
-    &[pred("right", &[s("authority"), string("/a/file2.txt"), s("read")])]
-  ));
+  v3.add_rule("read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
 
-  // the first token, that specifies no restrictions, passes all verifiers:
-  assert!(v1.verify().is_ok());
-  assert!(v2.verify().is_ok());
-  assert!(v3.verify().is_ok());
-
-
-  let biscuit2 = Biscuit::from(&token2).unwrap();
-
-  let mut v1 = biscuit2.verify(root.public()).unwrap();
-  v1.add_resource("/a/file1.txt");
-  v1.add_operation("read");
-  // we will check that the token has the corresponding right
-  v1.add_rule(rule("read_right",
-    &[s("read_right")],
-    &[pred("right", &[s("authority"), string("/a/file1.txt"), s("read")])]
-  ));
-
-  let mut v2 = biscuit2.verify(root.public()).unwrap();
-  v2.add_resource("/a/file1.txt");
-  v2.add_operation("write");
-  v2.add_rule(rule("write_right",
-    &[s("write_right")],
-    &[pred("right", &[s("authority"), string("/a/file1.txt"), s("write")])]
-  ));
-
-  let mut v3 = biscuit2.verify(root.public()).unwrap();
-  v3.add_resource("/a/file2.txt");
-  v3.add_operation("read");
-  v2.add_rule(rule("read_right",
-    &[s("read_right")],
-    &[pred("right", &[s("authority"), string("/a/file2.txt"), s("read")])]
-  ));
-
-  // the second token restricts to read operations:
+  // the token restricts to read operations:
   assert!(v1.verify().is_ok());
   // the second verifier requested a read operation
   assert!(v2.verify().is_err());
   // the third verifier requests /a/file2.txt
   assert!(v3.verify().is_err());
+
+  Ok(())
 }
 ```
 
