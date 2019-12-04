@@ -52,6 +52,9 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   let mut builder = Biscuit::builder(&mut rng, &root);
 ///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
 ///
+///   // facts and rules can also be parsed from a string
+///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///
 ///   let token1 = builder.build().unwrap();
 ///
 ///   // we can create a new block builder from that token
