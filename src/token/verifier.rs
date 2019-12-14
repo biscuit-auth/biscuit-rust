@@ -90,7 +90,7 @@ impl<'a> Verifier<'a> {
         let _ = self.add_block_caveat(caveat);
     }
 
-    pub fn verify(&self) -> Result<HashMap<String, HashMap<u32, Vec<Fact>>>, error::Token> {
+    pub fn verify(&self) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
         let mut symbols = self.token.symbols.clone();
 
         //FIXME: should check for the presence of any other symbol ion the token
@@ -133,12 +133,10 @@ impl<'a> Verifier<'a> {
             queries,
         ).map_err(error::Token::FailedLogic)
          .map(|mut query_results| {
-           query_results.drain().map(|(name, mut result)| {
+           query_results.drain().map(|(name, mut facts)| {
              (
                name,
-               result.drain().map(|(block_id, mut facts)| {
-                 (block_id, facts.drain(..).map(|f| Fact::convert_from(&f, &symbols)).collect())
-               }).collect()
+               facts.drain(..).map(|f| Fact::convert_from(&f, &symbols)).collect()
              )
            }).collect()
          })

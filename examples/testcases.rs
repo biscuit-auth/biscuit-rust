@@ -65,8 +65,10 @@ fn main() {
     println!("\n------------------------------\n");
     invalid_block_fact_ambient(&mut rng, &target, &root);
 
+    /*
     println!("\n------------------------------\n");
     separate_block_validation(&mut rng, &target, &root);
+    */
 
     println!("\n------------------------------\n");
     expired_token(&mut rng, &target, &root);
@@ -596,6 +598,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     write_testcase(target, "test9_invalid_block_fact_ambient", &data[..]);
 }
 
+/*
 fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## separate block validation (facts from one block should not be usable in another one): test10_separate_block_validation.bc");
 
@@ -630,6 +633,7 @@ fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
     );
     write_testcase(target, "test10_separate_block_validation", &data[..]);
 }
+*/
 
 fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## expired token: test11_expired_token.bc");
