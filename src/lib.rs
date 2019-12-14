@@ -40,11 +40,10 @@
 //!     let mut builder = Biscuit::builder(&mut rng, &root);
 //!
 //!     // let's define some access rights
-//!     // every fact added to the authority block must have the authority fact
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #write)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file2.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file2.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -53,8 +52,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this token is only 266 bytes, holding the authority data and the signature
-//!   assert_eq!(token1.len(), 266);
+//!   // this token is only 242 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 242);
 //!
 //!   // now let's add some restrictions to this token
 //!   // we want to limit access to `/a/file1.txt` and to read operations
@@ -91,8 +90,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 402 bytes
-//!   assert_eq!(token2.len(), 402);
+//!   // this new token fits in 378 bytes
+//!   assert_eq!(token2.len(), 378);
 //!
 //!   /************** VERIFICATION ****************/
 //!
@@ -108,17 +107,17 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_rule("read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_rule("read_right(#read_right) <- right(\"/a/file1.txt\", #read)");
 //!
 //!   let mut v2 = biscuit2.verify(public_key)?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_rule("write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_rule("write_right(#write_right) <- right(\"/a/file1.txt\", #write)");
 //!
 //!   let mut v3 = biscuit2.verify(public_key)?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_rule("read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_rule("read_right(#read_right) <- right(\"/a/file2.txt\", #read)");
 //!
 //!   // the token restricts to read operations:
 //!   assert!(v1.verify().is_ok());
@@ -174,10 +173,9 @@
 //! Like Datalog, this language is based around facts and rules, but with some
 //! slight modifications:
 //!
-//! - an authority fact starts with the `#authority` symbol. It can only be added in the authority block (or generated from rules in the authority rules). It provides the basic authorization data, like which rights exist
 //! - an ambient fact starts with the `#ambient` symbol. It can only be provided by the verifier. It gives information on the current request, like which resource is accessed or the current time
 //!
-//! Blocks can provide facts but they cannot be authority or ambient facts. They
+//! Blocks can provide facts but they cannot be ambient facts. They
 //! contain rules that use facts from the current block, or from the authority
 //! and ambient contexts. If all rules in a block succeed, the block is validated.
 //!

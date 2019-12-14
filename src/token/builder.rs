@@ -81,7 +81,7 @@ impl BlockBuilder {
             &[
                 pred("resource", &[s("ambient"), Atom::Variable(0)]),
                 pred("operation", &[s("ambient"), s(right)]),
-                pred("right", &[s("authority"), Atom::Variable(0), s(right)]),
+                pred("right", &[Atom::Variable(0), s(right)]),
             ],
         );
 
@@ -186,10 +186,6 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
 
     pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let mut fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
-        let authority_symbol = Atom::Symbol("authority".to_string());
-        if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
-            fact.0.ids.insert(0, authority_symbol);
-        }
 
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
@@ -198,10 +194,6 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
 
     pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
         let mut rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let authority_symbol = Atom::Symbol("authority".to_string());
-        if rule.0.ids.is_empty() || rule.0.ids[0] != authority_symbol {
-            rule.0.ids.insert(0, authority_symbol);
-        }
 
         let r = rule.convert(&mut self.symbols);
         self.rules.push(r);
@@ -218,7 +210,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
     pub fn add_right(&mut self, resource: &str, right: &str) {
         let _ = self.add_authority_fact(fact(
             "right",
-            &[s("authority"), string(resource), s(right)],
+            &[string(resource), s(right)],
         ));
     }
 

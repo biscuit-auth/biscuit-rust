@@ -1043,7 +1043,6 @@ mod tests {
         let mut w = World::new();
         let mut syms = SymbolTable::new();
 
-        let authority = syms.add("authority");
         let ambient = syms.add("ambient");
         let resource = syms.insert("resource");
         let operation = syms.insert("operation");
@@ -1057,9 +1056,9 @@ mod tests {
 
         w.add_fact(fact(resource, &[&ambient, &file2]));
         w.add_fact(fact(operation, &[&ambient, &write]));
-        w.add_fact(fact(right, &[&authority, &file1, &read]));
-        w.add_fact(fact(right, &[&authority, &file2, &read]));
-        w.add_fact(fact(right, &[&authority, &file1, &write]));
+        w.add_fact(fact(right, &[&file1, &read]));
+        w.add_fact(fact(right, &[&file2, &read]));
+        w.add_fact(fact(right, &[&file1, &write]));
 
         let res = w.query_rule(rule(
             caveat1,
@@ -1079,7 +1078,7 @@ mod tests {
             &[
                 pred(resource, &[&ambient, &ID::Variable(0)]),
                 pred(operation, &[&ambient, &read]),
-                pred(right, &[&authority, &ID::Variable(0), &read]),
+                pred(right, &[&ID::Variable(0), &read]),
             ],
         ));
 

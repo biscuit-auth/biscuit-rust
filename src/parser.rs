@@ -630,13 +630,12 @@ mod tests {
     #[test]
     fn fact() {
         assert_eq!(
-            super::fact("right( #authority, \"file1\", #read )"),
+            super::fact("right( \"file1\", #read )"),
             Ok((
                 "",
                 builder::fact(
                     "right",
                     &[
-                        builder::s("authority"),
                         builder::string("file1"),
                         builder::s("read")
                     ]
@@ -648,13 +647,12 @@ mod tests {
     #[test]
     fn rule() {
         assert_eq!(
-            super::rule("right(#authority, 0?, #read) <- resource( #ambient, 0?), operation(#ambient, #read)"),
+            super::rule("right(0?, #read) <- resource( #ambient, 0?), operation(#ambient, #read)"),
             Ok((
                 "",
                 builder::rule(
                     "right",
                     &[
-                        builder::s("authority"),
                         builder::variable(0),
                         builder::s("read"),
                     ],

@@ -48,12 +48,11 @@ pub fn default_symbol_table() -> SymbolTable {
 ///
 ///   // first we define the authority block for global data,
 ///   // like access rights
-///   // data from the authority block cannot be created in any other block
 ///   let mut builder = Biscuit::builder(&mut rng, &root);
-///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///   builder.add_authority_fact("right(\"/a/file1.txt\", #read)").expect("parse error");
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -78,7 +77,7 @@ impl Biscuit {
     ///
     /// the public part of the root keypair must be used for verification
     ///
-    /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
+    /// The block is an authority block: its index must be 0
     pub fn new<T: RngCore + CryptoRng>(
         rng: &mut T,
         root: &KeyPair,
@@ -297,7 +296,7 @@ impl Biscuit {
     ///
     /// the verifier can also provide its own caveats to validate the content of the token.
     /// Verifier caveats can either apply on the "authority" part (they will be tested once
-    /// in the entire token), while block level caveast will be tested once per block.
+    /// in the entire token), while block level caveats will be tested once per block.
     ///
     /// the symbol table argument is generated from the token's symbol table, adding
     /// new symbols as needed from ambient facts and rules
@@ -319,12 +318,6 @@ impl Biscuit {
         let ambient_index = symbols.get("ambient").unwrap();
 
         for fact in self.authority.facts.iter().cloned() {
-            if fact.predicate.ids[0] != ID::Symbol(authority_index) {
-                return Err(error::Logic::InvalidAuthorityFact(
-                    symbols.print_fact(&fact),
-                ));
-            }
-
             world.facts.insert(fact);
         }
 
@@ -333,15 +326,6 @@ impl Biscuit {
         }
 
         world.run();
-
-        for fact in world.facts.iter() {
-            // FIXME: check that facts have at least one element in the predicate
-            if fact.predicate.ids[0] != ID::Symbol(authority_index) {
-                return Err(error::Logic::InvalidAuthorityFact(
-                    symbols.print_fact(&fact),
-                ));
-            }
-        }
 
         //remove authority rules: we cannot create facts anymore in authority scope
         //w.rules.clear();
@@ -361,7 +345,7 @@ impl Biscuit {
         world.run();
 
         // we only keep the verifier rules
-        world.rules = ambient_rules;
+        //world.rules = ambient_rules;
 
         let mut errors = vec![];
 
@@ -603,19 +587,7 @@ impl Block {
         queries: &HashMap<String, Rule>,
         query_results: &mut HashMap<String, HashMap<u32, Vec<Fact>>>,
     ) -> Result<(), error::Logic> {
-        let authority_index = symbols.get("authority").unwrap();
-        let ambient_index = symbols.get("ambient").unwrap();
-
         for fact in self.facts.iter().cloned() {
-            if fact.predicate.ids[0] == ID::Symbol(authority_index)
-                || fact.predicate.ids[0] == ID::Symbol(ambient_index)
-            {
-                return Err(error::Logic::InvalidBlockFact(
-                    i as u32,
-                    symbols.print_fact(&fact),
-                ));
-            }
-
             world.facts.insert(fact);
         }
 
@@ -681,9 +653,9 @@ mod tests {
         let serialized1 = {
             let mut builder = Biscuit::builder(&mut rng, &root);
 
-            builder.add_authority_fact("right(#authority, #file1, #read)").unwrap();
-            builder.add_authority_fact("right(#authority, #file2, #read)").unwrap();
-            builder.add_authority_fact("right(#authority, #file1, #write)").unwrap();
+            builder.add_authority_fact("right(#file1, #read)").unwrap();
+            builder.add_authority_fact("right(#file2, #read)").unwrap();
+            builder.add_authority_fact("right(#file1, #write)").unwrap();
 
             let biscuit1 = builder.build().unwrap();
 
@@ -737,7 +709,7 @@ mod tests {
                 &[
                     pred("resource", &[s("ambient"), var(0)]),
                     pred("operation", &[s("ambient"), s("read")]),
-                    pred("right", &[s("authority"), var(0), s("read")]),
+                    pred("right", &[var(0), s("read")]),
                 ],
             )).unwrap();
 
@@ -818,7 +790,7 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1(0?) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1(0?) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(0?, #read) | ") }),
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("caveat2(#file1) <- resource(#ambient, #file1) | ") })
               ])));
         }
@@ -892,7 +864,7 @@ mod tests {
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(0?, #read) | ") }),
               ]))));
         }
     }
@@ -1015,9 +987,9 @@ mod tests {
 
       let mut builder = Biscuit::builder(&mut rng, &root);
 
-      builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")])).unwrap();
-      builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")])).unwrap();
-      builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("write")])).unwrap();
+      builder.add_authority_fact(fact("right", &[string("file1"), s("read")])).unwrap();
+      builder.add_authority_fact(fact("right", &[string("file2"), s("read")])).unwrap();
+      builder.add_authority_fact(fact("right", &[string("file1"), s("write")])).unwrap();
 
       let biscuit1 = builder.build().unwrap();
       println!("{}", biscuit1.print());
@@ -1026,7 +998,7 @@ mod tests {
 
       v.add_authority_caveat(rule("right",
           &[s("right")],
-          &[pred("right", &[s("authority"), string("file2"), s("write")])]
+          &[pred("right", &[string("file2"), s("write")])]
       )).unwrap();
 
       //assert!(v.verify().is_err());
@@ -1034,7 +1006,7 @@ mod tests {
       println!("res: {:?}", res);
       assert_eq!(res,
         Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-          FailedCaveat::Verifier(FailedVerifierCaveat { block_id: 0, caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
+          FailedCaveat::Verifier(FailedVerifierCaveat { block_id: 0, caveat_id: 0, rule: String::from("right(#right) <- right(\"file2\", #write) | ") }),
       ]))));
     }
 

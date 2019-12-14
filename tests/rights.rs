@@ -14,15 +14,15 @@ fn main() {
 
     builder.add_authority_fact(fact(
         "right",
-        &[s("authority"), string("file1"), s("read")],
+        &[string("file1"), s("read")],
     ));
     builder.add_authority_fact(fact(
         "right",
-        &[s("authority"), string("file2"), s("read")],
+        &[string("file2"), s("read")],
     ));
     builder.add_authority_fact(fact(
         "right",
-        &[s("authority"), string("file1"), s("write")],
+        &[string("file1"), s("write")],
     ));
 
     let biscuit1 = builder.build().unwrap();
@@ -38,7 +38,7 @@ fn main() {
         &[s("right")],
         &[pred(
             "right",
-            &[s("authority"), string("file2"), s("write")],
+            &[string("file2"), s("write")],
         )],
     ));
 
