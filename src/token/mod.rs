@@ -276,16 +276,86 @@ impl Biscuit {
 
     pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
         self.check_root_key(root)?;
-
-        Ok(Verifier::new(self))
+        Verifier::new(self).map_err(error::Token::FailedLogic)
     }
 
     pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
         if self.container.is_some() {
             Err(error::Token::InternalError)
         } else {
-            Ok(Verifier::new(self))
+            Verifier::new(self).map_err(error::Token::FailedLogic)
         }
+    }
+
+    pub(crate) fn generate_world(&self, symbols: &SymbolTable) -> Result<World, error::Logic> {
+        let mut world = World::new();
+
+        let authority_index = symbols.get("authority").unwrap();
+        let ambient_index = symbols.get("ambient").unwrap();
+
+        for fact in self.authority.facts.iter().cloned() {
+            if fact.predicate.ids[0] == ID::Symbol(ambient_index) {
+                return Err(error::Logic::InvalidAuthorityFact(
+                    symbols.print_fact(&fact),
+                ));
+            }
+
+            world.facts.insert(fact);
+        }
+
+        for rule in self.authority.rules.iter().cloned() {
+            world.rules.push(rule);
+        }
+
+        for (i, block) in self.blocks.iter().enumerate() {
+            // blocks cannot provide authority or ambient facts
+            for fact in block.facts.iter().cloned() {
+                if fact.predicate.ids[0] == ID::Symbol(authority_index)
+                    || fact.predicate.ids[0] == ID::Symbol(ambient_index)
+                {
+                    return Err(error::Logic::InvalidBlockFact(
+                        i as u32,
+                        symbols.print_fact(&fact),
+                    ));
+                }
+
+                world.facts.insert(fact);
+            }
+
+            for rule in block.rules.iter().cloned() {
+                // block rules cannot generate authority or ambient facts
+                if rule.head.ids[0] == ID::Symbol(authority_index)
+                    || rule.head.ids[0] == ID::Symbol(ambient_index)
+                {
+                    return Err(error::Logic::InvalidBlockRule(
+                        i as u32,
+                        symbols.print_rule(&rule),
+                    ));
+                }
+                world.rules.push(rule);
+            }
+        }
+
+        world.run();
+
+        Ok(world)
+    }
+
+    pub(crate) fn caveats(&self) -> Vec<Vec<Rule>> {
+        println!("{}", self.print());
+        let mut result = Vec::new();
+        let mut v = self.authority.caveats.iter().cloned().collect();
+        println!("adding authority caveats: {:?}", v);
+        result.push(v);
+        println!("result is now: {:?}", result);
+
+        for (i, block) in self.blocks.iter().enumerate() {
+            let mut v = block.caveats.iter().cloned().collect();
+            result.push(v);
+        }
+
+        println!("token.caveats() -> {:?}", result);
+        result
     }
 
     /// checks the caveats of a token, in the context of the request it comes with
@@ -312,29 +382,10 @@ impl Biscuit {
         verifier_caveats: Vec<Rule>,
         queries: HashMap<String, Rule>,
     ) -> Result<HashMap<String, Vec<Fact>>, error::Logic> {
-        let mut world = World::new();
+        let mut world = self.generate_world(symbols)?;
 
         let authority_index = symbols.get("authority").unwrap();
         let ambient_index = symbols.get("ambient").unwrap();
-
-        for fact in self.authority.facts.iter().cloned() {
-            if fact.predicate.ids[0] == ID::Symbol(ambient_index) {
-                return Err(error::Logic::InvalidAuthorityFact(
-                    symbols.print_fact(&fact),
-                ));
-            }
-
-            world.facts.insert(fact);
-        }
-
-        for rule in self.authority.rules.iter().cloned() {
-            world.rules.push(rule);
-        }
-
-        world.run();
-
-        //remove authority rules: we cannot create facts anymore in authority scope
-        //w.rules.clear();
 
         for fact in ambient_facts.drain(..) {
             world.facts.insert(fact);
@@ -342,35 +393,6 @@ impl Biscuit {
 
         for rule in ambient_rules.iter().cloned() {
             world.rules.push(rule);
-        }
-
-        for (i, block) in self.blocks.iter().enumerate() {
-          // blocks cannot provide authority or ambient facts
-          for fact in block.facts.iter().cloned() {
-              if fact.predicate.ids[0] == ID::Symbol(authority_index)
-                  || fact.predicate.ids[0] == ID::Symbol(ambient_index)
-              {
-                  return Err(error::Logic::InvalidBlockFact(
-                      i as u32,
-                      symbols.print_fact(&fact),
-                  ));
-              }
-
-              world.facts.insert(fact);
-          }
-
-          for rule in block.rules.iter().cloned() {
-              // block rules cannot generate authority or ambient facts
-              if rule.head.ids[0] == ID::Symbol(authority_index)
-                  || rule.head.ids[0] == ID::Symbol(ambient_index)
-              {
-                  return Err(error::Logic::InvalidBlockRule(
-                      i as u32,
-                      symbols.print_rule(&rule),
-                  ));
-              }
-              world.rules.push(rule);
-          }
         }
 
         world.run();
@@ -406,22 +428,22 @@ impl Biscuit {
         }
 
         for (i, block) in self.blocks.iter().enumerate() {
-          for (j, caveat) in block.caveats.iter().enumerate() {
-              let res = world.query_rule(caveat.clone());
-              if res.is_empty() {
-                  errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
-                      block_id: i as u32,
-                      caveat_id: j as u32,
-                      rule: symbols.print_rule(caveat),
-                  }));
-              }
-          }
+            for (j, caveat) in block.caveats.iter().enumerate() {
+                let res = world.query_rule(caveat.clone());
+                if res.is_empty() {
+                    errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
+                        block_id: i as u32,
+                        caveat_id: j as u32,
+                        rule: symbols.print_rule(caveat),
+                    }));
+                }
+            }
         }
 
         let mut query_results = HashMap::new();
         for (name, rule) in queries.iter() {
-          let res = world.query_rule(rule.clone());
-          query_results.insert(name.clone(), res);
+            let res = world.query_rule(rule.clone());
+            query_results.insert(name.clone(), res);
         }
 
         if errors.is_empty() {
@@ -885,15 +907,15 @@ mod tests {
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
-                Err(Token::FailedLogic(Logic::FailedCaveats(vec![FailedCaveat::Block(
-                    FailedBlockCaveat {
-                        block_id: 0,
+                Err(Token::FailedLogic(Logic::FailedCaveats(vec![
+                    FailedCaveat::Block(FailedBlockCaveat {
+                        block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
                             "prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*"
                         )
-                    }
-                ),])))
+                    }),
+                ])))
             );
         }
 
@@ -906,8 +928,8 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
               ]))));
         }
     }

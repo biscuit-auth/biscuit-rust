@@ -1,10 +1,15 @@
-use super::builder::{constrained_rule, date, fact, pred, s, string, Atom, Fact, Rule, Constraint, ConstraintKind, IntConstraint};
+use super::builder::{
+    constrained_rule, date, fact, pred, s, string, Atom, Constraint, ConstraintKind, Fact,
+    IntConstraint, Rule,
+};
 use super::Biscuit;
+use crate::datalog;
 use crate::error;
-use std::{convert::TryInto, time::SystemTime, collections::HashMap};
+use std::{collections::HashMap, convert::TryInto, time::SystemTime};
 
 pub struct Verifier<'a> {
     token: &'a Biscuit,
+    world: datalog::World,
     facts: Vec<Fact>,
     rules: Vec<Rule>,
     caveats: Vec<Rule>,
@@ -12,14 +17,23 @@ pub struct Verifier<'a> {
 }
 
 impl<'a> Verifier<'a> {
-    pub(crate) fn new(token: &'a Biscuit) -> Self {
-        Verifier {
+    pub(crate) fn new(token: &'a Biscuit) -> Result<Self, error::Logic> {
+        let world = token.generate_world(&token.symbols)?;
+        Ok(Verifier {
             token,
+            world,
             facts: vec![],
             rules: vec![],
             caveats: vec![],
             queries: HashMap::new(),
-        }
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.facts.clear();
+        self.rules.clear();
+        self.caveats.clear();
+        self.queries.clear();
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
@@ -80,46 +94,77 @@ impl<'a> Verifier<'a> {
     pub fn verify(&self) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
         let mut symbols = self.token.symbols.clone();
 
-        //FIXME: should check for the presence of any other symbol ion the token
+        //FIXME: should check for the presence of any other symbol in the token
         if symbols.get("authority").is_none() || symbols.get("ambient").is_none() {
-          return Err(error::Token::MissingSymbols);
+            return Err(error::Token::MissingSymbols);
         }
 
-        let mut ambient_facts = vec![];
-        let mut ambient_rules = vec![];
-        let mut caveats = vec![];
+        let mut world = self.world.clone();
+
         let mut queries = HashMap::new();
 
         for fact in self.facts.iter() {
-            ambient_facts.push(fact.convert(&mut symbols));
+            world.facts.insert(fact.convert(&mut symbols));
         }
 
         for rule in self.rules.iter() {
-            ambient_rules.push(rule.convert(&mut symbols));
+            world.rules.push(rule.convert(&mut symbols));
         }
 
-        for caveat in self.caveats.iter() {
-            caveats.push(caveat.convert(&mut symbols));
+        let mut errors = vec![];
+        for (i, caveat) in self.caveats.iter().enumerate() {
+            let c = caveat.convert(&mut symbols);
+            let res = world.query_rule(c.clone());
+            if res.is_empty() {
+                errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
+                    block_id: 0,
+                    caveat_id: i as u32,
+                    rule: symbols.print_rule(&c),
+                }));
+            }
+        }
+
+        for (i, block_caveats) in self.token.caveats().iter().enumerate() {
+            for (j, caveat) in block_caveats.iter().enumerate() {
+                println!("adding caveat to verifier: ({},{}) {:?}", i, j, caveat);
+                let res = world.query_rule(caveat.clone());
+                if res.is_empty() {
+                    errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
+                        block_id: i as u32,
+                        caveat_id: j as u32,
+                        rule: symbols.print_rule(caveat),
+                    }));
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(error::Token::FailedLogic(error::Logic::FailedCaveats(
+                errors,
+            )));
         }
 
         for (key, query) in self.queries.iter() {
             queries.insert(key.clone(), query.convert(&mut symbols));
         }
 
-        self.token.check(
-            &symbols,
-            ambient_facts,
-            ambient_rules,
-            caveats,
-            queries,
-        ).map_err(error::Token::FailedLogic)
-         .map(|mut query_results| {
-           query_results.drain().map(|(name, mut facts)| {
-             (
-               name,
-               facts.drain(..).map(|f| Fact::convert_from(&f, &symbols)).collect()
-             )
-           }).collect()
-         })
+        let mut query_results = HashMap::new();
+        for (name, rule) in queries.iter() {
+            let res = world.query_rule(rule.clone());
+            query_results.insert(name.clone(), res);
+        }
+
+        Ok(query_results
+            .drain()
+            .map(|(name, mut facts)| {
+                (
+                    name,
+                    facts
+                        .drain(..)
+                        .map(|f| Fact::convert_from(&f, &symbols))
+                        .collect(),
+                )
+            })
+            .collect())
     }
 }
