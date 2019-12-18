@@ -7,8 +7,7 @@ pub struct Verifier<'a> {
     token: &'a Biscuit,
     facts: Vec<Fact>,
     rules: Vec<Rule>,
-    block_caveats: Vec<Rule>,
-    authority_caveats: Vec<Rule>,
+    caveats: Vec<Rule>,
     queries: HashMap<String, Rule>,
 }
 
@@ -18,8 +17,7 @@ impl<'a> Verifier<'a> {
             token,
             facts: vec![],
             rules: vec![],
-            block_caveats: vec![],
-            authority_caveats: vec![],
+            caveats: vec![],
             queries: HashMap::new(),
         }
     }
@@ -42,21 +40,10 @@ impl<'a> Verifier<'a> {
         Ok(())
     }
 
-    /// block level caveats
-    ///
-    /// these caveats will be tested on each block
-    pub fn add_block_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
+    /// verifier caveats
+    pub fn add_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
         let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
-        self.block_caveats.push(caveat);
-        Ok(())
-    }
-
-    /// caveats for authority level data
-    ///
-    /// these caveats will be tested once for the entire token
-    pub fn add_authority_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
-        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
-        self.authority_caveats.push(caveat);
+        self.caveats.push(caveat);
         Ok(())
     }
 
@@ -87,7 +74,7 @@ impl<'a> Verifier<'a> {
                 kind: ConstraintKind::Integer(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );
-        let _ = self.add_block_caveat(caveat);
+        let _ = self.add_caveat(caveat);
     }
 
     pub fn verify(&self) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
@@ -100,8 +87,7 @@ impl<'a> Verifier<'a> {
 
         let mut ambient_facts = vec![];
         let mut ambient_rules = vec![];
-        let mut authority_caveats = vec![];
-        let mut block_caveats = vec![];
+        let mut caveats = vec![];
         let mut queries = HashMap::new();
 
         for fact in self.facts.iter() {
@@ -112,12 +98,8 @@ impl<'a> Verifier<'a> {
             ambient_rules.push(rule.convert(&mut symbols));
         }
 
-        for caveat in self.authority_caveats.iter() {
-            authority_caveats.push(caveat.convert(&mut symbols));
-        }
-
-        for caveat in self.block_caveats.iter() {
-            block_caveats.push(caveat.convert(&mut symbols));
+        for caveat in self.caveats.iter() {
+            caveats.push(caveat.convert(&mut symbols));
         }
 
         for (key, query) in self.queries.iter() {
@@ -128,8 +110,7 @@ impl<'a> Verifier<'a> {
             &symbols,
             ambient_facts,
             ambient_rules,
-            authority_caveats,
-            block_caveats,
+            caveats,
             queries,
         ).map_err(error::Token::FailedLogic)
          .map(|mut query_results| {

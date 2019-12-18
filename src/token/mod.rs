@@ -309,8 +309,7 @@ impl Biscuit {
         symbols: &SymbolTable,
         mut ambient_facts: Vec<Fact>,
         ambient_rules: Vec<Rule>,
-        authority_caveats: Vec<Rule>,
-        block_caveats: Vec<Rule>,
+        verifier_caveats: Vec<Rule>,
         queries: HashMap<String, Rule>,
     ) -> Result<HashMap<String, Vec<Fact>>, error::Logic> {
         let mut world = World::new();
@@ -394,24 +393,13 @@ impl Biscuit {
             }
         }
 
-        // authority level caveats provided by the verifier
-        for (i, caveat) in authority_caveats.iter().enumerate() {
+        // verifier caveats
+        for (i, caveat) in verifier_caveats.iter().enumerate() {
             let res = world.query_rule(caveat.clone());
             if res.is_empty() {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
                     block_id: 0,
                     caveat_id: i as u32,
-                    rule: symbols.print_rule(caveat),
-                }));
-            }
-        }
-
-        for (j, caveat) in block_caveats.iter().enumerate() {
-            let res = world.query_rule(caveat.clone());
-            if res.is_empty() {
-                errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    block_id: 0 as u32,
-                    caveat_id: j as u32,
                     rule: symbols.print_rule(caveat),
                 }));
             }
@@ -621,7 +609,7 @@ impl Block {
         self.symbols.insert(s)
     }
 
-    pub fn check(
+    fn check(
         &self,
         i: usize,
         mut world: World,
@@ -823,7 +811,7 @@ mod tests {
 
             //println!("final token: {:#?}", final_token);
             //println!("ambient facts: {:#?}", ambient_facts);
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![], HashMap::new());
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], HashMap::new());
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -841,7 +829,7 @@ mod tests {
                 ambient_facts.push(fact.convert(&mut symbols));
             }
 
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], vec![], HashMap::new());
+            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], HashMap::new());
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
@@ -1052,7 +1040,7 @@ mod tests {
 
       let mut v = biscuit1.verify(root.public()).expect("omg verifier");
 
-      v.add_authority_caveat(rule("right",
+      v.add_caveat(rule("right",
           &[s("right")],
           &[pred("right", &[s("authority"), string("file2"), s("write")])]
       )).unwrap();
