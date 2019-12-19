@@ -65,8 +65,10 @@ fn main() {
     println!("\n------------------------------\n");
     invalid_block_fact_ambient(&mut rng, &target, &root);
 
+    /*
     println!("\n------------------------------\n");
     separate_block_validation(&mut rng, &target, &root);
+    */
 
     println!("\n------------------------------\n");
     expired_token(&mut rng, &target, &root);
@@ -92,8 +94,7 @@ fn validate_token(
     data: &[u8],
     ambient_facts: Vec<Fact>,
     ambient_rules: Vec<Rule>,
-    authority_caveats: Vec<Rule>,
-    block_caveats: Vec<Rule>,
+    caveats: Vec<Rule>,
 ) -> Result<(), error::Token> {
     let token = Biscuit::from(&data[..])?;
 
@@ -104,11 +105,8 @@ fn validate_token(
     for rule in ambient_rules {
         verifier.add_rule(rule);
     }
-    for caveat in authority_caveats {
-        verifier.add_authority_caveat(caveat);
-    }
-    for caveat in block_caveats {
-        verifier.add_block_caveat(caveat);
+    for caveat in caveats {
+        verifier.add_caveat(caveat);
     }
 
     verifier.verify()?;
@@ -168,7 +166,6 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -212,7 +209,6 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
             root,
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
-            vec![],
             vec![],
             vec![]
         )
@@ -269,7 +265,6 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
             root,
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
-            vec![],
             vec![],
             vec![]
         )
@@ -328,7 +323,6 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -382,7 +376,6 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
             root,
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
-            vec![],
             vec![],
             vec![]
         )
@@ -458,7 +451,6 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -501,7 +493,6 @@ fn missing_authority_tag<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
             root,
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
-            vec![],
             vec![],
             vec![]
         )
@@ -547,7 +538,6 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -589,13 +579,13 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
     write_testcase(target, "test9_invalid_block_fact_ambient", &data[..]);
 }
 
+/*
 fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## separate block validation (facts from one block should not be usable in another one): test10_separate_block_validation.bc");
 
@@ -624,12 +614,12 @@ fn separate_block_validation<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
             &data[..],
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
-            vec![],
             vec![]
         )
     );
     write_testcase(target, "test10_separate_block_validation", &data[..]);
 }
+*/
 
 fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## expired token: test11_expired_token.bc");
@@ -667,7 +657,6 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
                 fact("operation", &[s("ambient"), s("read")]),
                 fact("time", &[s("ambient"), date(&SystemTime::now())])
             ],
-            vec![],
             vec![],
             vec![]
         )
@@ -735,7 +724,6 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
                 fact("owner", &[s("ambient"), s("alice"), string("file1")])
             ],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -776,7 +764,6 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
               pred("operation", &[s("ambient"), var(1)]),
               ],
             )],
-            vec![]
         )
     );
 
@@ -808,7 +795,6 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
                 fact("operation", &[s("ambient"), s("read")]),
             ],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -822,7 +808,6 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
                 fact("resource", &[s("ambient"), string("file2")]),
                 fact("operation", &[s("ambient"), s("read")]),
             ],
-            vec![],
             vec![],
             vec![]
         )
@@ -916,7 +901,6 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
                 fact("time", &[s("ambient"), date(&SystemTime::now())])
             ],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -930,7 +914,6 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
                 fact("resource", &[s("ambient"), string("file2")]),
                 fact("time", &[s("ambient"), date(&SystemTime::now())])
             ],
-            vec![],
             vec![],
             vec![]
         )
@@ -971,7 +954,6 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
                 fact("resource", &[s("ambient"), string("file1")]),
             ],
             vec![],
-            vec![],
             vec![]
         )
     );
@@ -984,7 +966,6 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
             vec![
                 fact("resource", &[s("ambient"), string("file123.txt")]),
             ],
-            vec![],
             vec![],
             vec![]
         )
