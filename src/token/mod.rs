@@ -342,19 +342,15 @@ impl Biscuit {
     }
 
     pub(crate) fn caveats(&self) -> Vec<Vec<Rule>> {
-        println!("{}", self.print());
         let mut result = Vec::new();
-        let mut v = self.authority.caveats.iter().cloned().collect();
-        println!("adding authority caveats: {:?}", v);
+        let v = self.authority.caveats.to_vec();
         result.push(v);
-        println!("result is now: {:?}", result);
 
-        for (i, block) in self.blocks.iter().enumerate() {
-            let mut v = block.caveats.iter().cloned().collect();
+        for block in self.blocks.iter() {
+            let v = block.caveats.to_vec();
             result.push(v);
         }
 
-        println!("token.caveats() -> {:?}", result);
         result
     }
 
@@ -383,9 +379,6 @@ impl Biscuit {
         queries: HashMap<String, Rule>,
     ) -> Result<HashMap<String, Vec<Fact>>, error::Logic> {
         let mut world = self.generate_world(symbols)?;
-
-        let authority_index = symbols.get("authority").unwrap();
-        let ambient_index = symbols.get("ambient").unwrap();
 
         for fact in ambient_facts.drain(..) {
             world.facts.insert(fact);

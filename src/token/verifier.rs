@@ -137,7 +137,6 @@ impl<'a> Verifier<'a> {
 
         for (i, block_caveats) in self.token.caveats().iter().enumerate() {
             for (j, caveat) in block_caveats.iter().enumerate() {
-                println!("adding caveat to verifier: ({},{}) {:?}", i, j, caveat);
                 let res = self.world.query_rule(caveat.clone());
                 if res.is_empty() {
                     errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
