@@ -11,6 +11,7 @@ pub struct Verifier<'a> {
     token: &'a Biscuit,
     base_world: datalog::World,
     world: datalog::World,
+    symbols: datalog::SymbolTable,
     caveats: Vec<Rule>,
     queries: HashMap<String, Rule>,
 }
@@ -19,10 +20,13 @@ impl<'a> Verifier<'a> {
     pub(crate) fn new(token: &'a Biscuit) -> Result<Self, error::Logic> {
         let base_world = token.generate_world(&token.symbols)?;
         let world = base_world.clone();
+        let symbols = token.symbols.clone();
+
         Ok(Verifier {
             token,
             base_world,
             world,
+            symbols,
             caveats: vec![],
             queries: HashMap::new(),
         })
@@ -32,19 +36,18 @@ impl<'a> Verifier<'a> {
         self.caveats.clear();
         self.queries.clear();
         self.world = self.base_world.clone();
+        self.symbols = self.token.symbols.clone();
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
-        let mut symbols = self.token.symbols.clone();
-        self.world.facts.insert(fact.convert(&mut symbols));
+        self.world.facts.insert(fact.convert(&mut self.symbols));
         Ok(())
     }
 
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let mut symbols = self.token.symbols.clone();
-        self.world.rules.push(rule.convert(&mut symbols));
+        self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
 
@@ -63,13 +66,12 @@ impl<'a> Verifier<'a> {
         rule: R,
     ) -> Result<Vec<Fact>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let mut symbols = self.token.symbols.clone();
         self.world.run();
-        let mut res = self.world.query_rule(rule.convert(&mut symbols));
+        let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
         Ok(res
            .drain(..)
-           .map(|f| Fact::convert_from(&f, &symbols))
+           .map(|f| Fact::convert_from(&f, &self.symbols))
            .collect())
     }
 
@@ -82,20 +84,17 @@ impl<'a> Verifier<'a> {
 
     pub fn add_resource(&mut self, resource: &str) {
         let fact = fact("resource", &[s("ambient"), string(resource)]);
-        let mut symbols = self.token.symbols.clone();
-        self.world.facts.insert(fact.convert(&mut symbols));
+        self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
     pub fn add_operation(&mut self, operation: &str) {
         let fact = fact("operation", &[s("ambient"), s(operation)]);
-        let mut symbols = self.token.symbols.clone();
-        self.world.facts.insert(fact.convert(&mut symbols));
+        self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
     pub fn set_time(&mut self) {
         let fact = fact("time", &[s("ambient"), date(&SystemTime::now())]);
-        let mut symbols = self.token.symbols.clone();
-        self.world.facts.insert(fact.convert(&mut symbols));
+        self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
     pub fn revocation_check(&mut self, ids: &[i64]) {
@@ -112,10 +111,8 @@ impl<'a> Verifier<'a> {
     }
 
     pub fn verify(&mut self) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
-        let mut symbols = self.token.symbols.clone();
-
         //FIXME: should check for the presence of any other symbol in the token
-        if symbols.get("authority").is_none() || symbols.get("ambient").is_none() {
+        if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
             return Err(error::Token::MissingSymbols);
         }
 
@@ -125,12 +122,12 @@ impl<'a> Verifier<'a> {
 
         let mut errors = vec![];
         for (i, caveat) in self.caveats.iter().enumerate() {
-            let c = caveat.convert(&mut symbols);
+            let c = caveat.convert(&mut self.symbols);
             let res = self.world.query_rule(c.clone());
             if res.is_empty() {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
                     caveat_id: i as u32,
-                    rule: symbols.print_rule(&c),
+                    rule: self.symbols.print_rule(&c),
                 }));
             }
         }
@@ -142,7 +139,7 @@ impl<'a> Verifier<'a> {
                     errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
                         block_id: i as u32,
                         caveat_id: j as u32,
-                        rule: symbols.print_rule(caveat),
+                        rule: self.symbols.print_rule(caveat),
                     }));
                 }
             }
@@ -155,7 +152,7 @@ impl<'a> Verifier<'a> {
         }
 
         for (key, query) in self.queries.iter() {
-            queries.insert(key.clone(), query.convert(&mut symbols));
+            queries.insert(key.clone(), query.convert(&mut self.symbols));
         }
 
         let mut query_results = HashMap::new();
@@ -171,7 +168,7 @@ impl<'a> Verifier<'a> {
                     name,
                     facts
                         .drain(..)
-                        .map(|f| Fact::convert_from(&f, &symbols))
+                        .map(|f| Fact::convert_from(&f, &self.symbols))
                         .collect(),
                 )
             })
