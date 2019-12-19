@@ -87,8 +87,6 @@ pub struct FailedBlockCaveat {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FailedVerifierCaveat {
-    /// if block 0, it was an authority caveat
-    pub block_id: u32,
     pub caveat_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,

@@ -129,7 +129,6 @@ impl<'a> Verifier<'a> {
             let res = self.world.query_rule(c.clone());
             if res.is_empty() {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    block_id: 0,
                     caveat_id: i as u32,
                     rule: symbols.print_rule(&c),
                 }));

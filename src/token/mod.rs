@@ -420,7 +420,6 @@ impl Biscuit {
             let res = world.query_rule(caveat.clone());
             if res.is_empty() {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    block_id: 0,
                     caveat_id: i as u32,
                     rule: symbols.print_rule(caveat),
                 }));
@@ -678,7 +677,6 @@ impl Block {
             let res = world.query_rule(caveat.clone());
             if res.is_empty() {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    block_id: i as u32,
                     caveat_id: j as u32,
                     rule: symbols.print_rule(caveat),
                 }));
@@ -1072,7 +1070,7 @@ mod tests {
       println!("res: {:?}", res);
       assert_eq!(res,
         Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-          FailedCaveat::Verifier(FailedVerifierCaveat { block_id: 0, caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
+          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
       ]))));
     }
 
