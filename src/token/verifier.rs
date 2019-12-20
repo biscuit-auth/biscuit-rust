@@ -13,7 +13,6 @@ pub struct Verifier<'a> {
     world: datalog::World,
     symbols: datalog::SymbolTable,
     caveats: Vec<Rule>,
-    queries: HashMap<String, Rule>,
 }
 
 impl<'a> Verifier<'a> {
@@ -28,13 +27,11 @@ impl<'a> Verifier<'a> {
             world,
             symbols,
             caveats: vec![],
-            queries: HashMap::new(),
         })
     }
 
     pub fn reset(&mut self) {
         self.caveats.clear();
-        self.queries.clear();
         self.world = self.base_world.clone();
         self.symbols = self.token.symbols.clone();
     }
@@ -48,16 +45,6 @@ impl<'a> Verifier<'a> {
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.rules.push(rule.convert(&mut self.symbols));
-        Ok(())
-    }
-
-    pub fn add_query<S: Into<String>, R: TryInto<Rule>>(
-        &mut self,
-        name: S,
-        rule: R,
-    ) -> Result<(), error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.queries.insert(name.into(), rule);
         Ok(())
     }
 
@@ -110,15 +97,13 @@ impl<'a> Verifier<'a> {
         let _ = self.add_caveat(caveat);
     }
 
-    pub fn verify(&mut self) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
+    pub fn verify(&mut self) -> Result<(), error::Token> {
         //FIXME: should check for the presence of any other symbol in the token
         if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
             return Err(error::Token::MissingSymbols);
         }
 
         self.world.run();
-
-        let mut queries = HashMap::new();
 
         let mut errors = vec![];
         for (i, caveat) in self.caveats.iter().enumerate() {
@@ -146,32 +131,11 @@ impl<'a> Verifier<'a> {
         }
 
         if !errors.is_empty() {
-            return Err(error::Token::FailedLogic(error::Logic::FailedCaveats(
+            Err(error::Token::FailedLogic(error::Logic::FailedCaveats(
                 errors,
-            )));
+            )))
+        } else {
+            Ok(())
         }
-
-        for (key, query) in self.queries.iter() {
-            queries.insert(key.clone(), query.convert(&mut self.symbols));
-        }
-
-        let mut query_results = HashMap::new();
-        for (name, rule) in queries.iter() {
-            let res = self.world.query_rule(rule.clone());
-            query_results.insert(name.clone(), res);
-        }
-
-        Ok(query_results
-            .drain()
-            .map(|(name, mut facts)| {
-                (
-                    name,
-                    facts
-                        .drain(..)
-                        .map(|f| Fact::convert_from(&f, &self.symbols))
-                        .collect(),
-                )
-            })
-            .collect())
     }
 }

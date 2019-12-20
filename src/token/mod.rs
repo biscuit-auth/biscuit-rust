@@ -1105,16 +1105,18 @@ mod tests {
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
-            verifier.add_query("revocation_ids", rule(
-                "revocation_id_verif",
-                &[builder::Atom::Variable(0)],
-                &[pred("revocation_id", &[builder::Atom::Variable(0)])]
-            )).unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
+
+            let res2 = verifier.query(rule(
+                "revocation_id_verif",
+                &[builder::Atom::Variable(0)],
+                &[pred("revocation_id", &[builder::Atom::Variable(0)])]
+            ));
+            println!("res2: {:?}", res2);
             assert_eq!(
-              &res.unwrap().get("revocation_ids").unwrap().iter().collect::<HashSet<_>>(),
+              &res2.unwrap().iter().collect::<HashSet<_>>(),
               &[fact("revocation_id_verif", &[int(1234)]), fact("revocation_id_verif", &[int(5678)])].iter().collect::<HashSet<_>>()
             );
         }
