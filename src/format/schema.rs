@@ -36,7 +36,7 @@ pub struct Block {
     #[prost(message, repeated, tag="4")]
     pub rules: ::std::vec::Vec<Rule>,
     #[prost(message, repeated, tag="5")]
-    pub caveats: ::std::vec::Vec<Rule>,
+    pub caveats: ::std::vec::Vec<Caveat>,
     #[prost(string, optional, tag="6")]
     pub context: ::std::option::Option<std::string::String>,
 }
@@ -53,6 +53,11 @@ pub struct Rule {
     pub body: ::std::vec::Vec<Predicate>,
     #[prost(message, repeated, tag="3")]
     pub constraints: ::std::vec::Vec<Constraint>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Caveat {
+    #[prost(message, repeated, tag="1")]
+    pub queries: ::std::vec::Vec<Rule>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Predicate {

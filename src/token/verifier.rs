@@ -1,18 +1,18 @@
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Atom, Constraint, ConstraintKind, Fact,
-    IntConstraint, Rule,
+    IntConstraint, Rule, Caveat,
 };
 use super::Biscuit;
 use crate::datalog;
 use crate::error;
-use std::{collections::HashMap, convert::TryInto, time::SystemTime};
+use std::{convert::TryInto, time::SystemTime};
 
 pub struct Verifier<'a> {
     token: &'a Biscuit,
     base_world: datalog::World,
     world: datalog::World,
     symbols: datalog::SymbolTable,
-    caveats: Vec<Rule>,
+    caveats: Vec<Caveat>,
 }
 
 impl<'a> Verifier<'a> {
@@ -63,7 +63,7 @@ impl<'a> Verifier<'a> {
     }
 
     /// verifier caveats
-    pub fn add_caveat<R: TryInto<Rule>>(&mut self, caveat: R) -> Result<(), error::Token> {
+    pub fn add_caveat<R: TryInto<Caveat>>(&mut self, caveat: R) -> Result<(), error::Token> {
         let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
         self.caveats.push(caveat);
         Ok(())
@@ -108,23 +108,41 @@ impl<'a> Verifier<'a> {
         let mut errors = vec![];
         for (i, caveat) in self.caveats.iter().enumerate() {
             let c = caveat.convert(&mut self.symbols);
-            let res = self.world.query_rule(c.clone());
-            if res.is_empty() {
+            let mut successful = false;
+
+            for query in caveat.queries.iter() {
+                let res = self.world.query_rule(query.convert(&mut self.symbols));
+                if !res.is_empty() {
+                    successful = true;
+                    break;
+                }
+            }
+
+            if !successful {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
                     caveat_id: i as u32,
-                    rule: self.symbols.print_rule(&c),
+                    rule: self.symbols.print_caveat(&c),
                 }));
             }
         }
 
         for (i, block_caveats) in self.token.caveats().iter().enumerate() {
             for (j, caveat) in block_caveats.iter().enumerate() {
-                let res = self.world.query_rule(caveat.clone());
-                if res.is_empty() {
+                let mut successful = false;
+
+                for query in caveat.queries.iter() {
+                    let res = self.world.query_rule(query.clone());
+                    if !res.is_empty() {
+                        successful = true;
+                        break;
+                    }
+                }
+
+                if !successful {
                     errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
                         block_id: i as u32,
                         caveat_id: j as u32,
-                        rule: self.symbols.print_rule(caveat),
+                        rule: self.symbols.print_caveat(caveat),
                     }));
                 }
             }

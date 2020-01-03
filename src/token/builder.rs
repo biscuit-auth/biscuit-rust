@@ -5,7 +5,7 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
+use std::{convert::{TryInto, TryFrom}, time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
 
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{IntConstraint, StrConstraint};
@@ -17,7 +17,7 @@ pub struct BlockBuilder {
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
-    pub caveats: Vec<datalog::Rule>,
+    pub caveats: Vec<datalog::Caveat>,
     pub context: Option<String>,
 }
 
@@ -48,10 +48,10 @@ impl BlockBuilder {
         Ok(())
     }
 
-    pub fn add_caveat<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let r = rule.convert(&mut self.symbols);
-        self.caveats.push(r);
+    pub fn add_caveat<C: TryInto<Caveat>>(&mut self, caveat: C) -> Result<(), error::Token> {
+        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
+        let c = caveat.convert(&mut self.symbols);
+        self.caveats.push(c);
         Ok(())
     }
 
@@ -162,7 +162,7 @@ pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
-    pub caveats: Vec<datalog::Rule>,
+    pub caveats: Vec<datalog::Caveat>,
     pub context: Option<String>,
 }
 
@@ -211,7 +211,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
     pub fn add_authority_caveat<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
         let caveat = rule.try_into().map_err(|_| error::Token::ParseError)?;
         let r = caveat.convert(&mut self.symbols);
-        self.caveats.push(r);
+        self.caveats.push(datalog::Caveat { queries: vec![r]});
         Ok(())
     }
 
@@ -443,6 +443,38 @@ impl Rule {
             body,
             constraints,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Caveat {
+    pub queries: Vec<Rule>,
+}
+
+impl Caveat {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Caveat {
+        let mut queries = vec![];
+        for q in self.queries.iter() {
+            queries.push(q.convert(symbols));
+        }
+
+        datalog::Caveat { queries }
+    }
+}
+
+impl TryFrom<Rule> for Caveat {
+    type Error = error::Token;
+
+    fn try_from(value: Rule) -> Result<Self, Self::Error> {
+        Ok(Caveat { queries: vec![value] })
+    }
+}
+
+impl TryFrom<&[Rule]> for Caveat {
+    type Error = error::Token;
+
+    fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
+        Ok(Caveat { queries: values.iter().cloned().collect() })
     }
 }
 

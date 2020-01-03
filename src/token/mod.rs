@@ -1,6 +1,6 @@
 //! main structures to interact with Biscuit tokens
 use super::crypto::{KeyPair, PublicKey};
-use super::datalog::{Fact, Rule, SymbolTable, World, ID};
+use super::datalog::{Fact, Rule, Caveat, SymbolTable, World, ID};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
@@ -341,7 +341,7 @@ impl Biscuit {
         Ok(world)
     }
 
-    pub(crate) fn caveats(&self) -> Vec<Vec<Rule>> {
+    pub(crate) fn caveats(&self) -> Vec<Vec<Caveat>> {
         let mut result = Vec::new();
         let v = self.authority.caveats.to_vec();
         result.push(v);
@@ -375,7 +375,7 @@ impl Biscuit {
         symbols: &SymbolTable,
         mut ambient_facts: Vec<Fact>,
         ambient_rules: Vec<Rule>,
-        verifier_caveats: Vec<Rule>,
+        verifier_caveats: Vec<Caveat>,
         queries: HashMap<String, Rule>,
     ) -> Result<HashMap<String, Vec<Fact>>, error::Logic> {
         let mut world = self.generate_world(symbols)?;
@@ -398,35 +398,62 @@ impl Biscuit {
 
         // authority caveats provided by the authority block
         for (i, caveat) in self.authority.caveats.iter().enumerate() {
-            let res = world.query_rule(caveat.clone());
-            if res.is_empty() {
+            let mut successful = false;
+
+            for query in caveat.queries.iter() {
+                let res = world.query_rule(query.clone());
+                if !res.is_empty() {
+                    successful = true;
+                    break;
+                }
+            }
+
+            if !successful {
                 errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
                     block_id: 0,
                     caveat_id: i as u32,
-                    rule: symbols.print_rule(caveat),
+                    rule: symbols.print_caveat(caveat),
                 }));
             }
         }
 
         // verifier caveats
         for (i, caveat) in verifier_caveats.iter().enumerate() {
-            let res = world.query_rule(caveat.clone());
-            if res.is_empty() {
+            let mut successful = false;
+
+            for query in caveat.queries.iter() {
+                let res = world.query_rule(query.clone());
+                if !res.is_empty() {
+                    successful = true;
+                    break;
+                }
+            }
+
+            if !successful {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
                     caveat_id: i as u32,
-                    rule: symbols.print_rule(caveat),
+                    rule: symbols.print_caveat(caveat),
                 }));
             }
         }
 
         for (i, block) in self.blocks.iter().enumerate() {
             for (j, caveat) in block.caveats.iter().enumerate() {
-                let res = world.query_rule(caveat.clone());
-                if res.is_empty() {
+                let mut successful = false;
+
+                for query in caveat.queries.iter() {
+                    let res = world.query_rule(query.clone());
+                    if !res.is_empty() {
+                        successful = true;
+                        break;
+                    }
+                }
+
+                if !successful {
                     errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
                         block_id: i as u32,
                         caveat_id: j as u32,
-                        rule: symbols.print_rule(caveat),
+                        rule: symbols.print_caveat(caveat),
                     }));
                 }
             }
@@ -552,7 +579,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     let caveats: Vec<_> = block
         .caveats
         .iter()
-        .map(|r| symbols.print_rule(r))
+        .map(|r| symbols.print_caveat(r))
         .collect();
 
 
@@ -594,7 +621,7 @@ pub struct Block {
     /// list of rules provided by this block
     pub rules: Vec<Rule>,
     /// caveats that the token and ambient data must validate
-    pub caveats: Vec<Rule>,
+    pub caveats: Vec<Caveat>,
     /// contextual information that can be looked up before the verification
     /// (as an example, a user id to query rights into a database)
     pub context: Option<String>,
@@ -628,7 +655,7 @@ impl Block {
         i: usize,
         mut world: World,
         symbols: &SymbolTable,
-        verifier_caveats: &[Rule],
+        verifier_caveats: &[Caveat],
         queries: &HashMap<String, Rule>,
         query_results: &mut HashMap<String, HashMap<u32, Vec<Fact>>>,
     ) -> Result<(), error::Logic> {
@@ -656,22 +683,40 @@ impl Block {
 
         let mut errors = vec![];
         for (j, caveat) in self.caveats.iter().enumerate() {
-            let res = world.query_rule(caveat.clone());
-            if res.is_empty() {
+            let mut successful = false;
+
+            for query in caveat.queries.iter() {
+                let res = world.query_rule(query.clone());
+                if !res.is_empty() {
+                    successful = true;
+                    break;
+                }
+            }
+
+            if !successful {
                 errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
                     block_id: i as u32,
                     caveat_id: j as u32,
-                    rule: symbols.print_rule(caveat),
+                    rule: symbols.print_caveat(caveat),
                 }));
             }
         }
 
         for (j, caveat) in verifier_caveats.iter().enumerate() {
-            let res = world.query_rule(caveat.clone());
-            if res.is_empty() {
+            let mut successful = false;
+
+            for query in caveat.queries.iter() {
+                let res = world.query_rule(query.clone());
+                if !res.is_empty() {
+                    successful = true;
+                    break;
+                }
+            }
+
+            if !successful {
                 errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
                     caveat_id: j as u32,
-                    rule: symbols.print_rule(caveat),
+                    rule: symbols.print_caveat(caveat),
                 }));
             }
         }

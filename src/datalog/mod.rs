@@ -175,6 +175,12 @@ impl Constraint {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Caveat {
+    pub queries: Vec<Rule>,
+}
+
+
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}({:?})", self.predicate.name, self.predicate.ids)
@@ -647,6 +653,16 @@ impl SymbolTable {
             preds.join(" && "),
             constraints.join(" && ")
         )
+    }
+
+    pub fn print_caveat(&self, c: &Caveat) -> String {
+        let queries = c
+            .queries
+            .iter()
+            .map(|r| self.print_rule(r))
+            .collect::<Vec<_>>();
+
+        format!("{}", queries.join(" || "))
     }
 }
 

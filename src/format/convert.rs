@@ -64,7 +64,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
         symbols: input.symbols.symbols.clone(),
         facts: input.facts.iter().map(token_fact_to_proto_fact).collect(),
         rules: input.rules.iter().map(token_rule_to_proto_rule).collect(),
-        caveats: input.caveats.iter().map(token_rule_to_proto_rule).collect(),
+        caveats: input.caveats.iter().map(token_caveat_to_proto_caveat).collect(),
         context: input.context.clone(),
     }
 }
@@ -82,7 +82,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 
     let mut caveats = vec![];
     for caveat in input.caveats.iter() {
-        caveats.push(proto_rule_to_token_rule(caveat)?);
+        caveats.push(proto_caveat_to_token_caveat(caveat)?);
     }
 
     let context = input.context.clone();
@@ -109,6 +109,22 @@ pub fn proto_fact_to_token_fact(input: &schema::Fact) -> Result<Fact, error::For
     Ok(Fact {
         predicate: proto_predicate_to_token_predicate(&input.predicate)?,
     })
+}
+
+pub fn token_caveat_to_proto_caveat(input: &Caveat) -> schema::Caveat {
+    schema::Caveat {
+        queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
+    }
+}
+
+pub fn proto_caveat_to_token_caveat(input: &schema::Caveat) -> Result<Caveat, error::Format> {
+    let mut queries = vec![];
+
+    for q in input.queries.iter() {
+      queries.push(proto_rule_to_token_rule(q)?);
+    }
+
+    Ok(Caveat { queries })
 }
 
 pub fn token_rule_to_proto_rule(input: &Rule) -> schema::Rule {

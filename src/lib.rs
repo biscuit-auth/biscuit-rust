@@ -91,8 +91,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 402 bytes
-//!   assert_eq!(token2.len(), 402);
+//!   // this new token fits in 404 bytes
+//!   assert_eq!(token2.len(), 404);
 //!
 //!   /************** VERIFICATION ****************/
 //!

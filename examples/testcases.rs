@@ -79,6 +79,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     regex_constraint(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    multi_queries_caveat(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -86,7 +89,7 @@ fn validate_token(
     data: &[u8],
     ambient_facts: Vec<Fact>,
     ambient_rules: Vec<Rule>,
-    caveats: Vec<Rule>,
+    caveats: Vec<Vec<Rule>>,
 ) -> Result<(), error::Token> {
     let token = Biscuit::from(&data[..])?;
 
@@ -98,7 +101,7 @@ fn validate_token(
         verifier.add_rule(rule);
     }
     for caveat in caveats {
-        verifier.add_caveat(caveat);
+        verifier.add_caveat(&caveat[..]);
     }
 
     verifier.verify()?;
@@ -668,7 +671,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
                 fact("operation", &[s("ambient"), s("read")]),
             ],
             vec![],
-            vec![rule(
+            vec![vec![rule(
               "caveat1",
               &[variable(0), variable(1)],
               &[
@@ -676,7 +679,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
               pred("resource", &[s("ambient"), var(0)]),
               pred("operation", &[s("ambient"), var(1)]),
               ],
-            )],
+            )]],
         )
     );
 
@@ -885,4 +888,45 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     );
 
     write_testcase(target, "test14_regex_constraint", &data[..]);
+}
+
+fn multi_queries_caveat<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## multi queries caveat: test15_multi_queries_caveat.bc");
+
+    let mut builder = Biscuit::builder(rng, &root);
+
+    builder.add_authority_fact(fact(
+        "must_be_present",
+        &[s("authority"), string("hello")],
+        //&[string("hello")],
+    ));
+
+    let biscuit1 = builder.build().unwrap();
+    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+    let data = biscuit1.to_vec().unwrap();
+
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![],
+            vec![],
+            vec![
+                vec![rule(
+                  "test_must_be_present_authority",
+                  &[variable(0)],
+                  &[pred("must_be_present", &[s("authority"), var(0)])],
+                ),
+                  rule(
+                  "test_must_be_present",
+                  &[variable(0)],
+                  &[pred("must_be_present", &[var(0)])],
+                )],
+            ],
+        )
+    );
+
+    write_testcase(target, "test15_multi_queries_caveats", &data[..]);
 }
