@@ -164,4 +164,8 @@ impl<'a> Verifier<'a> {
             Ok(())
         }
     }
+
+    pub fn print_world(&self) -> String {
+        self.symbols.print_world(&self.world)
+    }
 }
