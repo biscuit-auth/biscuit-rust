@@ -10,6 +10,7 @@ use std::{convert::TryInto, time::SystemTime};
 pub struct Verifier<'a> {
     token: &'a Biscuit,
     base_world: datalog::World,
+    base_symbols: datalog::SymbolTable,
     world: datalog::World,
     symbols: datalog::SymbolTable,
     caveats: Vec<Caveat>,
@@ -18,12 +19,14 @@ pub struct Verifier<'a> {
 impl<'a> Verifier<'a> {
     pub(crate) fn new(token: &'a Biscuit) -> Result<Self, error::Logic> {
         let base_world = token.generate_world(&token.symbols)?;
+        let base_symbols = token.symbols.clone();
         let world = base_world.clone();
         let symbols = token.symbols.clone();
 
         Ok(Verifier {
             token,
             base_world,
+            base_symbols,
             world,
             symbols,
             caveats: vec![],
@@ -33,7 +36,12 @@ impl<'a> Verifier<'a> {
     pub fn reset(&mut self) {
         self.caveats.clear();
         self.world = self.base_world.clone();
-        self.symbols = self.token.symbols.clone();
+        self.symbols = self.base_symbols.clone();
+    }
+
+    pub fn snapshot(&mut self) {
+        self.base_world = self.world.clone();
+        self.base_symbols = self.symbols.clone();
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
