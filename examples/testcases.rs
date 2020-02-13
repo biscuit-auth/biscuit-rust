@@ -81,7 +81,7 @@ fn main() {
     regex_constraint(&mut rng, &target, &root);
 
     println!("\n------------------------------\n");
-    multi_queries_caveat(&mut rng, &target, &root);
+    multi_queries_caveats(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -890,8 +890,8 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     write_testcase(target, "test14_regex_constraint", &data[..]);
 }
 
-fn multi_queries_caveat<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
-    println!("## multi queries caveat: test15_multi_queries_caveat.bc");
+fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## multi queries caveats: test15_multi_queries_caveats.bc");
 
     let mut builder = Biscuit::builder(rng, &root);
 
