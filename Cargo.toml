@@ -6,6 +6,9 @@ authors = ["Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"]
 edition = "2018"
 build = "build.rs"
 license = "Apache-2.0"
+documentation = "https://docs.rs/biscuit-auth"
+homepage = "https://github.com/clevercloud/biscuit"
+repository = "https://github.com/clevercloud/biscuit-rust"
 
 [dependencies]
 rand_core = "^0.5"
