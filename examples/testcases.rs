@@ -82,6 +82,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     multi_queries_caveats(&mut rng, &target, &root);
+
+    println!("\n------------------------------\n");
+    caveat_head_name(&mut rng, &target, &root);
 }
 
 fn validate_token(
@@ -930,4 +933,45 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
     );
 
     write_testcase(target, "test15_multi_queries_caveats", &data[..]);
+}
+
+fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+    println!("## caveat head name should be independent from fact names: test16_caveat_head_name.bc");
+
+    let mut builder = Biscuit::builder(rng, &root);
+
+    builder.add_authority_caveat(rule(
+        "caveat1",
+        &[s("test")],
+        &[
+            pred("resource", &[s("ambient"), s("hello")]),
+        ],
+    ));
+
+    let biscuit1 = builder.build().unwrap();
+
+    //println!("biscuit1 (authority): {}", biscuit1.print());
+
+    let mut block2 = biscuit1.create_block();
+    block2.add_fact(fact("caveat1", &[s("test")])).unwrap();
+
+    let keypair2 = KeyPair::new(rng);
+    let biscuit2 = biscuit1
+        .append(rng, &keypair2, block2.build())
+        .unwrap();
+
+    println!("biscuit: {}", biscuit2.print());
+    let data = biscuit2.to_vec().unwrap();
+
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![],
+            vec![],
+            vec![],
+        )
+    );
+    write_testcase(target, "test16_caveat_head_name", &data[..]);
 }
