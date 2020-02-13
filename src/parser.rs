@@ -8,7 +8,7 @@ use nom::{
     },
     combinator::{map, map_opt, map_res, opt, recognize, value},
     multi::separated_nonempty_list,
-    sequence::{delimited, pair, preceded, terminated},
+    sequence::{delimited, pair, preceded},
     IResult,
 };
 use std::{
