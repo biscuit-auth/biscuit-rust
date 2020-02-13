@@ -457,6 +457,7 @@ pub fn match_preds(pred1: &Predicate, pred2: &Predicate) -> bool {
                 (ID::Symbol(i), ID::Symbol(ref j)) => i == j,
                 (ID::Integer(i), ID::Integer(j)) => i == j,
                 (ID::Str(i), ID::Str(j)) => i == j,
+                (ID::Date(i), ID::Date(j)) => i == j,
                 _ => false,
             })
 }
@@ -516,6 +517,7 @@ impl World {
                             (ID::Symbol(i), ID::Symbol(ref j)) => i == j,
                             (ID::Integer(i), ID::Integer(ref j)) => i == j,
                             (ID::Str(i), ID::Str(ref j)) => i == j,
+                            (ID::Date(i), ID::Date(ref j)) => i == j,
                             _ => false,
                         })
             })
