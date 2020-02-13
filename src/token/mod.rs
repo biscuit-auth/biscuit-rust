@@ -1167,4 +1167,58 @@ mod tests {
         }
     }
 
+    #[test]
+    fn caveat_head_name() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new(&mut rng);
+
+        let mut builder = Biscuit::builder(&mut rng, &root);
+
+        builder.add_authority_caveat(rule(
+            "caveat1",
+            &[s("test")],
+            &[
+                pred("resource", &[s("ambient"), s("hello")]),
+            ],
+        ));
+
+        let biscuit1 = builder.build().unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1.print());
+
+        // new caveat: can only have read access1
+        let mut block2 = biscuit1.create_block();
+        block2.add_fact(fact("caveat1", &[s("test")])).unwrap();
+
+        let keypair2 = KeyPair::new(&mut rng);
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.build())
+            .unwrap();
+
+        println!("biscuit2: {}", biscuit2.print());
+
+        //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
+        {
+            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            verifier.add_resource("file1");
+            verifier.add_operation("read");
+            verifier.set_time();
+
+            println!("world:\n{}", verifier.print_world());
+
+            let res = verifier.verify();
+            println!("res1: {:?}", res);
+            assert_eq!(
+              res,
+              Err(Token::FailedLogic(Logic::FailedCaveats(vec![
+                FailedCaveat::Block(FailedBlockCaveat {
+                  block_id: 0,
+                  caveat_id: 0,
+                  rule: String::from("caveat1(#test) <- resource(#ambient, #hello) | "),
+                }),
+              ]))));
+
+        }
+    }
+
 }
