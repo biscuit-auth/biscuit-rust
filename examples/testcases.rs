@@ -104,6 +104,7 @@ fn validate_token(
         verifier.add_caveat(&caveat[..]);
     }
 
+    println!("verifier world:\n{}", verifier.print_world());
     verifier.verify()?;
     Ok(())
 }

@@ -53,7 +53,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///   builder.add_authority_fact("!right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -754,9 +754,9 @@ mod tests {
         let serialized1 = {
             let mut builder = Biscuit::builder(&mut rng, &root);
 
-            builder.add_authority_fact("right(#authority, #file1, #read)").unwrap();
-            builder.add_authority_fact("right(#authority, #file2, #read)").unwrap();
-            builder.add_authority_fact("right(#authority, #file1, #write)").unwrap();
+            builder.add_authority_fact("!right(#authority, #file1, #read)").unwrap();
+            builder.add_authority_fact("!right(#authority, #file2, #read)").unwrap();
+            builder.add_authority_fact("!right(#authority, #file1, #write)").unwrap();
 
             let biscuit1 = builder.build().unwrap();
 
@@ -891,8 +891,8 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1(0?) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("caveat2(#file1) <- resource(#ambient, #file1) | ") })
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("*caveat1($0) <- !resource(#ambient, $0) && !operation(#ambient, #read) && !right(#authority, $0, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*caveat2(#file1) <- !resource(#ambient, #file1)") })
               ])));
         }
     }
@@ -948,7 +948,7 @@ mod tests {
                         block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
-                            "prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*"
+                            "*prefix($0) <- !resource(#ambient, $0) @ $0 matches /folder1/*"
                         )
                     }),
                 ])))
@@ -964,8 +964,8 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix(0?) <- resource(#ambient, 0?) | 0? matches /folder1/*") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, 0?) && operation(#ambient, #read) && right(#authority, 0?, #read) | ") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*prefix($0) <- !resource(#ambient, $0) @ $0 matches /folder1/*") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("*check_right(#read) <- !resource(#ambient, $0) && !operation(#ambient, #read) && !right(#authority, $0, #read)") }),
               ]))));
         }
     }
@@ -1108,7 +1108,7 @@ mod tests {
       println!("res: {:?}", res);
       assert_eq!(res,
         Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write) | ") }),
+          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("*right(#right) <- !right(#authority, \"file2\", #write)") }),
       ]))));
     }
 
@@ -1214,7 +1214,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                   block_id: 0,
                   caveat_id: 0,
-                  rule: String::from("caveat1(#test) <- resource(#ambient, #hello) | "),
+                  rule: String::from("*caveat1(#test) <- !resource(#ambient, #hello)"),
                 }),
               ]))));
 

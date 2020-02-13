@@ -578,11 +578,11 @@ impl SymbolTable {
             .iter()
             .map(|r| self.print_rule(r))
             .collect::<Vec<_>>();
-        format!("World {{\n\tfacts: {:#?}\n\trules: {:#?}\n}}", facts, rules)
+        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
     }
 
     pub fn print_fact(&self, f: &Fact) -> String {
-        self.print_predicate(&f.predicate)
+        format!("!{}", self.print_predicate(&f.predicate))
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {
@@ -590,7 +590,7 @@ impl SymbolTable {
             .ids
             .iter()
             .map(|id| match id {
-                ID::Variable(i) => format!("{}?", i),
+                ID::Variable(i) => format!("${}", i),
                 ID::Integer(i) => i.to_string(),
                 ID::Str(s) => format!("\"{}\"", s),
                 ID::Symbol(index) => format!("#{}", self.symbols[*index as usize]),
@@ -612,48 +612,54 @@ impl SymbolTable {
 
     pub fn print_constraint(&self, c: &Constraint) -> String {
         match &c.kind {
-            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("{}? < {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("{}? > {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("{}? <= {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("{}? >= {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("{}? == {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
-            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("{}? not in {:?}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("{}? matches {}*", c.id, i),
-            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("{}? matches *{}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("{}? == {}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("{}? matches /{}/", c.id, i),
-            ConstraintKind::Str(StrConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
-            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("{}? not in {:?}", c.id, i),
+            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", c.id, i),
+            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", c.id, i),
+            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", c.id, i),
+            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", c.id, i),
+            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", c.id, i),
+            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", c.id, i),
+            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", c.id, i),
+            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", c.id, i),
+            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", c.id, i),
             ConstraintKind::Date(DateConstraint::Before(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("{}? <= {:?}", c.id, date.to_rfc3339())
+              format!("${} <= {}", c.id, date.to_rfc3339())
             },
             ConstraintKind::Date(DateConstraint::After(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("{}? >= {:?}", c.id, date.to_rfc3339())
+              format!("${} >= {}", c.id, date.to_rfc3339())
             },
-            ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("{}? in {:?}", c.id, i),
+            ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("${} in {:?}", c.id, i),
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
-                format!("{}? not in {:?}", c.id, i)
+                format!("${} not in {:?}", c.id, i)
             }
         }
     }
 
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
-        let preds: Vec<_> = r.body.iter().map(|p| self.print_predicate(p)).collect();
+        let preds: Vec<_> = r.body.iter().map(|p| format!("!{}", self.print_predicate(p))).collect();
         let constraints: Vec<_> = r
             .constraints
             .iter()
             .map(|c| self.print_constraint(c))
             .collect();
 
+        let c = if constraints.is_empty() {
+          String::new()
+        } else {
+          format!(" @ {}", constraints.join(", "))
+        };
+
         format!(
-            "{} <- {} | {}",
+            "*{} <- {}{}",
             res,
-            preds.join(" && "),
-            constraints.join(" && ")
+            preds.join(", "),
+            c
         )
     }
 

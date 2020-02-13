@@ -18,20 +18,33 @@ use std::{
 };
 
 pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
-    predicate(i).map(|(i, p)| (i, builder::Fact(p)))
+    preceded(char('!'), predicate)(i).map(|(i, p)| (i, builder::Fact(p)))
+}
+
+pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
+    let (i, queries) = separated_nonempty_list(
+      preceded(space0, tag("||")),
+      preceded(space0, rule)
+    )(i)?;
+
+    Ok((i, builder::Caveat { queries }))
 }
 
 pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
+    let (i, _) = char('*')(i)?;
     let (i, head) = predicate(i)?;
     let (i, _) = space0(i)?;
 
     let (i, _) = tag("<-")(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, predicates) = separated_nonempty_list(preceded(space0, char(',')), predicate)(i)?;
+    let (i, predicates) = separated_nonempty_list(
+      preceded(space0, char(',')),
+      preceded(preceded(space0, char('!')), predicate)
+    )(i)?;
 
     let (i, constraints) = if let Ok((i, _)) =
-        preceded::<_, _, _, (&str, nom::error::ErrorKind), _, _>(space0, char('|'))(i)
+        preceded::<_, _, _, (&str, nom::error::ErrorKind), _, _>(space0, char('@'))(i)
     {
         separated_nonempty_list(preceded(space0, char(',')), constraint)(i)?
     } else {
@@ -103,7 +116,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
 
 fn constraint(i: &str) -> IResult<&str, builder::Constraint> {
     let (i, _) = space0(i)?;
-    let (i, id) = map_res(terminated(name, char('?')), |s| s.parse())(i)?;
+    let (i, id) = map_res(preceded(char('$'), name), |s| s.parse())(i)?;
     let (i, kind) = constraint_kind(i)?;
 
     Ok((i, builder::Constraint { id, kind }))
@@ -339,7 +352,7 @@ fn date(i: &str) -> IResult<&str, builder::Atom> {
 
 fn variable(i: &str) -> IResult<&str, builder::Atom> {
     map(
-        map_res(terminated(name, char('?')), |s| s.parse()),
+        map_res(preceded(char('$'), name), |s| s.parse()),
         builder::variable,
     )(i)
 }
@@ -407,13 +420,13 @@ mod tests {
 
     #[test]
     fn variable() {
-        assert_eq!(super::variable("1?"), Ok(("", builder::variable(1))));
+        assert_eq!(super::variable("$1"), Ok(("", builder::variable(1))));
     }
 
     #[test]
     fn constraint() {
         assert_eq!(
-            super::constraint("0? <= 2030-12-31T12:59:59+00:00"),
+            super::constraint("$0 <= 2030-12-31T12:59:59+00:00"),
             Ok((
                 "",
                 builder::Constraint {
@@ -427,7 +440,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? >= 2030-12-31T12:59:59+00:00"),
+            super::constraint("$0 >= 2030-12-31T12:59:59+00:00"),
             Ok((
                 "",
                 builder::Constraint {
@@ -441,7 +454,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? < 1234"),
+            super::constraint("$0 < 1234"),
             Ok((
                 "",
                 builder::Constraint {
@@ -452,7 +465,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? > 1234"),
+            super::constraint("$0 > 1234"),
             Ok((
                 "",
                 builder::Constraint {
@@ -463,7 +476,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? <= 1234"),
+            super::constraint("$0 <= 1234"),
             Ok((
                 "",
                 builder::Constraint {
@@ -476,7 +489,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? >= -1234"),
+            super::constraint("$0 >= -1234"),
             Ok((
                 "",
                 builder::Constraint {
@@ -489,7 +502,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? == 1"),
+            super::constraint("$0 == 1"),
             Ok((
                 "",
                 builder::Constraint {
@@ -501,7 +514,7 @@ mod tests {
 
         let h = [1, 2].iter().cloned().collect::<HashSet<_>>();
         assert_eq!(
-            super::constraint("0? in [1, 2]"),
+            super::constraint("$0 in [1, 2]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -512,7 +525,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? not in [1, 2]"),
+            super::constraint("$0 not in [1, 2]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -523,7 +536,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? == \"abc\""),
+            super::constraint("$0 == \"abc\""),
             Ok((
                 "",
                 builder::Constraint {
@@ -536,7 +549,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? matches \"*abc\""),
+            super::constraint("$0 matches \"*abc\""),
             Ok((
                 "",
                 builder::Constraint {
@@ -549,7 +562,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? matches \"abc*\""),
+            super::constraint("$0 matches \"abc*\""),
             Ok((
                 "",
                 builder::Constraint {
@@ -562,7 +575,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? matches /abc[0-9]+/"),
+            super::constraint("$0 matches /abc[0-9]+/"),
             Ok((
                 "",
                 builder::Constraint {
@@ -579,7 +592,7 @@ mod tests {
             .cloned()
             .collect::<HashSet<_>>();
         assert_eq!(
-            super::constraint("0? in [\"abc\", \"def\"]"),
+            super::constraint("$0 in [\"abc\", \"def\"]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -590,7 +603,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? not in [\"abc\", \"def\"]"),
+            super::constraint("$0 not in [\"abc\", \"def\"]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -605,7 +618,7 @@ mod tests {
             .cloned()
             .collect::<HashSet<_>>();
         assert_eq!(
-            super::constraint("0? in [#abc, #def]"),
+            super::constraint("$0 in [#abc, #def]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -616,7 +629,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::constraint("0? not in [#abc, #def]"),
+            super::constraint("$0 not in [#abc, #def]"),
             Ok((
                 "",
                 builder::Constraint {
@@ -630,7 +643,7 @@ mod tests {
     #[test]
     fn fact() {
         assert_eq!(
-            super::fact("right( #authority, \"file1\", #read )"),
+            super::fact("!right( #authority, \"file1\", #read )"),
             Ok((
                 "",
                 builder::fact(
@@ -648,7 +661,7 @@ mod tests {
     #[test]
     fn rule() {
         assert_eq!(
-            super::rule("right(#authority, 0?, #read) <- resource( #ambient, 0?), operation(#ambient, #read)"),
+            super::rule("*right(#authority, $0, #read) <- !resource( #ambient, $0), !operation(#ambient, #read)"),
             Ok((
                 "",
                 builder::rule(
@@ -670,7 +683,7 @@ mod tests {
     #[test]
     fn constrained_rule() {
         assert_eq!(
-            super::rule("valid_date(\"file1\") <- time(#ambient, 0? ), resource( #ambient, \"file1\") | 0? <= 2019-12-04T09:46:41+00:00"),
+            super::rule("*valid_date(\"file1\") <- !time(#ambient, $0 ), !resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
             Ok((
                 "",
                 builder::constrained_rule(
