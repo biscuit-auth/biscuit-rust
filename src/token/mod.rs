@@ -1221,4 +1221,48 @@ mod tests {
         }
     }
 
+    #[test]
+    fn caveat_requires_fact_in_future_block() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new(&mut rng);
+
+        let mut builder = Biscuit::builder(&mut rng, &root);
+
+        builder.add_authority_caveat(rule(
+            "requires_name",
+            &[var(0)],
+            &[
+                pred("name", &[var(0)]),
+            ],
+        )).unwrap();
+
+        let biscuit1 = builder.build().unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1.print());
+        let mut verifier1 = biscuit1.verify(root.public()).unwrap();
+        let res1 = verifier1.verify();
+        println!("res1: {:?}", res1);
+        assert_eq!(
+            res1,
+            Err(Token::FailedLogic(Logic::FailedCaveats(vec![
+                FailedCaveat::Block(FailedBlockCaveat {
+                    block_id: 0,
+                    caveat_id: 0,
+                    rule: String::from("*requires_name($0) <- name($0)"),
+                }),
+            ]))));
+
+        let mut block2 = biscuit1.create_block();
+        block2.add_fact(fact("name", &[s("test")])).unwrap();
+
+        let keypair2 = KeyPair::new(&mut rng);
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.build())
+            .unwrap();
+
+        println!("biscuit2 (with name fact): {}", biscuit2.print());
+        let mut verifier2 = biscuit2.verify(root.public()).unwrap();
+        let res2 = verifier2.verify();
+        assert_eq!(res2, Ok(()));
+    }
 }
