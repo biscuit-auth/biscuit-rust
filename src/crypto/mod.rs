@@ -230,7 +230,7 @@ impl TokenSignature {
 fn hash_points(points: &[RistrettoPoint]) -> Scalar {
     let mut h = Sha512::new();
     for point in points.iter() {
-        h.input(point.compress().as_bytes());
+        h.update(point.compress().as_bytes());
     }
 
     Scalar::from_hash(h)
