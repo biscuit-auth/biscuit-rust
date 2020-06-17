@@ -582,7 +582,7 @@ impl SymbolTable {
     }
 
     pub fn print_fact(&self, f: &Fact) -> String {
-        format!("!{}", self.print_predicate(&f.predicate))
+        format!("{}", self.print_predicate(&f.predicate))
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {
@@ -642,7 +642,7 @@ impl SymbolTable {
 
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
-        let preds: Vec<_> = r.body.iter().map(|p| format!("!{}", self.print_predicate(p))).collect();
+        let preds: Vec<_> = r.body.iter().map(|p| format!("{}", self.print_predicate(p))).collect();
         let constraints: Vec<_> = r
             .constraints
             .iter()
