@@ -122,7 +122,7 @@ impl Biscuit {
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::from_slice(slice).map_err(error::Token::Format)?;
 
-        let authority: Block = schema::Block::decode(&container.authority)
+        let authority: Block = schema::Block::decode(&container.authority[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
                     "error deserializing authority block: {:?}",
@@ -139,7 +139,7 @@ impl Biscuit {
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(block)
+            let deser: Block = schema::Block::decode(&block[..])
                 .map_err(|e| {
                     error::Token::Format(error::Format::BlockDeserializationError(format!(
                         "error deserializing block: {:?}",
@@ -189,7 +189,7 @@ impl Biscuit {
         let container =
             sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
 
-        let authority: Block = schema::Block::decode(container.authority)
+        let authority: Block = schema::Block::decode(&container.authority[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
                     "error deserializing authority block: {:?}",
@@ -206,7 +206,7 @@ impl Biscuit {
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(block)
+            let deser: Block = schema::Block::decode(&block[..])
                 .map_err(|e| {
                     error::Token::Format(error::Format::BlockDeserializationError(format!(
                         "error deserializing block: {:?}",
