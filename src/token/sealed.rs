@@ -1,6 +1,6 @@
 use super::Biscuit;
 use crate::error;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha256;
 
 use crate::format::{convert::token_block_to_proto_block, schema};
@@ -43,12 +43,12 @@ impl SealedBiscuit {
         }
 
         let mut mac = HmacSha256::new_varkey(secret).unwrap();
-        mac.input(&authority);
+        mac.update(&authority);
         for block in blocks.iter() {
-            mac.input(&block);
+            mac.update(&block);
         }
 
-        let signature: Vec<u8> = mac.result().code().to_vec();
+        let signature: Vec<u8> = mac.finalize().into_bytes().to_vec();
 
         Ok(SealedBiscuit {
             authority,
@@ -69,9 +69,9 @@ impl SealedBiscuit {
         };
 
         let mut mac = HmacSha256::new_varkey(secret).unwrap();
-        mac.input(&deser.authority);
+        mac.update(&deser.authority);
         for block in deser.blocks.iter() {
-            mac.input(&block);
+            mac.update(&block);
         }
 
         mac.verify(&deser.signature)

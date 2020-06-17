@@ -435,8 +435,8 @@ pub fn date(t: &SystemTime) -> ID {
 /// warning: collision risk
 pub fn var(name: &str) -> ID {
     let mut hasher = Sha256::new();
-    hasher.input(name);
-    let res = hasher.result();
+    hasher.update(name);
+    let res = hasher.finalize();
     let id: u32 = u32::from(res[0])
         + (u32::from(res[1]) << 8)
         + (u32::from(res[2]) << 16)
