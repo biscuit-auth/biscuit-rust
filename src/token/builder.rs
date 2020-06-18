@@ -462,6 +462,15 @@ impl Caveat {
     }
 }
 
+impl TryFrom<&str> for Caveat {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let rule = Rule::try_from(value)?;
+        Ok(Caveat { queries: vec![rule] })
+    }
+}
+
 impl TryFrom<Rule> for Caveat {
     type Error = error::Token;
 
