@@ -94,6 +94,16 @@ impl FromStr for builder::Rule {
     }
 }
 
+impl FromStr for builder::Predicate {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        predicate(s)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
 fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
