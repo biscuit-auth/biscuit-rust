@@ -41,10 +41,10 @@
 //!
 //!     // let's define some access rights
 //!     // every fact added to the authority block must have the authority fact
-//!     builder.add_authority_fact("!right(#authority, \"/a/file1.txt\", #read)")?;
-//!     builder.add_authority_fact("!right(#authority, \"/a/file1.txt\", #write)")?;
-//!     builder.add_authority_fact("!right(#authority, \"/a/file2.txt\", #read)")?;
-//!     builder.add_authority_fact("!right(#authority, \"/b/file3.txt\", #write)")?;
+//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)")?;
+//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #write)")?;
+//!     builder.add_authority_fact("right(#authority, \"/a/file2.txt\", #read)")?;
+//!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -81,7 +81,7 @@
 //!     ));
 //!
 //!     // the previous caveat could also be written like this
-//!     // builder.add_caveat("*caveat(#resource) <- !resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
+//!     // builder.add_caveat("*caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
 //!
 //!     let keypair = KeyPair::new(&mut rng);
 //!     // we can now create a new token
@@ -108,17 +108,17 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_rule("*read_right(#read_right) <- !right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_rule("*read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
 //!
 //!   let mut v2 = biscuit2.verify(public_key)?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_rule("*write_right(#write_right) <- !right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_rule("*write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
 //!
 //!   let mut v3 = biscuit2.verify(public_key)?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_rule("*read_right(#read_right) <- !right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_rule("*read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
 //!
 //!   // the token restricts to read operations:
 //!   assert!(v1.verify().is_ok());

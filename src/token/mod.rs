@@ -53,7 +53,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("!right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -754,9 +754,9 @@ mod tests {
         let serialized1 = {
             let mut builder = Biscuit::builder(&mut rng, &root);
 
-            builder.add_authority_fact("!right(#authority, #file1, #read)").unwrap();
-            builder.add_authority_fact("!right(#authority, #file2, #read)").unwrap();
-            builder.add_authority_fact("!right(#authority, #file1, #write)").unwrap();
+            builder.add_authority_fact("right(#authority, #file1, #read)").unwrap();
+            builder.add_authority_fact("right(#authority, #file2, #read)").unwrap();
+            builder.add_authority_fact("right(#authority, #file1, #write)").unwrap();
 
             let biscuit1 = builder.build().unwrap();
 

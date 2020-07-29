@@ -18,7 +18,7 @@ use std::{
 };
 
 pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
-    preceded(char('!'), predicate)(i).map(|(i, p)| (i, builder::Fact(p)))
+    predicate(i).map(|(i, p)| (i, builder::Fact(p)))
 }
 
 pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
@@ -40,7 +40,7 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, _) = space0(i)?;
     let (i, predicates) = separated_nonempty_list(
       preceded(space0, char(',')),
-      preceded(preceded(space0, char('!')), predicate)
+      preceded(space0, predicate)
     )(i)?;
 
     let (i, constraints) = if let Ok((i, _)) =
@@ -643,7 +643,7 @@ mod tests {
     #[test]
     fn fact() {
         assert_eq!(
-            super::fact("!right( #authority, \"file1\", #read )"),
+            super::fact("right( #authority, \"file1\", #read )"),
             Ok((
                 "",
                 builder::fact(
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn rule() {
         assert_eq!(
-            super::rule("*right(#authority, $0, #read) <- !resource( #ambient, $0), !operation(#ambient, #read)"),
+            super::rule("*right(#authority, $0, #read) <- resource( #ambient, $0), operation(#ambient, #read)"),
             Ok((
                 "",
                 builder::rule(
@@ -683,7 +683,7 @@ mod tests {
     #[test]
     fn constrained_rule() {
         assert_eq!(
-            super::rule("*valid_date(\"file1\") <- !time(#ambient, $0 ), !resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
+            super::rule("*valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
             Ok((
                 "",
                 builder::constrained_rule(
