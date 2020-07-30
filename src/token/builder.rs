@@ -5,7 +5,7 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH}, collections::HashSet};
+use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH}, collections::HashSet};
 
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{IntConstraint, StrConstraint};
@@ -291,6 +291,22 @@ impl AsRef<Atom> for Atom {
     }
 }
 
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Atom::Variable(i) => write!(f, "${}", i),
+            Atom::Integer(i) => write!(f, "{}", i),
+            Atom::Str(s) => write!(f, "\"{}\"", s),
+            Atom::Symbol(s) => write!(f, "#{}", s),
+            Atom::Date(d) => {
+                let t = UNIX_EPOCH + Duration::from_secs(*d);
+                write!(f, "{:?}", t)
+            }
+        }
+
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
@@ -330,6 +346,24 @@ impl AsRef<Predicate> for Predicate {
     }
 }
 
+impl fmt::Display for Predicate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}(", self.name)?;
+
+        if self.ids.len() > 0 {
+            write!(f, "{}", self.ids[0])?;
+
+            if self.ids.len() > 1 {
+                for i in 1..self.ids.len() {
+                    write!(f, ", {}", self.ids[i])?;
+                }
+            }
+        }
+        write!(f, ")")
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Fact(pub Predicate);
 
@@ -348,6 +382,12 @@ impl Fact {
 
     pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
         Fact(Predicate::convert_from(&f.predicate, symbols))
+    }
+}
+
+impl fmt::Display for Fact {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -378,6 +418,41 @@ impl AsRef<Constraint> for Constraint {
         self
     }
 }
+
+impl fmt::Display for Constraint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.kind {
+            ConstraintKind::Integer(IntConstraint::Lower(i)) => write!(f, "${} < {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::Larger(i)) => write!(f, "${} > {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::LowerOrEqual(i)) => write!(f, "${} <= {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::LargerOrEqual(i)) => write!(f, "${} >= {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::Equal(i)) => write!(f, "${} == {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::NotIn(i)) => write!(f, "${} not in {:?}", self.id, i),
+            ConstraintKind::String(StrConstraint::Prefix(i)) => write!(f, "${} matches {}*", self.id, i),
+            ConstraintKind::String(StrConstraint::Suffix(i)) => write!(f, "${} matches *{}", self.id, i),
+            ConstraintKind::String(StrConstraint::Equal(i)) => write!(f, "${} == {}", self.id, i),
+            ConstraintKind::String(StrConstraint::Regex(i)) => write!(f, "${} matches /{}/", self.id, i),
+            ConstraintKind::String(StrConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
+            ConstraintKind::String(StrConstraint::NotIn(i)) => write!(f, "${} not in {:?}", self.id, i),
+            ConstraintKind::Date(DateConstraint::Before(date)) => {
+              //let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
+              let date: chrono::DateTime<chrono::Utc> = (*date).into();
+              write!(f, "${} <= {}", self.id, date.to_rfc3339())
+            },
+            ConstraintKind::Date(DateConstraint::After(date)) => {
+              //let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
+              let date: chrono::DateTime<chrono::Utc> = (*date).into();
+              write!(f, "${} >= {}", self.id, date.to_rfc3339())
+            },
+            ConstraintKind::Symbol(SymbolConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
+            ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
+                write!(f, "${} not in {:?}", self.id, i)
+            }
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConstraintKind {
@@ -484,6 +559,35 @@ impl Rule {
     }
 }
 
+impl fmt::Display for Rule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "*{} <- ", self.0)?;
+
+        if self.1.len() > 0 {
+            write!(f, "{}", self.1[0])?;
+
+            if self.1.len() > 1 {
+                for i in 1..self.1.len() {
+                    write!(f, ", {}", self.1[i])?;
+                }
+            }
+        }
+
+        if self.2.len() > 0 {
+            write!(f, " @ {}", self.2[0])?;
+
+            if self.2.len() > 1 {
+                for i in 1..self.2.len() {
+                    write!(f, ", {}", self.2[i])?;
+                }
+            }
+
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Caveat {
     pub queries: Vec<Rule>,
@@ -513,6 +617,22 @@ impl TryFrom<&[Rule]> for Caveat {
 
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
         Ok(Caveat { queries: values.iter().cloned().collect() })
+    }
+}
+
+impl fmt::Display for Caveat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.queries.len() > 0 {
+            write!(f, "{}", self.queries[0])?;
+
+            if self.queries.len() > 1 {
+                for i in 1..self.queries.len() {
+                    write!(f, " || {}", self.queries[i])?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
