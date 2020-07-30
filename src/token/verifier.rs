@@ -168,4 +168,10 @@ impl<'a> Verifier<'a> {
     pub fn print_world(&self) -> String {
         self.symbols.print_world(&self.world)
     }
+
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Caveat>) {
+        (self.world.facts.iter().map(|f| Fact::convert_from(f, &self.symbols)).collect(),
+         self.world.rules.iter().map(|r| Rule::convert_from(r, &self.symbols)).collect(),
+         self.caveats.clone())
+    }
 }

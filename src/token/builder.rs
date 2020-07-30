@@ -5,7 +5,7 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::{TryInto, TryFrom}, time::{SystemTime, UNIX_EPOCH}, collections::HashSet};
+use std::{convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH}, collections::HashSet};
 
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{IntConstraint, StrConstraint};
@@ -364,6 +364,13 @@ impl Constraint {
           kind: self.kind.convert(symbols),
         }
     }
+
+    pub fn convert_from(c: &datalog::Constraint, symbols: &SymbolTable) -> Self {
+        Constraint {
+            id: c.id,
+            kind: ConstraintKind::convert_from(&c.kind, symbols),
+        }
+    }
 }
 
 impl AsRef<Constraint> for Constraint {
@@ -400,6 +407,29 @@ impl ConstraintKind {
         ConstraintKind::Symbol(SymbolConstraint::NotIn(h)) => {
           let hset = h.iter().map(|s| symbols.insert(&s)).collect();
           datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::NotIn(hset))
+        },
+      }
+    }
+
+    pub fn convert_from(c: &datalog::ConstraintKind, symbols: &SymbolTable) -> Self {
+      match c {
+        datalog::ConstraintKind::Int(i) => ConstraintKind::Integer(i.clone()),
+        datalog::ConstraintKind::Str(s) => ConstraintKind::String(s.clone()),
+        datalog::ConstraintKind::Date(datalog::DateConstraint::Before(secs)) => {
+          let date = UNIX_EPOCH + Duration::from_secs(*secs);
+          ConstraintKind::Date(DateConstraint::Before(date))
+        },
+        datalog::ConstraintKind::Date(datalog::DateConstraint::After(secs)) => {
+          let date = UNIX_EPOCH + Duration::from_secs(*secs);
+          ConstraintKind::Date(DateConstraint::After(date))
+        }
+        datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::In(h)) => {
+          let hset = h.iter().map(|s| symbols.print_symbol(*s)).collect();
+          ConstraintKind::Symbol(SymbolConstraint::In(hset))
+        },
+        datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::NotIn(h)) => {
+          let hset = h.iter().map(|s| symbols.print_symbol(*s)).collect();
+          ConstraintKind::Symbol(SymbolConstraint::NotIn(hset))
         },
       }
     }
@@ -443,6 +473,14 @@ impl Rule {
             body,
             constraints,
         }
+    }
+
+    pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
+        Rule(
+            Predicate::convert_from(&r.head, symbols),
+            r.body.iter().map(|p| Predicate::convert_from(p, symbols)).collect(),
+            r.constraints.iter().map(|c| Constraint::convert_from(c, symbols)).collect(),
+        )
     }
 }
 
