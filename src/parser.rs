@@ -94,6 +94,26 @@ impl FromStr for builder::Rule {
     }
 }
 
+impl TryFrom<&str> for builder::Caveat {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        caveat(value)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
+impl FromStr for builder::Caveat {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        caveat(s)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
 impl FromStr for builder::Predicate {
     type Err = error::Token;
 
@@ -194,6 +214,9 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
             map(parse_string, |s| {
                 builder::ConstraintKind::String(datalog::StrConstraint::Equal(s))
             }),
+            map(parse_bytes, |s| {
+                builder::ConstraintKind::Bytes(datalog::BytesConstraint::Equal(s))
+            }),
         ))(i),
         Operator::In => delimited(
             char('['),
@@ -228,6 +251,17 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     |mut h| {
                         builder::ConstraintKind::Symbol(builder::SymbolConstraint::In(
                             h.drain(..).map(|s| s.to_string()).collect(),
+                        ))
+                    },
+                ),
+                map(
+                    separated_nonempty_list(
+                        preceded(space0, char(',')),
+                        preceded(space0, parse_bytes),
+                    ),
+                    |mut h| {
+                        builder::ConstraintKind::Bytes(datalog::BytesConstraint::In(
+                            h.drain(..).collect(),
                         ))
                     },
                 ),
@@ -267,6 +301,17 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     |mut h| {
                         builder::ConstraintKind::Symbol(builder::SymbolConstraint::NotIn(
                             h.drain(..).map(|s| s.to_string()).collect(),
+                        ))
+                    },
+                ),
+                map(
+                    separated_nonempty_list(
+                        preceded(space0, char(',')),
+                        preceded(space0, parse_bytes),
+                    ),
+                    |mut h| {
+                        builder::ConstraintKind::Bytes(datalog::BytesConstraint::NotIn(
+                            h.drain(..).collect(),
                         ))
                     },
                 ),
@@ -360,6 +405,25 @@ fn date(i: &str) -> IResult<&str, builder::Atom> {
     parse_date(i).map(|(i, t)| (i, builder::Atom::Date(t)))
 }
 
+fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>> {
+    preceded(
+        tag("hex:"),
+        map_res(
+            take_while1(|c| {
+                let c = c as u8;
+                (b'0' <= c && c <= b'9')
+                    || (b'a' <= c && c <= b'f')
+                    || (b'A' <= c && c <= b'F')
+            }),
+            hex::decode
+        )
+    )(i)
+}
+
+fn bytes(i: &str) -> IResult<&str, builder::Atom> {
+    parse_bytes(i).map(|(i, s)| (i, builder::Atom::Bytes(s)))
+}
+
 fn variable(i: &str) -> IResult<&str, builder::Atom> {
     map(
         map_res(preceded(char('$'), name), |s| s.parse()),
@@ -368,7 +432,7 @@ fn variable(i: &str) -> IResult<&str, builder::Atom> {
 }
 
 fn atom(i: &str) -> IResult<&str, builder::Atom> {
-    preceded(space0, alt((symbol, string, date, variable, integer)))(i)
+    preceded(space0, alt((symbol, string, date, variable, integer, bytes)))(i)
 }
 
 fn regex(i: &str) -> IResult<&str, String> {

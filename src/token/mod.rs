@@ -1265,4 +1265,34 @@ mod tests {
         let res2 = verifier2.verify();
         assert_eq!(res2, Ok(()));
     }
+
+    #[test]
+    fn bytes_constraints() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new(&mut rng);
+
+        let mut builder = Biscuit::builder(&mut rng, &root);
+        builder.add_authority_fact("bytes(#authority, hex:0102AB)").unwrap();
+        let biscuit1 = builder.build().unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1.print());
+
+        let mut block2 = biscuit1.create_block();
+        block2.add_rule("*has_bytes(0) <- bytes(#authority, $0) @ $0 in [ hex:00000000, hex:0102AB ]").unwrap();
+        let keypair2 = KeyPair::new(&mut rng);
+        let biscuit2 = biscuit1
+            .append(&mut rng, &keypair2, block2.build())
+            .unwrap();
+
+        let mut verifier = biscuit2.verify(root.public()).unwrap();
+        verifier.add_caveat("*ok(0) <- has_bytes($0)").unwrap();
+
+        let res = verifier.verify();
+        println!("res1: {:?}", res);
+        res.unwrap();
+
+        let res = verifier.query("*data($0) <- bytes(#authority, $0)").unwrap();
+        println!("query result: {:x?}", res);
+        println!("query result: {}", res[0]);
+    }
 }

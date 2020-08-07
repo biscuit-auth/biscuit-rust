@@ -8,7 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH}, collections::HashSet};
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{IntConstraint, StrConstraint};
+pub use crate::datalog::{IntConstraint, StrConstraint, BytesConstraint};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -249,6 +249,7 @@ pub enum Atom {
     Integer(i64),
     Str(String),
     Date(u64),
+    Bytes(Vec<u8>),
 }
 
 impl Atom {
@@ -259,6 +260,7 @@ impl Atom {
             Atom::Integer(i) => ID::Integer(*i),
             Atom::Str(s) => ID::Str(s.clone()),
             Atom::Date(d) => ID::Date(*d),
+            Atom::Bytes(s) => ID::Bytes(s.clone()),
         }
     }
 
@@ -269,6 +271,7 @@ impl Atom {
         ID::Integer(i) => Atom::Integer(*i),
         ID::Str(s) => Atom::Str(s.clone()),
         ID::Date(d) => Atom::Date(*d),
+        ID::Bytes(s) => Atom::Bytes(s.clone()),
       }
     }
 }
@@ -281,6 +284,7 @@ impl From<&Atom> for Atom {
             Atom::Integer(ref i) => Atom::Integer(*i),
             Atom::Str(ref s) => Atom::Str(s.clone()),
             Atom::Date(ref d) => Atom::Date(*d),
+            Atom::Bytes(ref s) => Atom::Bytes(s.clone()),
         }
     }
 }
@@ -302,6 +306,7 @@ impl fmt::Display for Atom {
                 let t = UNIX_EPOCH + Duration::from_secs(*d);
                 write!(f, "{:?}", t)
             }
+            Atom::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
         }
 
     }
@@ -448,7 +453,16 @@ impl fmt::Display for Constraint {
             ConstraintKind::Symbol(SymbolConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
                 write!(f, "${} not in {:?}", self.id, i)
-            }
+            },
+            ConstraintKind::Bytes(BytesConstraint::Equal(i)) => write!(f, "${} == {}", self.id, hex::encode(i)),
+            ConstraintKind::Bytes(BytesConstraint::In(i)) => {
+                write!(f, "${} in {:?}", self.id, i.iter()
+                       .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
+            },
+            ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
+                write!(f, "${} not in {:?}", self.id, i.iter()
+                       .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
+            },
         }
     }
 }
@@ -460,6 +474,7 @@ pub enum ConstraintKind {
     String(datalog::StrConstraint),
     Date(DateConstraint),
     Symbol(SymbolConstraint),
+    Bytes(datalog::BytesConstraint),
 }
 
 impl ConstraintKind {
@@ -467,6 +482,7 @@ impl ConstraintKind {
       match self {
         ConstraintKind::Integer(i) => datalog::ConstraintKind::Int(i.clone()),
         ConstraintKind::String(s) => datalog::ConstraintKind::Str(s.clone()),
+        ConstraintKind::Bytes(s) => datalog::ConstraintKind::Bytes(s.clone()),
         ConstraintKind::Date(DateConstraint::Before(date)) => {
           let dur = date.duration_since(UNIX_EPOCH).expect("date should be after Unix Epoch");
           datalog::ConstraintKind::Date(datalog::DateConstraint::Before(dur.as_secs()))
@@ -506,6 +522,7 @@ impl ConstraintKind {
           let hset = h.iter().map(|s| symbols.print_symbol(*s)).collect();
           ConstraintKind::Symbol(SymbolConstraint::NotIn(hset))
         },
+        datalog::ConstraintKind::Bytes(s) => ConstraintKind::Bytes(s.clone()),
       }
     }
 }
@@ -716,4 +733,9 @@ pub fn var(i: u32) -> Atom {
 /// creates a variable for a rule
 pub fn variable(i: u32) -> Atom {
     Atom::Variable(i)
+}
+
+/// creates a byte array
+pub fn bytes(s: &[u8]) -> Atom {
+    Atom::Bytes(s.to_vec())
 }

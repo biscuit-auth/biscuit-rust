@@ -80,6 +80,8 @@ pub struct Id {
     pub str: ::std::option::Option<std::string::String>,
     #[prost(uint64, optional, tag="6")]
     pub date: ::std::option::Option<u64>,
+    #[prost(bytes, optional, tag="7")]
+    pub bytes: ::std::option::Option<std::vec::Vec<u8>>,
 }
 pub mod id {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -90,6 +92,7 @@ pub mod id {
         Integer = 2,
         Str = 3,
         Date = 4,
+        Bytes = 5,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -106,6 +109,8 @@ pub struct Constraint {
     pub date: ::std::option::Option<DateConstraint>,
     #[prost(message, optional, tag="6")]
     pub symbol: ::std::option::Option<SymbolConstraint>,
+    #[prost(message, optional, tag="7")]
+    pub bytes: ::std::option::Option<BytesConstraint>,
 }
 pub mod constraint {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -115,6 +120,7 @@ pub mod constraint {
         String = 1,
         Date = 2,
         Symbol = 3,
+        Bytes = 4,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -210,5 +216,25 @@ pub mod symbol_constraint {
     pub enum Kind {
         In = 0,
         NotIn = 1,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BytesConstraint {
+    #[prost(enumeration="bytes_constraint::Kind", required, tag="1")]
+    pub kind: i32,
+    #[prost(bytes, optional, tag="2")]
+    pub equal: ::std::option::Option<std::vec::Vec<u8>>,
+    #[prost(bytes, repeated, tag="3")]
+    pub in_set: ::std::vec::Vec<std::vec::Vec<u8>>,
+    #[prost(bytes, repeated, tag="4")]
+    pub not_in_set: ::std::vec::Vec<std::vec::Vec<u8>>,
+}
+pub mod bytes_constraint {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Kind {
+        Equal = 0,
+        In = 1,
+        NotIn = 2,
     }
 }
