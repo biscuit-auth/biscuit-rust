@@ -16,6 +16,7 @@ pub enum ID {
     Integer(i64),
     Str(String),
     Date(u64),
+    Bytes(Vec<u8>),
 }
 
 impl From<&ID> for ID {
@@ -26,6 +27,7 @@ impl From<&ID> for ID {
             ID::Integer(ref i) => ID::Integer(*i),
             ID::Str(ref s) => ID::Str(s.clone()),
             ID::Date(ref d) => ID::Date(*d),
+            ID::Bytes(ref b) => ID::Bytes(b.clone()),
         }
     }
 }
@@ -95,6 +97,7 @@ pub enum ConstraintKind {
     Str(StrConstraint),
     Date(DateConstraint),
     Symbol(SymbolConstraint),
+    Bytes(BytesConstraint),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,6 +131,13 @@ pub enum DateConstraint {
 pub enum SymbolConstraint {
     In(HashSet<u64>),
     NotIn(HashSet<u64>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BytesConstraint {
+    Equal(Vec<u8>),
+    In(HashSet<Vec<u8>>),
+    NotIn(HashSet<Vec<u8>>),
 }
 
 impl Constraint {
@@ -169,6 +179,11 @@ impl Constraint {
             (ID::Symbol(s), ConstraintKind::Symbol(c)) => match c {
                 SymbolConstraint::In(h) => h.contains(s),
                 SymbolConstraint::NotIn(h) => !h.contains(s),
+            },
+            (ID::Bytes(s), ConstraintKind::Bytes(c)) => match c {
+                BytesConstraint::Equal(s2) => s == s2,
+                BytesConstraint::In(h) => h.contains(s),
+                BytesConstraint::NotIn(h) => !h.contains(s),
             },
             _ => false,
         }
@@ -597,7 +612,8 @@ impl SymbolTable {
                 ID::Date(d) => {
                     let t = UNIX_EPOCH + Duration::from_secs(*d);
                     format!("{:?}", t)
-                }
+                },
+                ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
             })
             .collect::<Vec<_>>();
         format!(
@@ -637,6 +653,15 @@ impl SymbolTable {
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
                 format!("${} not in {:?}", c.id, i)
             }
+            ConstraintKind::Bytes(BytesConstraint::Equal(i)) => format!("${} == hex:{}", c.id, hex::encode(i)),
+            ConstraintKind::Bytes(BytesConstraint::In(i)) => {
+                format!("${} in {:?}", c.id, i.iter()
+                        .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
+            },
+            ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
+                format!("${} not in {:?}", c.id, i.iter()
+                        .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
+            },
         }
     }
 

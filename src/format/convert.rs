@@ -196,6 +196,7 @@ pub fn token_id_to_proto_id(input: &ID) -> schema::Id {
             integer: None,
             str: None,
             date: None,
+            bytes: None,
         },
         ID::Variable(v) => schema::Id {
             kind: Kind::Variable as i32,
@@ -204,6 +205,7 @@ pub fn token_id_to_proto_id(input: &ID) -> schema::Id {
             integer: None,
             str: None,
             date: None,
+            bytes: None,
         },
         ID::Integer(i) => schema::Id {
             kind: Kind::Integer as i32,
@@ -212,6 +214,7 @@ pub fn token_id_to_proto_id(input: &ID) -> schema::Id {
             integer: Some(*i),
             str: None,
             date: None,
+            bytes: None,
         },
         ID::Str(s) => schema::Id {
             kind: Kind::Str as i32,
@@ -220,6 +223,7 @@ pub fn token_id_to_proto_id(input: &ID) -> schema::Id {
             integer: None,
             str: Some(s.clone()),
             date: None,
+            bytes: None,
         },
         ID::Date(d) => schema::Id {
             kind: Kind::Date as i32,
@@ -228,6 +232,16 @@ pub fn token_id_to_proto_id(input: &ID) -> schema::Id {
             integer: None,
             str: None,
             date: Some(*d),
+            bytes: None,
+        },
+        ID::Bytes(s) => schema::Id {
+            kind: Kind::Bytes as i32,
+            symbol: None,
+            variable: None,
+            integer: None,
+            str: None,
+            date: None,
+            bytes: Some(s.clone()),
         },
     }
 }
@@ -269,6 +283,11 @@ pub fn proto_id_to_token_id(input: &schema::Id) -> Result<ID, error::Format> {
                 return Ok(ID::Date(d));
             }
         }
+        Kind::Bytes => {
+            if let Some(ref s) = input.bytes {
+                return Ok(ID::Bytes(s.clone()));
+            }
+        }
     }
 
     Err(error::Format::DeserializationError(
@@ -287,6 +306,7 @@ pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::Const
             str: None,
             date: None,
             symbol: None,
+            bytes: None,
         },
         ConstraintKind::Str(ref c) => schema::Constraint {
             id: input.id,
@@ -295,6 +315,7 @@ pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::Const
             str: Some(token_str_constraint_to_proto_str_constraint(c)),
             date: None,
             symbol: None,
+            bytes: None,
         },
         ConstraintKind::Date(ref c) => schema::Constraint {
             id: input.id,
@@ -303,6 +324,7 @@ pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::Const
             str: None,
             date: Some(token_date_constraint_to_proto_date_constraint(c)),
             symbol: None,
+            bytes: None,
         },
         ConstraintKind::Symbol(ref c) => schema::Constraint {
             id: input.id,
@@ -311,7 +333,17 @@ pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::Const
             str: None,
             date: None,
             symbol: Some(token_symbol_constraint_to_proto_symbol_constraint(c)),
+            bytes: None,
         },
+        ConstraintKind::Bytes(ref c) => schema::Constraint {
+            id: input.id,
+            kind: Kind::Bytes as i32,
+            int: None,
+            str: None,
+            date: None,
+            symbol: None,
+            bytes: Some(token_bytes_constraint_to_proto_bytes_constraint(c)),
+        }
     }
 }
 
@@ -358,6 +390,14 @@ pub fn proto_constraint_to_token_constraint(
                 return proto_symbol_constraint_to_token_symbol_constraint(i).map(|c| Constraint {
                     id: input.id,
                     kind: ConstraintKind::Symbol(c),
+                });
+            }
+        }
+        Kind::Bytes => {
+            if let Some(ref i) = input.bytes {
+                return proto_bytes_constraint_to_token_bytes_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Bytes(c),
                 });
             }
         }
@@ -720,5 +760,70 @@ pub fn proto_symbol_constraint_to_token_symbol_constraint(
 
     Err(error::Format::DeserializationError(
         "deserialization error: invalid symbol constraint".to_string(),
+    ))
+}
+
+pub fn token_bytes_constraint_to_proto_bytes_constraint(
+    input: &BytesConstraint,
+) -> schema::BytesConstraint {
+    use schema::bytes_constraint::Kind;
+
+    match input {
+        BytesConstraint::Equal(s) => schema::BytesConstraint {
+            kind: Kind::Equal as i32,
+            equal: Some(s.clone()),
+            in_set: vec![],
+            not_in_set: vec![],
+        },
+        BytesConstraint::In(s) => schema::BytesConstraint {
+            kind: Kind::In as i32,
+            equal: None,
+            in_set: s.iter().cloned().collect(),
+            not_in_set: vec![],
+        },
+        BytesConstraint::NotIn(s) => schema::BytesConstraint {
+            kind: Kind::NotIn as i32,
+            equal: None,
+            in_set: vec![],
+            not_in_set: s.iter().cloned().collect(),
+        },
+    }
+}
+
+pub fn proto_bytes_constraint_to_token_bytes_constraint(
+    input: &schema::BytesConstraint,
+) -> Result<BytesConstraint, error::Format> {
+    use schema::bytes_constraint::Kind;
+
+    let kind = if let Some(i) = Kind::from_i32(input.kind) {
+        i
+    } else {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: invalid bytes constraint kind".to_string(),
+        ));
+    };
+
+    match kind {
+        Kind::Equal => {
+            if let Some(ref s) = input.equal {
+                return Ok(BytesConstraint::Equal(s.clone()));
+            }
+        }
+        Kind::In => {
+            if !input.in_set.is_empty() {
+                return Ok(BytesConstraint::In(input.in_set.iter().cloned().collect()));
+            }
+        }
+        Kind::NotIn => {
+            if !input.not_in_set.is_empty() {
+                return Ok(BytesConstraint::NotIn(
+                    input.not_in_set.iter().cloned().collect(),
+                ));
+            }
+        }
+    }
+
+    Err(error::Format::DeserializationError(
+        "deserialization error: invalid string constraint".to_string(),
     ))
 }
