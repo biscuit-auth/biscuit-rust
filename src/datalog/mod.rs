@@ -572,7 +572,7 @@ impl SymbolTable {
     }
 
     pub fn print_symbol(&self, s: Symbol) -> String {
-      self.symbols.get(s as usize).map(|s| s.to_string()).unwrap_or_else(|| format!("<invalid symbol #{}", s))
+      self.symbols.get(s as usize).map(|s| s.to_string()).unwrap_or_else(|| format!("<{}?>", s))
     }
 
     pub fn print_world(&self, w: &World) -> String {
@@ -598,10 +598,10 @@ impl SymbolTable {
             .ids
             .iter()
             .map(|id| match id {
-                ID::Variable(i) => format!("${}", self.symbols[*i as usize]),
+                ID::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
                 ID::Integer(i) => i.to_string(),
                 ID::Str(s) => format!("\"{}\"", s),
-                ID::Symbol(index) => format!("#{}", self.symbols[*index as usize]),
+                ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
                 ID::Date(d) => {
                     let t = UNIX_EPOCH + Duration::from_secs(*d);
                     format!("{:?}", t)
@@ -621,38 +621,38 @@ impl SymbolTable {
 
     pub fn print_constraint(&self, c: &Constraint) -> String {
         match &c.kind {
-            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", self.symbols[c.id as usize], i),
-            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", self.symbols[c.id as usize], i),
-            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", self.print_symbol(c.id as u64), i),
             ConstraintKind::Date(DateConstraint::Before(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} <= {}", self.symbols[c.id as usize], date.to_rfc3339())
+              format!("${} <= {}", self.print_symbol(c.id as u64), date.to_rfc3339())
             },
             ConstraintKind::Date(DateConstraint::After(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} >= {}", self.symbols[c.id as usize], date.to_rfc3339())
+              format!("${} >= {}", self.print_symbol(c.id as u64), date.to_rfc3339())
             },
             ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("${} in {:?}", c.id, i),
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", self.symbols[c.id as usize], i)
+                format!("${} not in {:?}", self.print_symbol(c.id as u64), i)
             }
             ConstraintKind::Bytes(BytesConstraint::Equal(i)) => format!("${} == hex:{}", c.id, hex::encode(i)),
             ConstraintKind::Bytes(BytesConstraint::In(i)) => {
-                format!("${} in {:?}", self.symbols[c.id as usize], i.iter()
+                format!("${} in {:?}", self.print_symbol(c.id as u64), i.iter()
                         .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
             },
             ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", self.symbols[c.id as usize], i.iter()
+                format!("${} not in {:?}", self.print_symbol(c.id as u64), i.iter()
                         .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
             },
         }
