@@ -17,7 +17,7 @@ use curve25519_dalek::{
 };
 use rand_core::{RngCore, CryptoRng};
 use sha2::{Digest, Sha512};
-use std::ops::Deref;
+use std::{ops::Deref, convert::TryInto};
 
 pub struct KeyPair {
     pub(crate) private: Scalar,
@@ -76,7 +76,8 @@ impl PrivateKey {
         self.0.to_bytes()
     }
 
-    pub fn from_bytes(bytes: [u8; 32]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let bytes: [u8; 32] = bytes.try_into().ok()?;
         Scalar::from_canonical_bytes(bytes).map(PrivateKey)
     }
 }
