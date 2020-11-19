@@ -15,9 +15,10 @@ use curve25519_dalek::{
     scalar::Scalar,
     traits::Identity,
 };
+use zeroize::Zeroize;
 use rand_core::{RngCore, CryptoRng};
 use sha2::{Digest, Sha512};
-use std::{ops::Deref, convert::TryInto};
+use std::{ops::{Deref, Drop}, convert::TryInto};
 
 pub struct KeyPair {
     pub(crate) private: Scalar,
@@ -42,11 +43,14 @@ impl KeyPair {
 
     #[allow(dead_code)]
     fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
-        let r = Scalar::random(rng);
+        let mut r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
         let e = hash_message(self.public, message);
         let z = r * d - e * self.private;
+
+        r.zeroize();
+
         (d, z)
     }
 
@@ -56,6 +60,12 @@ impl KeyPair {
 
     pub fn public(&self) -> PublicKey {
         PublicKey(self.public)
+    }
+}
+
+impl Drop for KeyPair {
+    fn drop(&mut self) {
+        self.private.zeroize();
     }
 }
 
@@ -79,6 +89,12 @@ impl PrivateKey {
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         let bytes: [u8; 32] = bytes.try_into().ok()?;
         Scalar::from_canonical_bytes(bytes).map(PrivateKey)
+    }
+}
+
+impl Drop for PrivateKey {
+    fn drop(&mut self) {
+        self.0.zeroize();
     }
 }
 
@@ -152,11 +168,13 @@ pub struct TokenSignature {
 
 impl TokenSignature {
     pub fn new<T: RngCore + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
-        let r = Scalar::random(rng);
+        let mut r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
         let e = hash_message(keypair.public, message);
         let z = r * d - e * keypair.private;
+
+        r.zeroize();
 
         TokenSignature {
             parameters: vec![A],
@@ -165,11 +183,13 @@ impl TokenSignature {
     }
 
     pub fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
-        let r = Scalar::random(rng);
+        let mut r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
         let e = hash_message(keypair.public, message);
         let z = r * d - e * keypair.private;
+
+        r.zeroize();
 
         let mut t = TokenSignature {
             parameters: self.parameters.clone(),
