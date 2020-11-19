@@ -23,6 +23,7 @@ nom = "5"
 chrono = "0.4"
 hex = "0.4"
 zeroize = { version = "1", default-features = false }
+thiserror = "1"
 
 #[build-dependencies]
 #prost-build = "0.6"
