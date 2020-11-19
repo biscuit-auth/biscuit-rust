@@ -806,11 +806,11 @@ mod tests {
 
             block2.add_caveat(rule(
                 "caveat1",
-                &[var(0)],
+                &[var("resource")],
                 &[
-                    pred("resource", &[s("ambient"), var(0)]),
+                    pred("resource", &[s("ambient"), var("resource")]),
                     pred("operation", &[s("ambient"), s("read")]),
-                    pred("right", &[s("authority"), var(0), s("read")]),
+                    pred("right", &[s("authority"), var("resource"), s("read")]),
                 ],
             )).unwrap();
 
@@ -891,7 +891,7 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("*caveat1($0) <- resource(#ambient, $0), operation(#ambient, #read), right(#authority, $0, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("*caveat1($resource) <- resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*caveat2(#file1) <- resource(#ambient, #file1)") })
               ])));
         }
@@ -948,7 +948,7 @@ mod tests {
                         block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
-                            "*prefix($0) <- resource(#ambient, $0) @ $0 matches /folder1/*"
+                            "*prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*"
                         )
                     }),
                 ])))
@@ -964,8 +964,8 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*prefix($0) <- resource(#ambient, $0) @ $0 matches /folder1/*") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("*check_right(#read) <- resource(#ambient, $0), operation(#ambient, #read), right(#authority, $0, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("*check_right(#read) <- resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
               ]))));
         }
     }
@@ -1156,8 +1156,8 @@ mod tests {
 
             let res2 = verifier.query(rule(
                 "revocation_id_verif",
-                &[builder::Atom::Variable(0)],
-                &[pred("revocation_id", &[builder::Atom::Variable(0)])]
+                &[builder::Atom::Variable("id".to_string())],
+                &[pred("revocation_id", &[builder::Atom::Variable("id".to_string())])]
             ));
             println!("res2: {:?}", res2);
             assert_eq!(
@@ -1230,9 +1230,9 @@ mod tests {
 
         builder.add_authority_caveat(rule(
             "requires_name",
-            &[var(0)],
+            &[var("name")],
             &[
-                pred("name", &[var(0)]),
+                pred("name", &[var("name")]),
             ],
         )).unwrap();
 
@@ -1248,7 +1248,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                     block_id: 0,
                     caveat_id: 0,
-                    rule: String::from("*requires_name($0) <- name($0)"),
+                    rule: String::from("*requires_name($name) <- name($name)"),
                 }),
             ]))));
 

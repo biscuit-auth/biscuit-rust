@@ -1,6 +1,6 @@
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Atom, Constraint, ConstraintKind, Fact,
-    IntConstraint, Rule, Caveat,
+    IntConstraint, Rule, Caveat, var,
 };
 use super::Biscuit;
 use crate::datalog;
@@ -95,10 +95,10 @@ impl<'a> Verifier<'a> {
     pub fn revocation_check(&mut self, ids: &[i64]) {
         let caveat = constrained_rule(
             "revocation_check",
-            &[Atom::Variable(0)],
-            &[pred("revocation_id", &[Atom::Variable(0)])],
+            &[var("id")],
+            &[pred("revocation_id", &[var("id")])],
             &[Constraint {
-                id: 0,
+                id: "id".to_string(),
                 kind: ConstraintKind::Integer(IntConstraint::NotIn(ids.iter().cloned().collect())),
             }],
         );

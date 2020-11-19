@@ -144,11 +144,11 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -188,11 +188,11 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -239,11 +239,11 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -295,11 +295,11 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -352,11 +352,11 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -406,11 +406,11 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
             pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var(0), s("read")]),
+            pred("right", &[s("authority"), var("0"), s("read")]),
         ],
     ));
 
@@ -423,7 +423,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     block3.add_caveat(rule(
         "caveat2",
-        &[var(0)],
+        &[var("0")],
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
 
@@ -472,7 +472,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[pred("operation", &[s("ambient"), s("read")])],
     ));
 
@@ -516,7 +516,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 
     block2.add_caveat(rule(
         "caveat1",
-        &[var(0)],
+        &[var("0")],
         &[pred("operation", &[s("ambient"), s("read")])],
     ));
 
@@ -590,18 +590,18 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
     let mut builder = Biscuit::builder(rng, &root);
     builder.add_authority_rule(rule(
         "right",
-        &[symbol("authority"), variable(1), symbol("read")],
+        &[symbol("authority"), variable("1"), symbol("read")],
         &[
-            pred("resource", &[s("ambient"), variable(1)]),
-            pred("owner", &[s("ambient"), variable(0), variable(1)]),
+            pred("resource", &[s("ambient"), variable("1")]),
+            pred("owner", &[s("ambient"), variable("0"), variable("1")]),
         ],
     ));
     builder.add_authority_rule(rule(
         "right",
-        &[symbol("authority"), variable(1), symbol("write")],
+        &[symbol("authority"), variable("1"), symbol("write")],
         &[
-            pred("resource", &[s("ambient"), variable(1)]),
-            pred("owner", &[s("ambient"), variable(0), variable(1)]),
+            pred("resource", &[s("ambient"), variable("1")]),
+            pred("owner", &[s("ambient"), variable("0"), variable("1")]),
         ],
     ));
 
@@ -611,19 +611,19 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
     block2.add_caveat(rule(
         "caveat1",
-        &[variable(0), variable(1)],
+        &[variable("0"), variable("1")],
         &[
-            pred("right", &[s("authority"), var(0), var(1)]),
-            pred("resource", &[s("ambient"), var(0)]),
-            pred("operation", &[s("ambient"), var(1)]),
+            pred("right", &[s("authority"), var("0"), var("1")]),
+            pred("resource", &[s("ambient"), var("0")]),
+            pred("operation", &[s("ambient"), var("1")]),
         ],
     ));
     block2.add_caveat(rule(
         "caveat2",
-        &[variable(0)],
+        &[variable("0")],
         &[
-            pred("resource", &[s("ambient"), var(0)]),
-            pred("owner", &[s("ambient"), symbol("alice"), var(0)]),
+            pred("resource", &[s("ambient"), var("0")]),
+            pred("owner", &[s("ambient"), symbol("alice"), var("0")]),
         ],
     ));
 
@@ -677,11 +677,11 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
             vec![],
             vec![vec![rule(
               "caveat1",
-              &[variable(0), variable(1)],
+              &[variable("0"), variable("1")],
               &[
-              pred("right", &[s("authority"), var(0), var(1)]),
-              pred("resource", &[s("ambient"), var(0)]),
-              pred("operation", &[s("ambient"), var(1)]),
+              pred("right", &[s("authority"), var("0"), var("1")]),
+              pred("resource", &[s("ambient"), var("0")]),
+              pred("operation", &[s("ambient"), var("1")]),
               ],
             )]],
         )
@@ -761,11 +761,11 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         "valid_date",
         &[string("file1")],
         &[
-            pred("time", &[s("ambient"), variable(0)]),
+            pred("time", &[s("ambient"), variable("0")]),
             pred("resource", &[s("ambient"), string("file1")]),
         ],
         &[Constraint {
-          id: 0,
+          id: "0".to_string(),
           kind: ConstraintKind::Date(DateConstraint::Before(date1)),
         }]
     ));
@@ -779,18 +779,18 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     // generate a valid date fact for any file other than "file1" if before date2
     block2.add_rule(constrained_rule(
         "valid_date",
-        &[variable(1)],
+        &[variable("1")],
         &[
-            pred("time", &[s("ambient"), variable(0)]),
-            pred("resource", &[s("ambient"), variable(1)]),
+            pred("time", &[s("ambient"), variable("0")]),
+            pred("resource", &[s("ambient"), variable("1")]),
         ],
         &[
           Constraint {
-            id: 0,
+            id: "0".to_string(),
             kind: ConstraintKind::Date(DateConstraint::Before(date2)),
           },
           Constraint {
-            id: 1,
+            id: "1".to_string(),
             kind: ConstraintKind::String(StrConstraint::NotIn(strings))
           }
         ]
@@ -798,10 +798,10 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 
     block2.add_caveat(rule(
         "caveat1",
-        &[variable(0)],
+        &[variable("0")],
         &[
-            pred("valid_date", &[variable(0)]),
-            pred("resource", &[s("ambient"), var(0)]),
+            pred("valid_date", &[variable("0")]),
+            pred("resource", &[s("ambient"), var("0")]),
         ]
     ));
 
@@ -849,13 +849,13 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     builder.add_authority_caveat(constrained_rule(
         "resource_match",
-        &[variable(0)],
+        &[variable("0")],
         &[
-            pred("resource", &[s("ambient"), variable(0)]),
+            pred("resource", &[s("ambient"), variable("0")]),
         ],
         &[
           Constraint {
-            id: 0,
+            id: "0".to_string(),
             kind: ConstraintKind::String(StrConstraint::Regex("file[0-9]+.txt".to_string())),
           },
         ]
@@ -920,13 +920,13 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
             vec![
                 vec![rule(
                   "test_must_be_present_authority",
-                  &[variable(0)],
-                  &[pred("must_be_present", &[s("authority"), var(0)])],
+                  &[variable("0")],
+                  &[pred("must_be_present", &[s("authority"), var("0")])],
                 ),
                   rule(
                   "test_must_be_present",
-                  &[variable(0)],
-                  &[pred("must_be_present", &[var(0)])],
+                  &[variable("0")],
+                  &[pred("must_be_present", &[var("0")])],
                 )],
             ],
         )

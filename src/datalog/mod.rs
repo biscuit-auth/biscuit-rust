@@ -447,16 +447,9 @@ pub fn date(t: &SystemTime) -> ID {
     ID::Date(dur.as_secs())
 }
 
-/// warning: collision risk
-pub fn var(name: &str) -> ID {
-    let mut hasher = Sha256::new();
-    hasher.update(name);
-    let res = hasher.finalize();
-    let id: u32 = u32::from(res[0])
-        + (u32::from(res[1]) << 8)
-        + (u32::from(res[2]) << 16)
-        + (u32::from(res[3]) << 24);
-    ID::Variable(id)
+pub fn var(syms: &mut SymbolTable, name: &str) -> ID {
+    let id = syms.insert(name);
+    ID::Variable(id as u32)
 }
 
 pub fn match_preds(pred1: &Predicate, pred2: &Predicate) -> bool {
@@ -605,7 +598,7 @@ impl SymbolTable {
             .ids
             .iter()
             .map(|id| match id {
-                ID::Variable(i) => format!("${}", i),
+                ID::Variable(i) => format!("${}", self.symbols[*i as usize]),
                 ID::Integer(i) => i.to_string(),
                 ID::Str(s) => format!("\"{}\"", s),
                 ID::Symbol(index) => format!("#{}", self.symbols[*index as usize]),
@@ -628,38 +621,38 @@ impl SymbolTable {
 
     pub fn print_constraint(&self, c: &Constraint) -> String {
         match &c.kind {
-            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", c.id, i),
-            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", c.id, i),
-            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", c.id, i),
-            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", c.id, i),
-            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", c.id, i),
-            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", c.id, i),
-            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", c.id, i),
+            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", self.symbols[c.id as usize], i),
+            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", self.symbols[c.id as usize], i),
+            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", self.symbols[c.id as usize], i),
             ConstraintKind::Date(DateConstraint::Before(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} <= {}", c.id, date.to_rfc3339())
+              format!("${} <= {}", self.symbols[c.id as usize], date.to_rfc3339())
             },
             ConstraintKind::Date(DateConstraint::After(i)) => {
               let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} >= {}", c.id, date.to_rfc3339())
+              format!("${} >= {}", self.symbols[c.id as usize], date.to_rfc3339())
             },
             ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("${} in {:?}", c.id, i),
             ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", c.id, i)
+                format!("${} not in {:?}", self.symbols[c.id as usize], i)
             }
             ConstraintKind::Bytes(BytesConstraint::Equal(i)) => format!("${} == hex:{}", c.id, hex::encode(i)),
             ConstraintKind::Bytes(BytesConstraint::In(i)) => {
-                format!("${} in {:?}", c.id, i.iter()
+                format!("${} in {:?}", self.symbols[c.id as usize], i.iter()
                         .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
             },
             ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", c.id, i.iter()
+                format!("${} not in {:?}", self.symbols[c.id as usize], i.iter()
                         .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
             },
         }
@@ -727,13 +720,14 @@ mod tests {
 
         let r1 = rule(
             grandparent,
-            &[var("grandparent"), var("grandchild")],
+            &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
             &[
-                pred(parent, &[var("grandparent"), var("parent")]),
-                pred(parent, &[var("parent"), var("grandchild")]),
+                pred(parent, &[var(&mut syms, "grandparent"), var(&mut syms, "parent")]),
+                pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "grandchild")]),
             ],
         );
 
+        println!("symbols: {:?}", syms);
         println!("testing r1: {}", syms.print_rule(&r1));
         let query_rule_result = w.query_rule(r1);
         println!("grandparents query_rules: {:?}", query_rule_result);
@@ -741,10 +735,10 @@ mod tests {
 
         let r2 = rule(
             grandparent,
-            &[var("grandparent"), var("grandchild")],
+            &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
             &[
-                pred(parent, &[var("grandparent"), var("parent")]),
-                pred(parent, &[var("parent"), var("grandchild")]),
+                pred(parent, &[var(&mut syms, "grandparent"), var(&mut syms, "parent")]),
+                pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "grandchild")]),
             ],
         );
 
@@ -754,22 +748,22 @@ mod tests {
         w.run();
 
         println!("parents:");
-        let res = w.query(pred(parent, &[var("parent"), var("child")]));
+        let res = w.query(pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "child")]));
         for fact in res {
             println!("\t{}", syms.print_fact(fact));
         }
 
         println!(
             "parents of B: {:?}",
-            w.query(pred(parent, &[&var("parent"), &b]))
+            w.query(pred(parent, &[&var(&mut syms, "parent"), &b]))
         );
         println!(
             "grandparents: {:?}",
-            w.query(pred(grandparent, &[var("grandparent"), var("grandchild")]))
+            w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]))
         );
         w.add_fact(fact(parent, &[&c, &e]));
         w.run();
-        let mut res = w.query(pred(grandparent, &[var("grandparent"), var("grandchild")]));
+        let mut res = w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]));
         println!("grandparents after inserting parent(C, E): {:?}", res);
 
         let res = res.drain(..).cloned().collect::<HashSet<_>>();
@@ -821,10 +815,10 @@ mod tests {
 
         let res = w.query_rule(rule(
             join,
-            &[var("left"), var("right")],
+            &[var(&mut syms, "left"), var(&mut syms, "right")],
             &[
-                pred(t1, &[var("id"), var("left")]),
-                pred(t2, &[var("t2_id"), var("right"), var("id")]),
+                pred(t1, &[var(&mut syms, "id"), var(&mut syms, "left")]),
+                pred(t2, &[var(&mut syms, "t2_id"), var(&mut syms, "right"), var(&mut syms, "id")]),
             ],
         ));
         for fact in &res {
@@ -844,13 +838,13 @@ mod tests {
         // test constraints
         let res = w.query_rule(constrained_rule(
             join,
-            &[var("left"), var("right")],
+            &[var(&mut syms, "left"), var(&mut syms, "right")],
             &[
-                pred(t1, &[ID::Variable(1234), var("left")]),
-                pred(t2, &[var("t2_id"), var("right"), ID::Variable(1234)]),
+                pred(t1, &[var(&mut syms, "id"), var(&mut syms, "left")]),
+                pred(t2, &[var(&mut syms, "t2_id"), var(&mut syms, "right"), var(&mut syms, "id")]),
             ],
             &[Constraint {
-                id: 1234,
+                id: syms.insert("id") as u32,
                 kind: ConstraintKind::Int(IntConstraint::Lower(1)),
             }],
         ));
@@ -882,22 +876,22 @@ mod tests {
         w.add_fact(fact(route, &[&int(3), &app_0, &string("www.example.com")]));
         w.add_fact(fact(route, &[&int(4), &app_1, &string("mx.example.com")]));
 
-        fn test_suffix(w: &World, suff: Symbol, route: Symbol, suffix: &str) -> Vec<Fact> {
+        fn test_suffix(w: &World, syms: &mut SymbolTable, suff: Symbol, route: Symbol, suffix: &str) -> Vec<Fact> {
             w.query_rule(constrained_rule(
                 suff,
-                &[var("app_id"), ID::Variable(1234)],
+                &[var(syms, "app_id"), var(syms, "domain_name")],
                 &[pred(
                     route,
-                    &[ID::Variable(0), var("app_id"), ID::Variable(1234)],
+                    &[var(syms, "route_id"), var(syms, "app_id"), var(syms, "domain_name")],
                 )],
                 &[Constraint {
-                    id: 1234,
+                    id: syms.insert("domain_name") as u32,
                     kind: ConstraintKind::Str(StrConstraint::Suffix(suffix.to_string())),
                 }],
             ))
         }
 
-        let res = test_suffix(&w, suff, route, ".fr");
+        let res = test_suffix(&w, &mut syms, suff, route, ".fr");
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -908,7 +902,7 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
 
-        let res = test_suffix(&w, suff, route, "example.com");
+        let res = test_suffix(&w, &mut syms, suff, route, "example.com");
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -949,15 +943,15 @@ mod tests {
 
         let r1 = constrained_rule(
             before,
-            &[ID::Variable(1234), var("val")],
-            &[pred(x, &[ID::Variable(1234), var("val")])],
+            &[var(&mut syms, "date"), var(&mut syms, "val")],
+            &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
                 Constraint {
-                    id: 1234,
+                    id: syms.insert("date") as u32,
                     kind: ConstraintKind::Date(DateConstraint::Before(t2_timestamp)),
                 },
                 Constraint {
-                    id: 1234,
+                    id: syms.insert("date") as u32,
                     kind: ConstraintKind::Date(DateConstraint::After(0)),
                 },
             ],
@@ -977,15 +971,15 @@ mod tests {
 
         let r2 = constrained_rule(
             after,
-            &[ID::Variable(1234), var("val")],
-            &[pred(x, &[ID::Variable(1234), var("val")])],
+            &[var(&mut syms, "date"), var(&mut syms, "val")],
+            &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
                 Constraint {
-                    id: 1234,
+                    id: syms.insert("date") as u32,
                     kind: ConstraintKind::Date(DateConstraint::After(t2_timestamp)),
                 },
                 Constraint {
-                    id: 1234,
+                    id: syms.insert("date") as u32,
                     kind: ConstraintKind::Date(DateConstraint::After(0)),
                 },
             ],
@@ -1021,10 +1015,10 @@ mod tests {
 
         let res = w.query_rule(constrained_rule(
             int_set,
-            &[var("sym"), var("str")],
-            &[pred(x, &[var("sym"), ID::Variable(0), var("str")])],
+            &[var(&mut syms, "sym"), var(&mut syms, "str")],
+            &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[Constraint {
-                id: 0,
+                id: syms.insert("int") as u32,
                 kind: ConstraintKind::Int(IntConstraint::In([0, 1].iter().cloned().collect())),
             }],
         ));
@@ -1043,10 +1037,10 @@ mod tests {
 
         let res = w.query_rule(constrained_rule(
             symbol_set,
-            &[ID::Variable(0), var("int"), var("str")],
-            &[pred(x, &[ID::Variable(0), var("int"), var("str")])],
+            &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")],
+            &[pred(x, &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[Constraint {
-                id: 0,
+                id: syms.insert("symbol") as u32,
                 kind: ConstraintKind::Symbol(SymbolConstraint::NotIn(
                     [abc_sym_id, ghi_sym_id].iter().cloned().collect(),
                 )),
@@ -1064,10 +1058,10 @@ mod tests {
 
         let res = w.query_rule(constrained_rule(
             string_set,
-            &[var("sym"), var("int"), ID::Variable(0)],
-            &[pred(x, &[var("sym"), var("int"), ID::Variable(0)])],
+            &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")],
+            &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[Constraint {
-                id: 0,
+                id: syms.insert("str") as u32,
                 kind: ConstraintKind::Str(StrConstraint::In(
                     ["test".to_string(), "aaa".to_string()]
                         .iter()

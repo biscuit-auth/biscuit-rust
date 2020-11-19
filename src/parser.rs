@@ -426,7 +426,7 @@ fn bytes(i: &str) -> IResult<&str, builder::Atom> {
 
 fn variable(i: &str) -> IResult<&str, builder::Atom> {
     map(
-        map_res(preceded(char('$'), name), |s| s.parse()),
+        preceded(char('$'), name),
         builder::variable,
     )(i)
 }
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn variable() {
-        assert_eq!(super::variable("$1"), Ok(("", builder::variable(1))));
+        assert_eq!(super::variable("$1"), Ok(("", builder::variable("1"))));
     }
 
     #[test]
@@ -504,7 +504,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Date(builder::DateConstraint::Before(
                         std::time::SystemTime::UNIX_EPOCH
                             + std::time::Duration::from_secs(1924952399)
@@ -518,7 +518,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Date(builder::DateConstraint::After(
                         std::time::SystemTime::UNIX_EPOCH
                             + std::time::Duration::from_secs(1924952399)
@@ -532,7 +532,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::Lower(1234)),
                 }
             ))
@@ -543,7 +543,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::Larger(1234)),
                 }
             ))
@@ -554,7 +554,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::LowerOrEqual(
                         1234
                     )),
@@ -567,7 +567,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::LargerOrEqual(
                         -1234
                     )),
@@ -580,7 +580,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::Equal(1)),
                 }
             ))
@@ -592,7 +592,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::In(h.clone())),
                 }
             ))
@@ -603,7 +603,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Integer(builder::IntConstraint::NotIn(h)),
                 }
             ))
@@ -614,7 +614,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::Equal(
                         "abc".to_string()
                     )),
@@ -627,7 +627,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::Suffix(
                         "abc".to_string()
                     )),
@@ -640,7 +640,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::Prefix(
                         "abc".to_string()
                     )),
@@ -653,7 +653,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::Regex(
                         "abc[0-9]+".to_string()
                     )),
@@ -670,7 +670,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::In(h.clone())),
                 }
             ))
@@ -681,7 +681,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::String(datalog::StrConstraint::NotIn(h)),
                 }
             ))
@@ -696,7 +696,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Symbol(builder::SymbolConstraint::In(h.clone())),
                 }
             ))
@@ -707,7 +707,7 @@ mod tests {
             Ok((
                 "",
                 builder::Constraint {
-                    id: 0,
+                    id: "0".to_string(),
                     kind: builder::ConstraintKind::Symbol(builder::SymbolConstraint::NotIn(h)),
                 }
             ))
@@ -742,11 +742,11 @@ mod tests {
                     "right",
                     &[
                         builder::s("authority"),
-                        builder::variable(0),
+                        builder::variable("0"),
                         builder::s("read"),
                     ],
                     &[
-                        builder::pred("resource", &[builder::s("ambient"), builder::variable(0)]),
+                        builder::pred("resource", &[builder::s("ambient"), builder::variable("0")]),
                         builder::pred("operation", &[builder::s("ambient"), builder::s("read")]),
                     ]
                 )
@@ -766,11 +766,11 @@ mod tests {
                         builder::string("file1"),
                     ],
                     &[
-                        builder::pred("time", &[builder::s("ambient"), builder::variable(0)]),
+                        builder::pred("time", &[builder::s("ambient"), builder::variable("0")]),
                         builder::pred("resource", &[builder::s("ambient"), builder::string("file1")]),
                     ],
                     &[builder::Constraint {
-                      id: 0,
+                      id: "0".to_string(),
                       kind: builder::ConstraintKind::Date(builder::DateConstraint::Before(
                           std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1575452801))),
                     }]

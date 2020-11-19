@@ -79,9 +79,9 @@ impl BlockBuilder {
             "check_right",
             &[s(right)],
             &[
-                pred("resource", &[s("ambient"), Atom::Variable(0)]),
+                pred("resource", &[s("ambient"), var("resource_name")]),
                 pred("operation", &[s("ambient"), s(right)]),
-                pred("right", &[s("authority"), Atom::Variable(0), s(right)]),
+                pred("right", &[s("authority"), var("resource_name"), s(right)]),
             ],
         );
 
@@ -111,10 +111,10 @@ impl BlockBuilder {
     pub fn resource_prefix(&mut self, prefix: &str) {
         let caveat = constrained_rule(
             "prefix",
-            &[Atom::Variable(0)],
-            &[pred("resource", &[s("ambient"), Atom::Variable(0)])],
+            &[var("resource")],
+            &[pred("resource", &[s("ambient"), var("resource")])],
             &[Constraint {
-                id: 0,
+                id: "resource".to_string(),
                 kind: ConstraintKind::String(datalog::StrConstraint::Prefix(prefix.to_string())),
             }],
         );
@@ -125,10 +125,10 @@ impl BlockBuilder {
     pub fn resource_suffix(&mut self, suffix: &str) {
         let caveat = constrained_rule(
             "suffix",
-            &[Atom::Variable(0)],
-            &[pred("resource", &[s("ambient"), Atom::Variable(0)])],
+            &[var("resource")],
+            &[pred("resource", &[s("ambient"), var("resource")])],
             &[Constraint {
-                id: 0,
+                id: "resource".to_string(),
                 kind: ConstraintKind::String(datalog::StrConstraint::Suffix(suffix.to_string())),
             }],
         );
@@ -139,10 +139,10 @@ impl BlockBuilder {
     pub fn expiration_date(&mut self, date: SystemTime) {
         let caveat = constrained_rule(
             "expiration",
-            &[Atom::Variable(0)],
-            &[pred("time", &[s("ambient"), Atom::Variable(0)])],
+            &[var("date")],
+            &[pred("time", &[s("ambient"), var("date")])],
             &[Constraint {
-                id: 0,
+                id: "date".to_string(),
                 kind: ConstraintKind::Date(DateConstraint::Before(date)),
             }],
         );
@@ -245,7 +245,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Atom {
     Symbol(String),
-    Variable(u32),
+    Variable(String),
     Integer(i64),
     Str(String),
     Date(u64),
@@ -256,7 +256,7 @@ impl Atom {
     pub fn convert(&self, symbols: &mut SymbolTable) -> ID {
         match self {
             Atom::Symbol(s) => ID::Symbol(symbols.insert(s)),
-            Atom::Variable(i) => ID::Variable(*i),
+            Atom::Variable(s) => ID::Variable(symbols.insert(s) as u32),
             Atom::Integer(i) => ID::Integer(*i),
             Atom::Str(s) => ID::Str(s.clone()),
             Atom::Date(d) => ID::Date(*d),
@@ -267,7 +267,7 @@ impl Atom {
     pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
       match f {
         ID::Symbol(s) => Atom::Symbol(symbols.print_symbol(*s)),
-        ID::Variable(i) => Atom::Variable(*i),
+        ID::Variable(s) => Atom::Variable(symbols.print_symbol(*s as u64)),
         ID::Integer(i) => Atom::Integer(*i),
         ID::Str(s) => Atom::Str(s.clone()),
         ID::Date(d) => Atom::Date(*d),
@@ -280,7 +280,7 @@ impl From<&Atom> for Atom {
     fn from(i: &Atom) -> Self {
         match i {
             Atom::Symbol(ref s) => Atom::Symbol(s.clone()),
-            Atom::Variable(ref v) => Atom::Variable(*v),
+            Atom::Variable(ref v) => Atom::Variable(v.clone()),
             Atom::Integer(ref i) => Atom::Integer(*i),
             Atom::Str(ref s) => Atom::Str(s.clone()),
             Atom::Date(ref d) => Atom::Date(*d),
@@ -398,21 +398,23 @@ impl fmt::Display for Fact {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Constraint {
-    pub id: u32,
+    pub id: String,
     pub kind: ConstraintKind,
 }
 
 impl Constraint {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Constraint {
         datalog::Constraint {
-          id: self.id,
+          // this conversion should be fine, the symbol table will not grow to
+          // more than u32::MAX entries
+          id: symbols.insert(&self.id) as u32,
           kind: self.kind.convert(symbols),
         }
     }
 
     pub fn convert_from(c: &datalog::Constraint, symbols: &SymbolTable) -> Self {
         Constraint {
-            id: c.id,
+            id: symbols.print_symbol(c.id as u64),
             kind: ConstraintKind::convert_from(&c.kind, symbols),
         }
     }
@@ -726,13 +728,13 @@ pub fn date(t: &SystemTime) -> Atom {
 }
 
 /// creates a variable for a rule
-pub fn var(i: u32) -> Atom {
-    Atom::Variable(i)
+pub fn var(s: &str) -> Atom {
+    Atom::Variable(s.to_string())
 }
 
 /// creates a variable for a rule
-pub fn variable(i: u32) -> Atom {
-    Atom::Variable(i)
+pub fn variable(s: &str) -> Atom {
+    Atom::Variable(s.to_string())
 }
 
 /// creates a byte array
