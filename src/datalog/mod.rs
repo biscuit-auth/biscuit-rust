@@ -1,5 +1,4 @@
 //! Logic language implementation for caveats
-use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
@@ -385,7 +384,7 @@ impl MatchedVariables {
         let mut result = HashMap::new();
         for (k, v) in self.0.iter() {
             match v {
-                Some(value) => result.insert(k.clone(), value.clone()),
+                Some(value) => result.insert(*k, value.clone()),
                 None => return None,
             };
         }
@@ -590,7 +589,7 @@ impl SymbolTable {
     }
 
     pub fn print_fact(&self, f: &Fact) -> String {
-        format!("{}", self.print_predicate(&f.predicate))
+        self.print_predicate(&f.predicate)
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {
@@ -660,7 +659,7 @@ impl SymbolTable {
 
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
-        let preds: Vec<_> = r.body.iter().map(|p| format!("{}", self.print_predicate(p))).collect();
+        let preds: Vec<_> = r.body.iter().map(|p| self.print_predicate(p)).collect();
         let constraints: Vec<_> = r
             .constraints
             .iter()
@@ -688,7 +687,7 @@ impl SymbolTable {
             .map(|r| self.print_rule(r))
             .collect::<Vec<_>>();
 
-        format!("{}", queries.join(" || "))
+        queries.join(" || ")
     }
 }
 

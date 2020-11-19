@@ -1,5 +1,5 @@
 use super::builder::{
-    constrained_rule, date, fact, pred, s, string, Atom, Constraint, ConstraintKind, Fact,
+    constrained_rule, date, fact, pred, s, string, Constraint, ConstraintKind, Fact,
     IntConstraint, Rule, Caveat, var,
 };
 use super::Biscuit;

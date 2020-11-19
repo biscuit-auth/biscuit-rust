@@ -635,7 +635,7 @@ impl TryFrom<&[Rule]> for Caveat {
     type Error = error::Token;
 
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
-        Ok(Caveat { queries: values.iter().cloned().collect() })
+        Ok(Caveat { queries: values.to_vec() })
     }
 }
 

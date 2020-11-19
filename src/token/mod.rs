@@ -603,7 +603,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         "Block[{}] {{\n            symbols: {:?}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            caveats: [{}]\n        }}",
         block.index,
         block.symbols.symbols,
-        block.context.as_ref().map(|s| s.as_str()).unwrap_or(""),
+        block.context.as_deref().unwrap_or(""),
         facts,
         rules,
         caveats,
@@ -1180,7 +1180,7 @@ mod tests {
             &[
                 pred("resource", &[s("ambient"), s("hello")]),
             ],
-        ));
+        )).unwrap();
 
         let biscuit1 = builder.build().unwrap();
 
