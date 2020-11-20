@@ -56,7 +56,7 @@ fn append_block_2(b: &mut Bencher) {
   let data = token2.to_vec().unwrap();
 
   b.bytes = (data.len() - base_data.len()) as u64;
-  assert_eq!(b.bytes, 166);
+  assert_eq!(b.bytes, 170);
   b.iter(|| {
     let token = Biscuit::from(&base_data).unwrap();
     let mut block_builder = token.create_block();
@@ -93,7 +93,7 @@ fn append_block_5(b: &mut Bencher) {
   let data = token2.to_vec().unwrap();
 
   b.bytes = (data.len() - base_data.len()) as u64;
-  assert_eq!(b.bytes, 166);
+  assert_eq!(b.bytes, 170);
   b.iter(|| {
     let token2 = Biscuit::from(&data).unwrap();
     let mut b = token2.create_block();
