@@ -49,13 +49,13 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // first we define the authority block for global data,
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
-///   let mut builder = Biscuit::builder(&mut rng, &root);
+///   let mut builder = Biscuit::builder(&root);
 ///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
 ///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
 ///
-///   let token1 = builder.build().unwrap();
+///   let token1 = builder.build(&mut rng).unwrap();
 ///
 ///   // we can create a new block builder from that token
 ///   let mut builder2 = token1.create_block();
@@ -472,19 +472,17 @@ impl Biscuit {
         }
     }
 
-    pub fn builder<'a, 'b, R: RngCore + CryptoRng>(
-        rng: &'a mut R,
-        root: &'b KeyPair,
-    ) -> BiscuitBuilder<'a, 'b, R> {
-        Biscuit::builder_with_symbols(rng, root, default_symbol_table())
+    pub fn builder<'a>(
+        root: &'a KeyPair,
+    ) -> BiscuitBuilder<'a> {
+        Biscuit::builder_with_symbols(root, default_symbol_table())
     }
 
-    pub fn builder_with_symbols<'a, 'b, R: RngCore + CryptoRng>(
-        rng: &'a mut R,
-        root: &'b KeyPair,
+    pub fn builder_with_symbols<'a>(
+        root: &'a KeyPair,
         symbols: SymbolTable,
-    ) -> BiscuitBuilder<'a, 'b, R> {
-        BiscuitBuilder::new(rng, root, symbols)
+    ) -> BiscuitBuilder<'a> {
+        BiscuitBuilder::new(root, symbols)
     }
 
     /// creates a new block builder
@@ -752,13 +750,13 @@ mod tests {
         let root = KeyPair::new(&mut rng);
 
         let serialized1 = {
-            let mut builder = Biscuit::builder(&mut rng, &root);
+            let mut builder = Biscuit::builder(&root);
 
             builder.add_authority_fact("right(#authority, #file1, #read)").unwrap();
             builder.add_authority_fact("right(#authority, #file2, #read)").unwrap();
             builder.add_authority_fact("right(#authority, #file1, #write)").unwrap();
 
-            let biscuit1 = builder.build().unwrap();
+            let biscuit1 = builder.build(&mut rng).unwrap();
 
             println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -902,7 +900,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_right("/folder1/file1", "read");
         builder.add_right("/folder1/file1", "write");
@@ -910,7 +908,7 @@ mod tests {
         builder.add_right("/folder1/file2", "write");
         builder.add_right("/folder2/file3", "read");
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -975,12 +973,12 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_right("file1", "read");
         builder.add_right("file2", "read");
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -1026,7 +1024,7 @@ mod tests {
     fn sealed_token() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_right("/folder1/file1", "read");
         builder.add_right("/folder1/file1", "write");
@@ -1034,7 +1032,7 @@ mod tests {
         builder.add_right("/folder1/file2", "write");
         builder.add_right("/folder2/file3", "read");
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -1087,13 +1085,13 @@ mod tests {
       let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
       let root = KeyPair::new(&mut rng);
 
-      let mut builder = Biscuit::builder(&mut rng, &root);
+      let mut builder = Biscuit::builder(&root);
 
       builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")])).unwrap();
       builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")])).unwrap();
       builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("write")])).unwrap();
 
-      let biscuit1 = builder.build().unwrap();
+      let biscuit1 = builder.build(&mut rng).unwrap();
       println!("{}", biscuit1.print());
 
       let mut v = biscuit1.verify(root.public()).expect("omg verifier");
@@ -1117,12 +1115,12 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_right("file1", "read");
         builder.add_right("file2", "read");
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -1172,7 +1170,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_authority_caveat(rule(
             "caveat1",
@@ -1182,7 +1180,7 @@ mod tests {
             ],
         )).unwrap();
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -1226,7 +1224,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
 
         builder.add_authority_caveat(rule(
             "requires_name",
@@ -1236,7 +1234,7 @@ mod tests {
             ],
         )).unwrap();
 
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
         let mut verifier1 = biscuit1.verify(root.public()).unwrap();
@@ -1271,9 +1269,9 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new(&mut rng);
 
-        let mut builder = Biscuit::builder(&mut rng, &root);
+        let mut builder = Biscuit::builder(&root);
         builder.add_authority_fact("bytes(#authority, hex:0102AB)").unwrap();
-        let biscuit1 = builder.build().unwrap();
+        let biscuit1 = builder.build(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 

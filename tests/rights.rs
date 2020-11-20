@@ -10,7 +10,7 @@ fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let root = KeyPair::new(&mut rng);
 
-    let mut builder = Biscuit::builder(&mut rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -25,7 +25,7 @@ fn main() {
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(&mut rng).unwrap();
     println!("{}", biscuit1.print());
 
     let mut v = biscuit1.verify(root.public()).expect("omg verifier");

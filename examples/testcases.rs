@@ -123,7 +123,7 @@ fn write_testcase(target: &str, name: &str, data: &[u8]) {
 fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## basic token: test1_basic.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -138,7 +138,7 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -175,14 +175,14 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
     println!("## different root key: test2_different_root_key.bc");
 
     let root2 = KeyPair::new(rng);
-    let mut builder = Biscuit::builder(rng, &root2);
+    let mut builder = Biscuit::builder(&root2);
 
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -218,7 +218,7 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid signature format: test3_invalid_signature_format.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -233,7 +233,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -274,7 +274,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
 fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## random block: test4_random_block.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -289,7 +289,7 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -331,7 +331,7 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid signature: test5_invalid_signature.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -346,7 +346,7 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -385,7 +385,7 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
 fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## reordered blocks: test6_reordered_blocks.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
@@ -400,7 +400,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -459,14 +459,14 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid block fact with authority tag: test7_invalid_block_fact_authority.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -503,14 +503,14 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
 fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## invalid block fact with ambient tag: test8_invalid_block_fact_ambient.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -544,8 +544,8 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## expired token: test9_expired_token.bc");
 
-    let builder = Biscuit::builder(rng, &root);
-    let biscuit1 = builder.build().unwrap();
+    let builder = Biscuit::builder(&root);
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -587,7 +587,7 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
 fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## authority rules: test10_authority_rules.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
     builder.add_authority_rule(rule(
         "right",
         &[symbol("authority"), variable("1"), symbol("read")],
@@ -605,7 +605,7 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         ],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -654,14 +654,14 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## verifier authority caveats: test11_verifier_authority_caveats.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
     println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
     let data = biscuit1.to_vec().unwrap();
@@ -693,7 +693,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## authority caveats: test12_authority_caveats.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_caveat(rule(
         "caveat1",
@@ -701,7 +701,7 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
     println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
     let data = biscuit1.to_vec().unwrap();
@@ -739,7 +739,7 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
 fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## block rules: test13_block_rules.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("read")],
@@ -749,7 +749,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
         &[s("authority"), string("file2"), s("read")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -845,7 +845,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
 fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## regex_constraint: test14_regex_constraint.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_caveat(constrained_rule(
         "resource_match",
@@ -861,7 +861,7 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         ]
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
     println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
     let data = biscuit1.to_vec().unwrap();
@@ -897,7 +897,7 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## multi queries caveats: test15_multi_queries_caveats.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_fact(fact(
         "must_be_present",
@@ -905,7 +905,7 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
         //&[string("hello")],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
     println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
     let data = biscuit1.to_vec().unwrap();
@@ -938,7 +938,7 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
 fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     println!("## caveat head name should be independent from fact names: test16_caveat_head_name.bc");
 
-    let mut builder = Biscuit::builder(rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     builder.add_authority_caveat(rule(
         "caveat1",
@@ -948,7 +948,7 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         ],
     ));
 
-    let biscuit1 = builder.build().unwrap();
+    let biscuit1 = builder.build(rng).unwrap();
 
     //println!("biscuit1 (authority): {}", biscuit1.print());
 

@@ -155,9 +155,8 @@ impl BlockBuilder {
     }
 }
 
-pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
-    rng: &'a mut R,
-    root: &'b KeyPair,
+pub struct BiscuitBuilder<'a> {
+    root: &'a KeyPair,
     pub symbols_start: usize,
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
@@ -166,14 +165,12 @@ pub struct BiscuitBuilder<'a, 'b, R: RngCore + CryptoRng> {
     pub context: Option<String>,
 }
 
-impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
+impl<'a> BiscuitBuilder<'a> {
     pub fn new(
-        rng: &'a mut R,
-        root: &'b KeyPair,
+        root: &'a KeyPair,
         base_symbols: SymbolTable,
-    ) -> BiscuitBuilder<'a, 'b, R> {
+    ) -> BiscuitBuilder<'a> {
         BiscuitBuilder {
-            rng,
             root,
             symbols_start: base_symbols.symbols.len(),
             symbols: base_symbols,
@@ -226,7 +223,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
         self.context = Some(context);
     }
 
-    pub fn build(mut self) -> Result<Biscuit, error::Token> {
+    pub fn build<R: RngCore + CryptoRng>(mut self, rng: &'a mut R) -> Result<Biscuit, error::Token> {
         let new_syms = SymbolTable { symbols: self.symbols.symbols.split_off(self.symbols_start) };
 
         let authority_block = Block {
@@ -238,7 +235,7 @@ impl<'a, 'b, R: RngCore + CryptoRng> BiscuitBuilder<'a, 'b, R> {
             context: self.context,
         };
 
-        Biscuit::new(self.rng, self.root, self.symbols, authority_block)
+        Biscuit::new(rng, self.root, self.symbols, authority_block)
     }
 }
 

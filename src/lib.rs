@@ -37,7 +37,7 @@
 //!   let token1 = {
 //!     // the first block of the token is the authority block. It contains global
 //!     // information like which operation types are available
-//!     let mut builder = Biscuit::builder(&mut rng, &root);
+//!     let mut builder = Biscuit::builder(&root);
 //!
 //!     // let's define some access rights
 //!     // every fact added to the authority block must have the authority fact
@@ -47,7 +47,7 @@
 //!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
-//!     let biscuit = builder.build()?;
+//!     let biscuit = builder.build(&mut rng)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?
