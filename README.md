@@ -178,6 +178,22 @@ They can be used for pretty printing of a fact or rule. As an example, with a ta
 
 biscuit implementations come with a default symbol table to avoid transmitting frequent values with every token.
 
+# C bindings
+
+This project can generate C bindings with [cargo-c](https://crates.io/crates/cargo-c)].
+
+compile it with:
+
+```
+cargo cinstall --prefix=/usr --destdir=./build
+```
+
+Run C integration tests with:
+
+```
+cargo ctest
+```
+
 ## License
 
 Licensed under Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)

@@ -220,3 +220,9 @@ pub mod error;
 pub mod format;
 pub mod token;
 pub mod parser;
+
+#[cfg(cargo_c)]
+mod capi;
+
+#[cfg(cargo_c)]
+pub use capi::*;
