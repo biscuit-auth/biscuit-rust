@@ -13,6 +13,7 @@ repository = "https://github.com/clevercloud/biscuit-rust"
 [features]
 default = ["regex-full"]
 regex-full = [ "regex/perf", "regex/unicode"]
+capi = ["rand"]
 
 [dependencies]
 rand_core = "^0.5"
@@ -28,9 +29,13 @@ chrono = "0.4"
 hex = "0.4"
 zeroize = { version = "1", default-features = false }
 thiserror = "1"
-
-#[build-dependencies]
-#prost-build = "0.6"
+rand = { version = "0.7", optional = true }
+inline-c = "0.1"
 
 [dev-dependencies]
 rand = "0.7"
+
+[package.metadata.capi.library]
+# Used as the library name and defaults to the crate name. This might get
+# prefixed with `lib` depending on the target platform.
+name = "biscuit_auth"
