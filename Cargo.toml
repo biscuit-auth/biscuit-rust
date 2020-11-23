@@ -10,23 +10,21 @@ documentation = "https://docs.rs/biscuit-auth"
 homepage = "https://github.com/clevercloud/biscuit"
 repository = "https://github.com/clevercloud/biscuit-rust"
 
-#[lib]
-#name = "biscuit_auth"
-
 [features]
-default = []
+default = ["regex-full"]
+regex-full = [ "regex/perf", "regex/unicode"]
 capi = ["rand"]
 
 [dependencies]
 rand_core = "^0.5"
 sha2 = "^0.9"
-hmac = "^0.9"
+hmac = "^0.10"
 curve25519-dalek = "^3.0"
 prost = "0.6"
 bytes = "0.5"
 prost-types = "0.6"
-regex = "1.3"
-nom = "5"
+regex = { version = "1.3", default-features = false, features = ["std"] }
+nom = "6"
 chrono = "0.4"
 hex = "0.4"
 zeroize = { version = "1", default-features = false }

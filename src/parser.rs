@@ -7,7 +7,7 @@ use nom::{
         is_alphanumeric,
     },
     combinator::{map, map_opt, map_res, opt, recognize, value},
-    multi::separated_nonempty_list,
+    multi::separated_list1,
     sequence::{delimited, pair, preceded},
     IResult,
 };
@@ -22,7 +22,7 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
 }
 
 pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
-    let (i, queries) = separated_nonempty_list(
+    let (i, queries) = separated_list1(
       preceded(space0, tag("||")),
       preceded(space0, rule)
     )(i)?;
@@ -38,7 +38,7 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, _) = tag("<-")(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, predicates) = separated_nonempty_list(
+    let (i, predicates) = separated_list1(
       preceded(space0, char(',')),
       preceded(space0, predicate)
     )(i)?;
@@ -46,7 +46,7 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, constraints) = if let Ok((i, _)) =
         preceded::<_, _, _, (&str, nom::error::ErrorKind), _, _>(space0, char('@'))(i)
     {
-        separated_nonempty_list(preceded(space0, char(',')), constraint)(i)?
+        separated_list1(preceded(space0, char(',')), constraint)(i)?
     } else {
         (i, Vec::new())
     };
@@ -131,7 +131,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        separated_nonempty_list(preceded(space0, char(',')), atom),
+        separated_list1(preceded(space0, char(',')), atom),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -222,7 +222,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
             char('['),
             alt((
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_integer),
                     ),
@@ -233,7 +233,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_string),
                     ),
@@ -244,7 +244,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_symbol),
                     ),
@@ -255,7 +255,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_bytes),
                     ),
@@ -272,7 +272,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
             char('['),
             alt((
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_integer),
                     ),
@@ -283,7 +283,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_string),
                     ),
@@ -294,7 +294,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_symbol),
                     ),
@@ -305,7 +305,7 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
                     },
                 ),
                 map(
-                    separated_nonempty_list(
+                    separated_list1(
                         preceded(space0, char(',')),
                         preceded(space0, parse_bytes),
                     ),
