@@ -180,7 +180,7 @@ biscuit implementations come with a default symbol table to avoid transmitting f
 
 # C bindings
 
-This project can generate C bindings with [cargo-c](https://crates.io/crates/cargo-c)].
+This project can generate C bindings with [cargo-c](https://crates.io/crates/cargo-c).
 
 compile it with:
 
