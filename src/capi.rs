@@ -58,29 +58,18 @@ pub struct BlockBuilder(crate::token::builder::BlockBuilder);
 pub struct Verifier<'a>(crate::token::verifier::Verifier<'a>);
 
 #[repr(C)]
-pub struct Slice {
-    ptr: *const u8,
-    len: usize,
-}
-
-#[repr(C)]
 pub struct Bytes {
     ptr: *mut u8,
     len: usize,
     capacity: usize,
 }
 
-impl Slice {
-    fn to_slice(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
-    }
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn keypair_new<'a>(
-    seed: Slice,
+    seed_ptr: *const u8,
+    seed_len: usize,
 ) -> Option<Box<KeyPair>> {
-    let slice = seed.to_slice();
+    let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
     if slice.len() != 32 {
         update_last_error(Error::InvalidArgument);
         return None;
@@ -200,14 +189,15 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder_build<'a>(
     builder: Option<Box<BiscuitBuilder<'a>>>,
-    seed: Slice,
+    seed_ptr: *const u8,
+    seed_len: usize,
 ) -> Option<Box<Biscuit>> {
     if builder.is_none() {
         update_last_error(Error::InvalidArgument);
     }
     let builder = builder?;
 
-    let slice = seed.to_slice();
+    let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
     if slice.len() != 32 {
         return None;
     }
@@ -228,20 +218,23 @@ pub unsafe extern "C" fn biscuit_builder_free<'a>(
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_from(
-    biscuit: Slice,
+    biscuit_ptr: *const u8,
+    biscuit_len: usize,
 ) -> Option<Box<Biscuit>> {
-    let biscuit = biscuit.to_slice();
+    let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
 
     crate::token::Biscuit::from(biscuit).map(Biscuit).map(Box::new).ok()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_from_sealed(
-    biscuit: Slice,
-    secret: Slice,
+    biscuit_ptr: *const u8,
+    biscuit_len: usize,
+    secret_ptr: *const u8,
+    secret_len: usize,
 ) -> Option<Box<Biscuit>> {
-    let biscuit = biscuit.to_slice();
-    let secret = secret.to_slice();
+    let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
+    let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
 
     crate::token::Biscuit::from_sealed(biscuit, secret).map(Biscuit).map(Box::new).ok()
 }
@@ -283,7 +276,8 @@ pub unsafe extern "C" fn biscuit_serialize(
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_serialize_sealed(
     biscuit: Option<&Biscuit>,
-    secret: Slice,
+    secret_ptr: *const u8,
+    secret_len: usize,
 ) -> Bytes {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -295,7 +289,7 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
     }
 
     let biscuit = biscuit.unwrap();
-    let secret = secret.to_slice();
+    let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
 
     (*biscuit).0.seal(secret).map(|mut v| {
         let res = Bytes {

@@ -12,11 +12,8 @@ mod capi {
 
             int main() {
                 char *seed = "abcdefghabcdefghabcdefghabcdefgh";
-                Slice s;
-                s.ptr = (const uint8_t *) seed;
-                s.len = strlen(seed);
 
-                KeyPair * root_kp = keypair_new(s);
+                KeyPair * root_kp = keypair_new((const uint8_t *) seed, strlen(seed));
                 printf("keypair creation error? %s\n", error_message());
                 PublicKey* root = keypair_public(root_kp);
 
@@ -26,7 +23,7 @@ mod capi {
 
                 printf("builder add authority error? %s\n", error_message());
 
-                Biscuit * biscuit = biscuit_builder_build(b, s);
+                Biscuit * biscuit = biscuit_builder_build(b, (const uint8_t * ) seed, strlen(seed));
                 printf("Hello, World!\n");
                 printf("biscuit creation error? %s\n", error_message());
 
