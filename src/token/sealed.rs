@@ -93,4 +93,14 @@ impl SealedBiscuit {
             .map(|_| v)
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
     }
+
+    pub fn serialized_size(&self) -> usize {
+        let proto = schema::SealedBiscuit {
+            authority: self.authority.clone(),
+            blocks: self.blocks.clone(),
+            signature: self.signature.clone(),
+        };
+
+        proto.encoded_len()
+    }
 }

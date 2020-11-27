@@ -88,6 +88,10 @@ impl SerializedBiscuit {
         }
     }
 
+    pub fn serialized_size(&self) -> usize {
+        self.to_proto().encoded_len()
+    }
+
     /// serializes the token
     pub fn to_vec(&self) -> Result<Vec<u8>, error::Format> {
         let b = self.to_proto();

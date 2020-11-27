@@ -254,6 +254,22 @@ impl Biscuit {
         }
     }
 
+    /// serializes the token
+    pub fn serialized_size(&self) -> Result<usize, error::Token> {
+        match self.container.as_ref() {
+            None => Err(error::Token::InternalError),
+            Some(c) => Ok(c.serialized_size()),
+        }
+    }
+
+    /// serializes the token
+    pub fn sealed_size(&self) -> Result<usize, error::Token> {
+        // FIXME: not ideal to serialize a sealed token just for this
+        let sealed =
+            sealed::SealedBiscuit::from_token(self, &b"ABCD"[..]).map_err(error::Token::Format)?;
+        Ok(sealed.serialized_size())
+    }
+
     /// serializes a sealed version of the token
     pub fn seal(&self, secret: &[u8]) -> Result<Vec<u8>, error::Token> {
         let sealed =

@@ -40,6 +40,13 @@ mod capi {
                     printf("verifier succeeded\n");
                 }
 
+                uint64_t sz = biscuit_serialized_size(biscuit);
+                printf("serialized size: %ld\n", sz);
+                uint8_t * buffer = malloc(sz);
+                uint64_t written = biscuit_serialize(biscuit, buffer);
+                printf("wrote %ld bytes\n", written);
+
+                free(buffer);
                 verifier_free(verifier);
                 biscuit_free(biscuit);
                 public_key_free(root);

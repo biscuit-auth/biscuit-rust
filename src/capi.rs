@@ -57,13 +57,6 @@ pub struct BiscuitBuilder<'a>(crate::token::builder::BiscuitBuilder<'a>);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
 pub struct Verifier<'a>(crate::token::verifier::Verifier<'a>);
 
-#[repr(C)]
-pub struct Bytes {
-    ptr: *mut u8,
-    len: usize,
-    capacity: usize,
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn keypair_new<'a>(
     seed_ptr: *const u8,
@@ -240,37 +233,77 @@ pub unsafe extern "C" fn biscuit_from_sealed(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_serialize(
+pub unsafe extern "C" fn biscuit_serialized_size(
     biscuit: Option<&Biscuit>,
-) -> Bytes {
+) -> usize {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
-        return Bytes {
-            ptr: std::ptr::null_mut(),
-            len: 0,
-            capacity: 0,
-        };
+        return 0;
     }
 
     let biscuit = biscuit.unwrap();
 
-    (*biscuit).0.to_vec().map(|mut v| {
-        let res = Bytes {
-            ptr: v.as_mut_ptr(),
-            len: v.len(),
-            capacity: v.capacity(),
-        };
-
-        std::mem::forget(v);
-        res
-    }).unwrap_or_else(|e| {
-        update_last_error(Error::Biscuit(e));
-        Bytes {
-            ptr: std::ptr::null_mut(),
-            len: 0,
-            capacity: 0,
+    match biscuit.0.serialized_size() {
+        Ok(sz) => sz,
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            return 0;
         }
-    })
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_sealed_size(
+    biscuit: Option<&Biscuit>,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    match biscuit.0.sealed_size() {
+        Ok(sz) => sz,
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            return 0;
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_serialize(
+    biscuit: Option<&Biscuit>,
+    buffer_ptr: *mut u8,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    match (*biscuit).0.to_vec() {
+        Ok(v) => {
+            let size = match biscuit.0.serialized_size() {
+                Ok(sz) => sz,
+                Err(e) => {
+                    update_last_error(Error::Biscuit(e));
+                    return 0;
+                }
+            };
+
+            let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, size);
+
+            output_slice.copy_from_slice(&v[..]);
+            v.len()
+        },
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            0
+        }
+    }
 }
 
 #[no_mangle]
@@ -278,36 +311,36 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
     biscuit: Option<&Biscuit>,
     secret_ptr: *const u8,
     secret_len: usize,
-) -> Bytes {
+    buffer_ptr: *mut u8,
+) -> usize {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
-        return Bytes {
-            ptr: std::ptr::null_mut(),
-            len: 0,
-            capacity: 0,
-        };
+        return 0;
     }
 
     let biscuit = biscuit.unwrap();
     let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
 
-    (*biscuit).0.seal(secret).map(|mut v| {
-        let res = Bytes {
-            ptr: v.as_mut_ptr(),
-            len: v.len(),
-            capacity: v.capacity(),
-        };
+    match (*biscuit).0.seal(secret) {
+        Ok(v) => {
+            let size = match biscuit.0.serialized_size() {
+                Ok(sz) => sz,
+                Err(e) => {
+                    update_last_error(Error::Biscuit(e));
+                    return 0;
+                }
+            };
 
-        std::mem::forget(v);
-        res
-    }).unwrap_or_else(|e| {
-        update_last_error(Error::Biscuit(e));
-        Bytes {
-            ptr: std::ptr::null_mut(),
-            len: 0,
-            capacity: 0,
+            let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, size);
+
+            output_slice.copy_from_slice(&v[..]);
+            v.len()
+        },
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            0
         }
-    })
+    }
 }
 
 #[no_mangle]
@@ -319,7 +352,7 @@ pub unsafe extern "C" fn biscuit_create_block(
     }
     let biscuit = biscuit?;
 
-    Some(Box::new(BlockBuilder((biscuit.0.create_block()))))
+    Some(Box::new(BlockBuilder(biscuit.0.create_block())))
 }
 
 
@@ -524,15 +557,6 @@ pub unsafe extern "C" fn verifier_print(
 pub unsafe extern "C" fn verifier_free<'a>(
     _verifier: Option<Box<Verifier<'a>>>,
 ) {
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn bytes_free(
-    bytes: Bytes,
-) {
-    if bytes.ptr != std::ptr::null_mut() {
-        let _v = Vec::from_raw_parts(bytes.ptr, bytes.len, bytes.capacity);
-    }
 }
 
 #[no_mangle]
