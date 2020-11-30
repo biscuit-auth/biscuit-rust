@@ -88,11 +88,47 @@ pub unsafe extern "C" fn keypair_public(
     Some(Box::new(PublicKey((*kp).0.public())))
 }
 
+/// expects a 32 byte buffer
+#[no_mangle]
+pub unsafe extern "C" fn keypair_serialize(
+    kp: Option<&KeyPair>,
+    buffer_ptr: *mut u8,
+) -> usize {
+    if kp.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+    let  kp = kp.unwrap();
+
+    let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
+
+    output_slice.copy_from_slice(&kp.0.private().to_bytes()[..]);
+    32
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn keypair_free(
     _kp: Option<Box<KeyPair>>,
 ) {
 
+}
+
+/// expects a 32 byte buffer
+#[no_mangle]
+pub unsafe extern "C" fn public_key_serialize(
+    kp: Option<Box<PublicKey>>,
+    buffer_ptr: *mut u8,
+) -> usize {
+    if kp.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+    let  kp = kp.unwrap();
+
+    let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
+
+    output_slice.copy_from_slice(&kp.0.to_bytes()[..]);
+    32
 }
 
 #[no_mangle]
