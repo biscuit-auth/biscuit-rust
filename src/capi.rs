@@ -206,7 +206,13 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_fact<'a>(
         return false;
     }
 
-    builder.0.add_authority_fact(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_authority_fact(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -227,7 +233,13 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_rule<'a>(
         return false;
     }
 
-    builder.0.add_authority_rule(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_authority_rule(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -248,7 +260,13 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
         return false;
     }
 
-    builder.0.add_authority_caveat(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_authority_caveat(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
