@@ -106,6 +106,24 @@ pub unsafe extern "C" fn keypair_serialize(
     32
 }
 
+/// expects a 32 byte buffer
+#[no_mangle]
+pub unsafe extern "C" fn keypair_deserialize(
+    buffer_ptr: *mut u8,
+) -> Option<Box<KeyPair>> {
+    let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
+
+    match crate::crypto::PrivateKey::from_bytes(input_slice) {
+        None => {
+            update_last_error(Error::InvalidArgument);
+            None
+        },
+        Some(privkey) => {
+            Some(Box::new(KeyPair(crate::crypto::KeyPair::from(privkey))))
+        }
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn keypair_free(
     _kp: Option<Box<KeyPair>>,
@@ -129,6 +147,24 @@ pub unsafe extern "C" fn public_key_serialize(
 
     output_slice.copy_from_slice(&kp.0.to_bytes()[..]);
     32
+}
+
+/// expects a 32 byte buffer
+#[no_mangle]
+pub unsafe extern "C" fn public_key_deserialize(
+    buffer_ptr: *mut u8,
+) -> Option<Box<PublicKey>> {
+    let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
+
+    match crate::crypto::PublicKey::from_bytes(input_slice) {
+        None => {
+            update_last_error(Error::InvalidArgument);
+            None
+        },
+        Some(pubkey) => {
+            Some(Box::new(PublicKey(pubkey)))
+        }
+    }
 }
 
 #[no_mangle]
