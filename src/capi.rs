@@ -58,7 +58,7 @@ pub struct BlockBuilder(crate::token::builder::BlockBuilder);
 pub struct Verifier<'a>(crate::token::verifier::Verifier<'a>);
 
 #[no_mangle]
-pub unsafe extern "C" fn keypair_new<'a>(
+pub unsafe extern "C" fn key_pair_new<'a>(
     seed_ptr: *const u8,
     seed_len: usize,
 ) -> Option<Box<KeyPair>> {
@@ -77,7 +77,7 @@ pub unsafe extern "C" fn keypair_new<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn keypair_public(
+pub unsafe extern "C" fn key_pair_public(
     kp: Option<&KeyPair>,
 ) -> Option<Box<PublicKey>> {
     if kp.is_none() {
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn keypair_public(
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn keypair_serialize(
+pub unsafe extern "C" fn key_pair_serialize(
     kp: Option<&KeyPair>,
     buffer_ptr: *mut u8,
 ) -> usize {
@@ -108,7 +108,7 @@ pub unsafe extern "C" fn keypair_serialize(
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn keypair_deserialize(
+pub unsafe extern "C" fn key_pair_deserialize(
     buffer_ptr: *mut u8,
 ) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
@@ -125,7 +125,7 @@ pub unsafe extern "C" fn keypair_deserialize(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn keypair_free(
+pub unsafe extern "C" fn key_pair_free(
     _kp: Option<Box<KeyPair>>,
 ) {
 
@@ -176,15 +176,15 @@ pub unsafe extern "C" fn public_key_free(
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder<'a>(
-    keypair: Option<&'a KeyPair>,
+    key_pair: Option<&'a KeyPair>,
 ) -> Option<Box<BiscuitBuilder<'a>>> {
-    if keypair.is_none() {
+    if key_pair.is_none() {
         update_last_error(Error::InvalidArgument);
     }
-    let keypair = keypair?;
+    let key_pair = key_pair?;
 
     Some(Box::new(BiscuitBuilder(
-        crate::token::Biscuit::builder(&keypair.0),
+        crate::token::Biscuit::builder(&key_pair.0),
     )))
 }
 

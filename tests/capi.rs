@@ -13,9 +13,9 @@ mod capi {
             int main() {
                 char *seed = "abcdefghabcdefghabcdefghabcdefgh";
 
-                KeyPair * root_kp = keypair_new((const uint8_t *) seed, strlen(seed));
-                printf("keypair creation error? %s\n", error_message());
-                PublicKey* root = keypair_public(root_kp);
+                KeyPair * root_kp = key_pair_new((const uint8_t *) seed, strlen(seed));
+                printf("key_pair creation error? %s\n", error_message());
+                PublicKey* root = key_pair_public(root_kp);
 
                 BiscuitBuilder* b = biscuit_builder(root_kp);
                 printf("builder creation error? %s\n", error_message());
@@ -50,7 +50,7 @@ mod capi {
                 verifier_free(verifier);
                 biscuit_free(biscuit);
                 public_key_free(root);
-                keypair_free(root_kp);
+                key_pair_free(root_kp);
 
                 return 0;
             }
