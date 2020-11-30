@@ -182,11 +182,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
-        let mut fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
-        let authority_symbol = Atom::Symbol("authority".to_string());
-        if fact.0.ids.is_empty() || fact.0.ids[0] != authority_symbol {
-            fact.0.ids.insert(0, authority_symbol);
-        }
+        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
 
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
@@ -194,11 +190,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
-        let mut rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let authority_symbol = Atom::Symbol("authority".to_string());
-        if rule.0.ids.is_empty() || rule.0.ids[0] != authority_symbol {
-            rule.0.ids.insert(0, authority_symbol);
-        }
+        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
 
         let r = rule.convert(&mut self.symbols);
         self.rules.push(r);
