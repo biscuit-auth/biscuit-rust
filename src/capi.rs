@@ -134,7 +134,7 @@ pub unsafe extern "C" fn key_pair_free(
 /// expects a 32 byte buffer
 #[no_mangle]
 pub unsafe extern "C" fn public_key_serialize(
-    kp: Option<Box<PublicKey>>,
+    kp: Option<&PublicKey>,
     buffer_ptr: *mut u8,
 ) -> usize {
     if kp.is_none() {
