@@ -429,7 +429,7 @@ pub unsafe extern "C" fn biscuit_create_block(
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_append_block(
     biscuit: Option<&Biscuit>,
-    block_builder: Option<Box<BlockBuilder>>,
+    block_builder: Option<&BlockBuilder>,
     key_pair: Option<&KeyPair>,
     seed_ptr: *const u8,
     seed_len: usize,
@@ -460,9 +460,7 @@ pub unsafe extern "C" fn biscuit_append_block(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    let block = builder.0.build();
-
-    match biscuit.0.append(&mut rng, &key_pair.0, block) {
+    match biscuit.0.append(&mut rng, &key_pair.0, builder.0.clone()) {
         Ok(token) => Some(Box::new(Biscuit(token))),
         Err(e) => {
             update_last_error(Error::Biscuit(e));

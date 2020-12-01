@@ -62,6 +62,7 @@ mod capi {
 
                 free(buffer);
                 verifier_free(verifier);
+                block_builder_free(bb);
                 biscuit_free(b2);
                 key_pair_free(kp2);
                 biscuit_free(biscuit);
