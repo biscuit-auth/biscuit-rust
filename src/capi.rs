@@ -426,6 +426,51 @@ pub unsafe extern "C" fn biscuit_create_block(
     Some(Box::new(BlockBuilder(biscuit.0.create_block())))
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_append_block(
+    biscuit: Option<&Biscuit>,
+    block_builder: Option<Box<BlockBuilder>>,
+    key_pair: Option<&KeyPair>,
+    seed_ptr: *const u8,
+    seed_len: usize,
+) -> Option<Box<Biscuit>> {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let biscuit = biscuit?;
+
+    if block_builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let builder = block_builder?;
+
+    if key_pair.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let key_pair = key_pair?;
+
+    let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
+    if slice.len() != 32 {
+        update_last_error(Error::InvalidArgument);
+        return None;
+    }
+
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(slice);
+
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+    let block = builder.0.build();
+
+    match biscuit.0.append(&mut rng, &key_pair.0, block) {
+        Ok(token) => Some(Box::new(Biscuit(token))),
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            None
+        }
+    }
+}
+
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
