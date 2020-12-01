@@ -85,7 +85,7 @@
 //!
 //!     let keypair = KeyPair::new(&mut rng);
 //!     // we can now create a new token
-//!     let biscuit = deser.append(&mut rng, &keypair, builder.build())?;
+//!     let biscuit = deser.append(&mut rng, &keypair, builder)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?

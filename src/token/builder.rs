@@ -13,20 +13,16 @@ pub use crate::datalog::{IntConstraint, StrConstraint, BytesConstraint};
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
     pub index: u32,
-    pub symbols_start: usize,
-    pub symbols: SymbolTable,
-    pub facts: Vec<datalog::Fact>,
-    pub rules: Vec<datalog::Rule>,
-    pub caveats: Vec<datalog::Caveat>,
+    pub facts: Vec<Fact>,
+    pub rules: Vec<Rule>,
+    pub caveats: Vec<Caveat>,
     pub context: Option<String>,
 }
 
 impl BlockBuilder {
-    pub fn new(index: u32, base_symbols: SymbolTable) -> BlockBuilder {
+    pub fn new(index: u32) -> BlockBuilder {
         BlockBuilder {
             index,
-            symbols_start: base_symbols.symbols.len(),
-            symbols: base_symbols,
             facts: vec![],
             rules: vec![],
             caveats: vec![],
@@ -36,22 +32,19 @@ impl BlockBuilder {
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
-        let f = fact.convert(&mut self.symbols);
-        self.facts.push(f);
+        self.facts.push(fact);
         Ok(())
     }
 
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let r = rule.convert(&mut self.symbols);
-        self.rules.push(r);
+        self.rules.push(rule);
         Ok(())
     }
 
     pub fn add_caveat<C: TryInto<Caveat>>(&mut self, caveat: C) -> Result<(), error::Token> {
         let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
-        let c = caveat.convert(&mut self.symbols);
-        self.caveats.push(c);
+        self.caveats.push(caveat);
         Ok(())
     }
 
@@ -59,17 +52,33 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
-    pub fn build(mut self) -> Block {
-        let new_syms = self.symbols.symbols.split_off(self.symbols_start);
+    pub fn build(self, mut symbols: SymbolTable) -> Block {
+        let symbols_start = symbols.symbols.len();
 
-        self.symbols.symbols = new_syms;
+        let mut facts = Vec::new();
+        for fact in self.facts {
+            facts.push(fact.convert(&mut symbols));
+        }
+
+        let mut rules = Vec::new();
+        for rule in self.rules {
+            rules.push(rule.convert(&mut symbols));
+        }
+
+        let mut caveats = Vec::new();
+        for caveat in self.caveats {
+            caveats.push(caveat.convert(&mut symbols));
+        }
+        let new_syms = SymbolTable {
+            symbols: symbols.symbols.split_off(symbols_start),
+        };
 
         Block {
             index: self.index,
-            symbols: self.symbols,
-            facts: self.facts,
-            rules: self.rules,
-            caveats: self.caveats,
+            symbols: new_syms,
+            facts,
+            rules,
+            caveats,
             context: self.context,
         }
     }

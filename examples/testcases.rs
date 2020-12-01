@@ -153,7 +153,7 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -197,7 +197,7 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -248,7 +248,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -304,7 +304,7 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -361,7 +361,7 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -415,7 +415,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -428,7 +428,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     ));
 
     let keypair3 = KeyPair::new(rng);
-    let biscuit3 = biscuit2.append(rng, &keypair3, block3.build()).unwrap();
+    let biscuit3 = biscuit2.append(rng, &keypair3, block3).unwrap();
 
     let mut serialized = biscuit3.container().unwrap().clone();
     let mut blocks = vec![];
@@ -482,7 +482,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -523,7 +523,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     block2.add_fact(fact("right", &[s("ambient"), string("file1"), s("write")]));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -562,7 +562,7 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
     );
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -628,7 +628,7 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -806,7 +806,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     ));
 
     let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2.build()).unwrap();
+    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -957,7 +957,7 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1
-        .append(rng, &keypair2, block2.build())
+        .append(rng, &keypair2, block2)
         .unwrap();
 
     println!("biscuit: {}", biscuit2.print());

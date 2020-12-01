@@ -62,7 +62,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   builder2.check_operation("read");
 ///
 ///   let keypair2 = KeyPair::new(&mut rng);
-///   let token2 = token1.append(&mut rng, &keypair2, builder2.build()).unwrap();
+///   let token2 = token1.append(&mut rng, &keypair2, builder2).unwrap();
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -503,7 +503,7 @@ impl Biscuit {
 
     /// creates a new block builder
     pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new((1 + self.blocks.len()) as u32, self.symbols.clone())
+        BlockBuilder::new((1 + self.blocks.len()) as u32)
     }
 
     /// adds a new block to the token
@@ -514,11 +514,13 @@ impl Biscuit {
         &self,
         rng: &mut T,
         keypair: &KeyPair,
-        block: Block,
+        block_builder: BlockBuilder,
     ) -> Result<Self, error::Token> {
         if self.container.is_none() {
             return Err(error::Token::Sealed);
         }
+
+        let block = block_builder.build(self.symbols.clone());
 
         let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
         let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
@@ -830,7 +832,7 @@ mod tests {
 
             let keypair2 = KeyPair::new(&mut rng);
             let biscuit2 = biscuit1_deser
-                .append(&mut rng, &keypair2, block2.build())
+                .append(&mut rng, &keypair2, block2)
                 .unwrap();
 
             println!("biscuit2 (1 caveat): {}", biscuit2.print());
@@ -855,7 +857,7 @@ mod tests {
 
             let keypair3 = KeyPair::new(&mut rng);
             let biscuit3 = biscuit2_deser
-                .append(&mut rng, &keypair3, block3.build())
+                .append(&mut rng, &keypair3, block3)
                 .unwrap();
 
             biscuit3.to_vec().unwrap()
@@ -935,7 +937,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         {
@@ -1005,7 +1007,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         {
@@ -1059,7 +1061,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         //println!("biscuit2:\n{:#?}", biscuit2);
@@ -1147,7 +1149,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         let mut block3 = biscuit2.create_block();
@@ -1157,7 +1159,7 @@ mod tests {
 
         let keypair3 = KeyPair::new(&mut rng);
         let biscuit3 = biscuit2
-            .append(&mut rng, &keypair3, block3.build())
+            .append(&mut rng, &keypair3, block3)
             .unwrap();
         {
             let mut verifier = biscuit3.verify(root.public()).unwrap();
@@ -1206,7 +1208,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         println!("biscuit2: {}", biscuit2.print());
@@ -1271,7 +1273,7 @@ mod tests {
 
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
@@ -1295,7 +1297,7 @@ mod tests {
         block2.add_rule("*has_bytes(0) <- bytes(#authority, $0) @ $0 in [ hex:00000000, hex:0102AB ]").unwrap();
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
-            .append(&mut rng, &keypair2, block2.build())
+            .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         let mut verifier = biscuit2.verify(root.public()).unwrap();
