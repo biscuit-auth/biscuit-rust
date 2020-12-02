@@ -50,6 +50,180 @@ pub extern fn error_message() -> *const c_char {
     })
 }
 
+#[repr(C)]
+pub enum ErrorKind {
+    InvalidArgument,
+    InternalError,
+    FormatSignatureInvalidFormat,
+    FormatSignatureInvalidSignature,
+    FormatSealedSignature,
+    FormatEmptyKeys,
+    FormatUnknownPublickKey,
+    FormatDeserializationError,
+    FormatSerializationError,
+    FormatBlockDeserializationError,
+    FormatBlockSerializationError,
+    InvalidAuthorityIndex,
+    InvalidBlockIndex,
+    SymbolTableOverlap,
+    MissingSymbols,
+    Sealed,
+    LogicInvalidAuthorityFact,
+    LogicInvalidAmbientFact,
+    LogicInvalidBlockFact,
+    LogicInvalidBlockRule,
+    LogicFailedCaveats,
+    ParseError,
+    None,
+}
+
+#[no_mangle]
+pub extern fn error_kind() -> ErrorKind {
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(ref err) => {
+                match err {
+                    Error::InvalidArgument => ErrorKind::InvalidArgument,
+                    Error::Biscuit(e) => {
+                        use crate::error::*;
+                        match e {
+                            Token::InternalError => ErrorKind::InternalError,
+                            Token::Format(Format::Signature(Signature::InvalidFormat)) => ErrorKind::FormatSignatureInvalidFormat,
+                            Token::Format(Format::Signature(Signature::InvalidSignature)) => ErrorKind::FormatSignatureInvalidSignature,
+                            Token::Format(Format::SealedSignature) => ErrorKind::FormatSealedSignature,
+                            Token::Format(Format::EmptyKeys) => ErrorKind::FormatEmptyKeys,
+                            Token::Format(Format::UnknownPublicKey) => ErrorKind::FormatUnknownPublickKey,
+                            Token::Format(Format::DeserializationError(_)) => ErrorKind::FormatDeserializationError,
+                            Token::Format(Format::SerializationError(_)) => ErrorKind::FormatSerializationError,
+                            Token::Format(Format::BlockDeserializationError(_)) => ErrorKind::FormatBlockDeserializationError,
+                            Token::Format(Format::BlockSerializationError(_)) => ErrorKind::FormatBlockSerializationError,
+                            Token::InvalidAuthorityIndex(_) => ErrorKind::InvalidAuthorityIndex,
+                            Token::InvalidBlockIndex(_) => ErrorKind::InvalidBlockIndex,
+                            Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
+                            Token::MissingSymbols => ErrorKind::MissingSymbols,
+                            Token::Sealed => ErrorKind::Sealed,
+                            Token::ParseError => ErrorKind::ParseError,
+                            Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => ErrorKind::LogicInvalidAuthorityFact,
+                            Token::FailedLogic(Logic::InvalidAmbientFact(_)) => ErrorKind::LogicInvalidAmbientFact,
+                            Token::FailedLogic(Logic::InvalidBlockFact(_,_)) => ErrorKind::LogicInvalidBlockFact,
+                            Token::FailedLogic(Logic::InvalidBlockRule(_,_)) => ErrorKind::LogicInvalidBlockRule,
+                            Token::FailedLogic(Logic::FailedCaveats(_)) => ErrorKind::LogicFailedCaveats,
+                        }
+                    }
+                }
+            },
+            None => ErrorKind::None,
+        }
+    })
+}
+
+#[no_mangle]
+pub extern fn error_caveat_count() -> u64 {
+    use crate::error::*;
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+                => v.len() as u64,
+            _ => 0,
+        }
+    })
+}
+
+#[no_mangle]
+pub extern fn error_caveat_id(caveat_index: u64) -> u64 {
+    use crate::error::*;
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+                => {
+                    if caveat_index >= v.len() as u64 {
+                        u64::MAX
+                    } else {
+                        match v[caveat_index as usize] {
+                            FailedCaveat::Block(FailedBlockCaveat { caveat_id, ..}) => caveat_id as u64,
+                            FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id, ..}) => caveat_id as u64,
+                        }
+                    }
+                },
+            _ => u64::MAX,
+        }
+    })
+}
+
+#[no_mangle]
+pub extern fn error_caveat_block_id(caveat_index: u64) -> u64 {
+    use crate::error::*;
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+                => {
+                    if caveat_index >= v.len() as u64 {
+                        u64::MAX
+                    } else {
+                        match v[caveat_index as usize] {
+                            FailedCaveat::Block(FailedBlockCaveat { block_id, ..}) => block_id as u64,
+                            _ => u64::MAX,
+                        }
+                    }
+                },
+            _ => u64::MAX,
+        }
+    })
+}
+
+/// deallocation is handled by Biscuit
+/// the string is overwritten on each call
+#[no_mangle]
+pub extern fn error_caveat_rule(caveat_index: u64) -> *const c_char {
+    use crate::error::*;
+    thread_local! {
+        static CAVEAT_RULE: RefCell<Option<CString>> = RefCell::new(None);
+    }
+
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+                => {
+                    if caveat_index >= v.len() as u64 {
+                        std::ptr::null()
+                    } else {
+                        let rule = match &v[caveat_index as usize] {
+                            FailedCaveat::Block(FailedBlockCaveat { rule, ..}) => rule,
+                            FailedCaveat::Verifier(FailedVerifierCaveat { rule, ..}) => rule,
+                        };
+                        let err = CString::new(rule.clone()).ok();
+                        CAVEAT_RULE.with(|ret| {
+                            *ret.borrow_mut() = err;
+                            ret.borrow().as_ref().map(|x| x.as_ptr()).unwrap_or(std::ptr::null())
+                        })
+                    }
+                },
+            _ => std::ptr::null(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern fn error_caveat_is_verifier(caveat_index: u64) -> bool {
+    use crate::error::*;
+    LAST_ERROR.with(|prev| {
+        match *prev.borrow() {
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+                => {
+                    if caveat_index >= v.len() as u64 {
+                        false
+                    } else {
+                        match v[caveat_index as usize] {
+                            FailedCaveat::Block(FailedBlockCaveat { .. }) => false,
+                            FailedCaveat::Verifier(FailedVerifierCaveat { .. }) => true,
+                        }
+                    }
+                },
+            _ => false,
+        }
+    })
+}
+
 pub struct Biscuit(crate::token::Biscuit);
 pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);

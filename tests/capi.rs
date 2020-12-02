@@ -49,7 +49,27 @@ mod capi {
                 printf("verifier world:\n%s\n", world_print);
                 string_free(world_print);
                 if(!verifier_verify(verifier)) {
-                    printf("verifier error: %s\n", error_message());
+                    printf("verifier error(code = %d): %s\n", error_kind(), error_message());
+
+                    if(error_kind() == LogicFailedCaveats) {
+                        uint64_t error_count = error_caveat_count();
+                        printf("failed caveats (%ld):\n", error_count);
+
+                        for(uint64_t i = 0; i < error_count; i++) {
+                            if(error_caveat_is_verifier(i)) {
+                                uint64_t caveat_id = error_caveat_id(i);
+                                const char* rule = error_caveat_rule(i);
+
+                                printf("\tVerifier caveat %ld: %s\n", caveat_id, rule);
+                            } else {
+                                uint64_t caveat_id = error_caveat_id(i);
+                                uint64_t block_id = error_caveat_block_id(i);
+                                const char* rule = error_caveat_rule(i);
+                                printf("\tBlock %ld, caveat %ld: %s\n", block_id, caveat_id, rule);
+                            }
+
+                        }
+                    }
                 } else {
                     printf("verifier succeeded\n");
                 }
