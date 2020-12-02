@@ -59,12 +59,12 @@ mod capi {
                                 uint64_t caveat_id = error_caveat_id(i);
                                 const char* rule = error_caveat_rule(i);
 
-                                printf("\tVerifier caveat %ld: %s\n", caveat_id, rule);
+                                printf("  Verifier caveat %ld: %s\n", caveat_id, rule);
                             } else {
                                 uint64_t caveat_id = error_caveat_id(i);
                                 uint64_t block_id = error_caveat_block_id(i);
                                 const char* rule = error_caveat_rule(i);
-                                printf("\tBlock %ld, caveat %ld: %s\n", block_id, caveat_id, rule);
+                                printf("  Block %ld, caveat %ld: %s\n", block_id, caveat_id, rule);
                             }
 
                         }
@@ -112,8 +112,8 @@ World {
 }
 verifier error(code = 20): caveat validation failed
 failed caveats (2):
-        Verifier caveat 0: *right(#abcd) <- right(#efgh)
-        Block 1, caveat 0: *op(#read) <- operation(#ambient, #read)
+  Verifier caveat 0: *right(#abcd) <- right(#efgh)
+  Block 1, caveat 0: *op(#read) <- operation(#ambient, #read)
 serialized size: 273
 wrote 273 bytes
 "#);
@@ -144,6 +144,6 @@ wrote 273 bytes
             }
         })
         .success()
-        .stdout("Hello world");
+        .stdout("key_pair creation error? (null)\n");
     }
 }
