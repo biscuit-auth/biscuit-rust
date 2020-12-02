@@ -119,4 +119,31 @@ wrote 273 bytes
 "#);
     }
 
+    #[test]
+    fn serialize_keys() {
+        (assert_c! {
+            #include <stdio.h>
+            #include <string.h>
+            #include "biscuit_auth.h"
+
+            int main() {
+                char *seed = "abcdefghabcdefghabcdefghabcdefgh";
+                uint8_t * priv_buf = malloc(32);
+                uint8_t * pub_buf = malloc(32);
+
+
+                KeyPair * kp = key_pair_new((const uint8_t *) seed, strlen(seed));
+                printf("key_pair creation error? %s\n", error_message());
+                PublicKey* pubkey = key_pair_public(kp);
+
+                key_pair_serialize(kp, priv_buf);
+                public_key_serialize(pubkey, pub_buf);
+
+                public_key_free(pubkey);
+                key_pair_free(kp);
+            }
+        })
+        .success()
+        .stdout("Hello world");
+    }
 }
