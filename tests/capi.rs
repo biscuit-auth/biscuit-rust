@@ -24,7 +24,6 @@ mod capi {
                 printf("builder add authority error? %s\n", error_message());
 
                 Biscuit * biscuit = biscuit_builder_build(b, (const uint8_t * ) seed, strlen(seed));
-                printf("Hello, World!\n");
                 printf("biscuit creation error? %s\n", error_message());
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
@@ -93,6 +92,31 @@ mod capi {
             }
         })
         .success()
-        .stdout("Hello world");
+        .stdout(r#"
+key_pair creation error? (null)
+builder creation error? (null)
+builder add authority error? (null)
+biscuit creation error? (null)
+block builder creation error? (null)
+builder add caveat error? (null)
+biscuit append error? (null)
+verifier creation error? (null)
+verifier add caveat error? (null)
+verifier world:
+World {
+  facts: [
+    "right(#authority, \"file1\", #read)",
+    "hello(\"world\")",
+]
+  rules: []
+}
+verifier error(code = 20): caveat validation failed
+failed caveats (2):
+        Verifier caveat 0: *right(#abcd) <- right(#efgh)
+        Block 1, caveat 0: *op(#read) <- operation(#ambient, #read)
+serialized size: 273
+wrote 273 bytes
+"#);
     }
+
 }
