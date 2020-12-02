@@ -164,6 +164,7 @@ impl BlockBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
     root: &'a KeyPair,
     pub symbols_start: usize,

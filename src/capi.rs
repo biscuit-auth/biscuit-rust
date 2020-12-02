@@ -445,7 +445,7 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder_build<'a>(
-    builder: Option<Box<BiscuitBuilder<'a>>>,
+    builder: Option<&BiscuitBuilder<'a>>,
     seed_ptr: *const u8,
     seed_len: usize,
 ) -> Option<Box<Biscuit>> {
@@ -463,7 +463,7 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
     seed.copy_from_slice(slice);
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    (*builder).0.build(&mut rng).map(Biscuit).map(Box::new).ok()
+    (*builder).0.clone().build(&mut rng).map(Biscuit).map(Box::new).ok()
 }
 
 #[no_mangle]
