@@ -166,7 +166,30 @@ impl<'a> Verifier<'a> {
     }
 
     pub fn print_world(&self) -> String {
-        self.symbols.print_world(&self.world)
+        let facts = self.world
+            .facts
+            .iter()
+            .map(|f| self.symbols.print_fact(f))
+            .collect::<Vec<_>>();
+
+        let rules = self.world
+            .rules
+            .iter()
+            .map(|r| self.symbols.print_rule(r))
+            .collect::<Vec<_>>();
+
+        let mut caveats = Vec::new();
+        for (index, caveat) in self.caveats.iter().enumerate() {
+            caveats.push(format!("Verifier[{}]: {}", index, caveat));
+        }
+
+        for (i, block_caveats) in self.token.caveats().iter().enumerate() {
+            for (j, caveat) in block_caveats.iter().enumerate() {
+                caveats.push(format!("Block[{}][{}]: {}", i, j, self.symbols.print_caveat(caveat)));
+            }
+        }
+
+        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  caveats: {:#?}\n}}", facts, rules, caveats)
     }
 
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Caveat>) {

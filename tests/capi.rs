@@ -105,10 +105,14 @@ verifier add caveat error? (null)
 verifier world:
 World {
   facts: [
-    "right(#authority, \"file1\", #read)",
     "hello(\"world\")",
+    "right(#authority, \"file1\", #read)",
 ]
   rules: []
+  caveats: [
+    "Verifier[0]: *right(#abcd) <- right(#efgh)",
+    "Block[1][0]: *op(#read) <- operation(#ambient, #read)",
+]
 }
 verifier error(code = 20): caveat validation failed
 failed caveats (2):
