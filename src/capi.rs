@@ -703,7 +703,13 @@ pub unsafe extern "C" fn block_builder_add_fact(
         return false;
     }
 
-    builder.0.add_fact(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_fact(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -724,7 +730,13 @@ pub unsafe extern "C" fn block_builder_add_rule(
         return false;
     }
 
-    builder.0.add_rule(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_rule(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -745,7 +757,13 @@ pub unsafe extern "C" fn block_builder_add_caveat(
         return false;
     }
 
-    builder.0.add_caveat(s.unwrap()).is_ok()
+    builder
+        .0
+        .add_caveat(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -772,7 +790,13 @@ pub unsafe extern "C" fn verifier_add_fact(
         return false;
     }
 
-    verifier.0.add_fact(s.unwrap()).is_ok()
+    verifier
+        .0
+        .add_fact(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -793,7 +817,13 @@ pub unsafe extern "C" fn verifier_add_rule(
         return false;
     }
 
-    verifier.0.add_rule(s.unwrap()).is_ok()
+    verifier
+        .0
+        .add_rule(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
 }
 
 #[no_mangle]
@@ -814,7 +844,9 @@ pub unsafe extern "C" fn verifier_add_caveat(
         return false;
     }
 
-    verifier.0.add_caveat(s.unwrap())
+    verifier
+        .0
+        .add_caveat(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
