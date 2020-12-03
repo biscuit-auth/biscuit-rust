@@ -874,3 +874,19 @@ pub unsafe extern "C" fn string_free(
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_print(biscuit: Option<&Biscuit>) -> *const c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null();
+    }
+    let biscuit = biscuit.unwrap();
+
+    match CString::new(biscuit.0.print()) {
+        Ok(s) => s.into_raw(),
+        Err(_) => {
+            update_last_error(Error::InvalidArgument);
+            return std::ptr::null();
+        }
+    }
+}
