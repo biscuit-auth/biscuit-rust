@@ -363,6 +363,31 @@ pub unsafe extern "C" fn biscuit_builder<'a>(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn biscuit_builder_set_context<'a>(
+    builder: Option<&mut BiscuitBuilder<'a>>,
+    context: *const c_char,
+) -> bool {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+    let builder = builder.unwrap();
+
+    let context = CStr::from_ptr(context);
+    let s = context.to_str();
+    match s {
+        Err(_) => {
+            update_last_error(Error::InvalidArgument);
+            false
+        },
+        Ok(context) => {
+            builder.0.set_context(context.to_string());
+            true
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn biscuit_builder_add_authority_fact<'a>(
     builder: Option<&mut BiscuitBuilder<'a>>,
     fact: *const c_char,
@@ -683,6 +708,31 @@ pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
 pub unsafe extern "C" fn biscuit_free(
     _biscuit: Option<Box<Biscuit>>,
 ) {
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_builder_set_context(
+    builder: Option<&mut BlockBuilder>,
+    context: *const c_char,
+) -> bool {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+    let builder = builder.unwrap();
+
+    let context = CStr::from_ptr(context);
+    let s = context.to_str();
+    match s {
+        Err(_) => {
+            update_last_error(Error::InvalidArgument);
+            false
+        },
+        Ok(context) => {
+            builder.0.set_context(context.to_string());
+            true
+        }
+    }
 }
 
 #[no_mangle]
