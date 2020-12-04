@@ -67,9 +67,9 @@ pub fn default_symbol_table() -> SymbolTable {
 /// ```
 #[derive(Clone, Debug)]
 pub struct Biscuit {
-    authority: Block,
-    blocks: Vec<Block>,
-    symbols: SymbolTable,
+    pub(crate) authority: Block,
+    pub(crate) blocks: Vec<Block>,
+    pub(crate) symbols: SymbolTable,
     container: Option<SerializedBiscuit>,
 }
 

@@ -632,6 +632,259 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn biscuit_block_count(
+    biscuit: Option<&Biscuit>,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    biscuit.0.blocks.len() + 1
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_block_fact_count(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    if block_index == 0 {
+        biscuit.0.authority.facts.len()
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b.facts.len(),
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return 0;
+            }
+        }
+    }
+}
+
+pub unsafe extern "C" fn biscuit_block_rule_count(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    if block_index == 0 {
+        biscuit.0.authority.rules.len()
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b.rules.len(),
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return 0;
+            }
+        }
+    }
+}
+
+pub unsafe extern "C" fn biscuit_block_caveat_count(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> usize {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return 0;
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    if block_index == 0 {
+        biscuit.0.authority.caveats.len()
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b.caveats.len(),
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return 0;
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_block_fact(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+    fact_index: u32,
+) -> *mut c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null_mut();
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    let block = if block_index == 0 {
+        &biscuit.0.authority
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b,
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    match block.facts.get(fact_index as usize) {
+        None => {
+            update_last_error(Error::InvalidArgument);
+            return std::ptr::null_mut();
+        },
+        Some(fact) => {
+            match CString::new(biscuit.0.symbols.print_fact(fact)) {
+                Ok(s) => s.into_raw(),
+                Err(_) => {
+                    update_last_error(Error::InvalidArgument);
+                    return std::ptr::null_mut();
+                }
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_block_rule(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+    rule_index: u32,
+) -> *mut c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null_mut();
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    let block = if block_index == 0 {
+        &biscuit.0.authority
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b,
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    match block.rules.get(rule_index as usize) {
+        None => {
+            update_last_error(Error::InvalidArgument);
+            return std::ptr::null_mut();
+        },
+        Some(rule) => {
+            match CString::new(biscuit.0.symbols.print_rule(rule)) {
+                Ok(s) => s.into_raw(),
+                Err(_) => {
+                    update_last_error(Error::InvalidArgument);
+                    return std::ptr::null_mut();
+                }
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_block_caveat(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+    caveat_index: u32,
+) -> *mut c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null_mut();
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    let block = if block_index == 0 {
+        &biscuit.0.authority
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b,
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    match block.caveats.get(caveat_index as usize) {
+        None => {
+            update_last_error(Error::InvalidArgument);
+            return std::ptr::null_mut();
+        },
+        Some(caveat) => {
+            match CString::new(biscuit.0.symbols.print_caveat(caveat)) {
+                Ok(s) => s.into_raw(),
+                Err(_) => {
+                    update_last_error(Error::InvalidArgument);
+                    return std::ptr::null_mut();
+                }
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_block_context(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> *mut c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null_mut();
+    }
+
+    let biscuit = biscuit.unwrap();
+
+    let block = if block_index == 0 {
+        &biscuit.0.authority
+    } else {
+        match biscuit.0.blocks.get(block_index as usize - 1) {
+            Some(b) => b,
+            None => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    match &block.context {
+        None => {
+            return std::ptr::null_mut();
+        },
+        Some(context) => {
+            match CString::new(context.clone()) {
+                Ok(s) => s.into_raw(),
+                Err(_) => {
+                    update_last_error(Error::InvalidArgument);
+                    return std::ptr::null_mut();
+                }
+            }
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn biscuit_create_block(
     biscuit: Option<&Biscuit>,
 ) -> Option<Box<BlockBuilder>> {
