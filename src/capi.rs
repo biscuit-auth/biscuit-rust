@@ -363,7 +363,7 @@ pub unsafe extern "C" fn biscuit_builder<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_set_context<'a>(
+pub unsafe extern "C" fn biscuit_builder_set_authority_context<'a>(
     builder: Option<&mut BiscuitBuilder<'a>>,
     context: *const c_char,
 ) -> bool {
