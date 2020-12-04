@@ -166,17 +166,19 @@ impl<'a> Verifier<'a> {
     }
 
     pub fn print_world(&self) -> String {
-        let facts = self.world
+        let mut facts = self.world
             .facts
             .iter()
             .map(|f| self.symbols.print_fact(f))
             .collect::<Vec<_>>();
+        facts.sort();
 
-        let rules = self.world
+        let mut rules = self.world
             .rules
             .iter()
             .map(|r| self.symbols.print_rule(r))
             .collect::<Vec<_>>();
+        rules.sort();
 
         let mut caveats = Vec::new();
         for (index, caveat) in self.caveats.iter().enumerate() {
