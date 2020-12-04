@@ -92,8 +92,7 @@ mod capi {
             }
         })
         .success()
-        .stdout(r#"
-key_pair creation error? (null)
+        .stdout(r#"key_pair creation error? (null)
 builder creation error? (null)
 builder add authority error? (null)
 biscuit creation error? (null)
