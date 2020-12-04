@@ -670,6 +670,7 @@ pub unsafe extern "C" fn biscuit_block_fact_count(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn biscuit_block_rule_count(
     biscuit: Option<&Biscuit>,
     block_index: u32,
@@ -694,6 +695,7 @@ pub unsafe extern "C" fn biscuit_block_rule_count(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn biscuit_block_caveat_count(
     biscuit: Option<&Biscuit>,
     block_index: u32,
