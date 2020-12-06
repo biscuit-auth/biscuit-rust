@@ -181,12 +181,26 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
     let (i, op) = delimited(space0, operator, space0)(i)?;
 
     match op {
-        Operator::Lower => map(parse_integer, |i| {
-            builder::ConstraintKind::Integer(datalog::IntConstraint::Lower(i))
-        })(i),
-        Operator::Larger => map(parse_integer, |i| {
-            builder::ConstraintKind::Integer(datalog::IntConstraint::Larger(i))
-        })(i),
+        Operator::Lower => alt((
+            map(parse_date, |d| {
+                builder::ConstraintKind::Date(builder::DateConstraint::Before(
+                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
+                ))
+            }),
+            map(parse_integer, |i| {
+                builder::ConstraintKind::Integer(datalog::IntConstraint::Lower(i))
+            }),
+        ))(i),
+        Operator::Larger => alt((
+            map(parse_date, |d| {
+                builder::ConstraintKind::Date(builder::DateConstraint::After(
+                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
+                ))
+            }),
+            map(parse_integer, |i| {
+                builder::ConstraintKind::Integer(datalog::IntConstraint::Larger(i))
+            }),
+        ))(i),
         Operator::LowerOrEqual => alt((
             map(parse_date, |d| {
                 builder::ConstraintKind::Date(builder::DateConstraint::Before(
