@@ -390,7 +390,7 @@ fn integer(i: &str) -> IResult<&str, builder::Atom> {
 
 fn parse_date(i: &str) -> IResult<&str, u64> {
     map_res(
-        map_res(take_while1(|c: char| c != ',' && c != ' '), |s| {
+        map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')'), |s| {
             let r = chrono::DateTime::parse_from_rfc3339(s);
             r
         }),
@@ -731,6 +731,23 @@ mod tests {
             ))
         );
     }
+
+    #[test]
+    fn fact_with_date() {
+        assert_eq!(
+            super::fact("date(#ambient,2019-12-02T13:49:53Z)"),
+            Ok(("",
+                builder::fact(
+                    "date",
+                    &[
+                        builder::s("ambient"),
+                        builder::Atom::Date(1575294593)
+                    ]
+                )
+            ))
+        );
+    }
+
 
     #[test]
     fn rule() {
