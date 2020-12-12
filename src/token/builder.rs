@@ -242,7 +242,7 @@ impl<'a> BiscuitBuilder<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub enum Atom {
+pub enum Term {
     Symbol(String),
     Variable(String),
     Integer(i64),
@@ -251,61 +251,61 @@ pub enum Atom {
     Bytes(Vec<u8>),
 }
 
-impl Atom {
+impl Term {
     pub fn convert(&self, symbols: &mut SymbolTable) -> ID {
         match self {
-            Atom::Symbol(s) => ID::Symbol(symbols.insert(s)),
-            Atom::Variable(s) => ID::Variable(symbols.insert(s) as u32),
-            Atom::Integer(i) => ID::Integer(*i),
-            Atom::Str(s) => ID::Str(s.clone()),
-            Atom::Date(d) => ID::Date(*d),
-            Atom::Bytes(s) => ID::Bytes(s.clone()),
+            Term::Symbol(s) => ID::Symbol(symbols.insert(s)),
+            Term::Variable(s) => ID::Variable(symbols.insert(s) as u32),
+            Term::Integer(i) => ID::Integer(*i),
+            Term::Str(s) => ID::Str(s.clone()),
+            Term::Date(d) => ID::Date(*d),
+            Term::Bytes(s) => ID::Bytes(s.clone()),
         }
     }
 
     pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
       match f {
-        ID::Symbol(s) => Atom::Symbol(symbols.print_symbol(*s)),
-        ID::Variable(s) => Atom::Variable(symbols.print_symbol(*s as u64)),
-        ID::Integer(i) => Atom::Integer(*i),
-        ID::Str(s) => Atom::Str(s.clone()),
-        ID::Date(d) => Atom::Date(*d),
-        ID::Bytes(s) => Atom::Bytes(s.clone()),
+        ID::Symbol(s) => Term::Symbol(symbols.print_symbol(*s)),
+        ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+        ID::Integer(i) => Term::Integer(*i),
+        ID::Str(s) => Term::Str(s.clone()),
+        ID::Date(d) => Term::Date(*d),
+        ID::Bytes(s) => Term::Bytes(s.clone()),
       }
     }
 }
 
-impl From<&Atom> for Atom {
-    fn from(i: &Atom) -> Self {
+impl From<&Term> for Term {
+    fn from(i: &Term) -> Self {
         match i {
-            Atom::Symbol(ref s) => Atom::Symbol(s.clone()),
-            Atom::Variable(ref v) => Atom::Variable(v.clone()),
-            Atom::Integer(ref i) => Atom::Integer(*i),
-            Atom::Str(ref s) => Atom::Str(s.clone()),
-            Atom::Date(ref d) => Atom::Date(*d),
-            Atom::Bytes(ref s) => Atom::Bytes(s.clone()),
+            Term::Symbol(ref s) => Term::Symbol(s.clone()),
+            Term::Variable(ref v) => Term::Variable(v.clone()),
+            Term::Integer(ref i) => Term::Integer(*i),
+            Term::Str(ref s) => Term::Str(s.clone()),
+            Term::Date(ref d) => Term::Date(*d),
+            Term::Bytes(ref s) => Term::Bytes(s.clone()),
         }
     }
 }
 
-impl AsRef<Atom> for Atom {
-    fn as_ref(&self) -> &Atom {
+impl AsRef<Term> for Term {
+    fn as_ref(&self) -> &Term {
         self
     }
 }
 
-impl fmt::Display for Atom {
+impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Atom::Variable(i) => write!(f, "${}", i),
-            Atom::Integer(i) => write!(f, "{}", i),
-            Atom::Str(s) => write!(f, "\"{}\"", s),
-            Atom::Symbol(s) => write!(f, "#{}", s),
-            Atom::Date(d) => {
+            Term::Variable(i) => write!(f, "${}", i),
+            Term::Integer(i) => write!(f, "{}", i),
+            Term::Str(s) => write!(f, "\"{}\"", s),
+            Term::Symbol(s) => write!(f, "#{}", s),
+            Term::Date(d) => {
                 let t = UNIX_EPOCH + Duration::from_secs(*d);
                 write!(f, "{:?}", t)
             }
-            Atom::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
+            Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
         }
 
     }
@@ -314,7 +314,7 @@ impl fmt::Display for Atom {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
-    pub ids: Vec<Atom>,
+    pub ids: Vec<Term>,
 }
 
 impl Predicate {
@@ -332,11 +332,11 @@ impl Predicate {
     pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
         Predicate {
           name: symbols.print_symbol(p.name),
-          ids: p.ids.iter().map(|id| Atom::convert_from(&id, symbols)).collect(),
+          ids: p.ids.iter().map(|id| Term::convert_from(&id, symbols)).collect(),
         }
     }
 
-    pub fn new(name: String, ids: &[Atom]) -> Predicate {
+    pub fn new(name: String, ids: &[Term]) -> Predicate {
         Predicate {
             name,
             ids: ids.to_vec(),
@@ -372,7 +372,7 @@ impl fmt::Display for Predicate {
 pub struct Fact(pub Predicate);
 
 impl Fact {
-    pub fn new(name: String, ids: &[Atom]) -> Fact {
+    pub fn new(name: String, ids: &[Term]) -> Fact {
         Fact(Predicate::new(name, ids))
     }
 }
@@ -655,12 +655,12 @@ impl fmt::Display for Caveat {
 }
 
 /// creates a new fact
-pub fn fact<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Fact {
+pub fn fact<I: AsRef<Term>>(name: &str, ids: &[I]) -> Fact {
     Fact(pred(name, ids))
 }
 
 /// creates a predicate
-pub fn pred<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Predicate {
+pub fn pred<I: AsRef<Term>>(name: &str, ids: &[I]) -> Predicate {
     Predicate {
         name: name.to_string(),
         ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
@@ -668,7 +668,7 @@ pub fn pred<I: AsRef<Atom>>(name: &str, ids: &[I]) -> Predicate {
 }
 
 /// creates a rule
-pub fn rule<I: AsRef<Atom>, P: AsRef<Predicate>>(
+pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
     head_name: &str,
     head_ids: &[I],
     predicates: &[P],
@@ -681,7 +681,7 @@ pub fn rule<I: AsRef<Atom>, P: AsRef<Predicate>>(
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<Constraint>>(
+pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Constraint>>(
     head_name: &str,
     head_ids: &[I],
     predicates: &[P],
@@ -695,48 +695,48 @@ pub fn constrained_rule<I: AsRef<Atom>, P: AsRef<Predicate>, C: AsRef<Constraint
 }
 
 /// creates an integer value
-pub fn int(i: i64) -> Atom {
-    Atom::Integer(i)
+pub fn int(i: i64) -> Term {
+    Term::Integer(i)
 }
 
 /// creates a string
-pub fn string(s: &str) -> Atom {
-    Atom::Str(s.to_string())
+pub fn string(s: &str) -> Term {
+    Term::Str(s.to_string())
 }
 
 /// creates a symbol
 ///
 /// once the block is generated, this symbol will be added to the symbol table if needed
-pub fn s(s: &str) -> Atom {
-    Atom::Symbol(s.to_string())
+pub fn s(s: &str) -> Term {
+    Term::Symbol(s.to_string())
 }
 
 /// creates a symbol
 ///
 /// once the block is generated, this symbol will be added to the symbol table if needed
-pub fn symbol(s: &str) -> Atom {
-    Atom::Symbol(s.to_string())
+pub fn symbol(s: &str) -> Term {
+    Term::Symbol(s.to_string())
 }
 
 /// creates a date
 ///
 /// internally the date will be stored as seconds since UNIX_EPOCH
-pub fn date(t: &SystemTime) -> Atom {
+pub fn date(t: &SystemTime) -> Term {
     let dur = t.duration_since(UNIX_EPOCH).unwrap();
-    Atom::Date(dur.as_secs())
+    Term::Date(dur.as_secs())
 }
 
 /// creates a variable for a rule
-pub fn var(s: &str) -> Atom {
-    Atom::Variable(s.to_string())
+pub fn var(s: &str) -> Term {
+    Term::Variable(s.to_string())
 }
 
 /// creates a variable for a rule
-pub fn variable(s: &str) -> Atom {
-    Atom::Variable(s.to_string())
+pub fn variable(s: &str) -> Term {
+    Term::Variable(s.to_string())
 }
 
 /// creates a byte array
-pub fn bytes(s: &[u8]) -> Atom {
-    Atom::Bytes(s.to_vec())
+pub fn bytes(s: &[u8]) -> Term {
+    Term::Bytes(s.to_vec())
 }

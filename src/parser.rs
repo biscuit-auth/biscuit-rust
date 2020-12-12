@@ -131,7 +131,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        separated_list1(preceded(space0, char(',')), atom),
+        separated_list1(preceded(space0, char(',')), term),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -383,22 +383,22 @@ fn parse_string(i: &str) -> IResult<&str, String> {
     delimited(char('"'), parse_string_internal, char('"'))(i)
 }
 
-fn string(i: &str) -> IResult<&str, builder::Atom> {
-    parse_string(i).map(|(i, s)| (i, builder::Atom::Str(s)))
+fn string(i: &str) -> IResult<&str, builder::Term> {
+    parse_string(i).map(|(i, s)| (i, builder::Term::Str(s)))
 }
 
 fn parse_symbol(i: &str) -> IResult<&str, &str> {
     preceded(char('#'), name)(i)
 }
 
-fn symbol(i: &str) -> IResult<&str, builder::Atom> {
+fn symbol(i: &str) -> IResult<&str, builder::Term> {
     parse_symbol(i).map(|(i, s)| (i, builder::s(s)))
 }
 
 fn parse_integer(i: &str) -> IResult<&str, i64> {
     map_res(recognize(pair(opt(char('-')), digit1)), |s: &str| s.parse())(i)
 }
-fn integer(i: &str) -> IResult<&str, builder::Atom> {
+fn integer(i: &str) -> IResult<&str, builder::Term> {
     parse_integer(i).map(|(i, n)| (i, builder::int(n)))
 }
 
@@ -415,8 +415,8 @@ fn parse_date(i: &str) -> IResult<&str, u64> {
     )(i)
 }
 
-fn date(i: &str) -> IResult<&str, builder::Atom> {
-    parse_date(i).map(|(i, t)| (i, builder::Atom::Date(t)))
+fn date(i: &str) -> IResult<&str, builder::Term> {
+    parse_date(i).map(|(i, t)| (i, builder::Term::Date(t)))
 }
 
 fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>> {
@@ -434,18 +434,18 @@ fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>> {
     )(i)
 }
 
-fn bytes(i: &str) -> IResult<&str, builder::Atom> {
-    parse_bytes(i).map(|(i, s)| (i, builder::Atom::Bytes(s)))
+fn bytes(i: &str) -> IResult<&str, builder::Term> {
+    parse_bytes(i).map(|(i, s)| (i, builder::Term::Bytes(s)))
 }
 
-fn variable(i: &str) -> IResult<&str, builder::Atom> {
+fn variable(i: &str) -> IResult<&str, builder::Term> {
     map(
         preceded(char('$'), name),
         builder::variable,
     )(i)
 }
 
-fn atom(i: &str) -> IResult<&str, builder::Atom> {
+fn term(i: &str) -> IResult<&str, builder::Term> {
     preceded(space0, alt((symbol, string, date, variable, integer, bytes)))(i)
 }
 
@@ -502,7 +502,7 @@ mod tests {
     fn date() {
         assert_eq!(
             super::date("2019-12-02T13:49:53Z"),
-            Ok(("", builder::Atom::Date(1575294593)))
+            Ok(("", builder::Term::Date(1575294593)))
         );
     }
 
@@ -755,7 +755,7 @@ mod tests {
                     "date",
                     &[
                         builder::s("ambient"),
-                        builder::Atom::Date(1575294593)
+                        builder::Term::Date(1575294593)
                     ]
                 )
             ))

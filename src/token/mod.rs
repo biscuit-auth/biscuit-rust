@@ -1172,8 +1172,8 @@ mod tests {
 
             let res2 = verifier.query(rule(
                 "revocation_id_verif",
-                &[builder::Atom::Variable("id".to_string())],
-                &[pred("revocation_id", &[builder::Atom::Variable("id".to_string())])]
+                &[builder::Term::Variable("id".to_string())],
+                &[pred("revocation_id", &[builder::Term::Variable("id".to_string())])]
             ));
             println!("res2: {:?}", res2);
             assert_eq!(
