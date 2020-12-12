@@ -203,19 +203,16 @@ impl fmt::Display for Fact {
 
 impl Rule {
     pub fn apply(&self, facts: &HashSet<Fact>, new_facts: &mut Vec<Fact>) {
+        // gather all of the variables used in that rule
         let variables_set = self
             .body
             .iter()
             .flat_map(|pred| {
                 pred.ids
                     .iter()
-                    .filter(|id| match id {
-                        ID::Variable(_) => true,
-                        _ => false,
-                    })
-                    .map(|id| match id {
-                        ID::Variable(i) => *i,
-                        _ => unreachable!(),
+                    .filter_map(|id| match id {
+                        ID::Variable(i) => Some(*i),
+                        _ => None,
                     })
             })
             .collect::<HashSet<_>>();
