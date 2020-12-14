@@ -1,6 +1,6 @@
 [package]
 name = "biscuit-auth"
-version = "0.6.0"
+version = "0.7.0"
 description = "an authentication/authorization token with decentralized verification and offline delegation"
 authors = ["Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"]
 edition = "2018"
@@ -40,3 +40,15 @@ rand = "0.7"
 # Used as the library name and defaults to the crate name. This might get
 # prefixed with `lib` depending on the target platform.
 name = "biscuit_auth"
+
+include = [
+  "Cargo.toml",
+  "cbindgen.toml",
+  "build.rs",
+  "examples/*.rs",
+  "LICENSE",
+  "README.md",
+  "src/*.rs",
+  "src/*/*.rs",
+  "tests/*.rs"
+]
