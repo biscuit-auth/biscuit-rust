@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, take_while1},
     character::{
-        complete::{char, digit1, space0},
+        complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
     combinator::{map, map_opt, map_res, opt, recognize, value},
