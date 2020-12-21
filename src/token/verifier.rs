@@ -60,8 +60,16 @@ impl<'a> Verifier<'a> {
         &mut self,
         rule: R,
     ) -> Result<Vec<Fact>, error::Token> {
+        self.query_with_limits(rule, VerifierLimits::default())
+    }
+
+    pub fn query_with_limits<R: TryInto<Rule>>(
+        &mut self,
+        rule: R,
+        limits: VerifierLimits
+    ) -> Result<Vec<Fact>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.world.run();
+        self.world.run_with_limits(limits.into()).map_err(error::Token::RunLimit)?;
         let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
         Ok(res
