@@ -29,6 +29,15 @@ fn main() {
         }
     };
 
+    let test = match args.next().as_deref() {
+        Some("--test") => true,
+        Some(arg) => {
+            println!("unknown argument: {}", arg);
+            return;
+        }
+        None => false,
+    };
+
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let root = KeyPair::new(&mut rng);
     println!("# Biscuit samples and expected results\n");
@@ -39,52 +48,52 @@ fn main() {
     println!("root public key: {}", hex::encode(root.public().to_bytes()));
 
     println!("\n------------------------------\n");
-    basic_token(&mut rng, &target, &root);
+    basic_token(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    different_root_key(&mut rng, &target, &root);
+    different_root_key(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    invalid_signature_format(&mut rng, &target, &root);
+    invalid_signature_format(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    random_block(&mut rng, &target, &root);
+    random_block(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    invalid_signature(&mut rng, &target, &root);
+    invalid_signature(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    reordered_blocks(&mut rng, &target, &root);
+    reordered_blocks(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    invalid_block_fact_authority(&mut rng, &target, &root);
+    invalid_block_fact_authority(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    invalid_block_fact_ambient(&mut rng, &target, &root);
+    invalid_block_fact_ambient(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    expired_token(&mut rng, &target, &root);
+    expired_token(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    authority_rules(&mut rng, &target, &root);
+    authority_rules(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    verifier_authority_caveats(&mut rng, &target, &root);
+    verifier_authority_caveats(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    authority_caveats(&mut rng, &target, &root);
+    authority_caveats(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    block_rules(&mut rng, &target, &root);
+    block_rules(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    regex_constraint(&mut rng, &target, &root);
+    regex_constraint(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    multi_queries_caveats(&mut rng, &target, &root);
+    multi_queries_caveats(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    caveat_head_name(&mut rng, &target, &root);
+    caveat_head_name(&mut rng, &target, &root, test);
 }
 
 fn validate_token(
@@ -120,7 +129,17 @@ fn write_testcase(target: &str, name: &str, data: &[u8]) {
     file.flush().unwrap();
 }
 
-fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn load_testcase(target: &str, name: &str) -> Vec<u8> {
+    std::fs::read(&format!("{}/{}.bc", target, name)).unwrap()
+}
+
+fn print_diff(actual: &str, expected: &str) {
+    if actual != expected {
+        println!("{}", colored_diff::PrettyDifference { expected, actual })
+    }
+}
+
+fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## basic token: test1_basic.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -155,9 +174,22 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test1_basic");
+        let token = Biscuit::from(&v[..]).unwrap();
 
-    let data = biscuit2.to_vec().unwrap();
+        let actual = biscuit2.print();
+        let expected = token.print();
+        print_diff(&actual, &expected);
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test1_basic", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -166,12 +198,11 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
             vec![]
-        )
-    );
-    write_testcase(target, "test1_basic", &data[..]);
+            )
+        );
 }
 
-fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## different root key: test2_different_root_key.bc");
 
     let root2 = KeyPair::new(rng);
@@ -199,9 +230,17 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test2_different_root_key");
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test2_different_root_key", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -210,12 +249,11 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
             vec![fact("resource", &[s("ambient"), string("file1")])],
             vec![],
             vec![]
-        )
-    );
-    write_testcase(target, "test2_different_root_key", &data[..]);
+            )
+        );
 }
 
-fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## invalid signature format: test3_invalid_signature_format.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -250,13 +288,20 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test3_invalid_signature_format");
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let serialized = biscuit2.container().unwrap();
-    let mut proto = serialized.to_proto();
-    proto.signature.z.truncate(16);
-    let mut data = Vec::new();
-    proto.encode(&mut data).unwrap();
+        let serialized = biscuit2.container().unwrap();
+        let mut proto = serialized.to_proto();
+        proto.signature.z.truncate(16);
+        let mut data = Vec::new();
+        proto.encode(&mut data).unwrap();
+        write_testcase(target, "test3_invalid_signature_format", &data[..]);
+        data
+    };
 
     println!(
         "validation: `{:?}`",
@@ -268,10 +313,9 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
             vec![]
         )
     );
-    write_testcase(target, "test3_invalid_signature_format", &data[..]);
 }
 
-fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## random block: test4_random_block.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -306,14 +350,22 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test4_random_block");
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let serialized = biscuit2.container().unwrap();
-    let mut proto = serialized.to_proto();
-    let arr: [u8; 32] = rng.gen();
-    proto.blocks[0] = Vec::from(&arr[..]);
-    let mut data = Vec::new();
-    proto.encode(&mut data).unwrap();
+        let serialized = biscuit2.container().unwrap();
+        let mut proto = serialized.to_proto();
+        let arr: [u8; 32] = rng.gen();
+        proto.blocks[0] = Vec::from(&arr[..]);
+        let mut data = Vec::new();
+        proto.encode(&mut data).unwrap();
+
+        write_testcase(target, "test4_random_block", &data[..]);
+        data
+    };
 
     println!(
         "validation: `{:?}`",
@@ -325,10 +377,9 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             vec![]
         )
     );
-    write_testcase(target, "test4_random_block", &data[..]);
 }
 
-fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## invalid signature: test5_invalid_signature.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -363,12 +414,21 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test5_invalid_signature");
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let mut serialized = biscuit2.container().unwrap().clone();
-    serialized.signature.z = serialized.signature.z + Scalar::one();
+        let mut serialized = biscuit2.container().unwrap().clone();
+        serialized.signature.z = serialized.signature.z + Scalar::one();
 
-    let data = serialized.to_vec().unwrap();
+        let data = serialized.to_vec().unwrap();
+        write_testcase(target, "test5_invalid_signature", &data[..]);
+
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -379,10 +439,9 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
             vec![]
         )
     );
-    write_testcase(target, "test5_invalid_signature", &data[..]);
 }
 
-fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## reordered blocks: test6_reordered_blocks.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -442,7 +501,15 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     keys.push(serialized.keys[1].clone());
     serialized.keys = keys;
 
-    let data = serialized.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test6_reordered_blocks");
+        v
+    } else {
+        let data = serialized.to_vec().unwrap();
+        write_testcase(target, "test6_reordered_blocks", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -453,10 +520,9 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
             vec![]
         )
     );
-    write_testcase(target, "test6_reordered_blocks", &data[..]);
 }
 
-fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## invalid block fact with authority tag: test7_invalid_block_fact_authority.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -484,9 +550,20 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test7_invalid_block_fact_authority");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test7_invalid_block_fact_authority", &data[..]);
+
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -497,10 +574,9 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
             vec![]
         )
     );
-    write_testcase(target, "test7_invalid_block_fact_authority", &data[..]);
 }
 
-fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## invalid block fact with ambient tag: test8_invalid_block_fact_ambient.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -525,9 +601,19 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test8_invalid_block_fact_ambient");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test8_invalid_block_fact_ambient", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -538,10 +624,9 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
             vec![]
         )
     );
-    write_testcase(target, "test8_invalid_block_fact_ambient", &data[..]);
 }
 
-fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## expired token: test9_expired_token.bc");
 
     let builder = Biscuit::builder(&root);
@@ -564,9 +649,20 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test9_expired_token");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test9_expired_token", &data[..]);
+
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -581,10 +677,9 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
             vec![]
         )
     );
-    write_testcase(target, "test9_expired_token", &data[..]);
 }
 
-fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## authority rules: test10_authority_rules.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -630,9 +725,19 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test10_authority_rules");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test10_authority_rules", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -648,10 +753,9 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         )
     );
 
-    write_testcase(target, "test10_authority_rules", &data[..]);
 }
 
-fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## verifier authority caveats: test11_verifier_authority_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -662,9 +766,20 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     ));
 
     let biscuit1 = builder.build(rng).unwrap();
-    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
-    let data = biscuit1.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test11_verifier_authority_caveats");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test11_verifier_authority_caveats", &data[..]);
+        data
+    };
+
     println!(
         "validation: `{:?}`",
         validate_token(
@@ -687,10 +802,9 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
         )
     );
 
-    write_testcase(target, "test11_verifier_authority_caveats", &data[..]);
 }
 
-fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## authority caveats: test12_authority_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -702,22 +816,33 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     ));
 
     let biscuit1 = builder.build(rng).unwrap();
-    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
-    let data = biscuit1.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test12_authority_caveats");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test12_authority_caveats", &data[..]);
+        data
+    };
+
     println!(
         "validation for \"file1\": `{:?}`",
         validate_token(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file1")]),
-                fact("operation", &[s("ambient"), s("read")]),
+            fact("resource", &[s("ambient"), string("file1")]),
+            fact("operation", &[s("ambient"), s("read")]),
             ],
             vec![],
             vec![]
-        )
-    );
+            )
+        );
 
     println!(
         "validation for \"file2\": `{:?}`",
@@ -733,10 +858,9 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         )
     );
 
-    write_testcase(target, "test12_authority_caveats", &data[..]);
 }
 
-fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## block rules: test13_block_rules.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -808,9 +932,20 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
     let keypair2 = KeyPair::new(rng);
     let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    let data = if test {
+        let v = load_testcase(target, "test13_block_rules");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
-    let data = biscuit2.to_vec().unwrap();
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test13_block_rules", &data[..]);
+
+        data
+    };
+
     println!(
         "validation for \"file1\": `{:?}`",
         validate_token(
@@ -838,11 +973,9 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             vec![]
         )
     );
-
-    write_testcase(target, "test13_block_rules", &data[..]);
 }
 
-fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## regex_constraint: test14_regex_constraint.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -862,9 +995,20 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     ));
 
     let biscuit1 = builder.build(rng).unwrap();
-    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
-    let data = biscuit1.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test14_regex_constraint");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test14_regex_constraint", &data[..]);
+        data
+    };
+
     println!(
         "validation for \"file1\": `{:?}`",
         validate_token(
@@ -890,11 +1034,9 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
             vec![]
         )
     );
-
-    write_testcase(target, "test14_regex_constraint", &data[..]);
 }
 
-fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## multi queries caveats: test15_multi_queries_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -906,9 +1048,20 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
     ));
 
     let biscuit1 = builder.build(rng).unwrap();
-    println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
-    let data = biscuit1.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test15_multi_queries_caveats");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
+
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test15_multi_queries_caveats", &data[..]);
+
+        data
+    };
 
     println!(
         "validation: `{:?}`",
@@ -931,11 +1084,9 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
             ],
         )
     );
-
-    write_testcase(target, "test15_multi_queries_caveats", &data[..]);
 }
 
-fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
+fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## caveat head name should be independent from fact names: test16_caveat_head_name.bc");
 
     let mut builder = Biscuit::builder(&root);
@@ -960,8 +1111,17 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         .append(rng, &keypair2, block2)
         .unwrap();
 
-    println!("biscuit: {}", biscuit2.print());
-    let data = biscuit2.to_vec().unwrap();
+    let data = if test {
+        let v = load_testcase(target, "test16_caveat_head_name");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit: {}", biscuit2.print());
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test16_caveat_head_name", &data[..]);
+        data
+    };
 
     println!(
         "validation: `{:?}`",
@@ -973,5 +1133,4 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
             vec![],
         )
     );
-    write_testcase(target, "test16_caveat_head_name", &data[..]);
 }
