@@ -7,7 +7,7 @@ use nom::{
         is_alphanumeric,
     },
     combinator::{map, map_opt, map_res, opt, recognize, value},
-    multi::separated_list1,
+    multi::{separated_list0, separated_list1},
     sequence::{delimited, pair, preceded},
     IResult,
 };
@@ -32,7 +32,7 @@ pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
 
 pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, _) = char('*')(i)?;
-    let (i, head) = predicate(i)?;
+    let (i, head) = rule_head(i)?;
     let (i, _) = space0(i)?;
 
     let (i, _) = tag("<-")(i)?;
@@ -132,6 +132,26 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, ids) = delimited(
         char('('),
         separated_list1(preceded(space0, char(',')), term),
+        preceded(space0, char(')')),
+    )(i)?;
+
+    Ok((
+        i,
+        builder::Predicate {
+            name: fact_name.to_string(),
+            ids,
+        },
+    ))
+}
+
+fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
+    let (i, _) = space0(i)?;
+    let (i, fact_name) = name(i)?;
+
+    let (i, _) = space0(i)?;
+    let (i, ids) = delimited(
+        char('('),
+        separated_list0(preceded(space0, char(',')), term),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -806,6 +826,36 @@ mod tests {
                           std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1575452801))),
                     }]
                 )
+            ))
+        );
+    }
+
+    #[test]
+    fn caveat() {
+        let empty: &[builder::Term] = &[];
+        assert_eq!(
+            super::caveat("*right() <- resource(#ambient, $0), operation(#ambient, #read) || *right() <- admin(#authority)"),
+            Ok((
+                "",
+                builder::Caveat {
+                    queries: vec![
+                        builder::rule(
+                            "right",
+                            empty,
+                            &[
+                                builder::pred("resource", &[builder::s("ambient"), builder::variable("0")]),
+                                builder::pred("operation", &[builder::s("ambient"), builder::s("read")]),
+                            ]
+                        ),
+                        builder::rule(
+                            "right",
+                            empty,
+                            &[
+                                builder::pred("admin", &[builder::s("authority")]),
+                            ]
+                        ),
+                    ]
+                }
             ))
         );
     }

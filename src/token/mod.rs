@@ -1190,9 +1190,10 @@ mod tests {
 
         let mut builder = Biscuit::builder(&root);
 
+        let empty: &[builder::Term] = &[];
         builder.add_authority_caveat(rule(
             "caveat1",
-            &[s("test")],
+            empty,
             &[
                 pred("resource", &[s("ambient"), s("hello")]),
             ],
@@ -1230,7 +1231,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                   block_id: 0,
                   caveat_id: 0,
-                  rule: String::from("*caveat1(#test) <- resource(#ambient, #hello)"),
+                  rule: String::from("*caveat1() <- resource(#ambient, #hello)"),
                 }),
               ]))));
 
