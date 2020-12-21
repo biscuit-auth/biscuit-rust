@@ -23,6 +23,8 @@ pub enum Token {
     FailedLogic(Logic),
     #[error("Datalog parsing error")]
     ParseError,
+    #[error("Reached Datalog execution limits")]
+    RunLimit(RunLimit),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -94,4 +96,14 @@ pub struct FailedVerifierCaveat {
     pub caveat_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
+}
+
+#[derive(Error, Clone, Debug, PartialEq)]
+pub enum RunLimit {
+    #[error("too many facts generated")]
+    TooManyFacts,
+    #[error("too many engine iterations")]
+    TooManyIterations,
+    #[error("spent too much time verifying")]
+    Timeout,
 }

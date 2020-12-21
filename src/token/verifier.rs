@@ -5,7 +5,7 @@ use super::builder::{
 use super::Biscuit;
 use crate::datalog;
 use crate::error;
-use std::{convert::TryInto, time::SystemTime};
+use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
 
 pub struct Verifier<'a> {
     token: &'a Biscuit,
@@ -106,12 +106,20 @@ impl<'a> Verifier<'a> {
     }
 
     pub fn verify(&mut self) -> Result<(), error::Token> {
+        self.verify_with_limits(VerifierLimits::default())
+    }
+
+    pub fn verify_with_limits(&mut self, mut limits: VerifierLimits) -> Result<(), error::Token> {
+        let start = SystemTime::now();
+
         //FIXME: should check for the presence of any other symbol in the token
         if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
             return Err(error::Token::MissingSymbols);
         }
 
-        self.world.run();
+        self.world.run_with_limits(limits.clone().into()).map_err(error::Token::RunLimit)?;
+
+        let time_limit = start + limits.max_time;
 
         let mut errors = vec![];
         for (i, caveat) in self.caveats.iter().enumerate() {
@@ -120,6 +128,12 @@ impl<'a> Verifier<'a> {
 
             for query in caveat.queries.iter() {
                 let res = self.world.query_rule(query.convert(&mut self.symbols));
+
+                let now = SystemTime::now();
+                if now >= time_limit {
+                    return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                }
+
                 if !res.is_empty() {
                     successful = true;
                     break;
@@ -140,6 +154,12 @@ impl<'a> Verifier<'a> {
 
                 for query in caveat.queries.iter() {
                     let res = self.world.query_rule(query.clone());
+
+                    let now = SystemTime::now();
+                    if now >= time_limit {
+                        return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                    }
+
                     if !res.is_empty() {
                         successful = true;
                         break;
@@ -198,5 +218,33 @@ impl<'a> Verifier<'a> {
         (self.world.facts.iter().map(|f| Fact::convert_from(f, &self.symbols)).collect(),
          self.world.rules.iter().map(|r| Rule::convert_from(r, &self.symbols)).collect(),
          self.caveats.clone())
+    }
+}
+
+#[derive(Debug,Clone)]
+pub struct VerifierLimits {
+    pub max_facts: u32,
+    pub max_iterations: u32,
+    pub max_time: Duration,
+}
+
+impl Default for VerifierLimits {
+    fn default() -> Self {
+        VerifierLimits {
+            max_facts: 1000,
+            max_iterations: 100,
+            max_time: Duration::from_millis(1),
+        }
+    }
+}
+
+impl std::convert::From<VerifierLimits> for crate::datalog::RunLimits {
+    fn from(limits: VerifierLimits) -> Self {
+        crate::datalog::RunLimits {
+            max_facts: limits.max_facts,
+            max_iterations: limits.max_iterations,
+            max_time: limits.max_time,
+        }
+
     }
 }

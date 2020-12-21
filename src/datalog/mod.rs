@@ -485,8 +485,15 @@ impl World {
         self.rules.push(rule);
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), crate::error::RunLimit> {
+        self.run_with_limits(RunLimits::default())
+    }
+
+    pub fn run_with_limits(&mut self, limits: RunLimits) -> Result<(), crate::error::RunLimit> {
+        let start = SystemTime::now();
+        let time_limit = start + limits.max_time;
         let mut index = 0;
+
         loop {
             let mut new_facts: Vec<Fact> = Vec::new();
             for rule in self.rules.iter() {
@@ -501,10 +508,21 @@ impl World {
             }
 
             index += 1;
-            if index == 100 {
-                panic!();
+            if index == limits.max_iterations {
+                return Err(crate::error::RunLimit::TooManyIterations);
+            }
+
+            if self.facts.len() >= limits.max_facts as usize {
+                return Err(crate::error::RunLimit::TooManyFacts);
+            }
+
+            let now = SystemTime::now();
+            if now >= time_limit {
+                return Err(crate::error::RunLimit::Timeout);
             }
         }
+
+        Ok(())
     }
 
     pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
@@ -693,6 +711,22 @@ pub fn sym(syms: &mut SymbolTable, name: &str) -> ID {
     ID::Symbol(id)
 }
 
+pub struct RunLimits {
+    pub max_facts: u32,
+    pub max_iterations: u32,
+    pub max_time: Duration,
+}
+
+impl std::default::Default for RunLimits {
+    fn default() -> Self {
+        RunLimits {
+            max_facts: 1000,
+            max_iterations: 100,
+            max_time: Duration::from_millis(1),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -741,7 +775,7 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(r2);
 
-        w.run();
+        w.run().unwrap();
 
         println!("parents:");
         let res = w.query(pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "child")]));
@@ -758,7 +792,7 @@ mod tests {
             w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]))
         );
         w.add_fact(fact(parent, &[&c, &e]));
-        w.run();
+        w.run().unwrap();
         let mut res = w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]));
         println!("grandparents after inserting parent(C, E): {:?}", res);
 
