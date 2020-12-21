@@ -575,7 +575,7 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) 
             vec![
                 fact("resource", &[s("ambient"), string("file1")]),
                 fact("operation", &[s("ambient"), s("read")]),
-                fact("time", &[s("ambient"), date(&SystemTime::now())])
+                fact("time", &[s("ambient"), date(&UNIX_EPOCH.checked_add(Duration::from_secs(1608542592)).unwrap())])
             ],
             vec![],
             vec![]
@@ -818,7 +818,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             &data[..],
             vec![
                 fact("resource", &[s("ambient"), string("file1")]),
-                fact("time", &[s("ambient"), date(&SystemTime::now())])
+                fact("time", &[s("ambient"), date(&UNIX_EPOCH.checked_add(Duration::from_secs(1608542592)).unwrap())])
             ],
             vec![],
             vec![]
@@ -832,7 +832,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair) {
             &data[..],
             vec![
                 fact("resource", &[s("ambient"), string("file2")]),
-                fact("time", &[s("ambient"), date(&SystemTime::now())])
+                fact("time", &[s("ambient"), date(&UNIX_EPOCH.checked_add(Duration::from_secs(1608542592)).unwrap())])
             ],
             vec![],
             vec![]
