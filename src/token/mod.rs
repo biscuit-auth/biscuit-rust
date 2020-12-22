@@ -907,8 +907,8 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("*caveat1($resource) <- resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*caveat2(#file1) <- resource(#ambient, #file1)") })
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1($resource) <- resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("caveat2(#file1) <- resource(#ambient, #file1)") })
               ])));
         }
     }
@@ -964,7 +964,7 @@ mod tests {
                         block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
-                            "*prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*"
+                            "prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*"
                         )
                     }),
                 ])))
@@ -980,8 +980,8 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("*prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("*check_right(#read) <- resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
               ]))));
         }
     }
@@ -1124,7 +1124,7 @@ mod tests {
       println!("res: {:?}", res);
       assert_eq!(res,
         Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("*right(#right) <- right(#authority, \"file2\", #write)") }),
+          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write)") }),
       ]))));
     }
 
@@ -1231,7 +1231,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                   block_id: 0,
                   caveat_id: 0,
-                  rule: String::from("*caveat1() <- resource(#ambient, #hello)"),
+                  rule: String::from("caveat1() <- resource(#ambient, #hello)"),
                 }),
               ]))));
 
@@ -1265,7 +1265,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                     block_id: 0,
                     caveat_id: 0,
-                    rule: String::from("*requires_name($name) <- name($name)"),
+                    rule: String::from("requires_name($name) <- name($name)"),
                 }),
             ]))));
 
@@ -1295,20 +1295,20 @@ mod tests {
         println!("biscuit1 (authority): {}", biscuit1.print());
 
         let mut block2 = biscuit1.create_block();
-        block2.add_rule("*has_bytes(0) <- bytes(#authority, $0) @ $0 in [ hex:00000000, hex:0102AB ]").unwrap();
+        block2.add_rule("has_bytes($0) <- bytes(#authority, $0) @ $0 in [ hex:00000000, hex:0102AB ]").unwrap();
         let keypair2 = KeyPair::new(&mut rng);
         let biscuit2 = biscuit1
             .append(&mut rng, &keypair2, block2)
             .unwrap();
 
         let mut verifier = biscuit2.verify(root.public()).unwrap();
-        verifier.add_caveat("*ok(0) <- has_bytes($0)").unwrap();
+        verifier.add_caveat("ok(0) <- has_bytes($0)").unwrap();
 
         let res = verifier.verify();
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res = verifier.query("*data($0) <- bytes(#authority, $0)").unwrap();
+        let res = verifier.query("data($0) <- bytes(#authority, $0)").unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {}", res[0]);
     }

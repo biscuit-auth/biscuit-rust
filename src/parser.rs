@@ -31,7 +31,6 @@ pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
 }
 
 pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
-    let (i, _) = char('*')(i)?;
     let (i, head) = rule_head(i)?;
     let (i, _) = space0(i)?;
 
@@ -786,7 +785,7 @@ mod tests {
     #[test]
     fn rule() {
         assert_eq!(
-            super::rule("*right(#authority, $0, #read) <- resource( #ambient, $0), operation(#ambient, #read)"),
+            super::rule("right(#authority, $0, #read) <- resource( #ambient, $0), operation(#ambient, #read)"),
             Ok((
                 "",
                 builder::rule(
@@ -808,7 +807,7 @@ mod tests {
     #[test]
     fn constrained_rule() {
         assert_eq!(
-            super::rule("*valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
+            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
             Ok((
                 "",
                 builder::constrained_rule(
@@ -834,7 +833,7 @@ mod tests {
     fn caveat() {
         let empty: &[builder::Term] = &[];
         assert_eq!(
-            super::caveat("*right() <- resource(#ambient, $0), operation(#ambient, #read) || *right() <- admin(#authority)"),
+            super::caveat("right() <- resource(#ambient, $0), operation(#ambient, #read) || right() <- admin(#authority)"),
             Ok((
                 "",
                 builder::Caveat {

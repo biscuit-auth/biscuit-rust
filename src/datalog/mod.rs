@@ -688,7 +688,7 @@ impl SymbolTable {
         };
 
         format!(
-            "*{} <- {}{}",
+            "{} <- {}{}",
             res,
             preds.join(", "),
             c
