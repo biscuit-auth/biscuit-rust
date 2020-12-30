@@ -7,29 +7,29 @@ use crate::datalog;
 use crate::error;
 use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
 
-pub struct Verifier<'a> {
-    token: &'a Biscuit,
+pub struct Verifier {
     base_world: datalog::World,
     base_symbols: datalog::SymbolTable,
     world: datalog::World,
     symbols: datalog::SymbolTable,
     caveats: Vec<Caveat>,
+    token_caveats: Vec<Vec<datalog::Caveat>>,
 }
 
-impl<'a> Verifier<'a> {
-    pub(crate) fn new(token: &'a Biscuit) -> Result<Self, error::Logic> {
+impl Verifier {
+    pub(crate) fn new(token: &Biscuit) -> Result<Self, error::Logic> {
         let base_world = token.generate_world(&token.symbols)?;
         let base_symbols = token.symbols.clone();
         let world = base_world.clone();
         let symbols = token.symbols.clone();
 
         Ok(Verifier {
-            token,
             base_world,
             base_symbols,
             world,
             symbols,
             caveats: vec![],
+            token_caveats: token.caveats(),
         })
     }
 
@@ -156,7 +156,7 @@ impl<'a> Verifier<'a> {
             }
         }
 
-        for (i, block_caveats) in self.token.caveats().iter().enumerate() {
+        for (i, block_caveats) in self.token_caveats.iter().enumerate() {
             for (j, caveat) in block_caveats.iter().enumerate() {
                 let mut successful = false;
 
@@ -213,7 +213,7 @@ impl<'a> Verifier<'a> {
             caveats.push(format!("Verifier[{}]: {}", index, caveat));
         }
 
-        for (i, block_caveats) in self.token.caveats().iter().enumerate() {
+        for (i, block_caveats) in self.token_caveats.iter().enumerate() {
             for (j, caveat) in block_caveats.iter().enumerate() {
                 caveats.push(format!("Block[{}][{}]: {}", i, j, self.symbols.print_caveat(caveat)));
             }
