@@ -28,6 +28,87 @@ impl Verifier {
         })
     }
 
+    pub fn empty() -> Result<Self, error::Logic> {
+        let world = datalog::World::new();
+        let symbols = super::default_symbol_table();
+
+        Ok(Verifier {
+            world,
+            symbols,
+            caveats: vec![],
+            token_caveats: vec![],
+        })
+    }
+
+    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Logic> {
+        let authority_index = self.symbols.get("authority").unwrap();
+        let ambient_index = self.symbols.get("ambient").unwrap();
+
+        for fact in token.authority.facts.iter().cloned() {
+            if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
+                return Err(error::Logic::InvalidAuthorityFact(
+                    token.symbols.print_fact(&fact),
+                ));
+            }
+
+            let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+            self.world.facts.insert(fact);
+        }
+
+        for rule in token.authority.rules.iter().cloned() {
+            let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);
+            self.world.rules.push(rule);
+        }
+
+        for (i, block) in token.blocks.iter().enumerate() {
+            // blocks cannot provide authority or ambient facts
+            for fact in block.facts.iter().cloned() {
+                if fact.predicate.ids[0] == datalog::ID::Symbol(authority_index)
+                    || fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index)
+                {
+                    return Err(error::Logic::InvalidBlockFact(
+                        i as u32,
+                        token.symbols.print_fact(&fact),
+                    ));
+                }
+
+                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+                self.world.facts.insert(fact);
+            }
+
+            for rule in block.rules.iter().cloned() {
+                // block rules cannot generate authority or ambient facts
+                if rule.head.ids[0] == datalog::ID::Symbol(authority_index)
+                    || rule.head.ids[0] == datalog::ID::Symbol(ambient_index)
+                {
+                    return Err(error::Logic::InvalidBlockRule(
+                        i as u32,
+                        token.symbols.print_rule(&rule),
+                    ));
+                }
+
+                let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);
+                self.world.rules.push(rule);
+            }
+        }
+
+        let mut token_caveats: Vec<Vec<datalog::Caveat>> = Vec::new();
+        let caveats = token.authority.caveats.iter()
+            .map(|c| Caveat::convert_from(&c, &token.symbols).convert(&mut self.symbols))
+            .collect();
+        token_caveats.push(caveats);
+
+        for block in token.blocks.iter() {
+            let caveats = block.caveats.iter()
+                .map(|c| Caveat::convert_from(&c, &token.symbols).convert(&mut self.symbols))
+                .collect();
+            token_caveats.push(caveats);
+        }
+
+        self.token_caveats = token_caveats;
+        Ok(())
+    }
+
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.facts.insert(fact.convert(&mut self.symbols));

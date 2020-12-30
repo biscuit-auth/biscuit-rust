@@ -620,6 +620,15 @@ impl Caveat {
 
         datalog::Caveat { queries }
     }
+
+    pub fn convert_from(r: &datalog::Caveat, symbols: &SymbolTable) -> Self {
+        let mut queries = vec![];
+        for q in r.queries.iter() {
+            queries.push(Rule::convert_from(q, symbols));
+        }
+
+        Caveat { queries }
+    }
 }
 
 impl TryFrom<Rule> for Caveat {
