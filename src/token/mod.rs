@@ -352,8 +352,6 @@ impl Biscuit {
             }
         }
 
-        world.run();
-
         Ok(world)
     }
 
