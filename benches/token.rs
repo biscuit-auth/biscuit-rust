@@ -419,7 +419,6 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
   let token = Biscuit::from(&data).unwrap();
   let mut verifier = token.verify(root.public()).unwrap();
   b.iter(|| {
-    verifier.reset();
     verifier.add_resource("file1");
     verifier.add_operation("read");
     verifier.verify().unwrap();
