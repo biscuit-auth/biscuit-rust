@@ -74,6 +74,9 @@ pub enum ErrorKind {
     LogicInvalidBlockRule,
     LogicFailedCaveats,
     ParseError,
+    TooManyFacts,
+    TooManyIterations,
+    Timeout,
     None,
 }
 
@@ -108,6 +111,9 @@ pub extern fn error_kind() -> ErrorKind {
                             Token::FailedLogic(Logic::InvalidBlockFact(_,_)) => ErrorKind::LogicInvalidBlockFact,
                             Token::FailedLogic(Logic::InvalidBlockRule(_,_)) => ErrorKind::LogicInvalidBlockRule,
                             Token::FailedLogic(Logic::FailedCaveats(_)) => ErrorKind::LogicFailedCaveats,
+                            Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
+                            Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
+                            Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
                         }
                     }
                 }
@@ -229,7 +235,7 @@ pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
 pub struct BiscuitBuilder<'a>(crate::token::builder::BiscuitBuilder<'a>);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Verifier<'a>(crate::token::verifier::Verifier<'a>);
+pub struct Verifier(crate::token::verifier::Verifier);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -946,7 +952,7 @@ pub unsafe extern "C" fn biscuit_append_block(
 pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
     biscuit: Option<&'a Biscuit>,
     root: Option<&'b PublicKey>,
-) -> Option<Box<Verifier<'a>>> {
+) -> Option<Box<Verifier>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
     }
@@ -1197,8 +1203,8 @@ pub unsafe extern "C" fn verifier_print(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_free<'a>(
-    _verifier: Option<Box<Verifier<'a>>>,
+pub unsafe extern "C" fn verifier_free(
+    _verifier: Option<Box<Verifier>>,
 ) {
 }
 

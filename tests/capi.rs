@@ -28,7 +28,7 @@ mod capi {
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
                 printf("block builder creation error? %s\n", error_message());
-                block_builder_add_caveat(bb, "*op(#read) <- operation(#ambient, #read)");
+                block_builder_add_caveat(bb, "op(#read) <- operation(#ambient, #read)");
                 block_builder_add_fact(bb, "hello(\"world\")");
                 printf("builder add caveat error? %s\n", error_message());
 
@@ -42,7 +42,7 @@ mod capi {
 
                 Verifier * verifier = biscuit_verify(b2, root);
                 printf("verifier creation error? %s\n", error_message());
-                verifier_add_caveat(verifier, "*right(#abcd) <- right(#efgh)");
+                verifier_add_caveat(verifier, "right(#abcd) <- right(#efgh)");
                 printf("verifier add caveat error? %s\n", error_message());
                 char* world_print = verifier_print(verifier);
                 printf("verifier world:\n%s\n", world_print);
@@ -109,14 +109,14 @@ World {
 ]
   rules: []
   caveats: [
-    "Verifier[0]: *right(#abcd) <- right(#efgh)",
-    "Block[1][0]: *op(#read) <- operation(#ambient, #read)",
+    "Verifier[0]: right(#abcd) <- right(#efgh)",
+    "Block[1][0]: op(#read) <- operation(#ambient, #read)",
 ]
 }
 verifier error(code = 20): caveat validation failed
 failed caveats (2):
-  Verifier caveat 0: *right(#abcd) <- right(#efgh)
-  Block 1, caveat 0: *op(#read) <- operation(#ambient, #read)
+  Verifier caveat 0: right(#abcd) <- right(#efgh)
+  Block 1, caveat 0: op(#read) <- operation(#ambient, #read)
 serialized size: 273
 wrote 273 bytes
 "#);
