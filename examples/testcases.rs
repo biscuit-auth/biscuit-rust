@@ -39,7 +39,7 @@ fn main() {
     };
 
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let root = KeyPair::new(&mut rng);
+    let root = KeyPair::new_with_rng(&mut rng);
     println!("# Biscuit samples and expected results\n");
     println!(
         "root secret key: {}",
@@ -157,7 +157,7 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -171,8 +171,8 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test1_basic");
@@ -205,7 +205,7 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
 fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
     println!("## different root key: test2_different_root_key.bc");
 
-    let root2 = KeyPair::new(rng);
+    let root2 = KeyPair::new_with_rng(rng);
     let mut builder = Biscuit::builder(&root2);
 
     builder.add_authority_fact(fact(
@@ -213,7 +213,7 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -227,8 +227,8 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test2_different_root_key");
@@ -271,7 +271,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -285,8 +285,8 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test3_invalid_signature_format");
@@ -333,7 +333,7 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, t
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -347,8 +347,8 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, t
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test4_random_block");
@@ -397,7 +397,7 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -411,8 +411,8 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test5_invalid_signature");
@@ -459,7 +459,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -473,8 +473,8 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
 
@@ -486,8 +486,8 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
 
-    let keypair3 = KeyPair::new(rng);
-    let biscuit3 = biscuit2.append(rng, &keypair3, block3).unwrap();
+    let keypair3 = KeyPair::new_with_rng(rng);
+    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
 
     let mut serialized = biscuit3.container().unwrap().clone();
     let mut blocks = vec![];
@@ -532,7 +532,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -547,8 +547,8 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test7_invalid_block_fact_authority");
@@ -586,7 +586,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -598,8 +598,8 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 
     block2.add_fact(fact("right", &[s("ambient"), string("file1"), s("write")]));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test8_invalid_block_fact_ambient");
@@ -630,7 +630,7 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, 
     println!("## expired token: test9_expired_token.bc");
 
     let builder = Biscuit::builder(&root);
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -646,8 +646,8 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, 
             .unwrap(),
     );
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test9_expired_token");
@@ -700,7 +700,7 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         ],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -722,8 +722,8 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         ],
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test10_authority_rules");
@@ -765,7 +765,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
         &[s("authority"), string("file1"), s("read")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test11_verifier_authority_caveats");
@@ -815,7 +815,7 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test12_authority_caveats");
@@ -873,7 +873,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         &[s("authority"), string("file2"), s("read")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -929,8 +929,8 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         ]
     ));
 
-    let keypair2 = KeyPair::new(rng);
-    let biscuit2 = biscuit1.append(rng, &keypair2, block2).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test13_block_rules");
@@ -994,7 +994,7 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         ]
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test14_regex_constraint");
@@ -1047,7 +1047,7 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
         //&[string("hello")],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
         let v = load_testcase(target, "test15_multi_queries_caveats");
@@ -1099,16 +1099,16 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         ],
     ));
 
-    let biscuit1 = builder.build(rng).unwrap();
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     //println!("biscuit1 (authority): {}", biscuit1.print());
 
     let mut block2 = biscuit1.create_block();
     block2.add_fact(fact("caveat1", &[s("test")])).unwrap();
 
-    let keypair2 = KeyPair::new(rng);
+    let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1
-        .append(rng, &keypair2, block2)
+        .append_with_rng(rng, &keypair2, block2)
         .unwrap();
 
     let data = if test {

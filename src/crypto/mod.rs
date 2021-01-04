@@ -26,7 +26,11 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    pub fn new<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
+    pub fn new() -> Self {
+        Self::new_with_rng(&mut rand::rngs::OsRng)
+    }
+
+    pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
         let private = Scalar::random(rng);
         let public = private * RISTRETTO_BASEPOINT_POINT;
 
@@ -274,7 +278,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         let message = b"hello world";
-        let keypair = KeyPair::new(&mut rng);
+        let keypair = KeyPair::new_with_rng(&mut rng);
 
         let signature = keypair.sign(&mut rng, message);
 
@@ -290,7 +294,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         let message1 = b"hello";
-        let keypair1 = KeyPair::new(&mut rng);
+        let keypair1 = KeyPair::new_with_rng(&mut rng);
 
         let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
 
@@ -299,7 +303,7 @@ mod tests {
         println!("will derive a second token");
 
         let message2 = b"world";
-        let keypair2 = KeyPair::new(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(&mut rng);
 
         let token2 = token1.append(&mut rng, &keypair2, &message2[..]);
 
@@ -308,7 +312,7 @@ mod tests {
         println!("will derive a third token");
 
         let message3 = b"!!!";
-        let keypair3 = KeyPair::new(&mut rng);
+        let keypair3 = KeyPair::new_with_rng(&mut rng);
 
         let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
 
@@ -322,7 +326,7 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         let message1 = b"hello";
-        let keypair1 = KeyPair::new(&mut rng);
+        let keypair1 = KeyPair::new_with_rng(&mut rng);
 
         let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
 
@@ -331,7 +335,7 @@ mod tests {
         println!("will derive a second token");
 
         let message2 = b"world";
-        let keypair2 = KeyPair::new(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(&mut rng);
 
         let mut token2 = token1.append(&mut rng, &keypair2, &message2[..]);
 
@@ -346,7 +350,7 @@ mod tests {
         println!("will derive a third token");
 
         let message3 = b"!!!";
-        let keypair3 = KeyPair::new(&mut rng);
+        let keypair3 = KeyPair::new_with_rng(&mut rng);
 
         let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
 

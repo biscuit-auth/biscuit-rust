@@ -14,7 +14,7 @@ repository = "https://github.com/clevercloud/biscuit-rust"
 default = ["regex-full"]
 regex-full = [ "regex/perf", "regex/unicode"]
 # used by cargo-c to signal the compilation of C bindings
-capi = ["rand", "inline-c"]
+capi = ["inline-c"]
 
 [dependencies]
 rand_core = "^0.5"
@@ -30,7 +30,7 @@ chrono = "0.4"
 hex = "0.4"
 zeroize = { version = "1", default-features = false }
 thiserror = "1"
-rand = { version = "0.7", optional = true }
+rand = { version = "0.7" }
 inline-c = { version = "0.1", optional = true }
 
 [dev-dependencies]

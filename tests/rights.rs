@@ -8,7 +8,7 @@ use rand::{SeedableRng, prelude::StdRng};
 
 fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let root = KeyPair::new(&mut rng);
+    let root = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
 
@@ -25,7 +25,7 @@ fn main() {
         &[s("authority"), string("file1"), s("write")],
     ));
 
-    let biscuit1 = builder.build(&mut rng).unwrap();
+    let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
     println!("{}", biscuit1.print());
 
     let mut v = biscuit1.verify(root.public()).expect("omg verifier");

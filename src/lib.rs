@@ -20,17 +20,14 @@
 //! those caveats in the context of a request:
 //!
 //! ```rust
-//! extern crate rand;
 //! extern crate biscuit_auth as biscuit;
 //!
 //! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
 //!
 //! fn main() -> Result<(), error::Token> {
-//!   let mut rng = rand::thread_rng();
-//!
 //!   // let's generate the root key pair. The root public key will be necessary
 //!   // to verify the token
-//!   let root = KeyPair::new(&mut rng);
+//!   let root = KeyPair::new();
 //!   let public_key = root.public();
 //!
 //!   // creating a first token
@@ -47,7 +44,7 @@
 //!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
-//!     let biscuit = builder.build(&mut rng)?;
+//!     let biscuit = builder.build()?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?
@@ -83,9 +80,9 @@
 //!     // the previous caveat could also be written like this
 //!     // builder.add_caveat("*caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
 //!
-//!     let keypair = KeyPair::new(&mut rng);
+//!     let keypair = KeyPair::new();
 //!     // we can now create a new token
-//!     let biscuit = deser.append(&mut rng, &keypair, builder)?;
+//!     let biscuit = deser.append(&keypair, builder)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?

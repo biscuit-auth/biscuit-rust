@@ -253,7 +253,7 @@ pub unsafe extern "C" fn key_pair_new<'a>(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    Some(Box::new(KeyPair(crate::crypto::KeyPair::new(&mut rng))))
+    Some(Box::new(KeyPair(crate::crypto::KeyPair::new_with_rng(&mut rng))))
 }
 
 #[no_mangle]
@@ -494,7 +494,7 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
     seed.copy_from_slice(slice);
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    (*builder).0.clone().build(&mut rng).map(Biscuit).map(Box::new).ok()
+    (*builder).0.clone().build_with_rng(&mut rng).map(Biscuit).map(Box::new).ok()
 }
 
 #[no_mangle]
@@ -938,7 +938,7 @@ pub unsafe extern "C" fn biscuit_append_block(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    match biscuit.0.append(&mut rng, &key_pair.0, builder.0.clone()) {
+    match biscuit.0.append_with_rng(&mut rng, &key_pair.0, builder.0.clone()) {
         Ok(token) => Some(Box::new(Biscuit(token))),
         Err(e) => {
             update_last_error(Error::Biscuit(e));
