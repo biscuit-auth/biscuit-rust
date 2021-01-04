@@ -113,12 +113,12 @@ World {
     "Block[1][0]: op(#read) <- operation(#ambient, #read)",
 ]
 }
-verifier error(code = 20): caveat validation failed
+verifier error(code = 21): caveat validation failed
 failed caveats (2):
   Verifier caveat 0: right(#abcd) <- right(#efgh)
   Block 1, caveat 0: op(#read) <- operation(#ambient, #read)
-serialized size: 273
-wrote 273 bytes
+serialized size: 277
+wrote 277 bytes
 "#);
     }
 
