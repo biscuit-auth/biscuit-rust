@@ -17,6 +17,8 @@ pub mod builder;
 pub mod sealed;
 pub mod verifier;
 
+pub const MAX_SCHEMA_VERSION: u32 = 0;
+
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
 pub fn default_symbol_table() -> SymbolTable {
@@ -639,9 +641,10 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block[{}] {{\n            symbols: {:?}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            caveats: [{}]\n        }}",
+        "Block[{}] {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            caveats: [{}]\n        }}",
         block.index,
         block.symbols.symbols,
+        block.version,
         block.context.as_deref().unwrap_or(""),
         facts,
         rules,
@@ -664,6 +667,8 @@ pub struct Block {
     /// contextual information that can be looked up before the verification
     /// (as an example, a user id to query rights into a database)
     pub context: Option<String>,
+    /// format version used to generate this block
+    pub version: u32,
 }
 
 impl Block {
@@ -678,6 +683,7 @@ impl Block {
             rules: vec![],
             caveats: vec![],
             context: None,
+            version: MAX_SCHEMA_VERSION,
         }
     }
 

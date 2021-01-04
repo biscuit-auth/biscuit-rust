@@ -80,6 +80,7 @@ impl BlockBuilder {
             rules,
             caveats,
             context: self.context,
+            version: super::MAX_SCHEMA_VERSION,
         }
     }
 
@@ -239,6 +240,7 @@ impl<'a> BiscuitBuilder<'a> {
             rules: self.rules,
             caveats: self.caveats,
             context: self.context,
+            version: super::MAX_SCHEMA_VERSION,
         };
 
         Biscuit::new_with_rng(rng, self.root, self.symbols, authority_block)

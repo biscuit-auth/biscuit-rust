@@ -51,6 +51,8 @@ pub enum Format {
     BlockDeserializationError(String),
     #[error("could not serialize the block")]
     BlockSerializationError(String),
+    #[error("Block format version is higher than supported")]
+    Version { maximum: u32, actual: u32 },
 }
 
 #[derive(Error, Clone, Debug, PartialEq)]

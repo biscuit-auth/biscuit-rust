@@ -39,6 +39,8 @@ pub struct Block {
     pub caveats: ::prost::alloc::vec::Vec<Caveat>,
     #[prost(string, optional, tag="6")]
     pub context: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="7")]
+    pub version: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Fact {

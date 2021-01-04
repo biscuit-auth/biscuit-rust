@@ -66,6 +66,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
         rules: input.rules.iter().map(token_rule_to_proto_rule).collect(),
         caveats: input.caveats.iter().map(token_caveat_to_proto_caveat).collect(),
         context: input.context.clone(),
+        version: Some(input.version),
     }
 }
 
@@ -87,6 +88,14 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 
     let context = input.context.clone();
 
+    let version = input.version.unwrap_or(0);
+    if version > crate::token::MAX_SCHEMA_VERSION {
+        return Err(error::Format::Version {
+            maximum: crate::token::MAX_SCHEMA_VERSION,
+            actual: version,
+        });
+    }
+
     Ok(Block {
         index: input.index,
         symbols: SymbolTable {
@@ -96,6 +105,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         rules,
         caveats,
         context,
+        version,
     })
 }
 
