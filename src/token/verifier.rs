@@ -182,7 +182,7 @@ impl Verifier {
         self.verify_with_limits(VerifierLimits::default())
     }
 
-    pub fn verify_with_limits(&mut self, mut limits: VerifierLimits) -> Result<(), error::Token> {
+    pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<(), error::Token> {
         let start = SystemTime::now();
 
         //FIXME: should check for the presence of any other symbol in the token

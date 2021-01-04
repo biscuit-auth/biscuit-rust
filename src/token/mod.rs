@@ -6,7 +6,9 @@ use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+#[cfg(test)]
+use std::collections::HashMap;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
 use verifier::Verifier;
@@ -384,6 +386,7 @@ impl Biscuit {
     ///
     /// if successful, it returns answers to the verifier queries as a HashMap indexed
     /// by the query name. Each query result contains a HashMap of block id -> Vec of Facts
+    #[cfg(test)]
     pub(crate) fn check(
         &self,
         symbols: &SymbolTable,
@@ -391,8 +394,8 @@ impl Biscuit {
         ambient_rules: Vec<Rule>,
         verifier_caveats: Vec<Caveat>,
         queries: HashMap<String, Rule>,
-    ) -> Result<HashMap<String, Vec<Fact>>, error::Logic> {
-        let mut world = self.generate_world(symbols)?;
+    ) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
+        let mut world = self.generate_world(symbols).map_err(error::Token::FailedLogic)?;
 
         for fact in ambient_facts.drain(..) {
             world.facts.insert(fact);
@@ -402,7 +405,7 @@ impl Biscuit {
             world.rules.push(rule);
         }
 
-        world.run();
+        world.run().map_err(error::Token::RunLimit)?;
         //println!("world:\n{}", symbols.print_world(&world));
 
         // we only keep the verifier rules
@@ -482,7 +485,7 @@ impl Biscuit {
         if errors.is_empty() {
             Ok(query_results)
         } else {
-            Err(error::Logic::FailedCaveats(errors))
+            Err(error::Token::FailedLogic(error::Logic::FailedCaveats(errors)))
         }
     }
 
@@ -663,92 +666,6 @@ impl Block {
     pub fn symbol_insert(&mut self, s: &str) -> u64 {
         self.symbols.insert(s)
     }
-
-    fn check(
-        &self,
-        i: usize,
-        mut world: World,
-        symbols: &SymbolTable,
-        verifier_caveats: &[Caveat],
-        queries: &HashMap<String, Rule>,
-        query_results: &mut HashMap<String, HashMap<u32, Vec<Fact>>>,
-    ) -> Result<(), error::Logic> {
-        let authority_index = symbols.get("authority").unwrap();
-        let ambient_index = symbols.get("ambient").unwrap();
-
-        for fact in self.facts.iter().cloned() {
-            if fact.predicate.ids[0] == ID::Symbol(authority_index)
-                || fact.predicate.ids[0] == ID::Symbol(ambient_index)
-            {
-                return Err(error::Logic::InvalidBlockFact(
-                    i as u32,
-                    symbols.print_fact(&fact),
-                ));
-            }
-
-            world.facts.insert(fact);
-        }
-
-        for rule in self.rules.iter().cloned() {
-            world.rules.push(rule);
-        }
-
-        world.run();
-
-        let mut errors = vec![];
-        for (j, caveat) in self.caveats.iter().enumerate() {
-            let mut successful = false;
-
-            for query in caveat.queries.iter() {
-                let res = world.query_rule(query.clone());
-                if !res.is_empty() {
-                    successful = true;
-                    break;
-                }
-            }
-
-            if !successful {
-                errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
-                    block_id: i as u32,
-                    caveat_id: j as u32,
-                    rule: symbols.print_caveat(caveat),
-                }));
-            }
-        }
-
-        for (j, caveat) in verifier_caveats.iter().enumerate() {
-            let mut successful = false;
-
-            for query in caveat.queries.iter() {
-                let res = world.query_rule(query.clone());
-                if !res.is_empty() {
-                    successful = true;
-                    break;
-                }
-            }
-
-            if !successful {
-                errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    caveat_id: j as u32,
-                    rule: symbols.print_caveat(caveat),
-                }));
-            }
-        }
-
-        for (name, rule) in queries.iter() {
-          let res = world.query_rule(rule.clone());
-          if !res.is_empty() {
-            let entry = query_results.entry(name.clone()).or_insert_with(HashMap::new);
-            (*entry).insert(i as u32, res);
-          }
-        }
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(error::Logic::FailedCaveats(errors))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -904,10 +821,10 @@ mod tests {
             let res = final_token.check(&symbols, ambient_facts, vec![], vec![], HashMap::new());
             println!("res2: {:#?}", res);
             assert_eq!(res,
-              Err(Logic::FailedCaveats(vec![
+              Err(Token::FailedLogic(Logic::FailedCaveats(vec![
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1($resource) <- resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("caveat2(#file1) <- resource(#ambient, #file1)") })
-              ])));
+              ]))));
         }
     }
 

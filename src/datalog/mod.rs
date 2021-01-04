@@ -4,7 +4,6 @@ use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use regex::Regex;
-use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;
 mod symbol;
