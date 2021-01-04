@@ -579,7 +579,7 @@ impl Rule {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "*{} <- ", self.0)?;
+        write!(f, "{} <- ", self.0)?;
 
         if self.1.len() > 0 {
             write!(f, "{}", self.1[0])?;
