@@ -297,9 +297,13 @@ impl Verifier {
     }
 
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Caveat>) {
+        let mut caveats = self.caveats.clone();
+        caveats.extend(self.token_caveats.iter().flatten().map(|c| Caveat::convert_from(c, &self.symbols)));
+
         (self.world.facts.iter().map(|f| Fact::convert_from(f, &self.symbols)).collect(),
          self.world.rules.iter().map(|r| Rule::convert_from(r, &self.symbols)).collect(),
-         self.caveats.clone())
+         caveats
+        )
     }
 }
 
