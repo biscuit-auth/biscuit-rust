@@ -306,14 +306,14 @@ impl Biscuit {
 
     pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
         self.check_root_key(root)?;
-        Verifier::new(self).map_err(error::Token::FailedLogic)
+        Verifier::from_token(self).map_err(error::Token::FailedLogic)
     }
 
     pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
         if self.container.is_some() {
             Err(error::Token::InternalError)
         } else {
-            Verifier::new(self).map_err(error::Token::FailedLogic)
+            Verifier::from_token(self).map_err(error::Token::FailedLogic)
         }
     }
 

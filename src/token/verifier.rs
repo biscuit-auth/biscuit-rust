@@ -16,7 +16,7 @@ pub struct Verifier {
 }
 
 impl Verifier {
-    pub(crate) fn new(token: &Biscuit) -> Result<Self, error::Logic> {
+    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Logic> {
         let world = token.generate_world(&token.symbols)?;
         let symbols = token.symbols.clone();
 
@@ -28,7 +28,7 @@ impl Verifier {
         })
     }
 
-    pub fn empty() -> Result<Self, error::Logic> {
+    pub fn new() -> Result<Self, error::Logic> {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
 
