@@ -102,10 +102,10 @@ pub enum ConstraintKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntConstraint {
-    Lower(i64),
-    Larger(i64),
-    LowerOrEqual(i64),
-    LargerOrEqual(i64),
+    LessThan(i64),
+    GreaterThan(i64),
+    LessOrEqual(i64),
+    GreaterOrEqual(i64),
     Equal(i64),
     In(HashSet<i64>),
     NotIn(HashSet<i64>),
@@ -149,10 +149,10 @@ impl Constraint {
         match (id, &self.kind) {
             (ID::Variable(_), _) => panic!("should not check constraint on a variable"),
             (ID::Integer(i), ConstraintKind::Int(c)) => match c {
-                IntConstraint::Lower(j) => *i < *j,
-                IntConstraint::Larger(j) => *i > *j,
-                IntConstraint::LowerOrEqual(j) => *i <= *j,
-                IntConstraint::LargerOrEqual(j) => *i >= *j,
+                IntConstraint::LessThan(j) => *i < *j,
+                IntConstraint::GreaterThan(j) => *i > *j,
+                IntConstraint::LessOrEqual(j) => *i <= *j,
+                IntConstraint::GreaterOrEqual(j) => *i >= *j,
                 IntConstraint::Equal(j) => *i == *j,
                 IntConstraint::In(h) => h.contains(i),
                 IntConstraint::NotIn(h) => !h.contains(i),
@@ -723,7 +723,7 @@ mod tests {
             ],
             &[Constraint {
                 id: syms.insert("id") as u32,
-                kind: ConstraintKind::Int(IntConstraint::Lower(1)),
+                kind: ConstraintKind::Int(IntConstraint::LessThan(1)),
             }],
         ));
         for fact in &res {

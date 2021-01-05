@@ -343,13 +343,13 @@ pub struct IntConstraintV1 {
     #[prost(enumeration="int_constraint_v1::Kind", required, tag="1")]
     pub kind: i32,
     #[prost(int64, optional, tag="2")]
-    pub lower: ::core::option::Option<i64>,
+    pub less_than: ::core::option::Option<i64>,
     #[prost(int64, optional, tag="3")]
-    pub larger: ::core::option::Option<i64>,
+    pub greater_than: ::core::option::Option<i64>,
     #[prost(int64, optional, tag="4")]
-    pub lower_or_equal: ::core::option::Option<i64>,
+    pub less_or_equal: ::core::option::Option<i64>,
     #[prost(int64, optional, tag="5")]
-    pub larger_or_equal: ::core::option::Option<i64>,
+    pub greater_or_equal: ::core::option::Option<i64>,
     #[prost(int64, optional, tag="6")]
     pub equal: ::core::option::Option<i64>,
     #[prost(int64, repeated, tag="7")]
@@ -362,10 +362,10 @@ pub mod int_constraint_v1 {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Kind {
-        Lower = 0,
-        Larger = 1,
-        LowerOrEqual = 2,
-        LargerOrEqual = 3,
+        LessThan = 0,
+        GreaterThan = 1,
+        LessOrEqual = 2,
+        GreaterOrEqual = 3,
         Equal = 4,
         In = 5,
         NotIn = 6,

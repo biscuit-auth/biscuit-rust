@@ -435,10 +435,10 @@ impl AsRef<Constraint> for Constraint {
 impl fmt::Display for Constraint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
-            ConstraintKind::Integer(IntConstraint::Lower(i)) => write!(f, "${} < {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::Larger(i)) => write!(f, "${} > {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::LowerOrEqual(i)) => write!(f, "${} <= {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::LargerOrEqual(i)) => write!(f, "${} >= {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::LessThan(i)) => write!(f, "${} < {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::GreaterThan(i)) => write!(f, "${} > {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::LessOrEqual(i)) => write!(f, "${} <= {}", self.id, i),
+            ConstraintKind::Integer(IntConstraint::GreaterOrEqual(i)) => write!(f, "${} >= {}", self.id, i),
             ConstraintKind::Integer(IntConstraint::Equal(i)) => write!(f, "${} == {}", self.id, i),
             ConstraintKind::Integer(IntConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
             ConstraintKind::Integer(IntConstraint::NotIn(i)) => write!(f, "${} not in {:?}", self.id, i),

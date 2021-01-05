@@ -191,10 +191,10 @@ fn constraint(i: &str) -> IResult<&str, builder::Constraint> {
 
 #[derive(Clone)]
 enum Operator {
-    Lower,
-    Larger,
-    LowerOrEqual,
-    LargerOrEqual,
+    LessThan,
+    GreaterThan,
+    LessOrEqual,
+    GreaterOrEqual,
     Equal,
     In,
     NotIn,
@@ -203,10 +203,10 @@ enum Operator {
 
 fn operator(i: &str) -> IResult<&str, Operator> {
     alt((
-        value(Operator::LowerOrEqual, tag("<=")),
-        value(Operator::LargerOrEqual, tag(">=")),
-        value(Operator::Lower, tag("<")),
-        value(Operator::Larger, tag(">")),
+        value(Operator::LessOrEqual, tag("<=")),
+        value(Operator::GreaterOrEqual, tag(">=")),
+        value(Operator::LessThan, tag("<")),
+        value(Operator::GreaterThan, tag(">")),
         value(Operator::Equal, tag("==")),
         value(Operator::In, tag("in")),
         value(Operator::NotIn, tag("not in")),
@@ -218,44 +218,44 @@ fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
     let (i, op) = delimited(space0, operator, space0)(i)?;
 
     match op {
-        Operator::Lower => alt((
+        Operator::LessThan => alt((
             map(parse_date, |d| {
                 builder::ConstraintKind::Date(builder::DateConstraint::Before(
                     SystemTime::UNIX_EPOCH + Duration::from_secs(d),
                 ))
             }),
             map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::Lower(i))
+                builder::ConstraintKind::Integer(datalog::IntConstraint::LessThan(i))
             }),
         ))(i),
-        Operator::Larger => alt((
+        Operator::GreaterThan => alt((
             map(parse_date, |d| {
                 builder::ConstraintKind::Date(builder::DateConstraint::After(
                     SystemTime::UNIX_EPOCH + Duration::from_secs(d),
                 ))
             }),
             map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::Larger(i))
+                builder::ConstraintKind::Integer(datalog::IntConstraint::GreaterThan(i))
             }),
         ))(i),
-        Operator::LowerOrEqual => alt((
+        Operator::LessOrEqual => alt((
             map(parse_date, |d| {
                 builder::ConstraintKind::Date(builder::DateConstraint::Before(
                     SystemTime::UNIX_EPOCH + Duration::from_secs(d),
                 ))
             }),
             map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::LowerOrEqual(i))
+                builder::ConstraintKind::Integer(datalog::IntConstraint::LessOrEqual(i))
             }),
         ))(i),
-        Operator::LargerOrEqual => alt((
+        Operator::GreaterOrEqual => alt((
             map(parse_date, |d| {
                 builder::ConstraintKind::Date(builder::DateConstraint::After(
                     SystemTime::UNIX_EPOCH + Duration::from_secs(d),
                 ))
             }),
             map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::LargerOrEqual(i))
+                builder::ConstraintKind::Integer(datalog::IntConstraint::GreaterOrEqual(i))
             }),
         ))(i),
         Operator::Equal => alt((
@@ -584,7 +584,7 @@ mod tests {
                 "",
                 builder::Constraint {
                     id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::Lower(1234)),
+                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LessThan(1234)),
                 }
             ))
         );
@@ -595,7 +595,7 @@ mod tests {
                 "",
                 builder::Constraint {
                     id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::Larger(1234)),
+                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::GreaterThan(1234)),
                 }
             ))
         );
@@ -606,7 +606,7 @@ mod tests {
                 "",
                 builder::Constraint {
                     id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LowerOrEqual(
+                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LessOrEqual(
                         1234
                     )),
                 }
@@ -619,7 +619,7 @@ mod tests {
                 "",
                 builder::Constraint {
                     id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LargerOrEqual(
+                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::GreaterOrEqual(
                         -1234
                     )),
                 }

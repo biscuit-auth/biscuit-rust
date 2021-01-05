@@ -90,10 +90,10 @@ impl SymbolTable {
 
     pub fn print_constraint(&self, c: &Constraint) -> String {
         match &c.kind {
-            ConstraintKind::Int(IntConstraint::Lower(i)) => format!("${} < {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::Larger(i)) => format!("${} > {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::LowerOrEqual(i)) => format!("${} <= {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::LargerOrEqual(i)) => format!("${} >= {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::LessThan(i)) => format!("${} < {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::GreaterThan(i)) => format!("${} > {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::LessOrEqual(i)) => format!("${} <= {}", self.print_symbol(c.id as u64), i),
+            ConstraintKind::Int(IntConstraint::GreaterOrEqual(i)) => format!("${} >= {}", self.print_symbol(c.id as u64), i),
             ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", self.print_symbol(c.id as u64), i),
             ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", self.print_symbol(c.id as u64), i),
             ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", self.print_symbol(c.id as u64), i),

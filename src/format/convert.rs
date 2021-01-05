@@ -462,7 +462,7 @@ pub mod v0 {
         use schema::int_constraint_v0::Kind;
 
         match input {
-            IntConstraint::Lower(i) => schema::IntConstraintV0 {
+            IntConstraint::LessThan(i) => schema::IntConstraintV0 {
                 kind: Kind::Lower as i32,
                 lower: Some(*i),
                 larger: None,
@@ -472,7 +472,7 @@ pub mod v0 {
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::Larger(i) => schema::IntConstraintV0 {
+            IntConstraint::GreaterThan(i) => schema::IntConstraintV0 {
                 kind: Kind::Larger as i32,
                 lower: None,
                 larger: Some(*i),
@@ -482,7 +482,7 @@ pub mod v0 {
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::LowerOrEqual(i) => schema::IntConstraintV0 {
+            IntConstraint::LessOrEqual(i) => schema::IntConstraintV0 {
                 kind: Kind::LowerOrEqual as i32,
                 lower: None,
                 larger: None,
@@ -492,7 +492,7 @@ pub mod v0 {
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::LargerOrEqual(i) => schema::IntConstraintV0 {
+            IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV0 {
                 kind: Kind::LargerOrEqual as i32,
                 lower: None,
                 larger: None,
@@ -551,22 +551,22 @@ pub mod v0 {
         match kind {
             Kind::Lower => {
                 if let Some(i) = input.lower {
-                    return Ok(IntConstraint::Lower(i));
+                    return Ok(IntConstraint::LessThan(i));
                 }
             }
             Kind::Larger => {
                 if let Some(i) = input.larger {
-                    return Ok(IntConstraint::Larger(i));
+                    return Ok(IntConstraint::GreaterThan(i));
                 }
             }
             Kind::LowerOrEqual => {
                 if let Some(i) = input.lower_or_equal {
-                    return Ok(IntConstraint::LowerOrEqual(i));
+                    return Ok(IntConstraint::LessOrEqual(i));
                 }
             }
             Kind::LargerOrEqual => {
                 if let Some(i) = input.larger_or_equal {
-                    return Ok(IntConstraint::LargerOrEqual(i));
+                    return Ok(IntConstraint::GreaterOrEqual(i));
                 }
             }
             Kind::Equal => {
@@ -1201,72 +1201,72 @@ pub mod v1 {
         use schema::int_constraint_v1::Kind;
 
         match input {
-            IntConstraint::Lower(i) => schema::IntConstraintV1 {
-                kind: Kind::Lower as i32,
-                lower: Some(*i),
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
+            IntConstraint::LessThan(i) => schema::IntConstraintV1 {
+                kind: Kind::LessThan as i32,
+                less_than: Some(*i),
+                greater_than: None,
+                less_or_equal: None,
+                greater_or_equal: None,
                 equal: None,
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::Larger(i) => schema::IntConstraintV1 {
-                kind: Kind::Larger as i32,
-                lower: None,
-                larger: Some(*i),
-                lower_or_equal: None,
-                larger_or_equal: None,
+            IntConstraint::GreaterThan(i) => schema::IntConstraintV1 {
+                kind: Kind::GreaterThan as i32,
+                less_than: None,
+                greater_than: Some(*i),
+                less_or_equal: None,
+                greater_or_equal: None,
                 equal: None,
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::LowerOrEqual(i) => schema::IntConstraintV1 {
-                kind: Kind::LowerOrEqual as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: Some(*i),
-                larger_or_equal: None,
+            IntConstraint::LessOrEqual(i) => schema::IntConstraintV1 {
+                kind: Kind::LessOrEqual as i32,
+                less_than: None,
+                greater_than: None,
+                less_or_equal: Some(*i),
+                greater_or_equal: None,
                 equal: None,
                 in_set: vec![],
                 not_in_set: vec![],
             },
-            IntConstraint::LargerOrEqual(i) => schema::IntConstraintV1 {
-                kind: Kind::LargerOrEqual as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: Some(*i),
+            IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV1 {
+                kind: Kind::GreaterOrEqual as i32,
+                less_than: None,
+                greater_than: None,
+                less_or_equal: None,
+                greater_or_equal: Some(*i),
                 equal: None,
                 in_set: vec![],
                 not_in_set: vec![],
             },
             IntConstraint::Equal(i) => schema::IntConstraintV1 {
                 kind: Kind::Equal as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
+                less_than: None,
+                greater_than: None,
+                less_or_equal: None,
+                greater_or_equal: None,
                 equal: Some(*i),
                 in_set: vec![],
                 not_in_set: vec![],
             },
             IntConstraint::In(s) => schema::IntConstraintV1 {
                 kind: Kind::In as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
+                less_than: None,
+                greater_than: None,
+                less_or_equal: None,
+                greater_or_equal: None,
                 equal: None,
                 in_set: s.iter().cloned().collect(),
                 not_in_set: vec![],
             },
             IntConstraint::NotIn(s) => schema::IntConstraintV1 {
                 kind: Kind::NotIn as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
+                less_than: None,
+                greater_than: None,
+                less_or_equal: None,
+                greater_or_equal: None,
                 equal: None,
                 in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
@@ -1288,24 +1288,24 @@ pub mod v1 {
         };
 
         match kind {
-            Kind::Lower => {
-                if let Some(i) = input.lower {
-                    return Ok(IntConstraint::Lower(i));
+            Kind::LessThan => {
+                if let Some(i) = input.less_than {
+                    return Ok(IntConstraint::LessThan(i));
                 }
             }
-            Kind::Larger => {
-                if let Some(i) = input.larger {
-                    return Ok(IntConstraint::Larger(i));
+            Kind::GreaterThan => {
+                if let Some(i) = input.greater_than {
+                    return Ok(IntConstraint::GreaterThan(i));
                 }
             }
-            Kind::LowerOrEqual => {
-                if let Some(i) = input.lower_or_equal {
-                    return Ok(IntConstraint::LowerOrEqual(i));
+            Kind::LessOrEqual => {
+                if let Some(i) = input.less_or_equal {
+                    return Ok(IntConstraint::LessOrEqual(i));
                 }
             }
-            Kind::LargerOrEqual => {
-                if let Some(i) = input.larger_or_equal {
-                    return Ok(IntConstraint::LargerOrEqual(i));
+            Kind::GreaterOrEqual => {
+                if let Some(i) = input.greater_or_equal {
+                    return Ok(IntConstraint::GreaterOrEqual(i));
                 }
             }
             Kind::Equal => {
