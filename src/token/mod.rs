@@ -17,6 +17,7 @@ pub mod builder;
 pub mod sealed;
 pub mod verifier;
 
+/// maximum supported version of the serialization format
 pub const MAX_SCHEMA_VERSION: u32 = 0;
 
 /// some symbols are predefined and available in every implementation, to avoid
@@ -296,6 +297,7 @@ impl Biscuit {
         self.container.as_ref()
     }
 
+    /// tests that the token uses this public key as root
     pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Token> {
         self.container
             .as_ref()
@@ -304,11 +306,15 @@ impl Biscuit {
         Ok(())
     }
 
+    /// creates a verifier from this token
+    ///
+    /// this will also call [`Biscuit::check_root_key`]
     pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
         self.check_root_key(root)?;
         Verifier::from_token(self).map_err(error::Token::FailedLogic)
     }
 
+    /// creates a verifier from this token
     pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
         if self.container.is_some() {
             Err(error::Token::InternalError)
@@ -501,12 +507,16 @@ impl Biscuit {
         }
     }
 
+    /// create the first block's builder
+    ///
+    /// call [`builder::BiscuitBuilder::build`] to create the token
     pub fn builder<'a>(
         root: &'a KeyPair,
     ) -> BiscuitBuilder<'a> {
         Biscuit::builder_with_symbols(root, default_symbol_table())
     }
 
+    /// create the first block's builder, sing a provided symbol table
     pub fn builder_with_symbols<'a>(
         root: &'a KeyPair,
         symbols: SymbolTable,
@@ -585,6 +595,10 @@ impl Biscuit {
         })
     }
 
+    /// returns the list of context elements of each block
+    ///
+    /// the context is a free form text field in which application specific data
+    /// can be stored
     pub fn context(&self) -> Vec<Option<String>> {
       let mut res = vec![];
       res.push(self.authority.context.clone());
@@ -652,6 +666,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     )
 }
 
+/// a block contained in a token
 #[derive(Clone, Debug)]
 pub struct Block {
     /// position of the block

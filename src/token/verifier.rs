@@ -1,3 +1,4 @@
+//! Verifier structure and associated functions
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Constraint, ConstraintKind, Fact,
     IntConstraint, Rule, Caveat, var,
@@ -7,6 +8,9 @@ use crate::datalog;
 use crate::error;
 use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
 
+/// used to check authorization policies on a token
+///
+/// can be created from [`Biscuit::verify`](`crate::token::Biscuit::verify`) or [`Verifier::new`]
 #[derive(Clone)]
 pub struct Verifier {
     world: datalog::World,
@@ -30,6 +34,15 @@ impl Verifier {
         })
     }
 
+    /// creates a new empty verifier
+    ///
+    /// this can be used to check policies when:
+    /// * there is no token (unauthenticated case)
+    /// * there is a lot of data to load in the verifier on each check
+    ///
+    /// In the latter case, we can create an empty verifier, load it
+    /// with the facts, rules and caveats, and each time a token must be checked,
+    /// clone the verifier and load the token with [`Verifier::add_token`]
     pub fn new() -> Result<Self, error::Logic> {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
@@ -43,6 +56,7 @@ impl Verifier {
         })
     }
 
+    /// Loads a token's facts, rules and caveats in a verifier
     pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Logic> {
         if self.has_token {
             return Err(error::Logic::VerifierNotEmpty);
@@ -118,18 +132,21 @@ impl Verifier {
         Ok(())
     }
 
+    /// add a fact to the verifier
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.facts.insert(fact.convert(&mut self.symbols));
         Ok(())
     }
 
+    /// add a rule to the verifier
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
 
+    /// run a query over the verifier's Datalog engine to gather data
     pub fn query<R: TryInto<Rule>>(
         &mut self,
         rule: R,
@@ -137,6 +154,9 @@ impl Verifier {
         self.query_with_limits(rule, VerifierLimits::default())
     }
 
+    /// run a query over the verifier's Datalog engine to gather data
+    ///
+    /// this method can specify custom runtime limits
     pub fn query_with_limits<R: TryInto<Rule>>(
         &mut self,
         rule: R,
@@ -152,7 +172,7 @@ impl Verifier {
            .collect())
     }
 
-    /// verifier caveats
+    /// add a caveat to the verifier
     pub fn add_caveat<R: TryInto<Caveat>>(&mut self, caveat: R) -> Result<(), error::Token> {
         let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
         self.caveats.push(caveat);
@@ -169,6 +189,7 @@ impl Verifier {
         self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
+    /// adds a fact with the current time
     pub fn set_time(&mut self) {
         let fact = fact("time", &[s("ambient"), date(&SystemTime::now())]);
         self.world.facts.insert(fact.convert(&mut self.symbols));
@@ -187,10 +208,18 @@ impl Verifier {
         let _ = self.add_caveat(caveat);
     }
 
+    /// checks all the caveats
+    ///
+    /// on error, this can return a list of all the failed caveats
     pub fn verify(&mut self) -> Result<(), error::Token> {
         self.verify_with_limits(VerifierLimits::default())
     }
 
+    /// checks all the caveats
+    ///
+    /// on error, this can return a list of all the failed caveats
+    ///
+    /// this method can specify custom runtime limits
     pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<(), error::Token> {
         let start = SystemTime::now();
 
@@ -267,6 +296,7 @@ impl Verifier {
         }
     }
 
+    /// prints the content of the verifier
     pub fn print_world(&self) -> String {
         let mut facts = self.world
             .facts
@@ -296,6 +326,7 @@ impl Verifier {
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  caveats: {:#?}\n}}", facts, rules, caveats)
     }
 
+    /// returns all of the data loaded in the verifier
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Caveat>) {
         let mut caveats = self.caveats.clone();
         caveats.extend(self.token_caveats.iter().flatten().map(|c| Caveat::convert_from(c, &self.symbols)));
@@ -307,10 +338,14 @@ impl Verifier {
     }
 }
 
+/// runtime limits for the Datalog engine
 #[derive(Debug,Clone)]
 pub struct VerifierLimits {
+    /// maximum number of Datalog facts (memory usage)
     pub max_facts: u32,
+    /// maximum number of iterations of the rules applications (prevents degenerate rules)
     pub max_iterations: u32,
+    /// maximum execution time
     pub max_time: Duration,
 }
 

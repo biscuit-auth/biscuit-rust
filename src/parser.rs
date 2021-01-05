@@ -1,3 +1,18 @@
+//! Datalog text format parsing
+//!
+//! all of the parsers are usable with [`TryFrom`] so they can be used
+//! as follows:
+//!
+//! ```rust
+//! use std::convert::TryInto;
+//! use biscuit_auth::token::builder::Fact;
+//!
+//! let f: Fact = "test(#data)".try_into().expect("parse error");
+//! ```
+//!
+//! All of the methods in [BiscuitBuilder](`crate::token::builder::BiscuitBuilder`)
+//! and [BlockBuilder](`crate::token::builder::BlockBuilder`) can take strings
+//! as arguments too
 use crate::{datalog, error, token::builder};
 use nom::{
     branch::alt,
@@ -17,10 +32,12 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+/// parse a Datalog fact
 pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
     predicate(i).map(|(i, p)| (i, builder::Fact(p)))
 }
 
+/// parse a Datalog caveat
 pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
     let (i, queries) = separated_list1(
       preceded(space0, tag("||")),
@@ -30,6 +47,7 @@ pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
     Ok((i, builder::Caveat { queries }))
 }
 
+/// parse a Datalog rule
 pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, head) = rule_head(i)?;
     let (i, _) = space0(i)?;

@@ -3,6 +3,7 @@
 
 use thiserror::Error;
 
+/// the global error type for Biscuit
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum Token {
     #[error("internal error")]
@@ -33,6 +34,8 @@ pub struct InvalidBlockIndex {
     pub found: u32,
 }
 
+/// Errors related to the token's serialization format or cryptographic
+/// signature
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum Format {
     #[error("failed verifying the signature")]
@@ -55,6 +58,7 @@ pub enum Format {
     Version { maximum: u32, actual: u32 },
 }
 
+/// Signature errors
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum Signature {
     #[error("could not parse the signature elements")]
@@ -63,6 +67,7 @@ pub enum Signature {
     InvalidSignature,
 }
 
+/// errors in the Datalog evaluation
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum Logic {
     #[error("a fact of the authority block did not have the authority tag")]
@@ -79,6 +84,7 @@ pub enum Logic {
     VerifierNotEmpty,
 }
 
+/// caveat check errors
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum FailedCaveat {
     #[error("a caveat failed in a block")]
@@ -102,6 +108,7 @@ pub struct FailedVerifierCaveat {
     pub rule: String,
 }
 
+/// runtime limits errors
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum RunLimit {
     #[error("too many facts generated")]

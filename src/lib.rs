@@ -15,6 +15,11 @@
 //!
 //! # Usage
 //!
+//! Most of the interaction with this library is done through the
+//! [Biscuit](`crate::token::Biscuit`) structure, that represents a valid
+//! token, and the [Verifier](`crate::token::verifier::Verifier`), used to
+//! check authorization policies on a token.
+//!
 //! In this example we will see how we can create a token, add some caveats,
 //! serialize and deserialize a token, append more caveats, and validate
 //! those caveats in the context of a request:

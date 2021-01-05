@@ -1,3 +1,4 @@
+//! structures to handle sealed tokens (using symmetric cryptography, not attenuable)
 use super::Biscuit;
 use crate::error;
 use hmac::{Hmac, Mac, NewMac};
