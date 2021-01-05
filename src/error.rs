@@ -75,6 +75,8 @@ pub enum Logic {
     InvalidBlockRule(u32, String),
     #[error("list of caveats that failed validation")]
     FailedCaveats(Vec<FailedCaveat>),
+    #[error("the verifier already contains a token")]
+    VerifierNotEmpty,
 }
 
 #[derive(Error, Clone, Debug, PartialEq)]

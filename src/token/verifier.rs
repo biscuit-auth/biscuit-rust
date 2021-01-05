@@ -13,6 +13,7 @@ pub struct Verifier {
     symbols: datalog::SymbolTable,
     caveats: Vec<Caveat>,
     token_caveats: Vec<Vec<datalog::Caveat>>,
+    has_token: bool,
 }
 
 impl Verifier {
@@ -25,6 +26,7 @@ impl Verifier {
             symbols,
             caveats: vec![],
             token_caveats: token.caveats(),
+            has_token: true,
         })
     }
 
@@ -37,10 +39,17 @@ impl Verifier {
             symbols,
             caveats: vec![],
             token_caveats: vec![],
+            has_token: false,
         })
     }
 
     pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Logic> {
+        if self.has_token {
+            return Err(error::Logic::VerifierNotEmpty);
+        } else {
+            self.has_token = true;
+        }
+
         let authority_index = self.symbols.get("authority").unwrap();
         let ambient_index = self.symbols.get("ambient").unwrap();
 
