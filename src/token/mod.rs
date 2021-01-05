@@ -18,7 +18,7 @@ pub mod sealed;
 pub mod verifier;
 
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 0;
+pub const MAX_SCHEMA_VERSION: u32 = 1;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
