@@ -78,7 +78,7 @@
 //!     ));
 //!
 //!     // the previous caveat could also be written like this
-//!     // builder.add_caveat("*caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
+//!     // builder.add_caveat("caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
 //!
 //!     let keypair = KeyPair::new();
 //!     // we can now create a new token
@@ -105,22 +105,24 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_rule("*read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_caveat("read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
+//!
+//!   // the token restricts to read operations:
+//!   assert!(v1.verify().is_ok());
 //!
 //!   let mut v2 = biscuit2.verify(public_key)?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_rule("*write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_caveat("write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
+//!
+//!   // the second verifier requested a read operation
+//!   assert!(v2.verify().is_err());
 //!
 //!   let mut v3 = biscuit2.verify(public_key)?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_rule("*read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_caveat("read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
 //!
-//!   // the token restricts to read operations:
-//!   assert!(v1.verify().is_ok());
-//!   // the second verifier requested a read operation
-//!   assert!(v2.verify().is_err());
 //!   // the third verifier requests /a/file2.txt
 //!   assert!(v3.verify().is_err());
 //!
@@ -183,10 +185,10 @@
 //! the language implementation: among other things, it avoids implementing negation).
 //! It is possible to create rules like these ones:
 //!
-//! - *caveat() <- !resource("file1")
-//! - *caveat() <- !resource($0), !owner("user1", $0) // the $0 represents a "hole" that must be filled with the correct value
-//! - *caveat() <- !time($0) @ $0 < 2019-02-05T23:00:00Z // expiration date
-//! - *caveat() <- !application($0), !operation($1), !user($2), !right(#app, $0, $1), !owner($2, $0), !credit($2, $3) @ $3 > 0 // verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
+//! - `caveat() <- resource("file1")`
+//! - `caveat() <- resource($0), owner("user1", $0)` the $0 represents a "hole" that must be filled with the correct value
+//! - `caveat() <- time($0) @ $0 < 2019-02-05T23:00:00Z` expiration date
+//! - `caveat() <- application($0), operation($1), user($2), right(#app, $0, $1), owner($2, $0), credit($2, $3) @ $3 > 0` verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
 //!
 //! ## Symbols and symbol tables
 //!
@@ -197,8 +199,8 @@
 //! matching.
 //!
 //! They can be used for pretty printing of a fact or rule. As an example, with a table
-//! containing `["resource", "operation", "read", "caveat1"], we could have the following rule:
-//! `#4 <- #0("file.txt"), #1(#2)` that would be printed as `*caveat1() <- !resource("file.txt"), !operation(#read)`
+//! containing `["resource", "operation", "read", "caveat1"]`, we could have the following rule:
+//! `#4 <- #0("file.txt"), #1(#2)` that would be printed as `caveat1() <- resource("file.txt"), !operation(#read)`
 //!
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
