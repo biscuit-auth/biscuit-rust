@@ -313,29 +313,23 @@ pub mod idv1 {
 pub struct ConstraintV1 {
     #[prost(uint32, required, tag="1")]
     pub id: u32,
-    #[prost(enumeration="constraint_v1::Kind", required, tag="2")]
-    pub kind: i32,
-    #[prost(message, optional, tag="3")]
-    pub int: ::core::option::Option<IntConstraintV1>,
-    #[prost(message, optional, tag="4")]
-    pub str: ::core::option::Option<StringConstraintV1>,
-    #[prost(message, optional, tag="5")]
-    pub date: ::core::option::Option<DateConstraintV1>,
-    #[prost(message, optional, tag="6")]
-    pub symbol: ::core::option::Option<SymbolConstraintV1>,
-    #[prost(message, optional, tag="7")]
-    pub bytes: ::core::option::Option<BytesConstraintV1>,
+    #[prost(oneof="constraint_v1::ConstraintEnum", tags="2, 3, 4, 5, 6")]
+    pub constraint_enum: ::core::option::Option<constraint_v1::ConstraintEnum>,
 }
 /// Nested message and enum types in `ConstraintV1`.
 pub mod constraint_v1 {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-    #[repr(i32)]
-    pub enum Kind {
-        Int = 0,
-        String = 1,
-        Date = 2,
-        Symbol = 3,
-        Bytes = 4,
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum ConstraintEnum {
+        #[prost(message, tag="2")]
+        Int(super::IntConstraintV1),
+        #[prost(message, tag="3")]
+        Str(super::StringConstraintV1),
+        #[prost(message, tag="4")]
+        Date(super::DateConstraintV1),
+        #[prost(message, tag="5")]
+        Symbol(super::SymbolConstraintV1),
+        #[prost(message, tag="6")]
+        Bytes(super::BytesConstraintV1),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

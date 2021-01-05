@@ -212,21 +212,13 @@ message IDV1 {
 message ConstraintV1 {
   required uint32 id = 1;
 
-  enum Kind {
-    INT = 0;
-    STRING = 1;
-    DATE = 2;
-    SYMBOL = 3;
-    BYTES = 4;
+  oneof ConstraintEnum {
+   IntConstraintV1 int = 2;
+   StringConstraintV1 str = 3;
+   DateConstraintV1 date = 4;
+   SymbolConstraintV1 symbol = 5;
+   BytesConstraintV1 bytes = 6;
   }
-
-  required Kind kind = 2;
-
-  optional IntConstraintV1 int = 3;
-  optional StringConstraintV1 str = 4;
-  optional DateConstraintV1 date = 5;
-  optional SymbolConstraintV1 symbol = 6;
-  optional BytesConstraintV1 bytes = 7;
 }
 
 message IntConstraintV1 {

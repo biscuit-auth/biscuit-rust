@@ -954,38 +954,28 @@ pub mod v1 {
     }
 
     pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::ConstraintV1 {
-        use schema::constraint_v1::Kind;
+        use schema::constraint_v1::ConstraintEnum;
 
         match input.kind {
             ConstraintKind::Int(ref c) => schema::ConstraintV1 {
                 id: input.id,
-                kind: Kind::Int as i32,
-                int: Some(token_int_constraint_to_proto_int_constraint(c)),
-                ..Default::default()
+                constraint_enum: Some(ConstraintEnum::Int(token_int_constraint_to_proto_int_constraint(c))),
             },
             ConstraintKind::Str(ref c) => schema::ConstraintV1 {
                 id: input.id,
-                kind: Kind::String as i32,
-                str: Some(token_str_constraint_to_proto_str_constraint(c)),
-                ..Default::default()
+                constraint_enum: Some(ConstraintEnum::Str(token_str_constraint_to_proto_str_constraint(c))),
             },
             ConstraintKind::Date(ref c) => schema::ConstraintV1 {
                 id: input.id,
-                kind: Kind::Date as i32,
-                date: Some(token_date_constraint_to_proto_date_constraint(c)),
-                ..Default::default()
+                constraint_enum: Some(ConstraintEnum::Date(token_date_constraint_to_proto_date_constraint(c))),
             },
             ConstraintKind::Symbol(ref c) => schema::ConstraintV1 {
                 id: input.id,
-                kind: Kind::Date as i32,
-                symbol: Some(token_symbol_constraint_to_proto_symbol_constraint(c)),
-                ..Default::default()
+                constraint_enum: Some(ConstraintEnum::Symbol(token_symbol_constraint_to_proto_symbol_constraint(c))),
             },
             ConstraintKind::Bytes(ref c) => schema::ConstraintV1 {
                 id: input.id,
-                kind: Kind::Bytes as i32,
-                bytes: Some(token_bytes_constraint_to_proto_bytes_constraint(c)),
-                ..Default::default()
+                constraint_enum: Some(ConstraintEnum::Bytes(token_bytes_constraint_to_proto_bytes_constraint(c))),
             },
         }
     }
@@ -993,66 +983,43 @@ pub mod v1 {
     pub fn proto_constraint_to_token_constraint(
         input: &schema::ConstraintV1,
     ) -> Result<Constraint, error::Format> {
-        use schema::constraint_v1::Kind;
+        use schema::constraint_v1::ConstraintEnum;
 
-        let kind = if let Some(i) = Kind::from_i32(input.kind) {
-            i
-        } else {
-            return Err(error::Format::DeserializationError(
-                "deserialization error: invalid constraint kind".to_string(),
-            ));
-        };
-
-        match kind {
-            Kind::Int => {
-                if let Some(ref i) = input.int {
-                    return proto_int_constraint_to_token_int_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Int(c),
-                    });
-                }
-            }
-            Kind::String => {
-                if let Some(ref i) = input.str {
-                    return proto_str_constraint_to_token_str_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Str(c),
-                    });
-                }
-            }
-            Kind::Date => {
-                if let Some(ref i) = input.date {
-                    return proto_date_constraint_to_token_date_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Date(c),
-                    });
-                }
-            }
-            Kind::Symbol => {
-                if let Some(ref i) = input.symbol {
-                    return proto_symbol_constraint_to_token_symbol_constraint(i).map(|c| {
-                        Constraint {
-                            id: input.id,
-                            kind: ConstraintKind::Symbol(c),
-                        }
-                    });
-                }
-            }
-            Kind::Bytes => {
-                if let Some(ref i) = input.bytes {
-                    return proto_bytes_constraint_to_token_bytes_constraint(i).map(|c| {
-                        Constraint {
-                            id: input.id,
-                            kind: ConstraintKind::Bytes(c),
-                        }
-                    });
-                }
-            }
+        match &input.constraint_enum {
+            None => Err(error::Format::DeserializationError(
+                "deserialization error: constraint enum is empty".to_string(),
+            )),
+            Some(ConstraintEnum::Int(i)) => {
+                proto_int_constraint_to_token_int_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Int(c),
+                })
+            },
+            Some(ConstraintEnum::Str(i)) => {
+                proto_str_constraint_to_token_str_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Str(c),
+                })
+            },
+            Some(ConstraintEnum::Date(i)) => {
+                proto_date_constraint_to_token_date_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Date(c),
+                })
+            },
+            Some(ConstraintEnum::Symbol(i)) => {
+                proto_symbol_constraint_to_token_symbol_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Symbol(c),
+                })
+            },
+            Some(ConstraintEnum::Bytes(i)) => {
+                proto_bytes_constraint_to_token_bytes_constraint(i).map(|c| Constraint {
+                    id: input.id,
+                    kind: ConstraintKind::Bytes(c),
+                })
+            },
         }
-
-        Err(error::Format::DeserializationError(
-            "deserialization error: invalid constraint".to_string(),
-        ))
     }
 
     pub fn token_int_constraint_to_proto_int_constraint(
