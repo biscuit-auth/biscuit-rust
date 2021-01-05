@@ -236,56 +236,32 @@ pub mod v0 {
             ID::Symbol(s) => schema::Idv0 {
                 kind: Kind::Symbol as i32,
                 symbol: Some(*s),
-                variable: None,
-                integer: None,
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Variable(v) => schema::Idv0 {
                 kind: Kind::Variable as i32,
-                symbol: None,
                 variable: Some(*v),
-                integer: None,
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Integer(i) => schema::Idv0 {
                 kind: Kind::Integer as i32,
-                symbol: None,
-                variable: None,
                 integer: Some(*i),
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Str(s) => schema::Idv0 {
                 kind: Kind::Str as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
                 str: Some(s.clone()),
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Date(d) => schema::Idv0 {
                 kind: Kind::Date as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
-                str: None,
                 date: Some(*d),
-                bytes: None,
+                ..Default::default()
             },
             ID::Bytes(s) => schema::Idv0 {
                 kind: Kind::Bytes as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
-                str: None,
-                date: None,
                 bytes: Some(s.clone()),
+                ..Default::default()
             },
         }
     }
@@ -347,46 +323,31 @@ pub mod v0 {
                 id: input.id,
                 kind: Kind::Int as i32,
                 int: Some(token_int_constraint_to_proto_int_constraint(c)),
-                str: None,
-                date: None,
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Str(ref c) => schema::ConstraintV0 {
                 id: input.id,
                 kind: Kind::String as i32,
-                int: None,
                 str: Some(token_str_constraint_to_proto_str_constraint(c)),
-                date: None,
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Date(ref c) => schema::ConstraintV0 {
                 id: input.id,
                 kind: Kind::Date as i32,
-                int: None,
-                str: None,
                 date: Some(token_date_constraint_to_proto_date_constraint(c)),
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Symbol(ref c) => schema::ConstraintV0 {
                 id: input.id,
                 kind: Kind::Date as i32,
-                int: None,
-                str: None,
-                date: None,
                 symbol: Some(token_symbol_constraint_to_proto_symbol_constraint(c)),
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Bytes(ref c) => schema::ConstraintV0 {
                 id: input.id,
                 kind: Kind::Bytes as i32,
-                int: None,
-                str: None,
-                date: None,
-                symbol: None,
                 bytes: Some(token_bytes_constraint_to_proto_bytes_constraint(c)),
+                ..Default::default()
             },
         }
     }
@@ -465,72 +426,37 @@ pub mod v0 {
             IntConstraint::LessThan(i) => schema::IntConstraintV0 {
                 kind: Kind::Lower as i32,
                 lower: Some(*i),
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::GreaterThan(i) => schema::IntConstraintV0 {
                 kind: Kind::Larger as i32,
-                lower: None,
                 larger: Some(*i),
-                lower_or_equal: None,
-                larger_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::LessOrEqual(i) => schema::IntConstraintV0 {
                 kind: Kind::LowerOrEqual as i32,
-                lower: None,
-                larger: None,
                 lower_or_equal: Some(*i),
-                larger_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV0 {
                 kind: Kind::LargerOrEqual as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
                 larger_or_equal: Some(*i),
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::Equal(i) => schema::IntConstraintV0 {
                 kind: Kind::Equal as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
                 equal: Some(*i),
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::In(s) => schema::IntConstraintV0 {
                 kind: Kind::In as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
-                equal: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::NotIn(s) => schema::IntConstraintV0 {
                 kind: Kind::NotIn as i32,
-                lower: None,
-                larger: None,
-                lower_or_equal: None,
-                larger_or_equal: None,
-                equal: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
@@ -602,56 +528,32 @@ pub mod v0 {
             StrConstraint::Prefix(s) => schema::StringConstraintV0 {
                 kind: Kind::Prefix as i32,
                 prefix: Some(s.clone()),
-                suffix: None,
-                equal: None,
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Suffix(s) => schema::StringConstraintV0 {
                 kind: Kind::Suffix as i32,
-                prefix: None,
                 suffix: Some(s.clone()),
-                equal: None,
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Equal(s) => schema::StringConstraintV0 {
                 kind: Kind::Equal as i32,
-                prefix: None,
-                suffix: None,
                 equal: Some(s.clone()),
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Regex(r) => schema::StringConstraintV0 {
                 kind: Kind::Regex as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
                 regex: Some(r.clone()),
+                ..Default::default()
             },
             StrConstraint::In(s) => schema::StringConstraintV0 {
                 kind: Kind::In as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                regex: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::NotIn(s) => schema::StringConstraintV0 {
                 kind: Kind::NotIn as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                regex: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
@@ -820,20 +722,17 @@ pub mod v0 {
             BytesConstraint::Equal(s) => schema::BytesConstraintV0 {
                 kind: Kind::Equal as i32,
                 equal: Some(s.clone()),
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             BytesConstraint::In(s) => schema::BytesConstraintV0 {
                 kind: Kind::In as i32,
-                equal: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             BytesConstraint::NotIn(s) => schema::BytesConstraintV0 {
                 kind: Kind::NotIn as i32,
-                equal: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
@@ -975,56 +874,32 @@ pub mod v1 {
             ID::Symbol(s) => schema::Idv1 {
                 kind: Kind::Symbol as i32,
                 symbol: Some(*s),
-                variable: None,
-                integer: None,
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Variable(v) => schema::Idv1 {
                 kind: Kind::Variable as i32,
-                symbol: None,
                 variable: Some(*v),
-                integer: None,
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Integer(i) => schema::Idv1 {
                 kind: Kind::Integer as i32,
-                symbol: None,
-                variable: None,
                 integer: Some(*i),
-                str: None,
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Str(s) => schema::Idv1 {
                 kind: Kind::Str as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
                 str: Some(s.clone()),
-                date: None,
-                bytes: None,
+                ..Default::default()
             },
             ID::Date(d) => schema::Idv1 {
                 kind: Kind::Date as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
-                str: None,
                 date: Some(*d),
-                bytes: None,
+                ..Default::default()
             },
             ID::Bytes(s) => schema::Idv1 {
                 kind: Kind::Bytes as i32,
-                symbol: None,
-                variable: None,
-                integer: None,
-                str: None,
-                date: None,
                 bytes: Some(s.clone()),
+                ..Default::default()
             },
         }
     }
@@ -1086,46 +961,31 @@ pub mod v1 {
                 id: input.id,
                 kind: Kind::Int as i32,
                 int: Some(token_int_constraint_to_proto_int_constraint(c)),
-                str: None,
-                date: None,
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Str(ref c) => schema::ConstraintV1 {
                 id: input.id,
                 kind: Kind::String as i32,
-                int: None,
                 str: Some(token_str_constraint_to_proto_str_constraint(c)),
-                date: None,
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Date(ref c) => schema::ConstraintV1 {
                 id: input.id,
                 kind: Kind::Date as i32,
-                int: None,
-                str: None,
                 date: Some(token_date_constraint_to_proto_date_constraint(c)),
-                symbol: None,
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Symbol(ref c) => schema::ConstraintV1 {
                 id: input.id,
                 kind: Kind::Date as i32,
-                int: None,
-                str: None,
-                date: None,
                 symbol: Some(token_symbol_constraint_to_proto_symbol_constraint(c)),
-                bytes: None,
+                ..Default::default()
             },
             ConstraintKind::Bytes(ref c) => schema::ConstraintV1 {
                 id: input.id,
                 kind: Kind::Bytes as i32,
-                int: None,
-                str: None,
-                date: None,
-                symbol: None,
                 bytes: Some(token_bytes_constraint_to_proto_bytes_constraint(c)),
+                ..Default::default()
             },
         }
     }
@@ -1204,72 +1064,37 @@ pub mod v1 {
             IntConstraint::LessThan(i) => schema::IntConstraintV1 {
                 kind: Kind::LessThan as i32,
                 less_than: Some(*i),
-                greater_than: None,
-                less_or_equal: None,
-                greater_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::GreaterThan(i) => schema::IntConstraintV1 {
                 kind: Kind::GreaterThan as i32,
-                less_than: None,
                 greater_than: Some(*i),
-                less_or_equal: None,
-                greater_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::LessOrEqual(i) => schema::IntConstraintV1 {
                 kind: Kind::LessOrEqual as i32,
-                less_than: None,
-                greater_than: None,
                 less_or_equal: Some(*i),
-                greater_or_equal: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV1 {
                 kind: Kind::GreaterOrEqual as i32,
-                less_than: None,
-                greater_than: None,
-                less_or_equal: None,
                 greater_or_equal: Some(*i),
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::Equal(i) => schema::IntConstraintV1 {
                 kind: Kind::Equal as i32,
-                less_than: None,
-                greater_than: None,
-                less_or_equal: None,
-                greater_or_equal: None,
                 equal: Some(*i),
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::In(s) => schema::IntConstraintV1 {
                 kind: Kind::In as i32,
-                less_than: None,
-                greater_than: None,
-                less_or_equal: None,
-                greater_or_equal: None,
-                equal: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             IntConstraint::NotIn(s) => schema::IntConstraintV1 {
                 kind: Kind::NotIn as i32,
-                less_than: None,
-                greater_than: None,
-                less_or_equal: None,
-                greater_or_equal: None,
-                equal: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
@@ -1341,56 +1166,32 @@ pub mod v1 {
             StrConstraint::Prefix(s) => schema::StringConstraintV1 {
                 kind: Kind::Prefix as i32,
                 prefix: Some(s.clone()),
-                suffix: None,
-                equal: None,
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Suffix(s) => schema::StringConstraintV1 {
                 kind: Kind::Suffix as i32,
-                prefix: None,
                 suffix: Some(s.clone()),
-                equal: None,
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Equal(s) => schema::StringConstraintV1 {
                 kind: Kind::Equal as i32,
-                prefix: None,
-                suffix: None,
                 equal: Some(s.clone()),
-                regex: None,
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::Regex(r) => schema::StringConstraintV1 {
                 kind: Kind::Regex as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                in_set: vec![],
-                not_in_set: vec![],
                 regex: Some(r.clone()),
+                ..Default::default()
             },
             StrConstraint::In(s) => schema::StringConstraintV1 {
                 kind: Kind::In as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                regex: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             StrConstraint::NotIn(s) => schema::StringConstraintV1 {
                 kind: Kind::NotIn as i32,
-                prefix: None,
-                suffix: None,
-                equal: None,
-                regex: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
@@ -1559,20 +1360,17 @@ pub mod v1 {
             BytesConstraint::Equal(s) => schema::BytesConstraintV1 {
                 kind: Kind::Equal as i32,
                 equal: Some(s.clone()),
-                in_set: vec![],
-                not_in_set: vec![],
+                ..Default::default()
             },
             BytesConstraint::In(s) => schema::BytesConstraintV1 {
                 kind: Kind::In as i32,
-                equal: None,
                 in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
+                ..Default::default()
             },
             BytesConstraint::NotIn(s) => schema::BytesConstraintV1 {
                 kind: Kind::NotIn as i32,
-                equal: None,
-                in_set: vec![],
                 not_in_set: s.iter().cloned().collect(),
+                ..Default::default()
             },
         }
     }
