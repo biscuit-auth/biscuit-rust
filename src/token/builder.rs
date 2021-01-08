@@ -256,6 +256,7 @@ pub enum Term {
     Str(String),
     Date(u64),
     Bytes(Vec<u8>),
+    Bool(bool),
 }
 
 impl Term {
@@ -267,6 +268,7 @@ impl Term {
             Term::Str(s) => ID::Str(s.clone()),
             Term::Date(d) => ID::Date(*d),
             Term::Bytes(s) => ID::Bytes(s.clone()),
+            Term::Bool(b) => ID::Bool(*b),
         }
     }
 
@@ -278,6 +280,7 @@ impl Term {
         ID::Str(s) => Term::Str(s.clone()),
         ID::Date(d) => Term::Date(*d),
         ID::Bytes(s) => Term::Bytes(s.clone()),
+        ID::Bool(b) => Term::Bool(*b),
       }
     }
 }
@@ -291,6 +294,7 @@ impl From<&Term> for Term {
             Term::Str(ref s) => Term::Str(s.clone()),
             Term::Date(ref d) => Term::Date(*d),
             Term::Bytes(ref s) => Term::Bytes(s.clone()),
+            Term::Bool(b) => Term::Bool(*b),
         }
     }
 }
@@ -313,6 +317,11 @@ impl fmt::Display for Term {
                 write!(f, "{:?}", t)
             }
             Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
+            Term::Bool(b) => if *b {
+                write!(f, "true")
+            } else {
+                write!(f, "false")
+            }
         }
 
     }
@@ -755,4 +764,9 @@ pub fn variable(s: &str) -> Term {
 /// creates a byte array
 pub fn bytes(s: &[u8]) -> Term {
     Term::Bytes(s.to_vec())
+}
+
+/// creates a boolean
+pub fn boolean(b: bool) -> Term {
+    Term::Bool(b)
 }

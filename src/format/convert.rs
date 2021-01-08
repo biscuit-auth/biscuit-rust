@@ -635,6 +635,9 @@ pub mod v1 {
             ID::Bytes(s) => schema::Idv1 {
                 content: Some(Content::Bytes(s.clone())),
             },
+            ID::Bool(b) => schema::Idv1 {
+                content: Some(Content::Bool(*b)),
+            },
         }
     }
 
@@ -651,6 +654,7 @@ pub mod v1 {
             Some(Content::String(s)) => Ok(ID::Str(s.clone())),
             Some(Content::Date(i)) => Ok(ID::Date(*i)),
             Some(Content::Bytes(s)) => Ok(ID::Bytes(s.clone())),
+            Some(Content::Bool(b)) => Ok(ID::Bool(*b)),
         }
     }
 

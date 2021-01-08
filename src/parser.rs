@@ -435,6 +435,7 @@ fn symbol(i: &str) -> IResult<&str, builder::Term> {
 fn parse_integer(i: &str) -> IResult<&str, i64> {
     map_res(recognize(pair(opt(char('-')), digit1)), |s: &str| s.parse())(i)
 }
+
 fn integer(i: &str) -> IResult<&str, builder::Term> {
     parse_integer(i).map(|(i, n)| (i, builder::int(n)))
 }
@@ -482,8 +483,19 @@ fn variable(i: &str) -> IResult<&str, builder::Term> {
     )(i)
 }
 
+fn parse_bool(i: &str) -> IResult<&str, bool> {
+    alt((
+        value(true, tag("true")),
+        value(false, tag("false")),
+    ))(i)
+}
+
+fn boolean(i: &str) -> IResult<&str, builder::Term> {
+    parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
+}
+
 fn term(i: &str) -> IResult<&str, builder::Term> {
-    preceded(space0, alt((symbol, string, date, variable, integer, bytes)))(i)
+    preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean)))(i)
 }
 
 fn regex(i: &str) -> IResult<&str, String> {

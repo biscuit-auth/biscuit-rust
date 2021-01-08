@@ -69,6 +69,11 @@ impl SymbolTable {
                 format!("{:?}", t)
             },
             ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
+            ID::Bool(b) => if *b {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            }
         }
     }
 

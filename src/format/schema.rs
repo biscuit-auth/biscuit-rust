@@ -281,7 +281,7 @@ pub struct PredicateV1 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Idv1 {
-    #[prost(oneof="idv1::Content", tags="1, 2, 3, 4, 5, 6")]
+    #[prost(oneof="idv1::Content", tags="1, 2, 3, 4, 5, 6, 7")]
     pub content: ::core::option::Option<idv1::Content>,
 }
 /// Nested message and enum types in `IDV1`.
@@ -300,6 +300,8 @@ pub mod idv1 {
         Date(u64),
         #[prost(bytes, tag="6")]
         Bytes(::prost::alloc::vec::Vec<u8>),
+        #[prost(bool, tag="7")]
+        Bool(bool),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
