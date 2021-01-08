@@ -58,6 +58,20 @@ impl SymbolTable {
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
     }
 
+    pub fn print_id(&self, id: &ID) -> String {
+        match id {
+            ID::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
+            ID::Integer(i) => i.to_string(),
+            ID::Str(s) => format!("\"{}\"", s),
+            ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
+            ID::Date(d) => {
+                let t = UNIX_EPOCH + Duration::from_secs(*d);
+                format!("{:?}", t)
+            },
+            ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
+        }
+    }
+
     pub fn print_fact(&self, f: &Fact) -> String {
         self.print_predicate(&f.predicate)
     }
@@ -66,17 +80,7 @@ impl SymbolTable {
         let strings = p
             .ids
             .iter()
-            .map(|id| match id {
-                ID::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
-                ID::Integer(i) => i.to_string(),
-                ID::Str(s) => format!("\"{}\"", s),
-                ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
-                ID::Date(d) => {
-                    let t = UNIX_EPOCH + Duration::from_secs(*d);
-                    format!("{:?}", t)
-                },
-                ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
-            })
+            .map(|id| self.print_id(id))
             .collect::<Vec<_>>();
         format!(
             "{}({})",
