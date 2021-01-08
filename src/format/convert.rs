@@ -143,22 +143,10 @@ pub mod v0 {
     use crate::datalog::*;
     use crate::error;
 
-    pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV0 {
-        schema::FactV0 {
-            predicate: token_predicate_to_proto_predicate(&input.predicate),
-        }
-    }
-
     pub fn proto_fact_to_token_fact(input: &schema::FactV0) -> Result<Fact, error::Format> {
         Ok(Fact {
             predicate: proto_predicate_to_token_predicate(&input.predicate)?,
         })
-    }
-
-    pub fn token_caveat_to_proto_caveat(input: &Caveat) -> schema::CaveatV0 {
-        schema::CaveatV0 {
-            queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
-        }
     }
 
     pub fn proto_caveat_to_token_caveat(input: &schema::CaveatV0) -> Result<Caveat, error::Format> {
@@ -169,22 +157,6 @@ pub mod v0 {
         }
 
         Ok(Caveat { queries })
-    }
-
-    pub fn token_rule_to_proto_rule(input: &Rule) -> schema::RuleV0 {
-        schema::RuleV0 {
-            head: token_predicate_to_proto_predicate(&input.head),
-            body: input
-                .body
-                .iter()
-                .map(token_predicate_to_proto_predicate)
-                .collect(),
-            constraints: input
-                .constraints
-                .iter()
-                .map(token_constraint_to_proto_constraint)
-                .collect(),
-        }
     }
 
     pub fn proto_rule_to_token_rule(input: &schema::RuleV0) -> Result<Rule, error::Format> {
@@ -207,13 +179,6 @@ pub mod v0 {
         })
     }
 
-    pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV0 {
-        schema::PredicateV0 {
-            name: input.name,
-            ids: input.ids.iter().map(token_id_to_proto_id).collect(),
-        }
-    }
-
     pub fn proto_predicate_to_token_predicate(
         input: &schema::PredicateV0,
     ) -> Result<Predicate, error::Format> {
@@ -227,43 +192,6 @@ pub mod v0 {
             name: input.name,
             ids,
         })
-    }
-
-    pub fn token_id_to_proto_id(input: &ID) -> schema::Idv0 {
-        use schema::idv0::Kind;
-
-        match input {
-            ID::Symbol(s) => schema::Idv0 {
-                kind: Kind::Symbol as i32,
-                symbol: Some(*s),
-                ..Default::default()
-            },
-            ID::Variable(v) => schema::Idv0 {
-                kind: Kind::Variable as i32,
-                variable: Some(*v),
-                ..Default::default()
-            },
-            ID::Integer(i) => schema::Idv0 {
-                kind: Kind::Integer as i32,
-                integer: Some(*i),
-                ..Default::default()
-            },
-            ID::Str(s) => schema::Idv0 {
-                kind: Kind::Str as i32,
-                str: Some(s.clone()),
-                ..Default::default()
-            },
-            ID::Date(d) => schema::Idv0 {
-                kind: Kind::Date as i32,
-                date: Some(*d),
-                ..Default::default()
-            },
-            ID::Bytes(s) => schema::Idv0 {
-                kind: Kind::Bytes as i32,
-                bytes: Some(s.clone()),
-                ..Default::default()
-            },
-        }
     }
 
     pub fn proto_id_to_token_id(input: &schema::Idv0) -> Result<ID, error::Format> {
@@ -313,43 +241,6 @@ pub mod v0 {
         Err(error::Format::DeserializationError(
             "deserialization error: invalid id".to_string(),
         ))
-    }
-
-    pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::ConstraintV0 {
-        use schema::constraint_v0::Kind;
-
-        match input.kind {
-            ConstraintKind::Int(ref c) => schema::ConstraintV0 {
-                id: input.id,
-                kind: Kind::Int as i32,
-                int: Some(token_int_constraint_to_proto_int_constraint(c)),
-                ..Default::default()
-            },
-            ConstraintKind::Str(ref c) => schema::ConstraintV0 {
-                id: input.id,
-                kind: Kind::String as i32,
-                str: Some(token_str_constraint_to_proto_str_constraint(c)),
-                ..Default::default()
-            },
-            ConstraintKind::Date(ref c) => schema::ConstraintV0 {
-                id: input.id,
-                kind: Kind::Date as i32,
-                date: Some(token_date_constraint_to_proto_date_constraint(c)),
-                ..Default::default()
-            },
-            ConstraintKind::Symbol(ref c) => schema::ConstraintV0 {
-                id: input.id,
-                kind: Kind::Date as i32,
-                symbol: Some(token_symbol_constraint_to_proto_symbol_constraint(c)),
-                ..Default::default()
-            },
-            ConstraintKind::Bytes(ref c) => schema::ConstraintV0 {
-                id: input.id,
-                kind: Kind::Bytes as i32,
-                bytes: Some(token_bytes_constraint_to_proto_bytes_constraint(c)),
-                ..Default::default()
-            },
-        }
     }
 
     pub fn proto_constraint_to_token_constraint(
@@ -417,50 +308,6 @@ pub mod v0 {
         ))
     }
 
-    pub fn token_int_constraint_to_proto_int_constraint(
-        input: &IntConstraint,
-    ) -> schema::IntConstraintV0 {
-        use schema::int_constraint_v0::Kind;
-
-        match input {
-            IntConstraint::LessThan(i) => schema::IntConstraintV0 {
-                kind: Kind::Lower as i32,
-                lower: Some(*i),
-                ..Default::default()
-            },
-            IntConstraint::GreaterThan(i) => schema::IntConstraintV0 {
-                kind: Kind::Larger as i32,
-                larger: Some(*i),
-                ..Default::default()
-            },
-            IntConstraint::LessOrEqual(i) => schema::IntConstraintV0 {
-                kind: Kind::LowerOrEqual as i32,
-                lower_or_equal: Some(*i),
-                ..Default::default()
-            },
-            IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV0 {
-                kind: Kind::LargerOrEqual as i32,
-                larger_or_equal: Some(*i),
-                ..Default::default()
-            },
-            IntConstraint::Equal(i) => schema::IntConstraintV0 {
-                kind: Kind::Equal as i32,
-                equal: Some(*i),
-                ..Default::default()
-            },
-            IntConstraint::In(s) => schema::IntConstraintV0 {
-                kind: Kind::In as i32,
-                in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-            IntConstraint::NotIn(s) => schema::IntConstraintV0 {
-                kind: Kind::NotIn as i32,
-                not_in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-        }
-    }
-
     pub fn proto_int_constraint_to_token_int_constraint(
         input: &schema::IntConstraintV0,
     ) -> Result<IntConstraint, error::Format> {
@@ -519,45 +366,6 @@ pub mod v0 {
         ))
     }
 
-    pub fn token_str_constraint_to_proto_str_constraint(
-        input: &StrConstraint,
-    ) -> schema::StringConstraintV0 {
-        use schema::string_constraint_v0::Kind;
-
-        match input {
-            StrConstraint::Prefix(s) => schema::StringConstraintV0 {
-                kind: Kind::Prefix as i32,
-                prefix: Some(s.clone()),
-                ..Default::default()
-            },
-            StrConstraint::Suffix(s) => schema::StringConstraintV0 {
-                kind: Kind::Suffix as i32,
-                suffix: Some(s.clone()),
-                ..Default::default()
-            },
-            StrConstraint::Equal(s) => schema::StringConstraintV0 {
-                kind: Kind::Equal as i32,
-                equal: Some(s.clone()),
-                ..Default::default()
-            },
-            StrConstraint::Regex(r) => schema::StringConstraintV0 {
-                kind: Kind::Regex as i32,
-                regex: Some(r.clone()),
-                ..Default::default()
-            },
-            StrConstraint::In(s) => schema::StringConstraintV0 {
-                kind: Kind::In as i32,
-                in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-            StrConstraint::NotIn(s) => schema::StringConstraintV0 {
-                kind: Kind::NotIn as i32,
-                not_in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-        }
-    }
-
     pub fn proto_str_constraint_to_token_str_constraint(
         input: &schema::StringConstraintV0,
     ) -> Result<StrConstraint, error::Format> {
@@ -611,25 +419,6 @@ pub mod v0 {
         ))
     }
 
-    pub fn token_date_constraint_to_proto_date_constraint(
-        input: &DateConstraint,
-    ) -> schema::DateConstraintV0 {
-        use schema::date_constraint_v0::Kind;
-
-        match input {
-            DateConstraint::Before(i) => schema::DateConstraintV0 {
-                kind: Kind::Before as i32,
-                before: Some(*i),
-                after: None,
-            },
-            DateConstraint::After(i) => schema::DateConstraintV0 {
-                kind: Kind::After as i32,
-                before: None,
-                after: Some(*i),
-            },
-        }
-    }
-
     pub fn proto_date_constraint_to_token_date_constraint(
         input: &schema::DateConstraintV0,
     ) -> Result<DateConstraint, error::Format> {
@@ -659,25 +448,6 @@ pub mod v0 {
         Err(error::Format::DeserializationError(
             "deserialization error: invalid date constraint".to_string(),
         ))
-    }
-
-    pub fn token_symbol_constraint_to_proto_symbol_constraint(
-        input: &SymbolConstraint,
-    ) -> schema::SymbolConstraintV0 {
-        use schema::symbol_constraint_v0::Kind;
-
-        match input {
-            SymbolConstraint::In(s) => schema::SymbolConstraintV0 {
-                kind: Kind::In as i32,
-                in_set: s.iter().cloned().collect(),
-                not_in_set: vec![],
-            },
-            SymbolConstraint::NotIn(s) => schema::SymbolConstraintV0 {
-                kind: Kind::NotIn as i32,
-                in_set: vec![],
-                not_in_set: s.iter().cloned().collect(),
-            },
-        }
     }
 
     pub fn proto_symbol_constraint_to_token_symbol_constraint(
@@ -711,30 +481,6 @@ pub mod v0 {
         Err(error::Format::DeserializationError(
             "deserialization error: invalid symbol constraint".to_string(),
         ))
-    }
-
-    pub fn token_bytes_constraint_to_proto_bytes_constraint(
-        input: &BytesConstraint,
-    ) -> schema::BytesConstraintV0 {
-        use schema::bytes_constraint_v0::Kind;
-
-        match input {
-            BytesConstraint::Equal(s) => schema::BytesConstraintV0 {
-                kind: Kind::Equal as i32,
-                equal: Some(s.clone()),
-                ..Default::default()
-            },
-            BytesConstraint::In(s) => schema::BytesConstraintV0 {
-                kind: Kind::In as i32,
-                in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-            BytesConstraint::NotIn(s) => schema::BytesConstraintV0 {
-                kind: Kind::NotIn as i32,
-                not_in_set: s.iter().cloned().collect(),
-                ..Default::default()
-            },
-        }
     }
 
     pub fn proto_bytes_constraint_to_token_bytes_constraint(
