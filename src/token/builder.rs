@@ -6,7 +6,8 @@ use crate::datalog::{
 };
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH}, collections::HashSet};
+use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH},
+  collections::{HashSet, BTreeSet}};
 
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{IntConstraint, StrConstraint, BytesConstraint};
@@ -248,7 +249,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
     Symbol(String),
     Variable(String),
@@ -257,6 +258,7 @@ pub enum Term {
     Date(u64),
     Bytes(Vec<u8>),
     Bool(bool),
+    Set(BTreeSet<Term>),
 }
 
 impl Term {
@@ -269,6 +271,7 @@ impl Term {
             Term::Date(d) => ID::Date(*d),
             Term::Bytes(s) => ID::Bytes(s.clone()),
             Term::Bool(b) => ID::Bool(*b),
+            Term::Set(s) => ID::Set(s.iter().map(|i| i.convert(symbols)).collect()),
         }
     }
 
@@ -281,6 +284,7 @@ impl Term {
         ID::Date(d) => Term::Date(*d),
         ID::Bytes(s) => Term::Bytes(s.clone()),
         ID::Bool(b) => Term::Bool(*b),
+        ID::Set(s) => Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect()),
       }
     }
 }
@@ -295,6 +299,7 @@ impl From<&Term> for Term {
             Term::Date(ref d) => Term::Date(*d),
             Term::Bytes(ref s) => Term::Bytes(s.clone()),
             Term::Bool(b) => Term::Bool(*b),
+            Term::Set(ref s) => Term::Set(s.clone()),
         }
     }
 }
@@ -321,6 +326,10 @@ impl fmt::Display for Term {
                 write!(f, "true")
             } else {
                 write!(f, "false")
+            },
+            Term::Set(s) => {
+                let terms =  s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
+                write!(f, "[ {}]", terms.join(", "))
             }
         }
 
@@ -769,4 +778,9 @@ pub fn bytes(s: &[u8]) -> Term {
 /// creates a boolean
 pub fn boolean(b: bool) -> Term {
     Term::Bool(b)
+}
+
+/// creates a set
+pub fn set(s: BTreeSet<Term>) -> Term {
+    Term::Set(s)
 }

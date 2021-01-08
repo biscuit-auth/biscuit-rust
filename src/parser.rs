@@ -30,6 +30,7 @@ use std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
     time::{Duration, SystemTime},
+    collections::BTreeSet,
 };
 
 /// parse a Datalog fact
@@ -494,8 +495,45 @@ fn boolean(i: &str) -> IResult<&str, builder::Term> {
     parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
 }
 
+//FIXME: replace panics with proper parse errors
+fn set(i: &str) -> IResult<&str, builder::Term> {
+    let (i, mut list) = separated_list1(preceded(space0, char(',')), term_in_set)(i)?;
+
+    let mut set = BTreeSet::new();
+
+    let mut kind: Option<u8> = None;
+    for term in list.drain(..) {
+        let index = match term {
+            builder::Term::Symbol(_) => 0,
+            builder::Term::Variable(_) => panic!("variables are not permitted in sets"),
+            builder::Term::Integer(_) => 2,
+            builder::Term::Str(_) => 3,
+            builder::Term::Date(_) => 4,
+            builder::Term::Bytes(_) => 5,
+            builder::Term::Bool(_) => 6,
+            builder::Term::Set(_) => panic!("sets cannot contain other sets"),
+        };
+
+        if let Some(k) = kind {
+            if k != index {
+                panic!("set elements must have the same type");
+            }
+        } else {
+            kind = Some(index);
+        }
+
+        set.insert(term);
+    }
+
+    Ok((i, builder::set(set)))
+}
+
 fn term(i: &str) -> IResult<&str, builder::Term> {
-    preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean)))(i)
+    preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean, set)))(i)
+}
+
+fn term_in_set(i: &str) -> IResult<&str, builder::Term> {
+    preceded(space0, alt((symbol, string, date, integer, bytes, boolean)))(i)
 }
 
 fn regex(i: &str) -> IResult<&str, String> {

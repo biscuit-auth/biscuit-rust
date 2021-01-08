@@ -526,6 +526,7 @@ pub mod v1 {
     use super::schema;
     use crate::datalog::*;
     use crate::error;
+    use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV1 {
         schema::FactV1 {
@@ -638,6 +639,11 @@ pub mod v1 {
             ID::Bool(b) => schema::Idv1 {
                 content: Some(Content::Bool(*b)),
             },
+            ID::Set(s) => schema::Idv1 {
+                content: Some(Content::Set(schema::IdSet {
+                    set: s.iter().map(token_id_to_proto_id).collect()
+                }))
+            },
         }
     }
 
@@ -655,6 +661,48 @@ pub mod v1 {
             Some(Content::Date(i)) => Ok(ID::Date(*i)),
             Some(Content::Bytes(s)) => Ok(ID::Bytes(s.clone())),
             Some(Content::Bool(b)) => Ok(ID::Bool(*b)),
+            Some(Content::Set(s)) => {
+                let mut kind: Option<u8> = None;
+                let mut set = BTreeSet::new();
+
+                for i in s.set.iter() {
+                    let index = match i.content {
+                        Some(Content::Symbol(_)) => 0,
+                        Some(Content::Variable(_)) => {
+                            return Err(error::Format::DeserializationError(
+                                "deserialization error: sets cannot contain variables".to_string(),
+                            ));
+                        },
+                        Some(Content::Integer(_)) => 2,
+                        Some(Content::String(_)) => 3,
+                        Some(Content::Date(_)) => 4,
+                        Some(Content::Bytes(_)) => 5,
+                        Some(Content::Bool(_)) => 6,
+                        Some(Content::Set(_)) => {
+                            return Err(error::Format::DeserializationError(
+                                "deserialization error: sets cannot contain other sets".to_string(),
+                            ));
+                        },
+                        None => return Err(error::Format::DeserializationError(
+                            "deserialization error: ID content enum is empty".to_string(),
+                        )),
+                    };
+
+                    if let Some(k) = kind.as_ref() {
+                        if *k != index {
+                            return Err(error::Format::DeserializationError(
+                                "deserialization error: sets elements must have the same type".to_string(),
+                            ));
+                        }
+                    } else {
+                        kind = Some(index);
+                    }
+
+                    set.insert(proto_id_to_token_id(i)?);
+                }
+
+                Ok(ID::Set(set))
+            }
         }
     }
 

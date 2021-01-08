@@ -1,5 +1,5 @@
 //! Logic language implementation for caveats
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -9,7 +9,7 @@ pub type Symbol = u64;
 mod symbol;
 pub use symbol::*;
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ID {
     Symbol(Symbol),
     Variable(u32),
@@ -18,6 +18,7 @@ pub enum ID {
     Date(u64),
     Bytes(Vec<u8>),
     Bool(bool),
+    Set(BTreeSet<ID>),
 }
 
 impl From<&ID> for ID {
@@ -30,6 +31,7 @@ impl From<&ID> for ID {
             ID::Date(ref d) => ID::Date(*d),
             ID::Bytes(ref b) => ID::Bytes(b.clone()),
             ID::Bool(ref b) => ID::Bool(*b),
+            ID::Set(ref s) => ID::Set(s.clone()),
         }
     }
 }
