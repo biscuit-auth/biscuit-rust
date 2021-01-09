@@ -13,7 +13,7 @@
 //! All of the methods in [BiscuitBuilder](`crate::token::builder::BiscuitBuilder`)
 //! and [BlockBuilder](`crate::token::builder::BlockBuilder`) can take strings
 //! as arguments too
-use crate::{datalog, error, token::builder};
+use crate::{error, token::builder};
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, take_while1},
@@ -21,15 +21,14 @@ use nom::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
-    combinator::{map, map_opt, map_res, opt, recognize, value},
-    multi::{separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded},
+    combinator::{map, map_res, opt, recognize, value},
+    multi::{separated_list0, separated_list1, many0},
+    sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
 use std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
-    time::{Duration, SystemTime},
     collections::BTreeSet,
 };
 
@@ -56,20 +55,40 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
     let (i, _) = tag("<-")(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, predicates) = separated_list1(
+
+    let (i, mut elements) = separated_list1(
       preceded(space0, char(',')),
-      preceded(space0, predicate)
+      preceded(space0, predicate_or_expression)
     )(i)?;
 
-    let (i, constraints) = if let Ok((i, _)) =
-        preceded::<_, _, _, (&str, nom::error::ErrorKind), _, _>(space0, char('@'))(i)
-    {
-        separated_list1(preceded(space0, char(',')), constraint)(i)?
-    } else {
-        (i, Vec::new())
-    };
+    let mut predicates = Vec::new();
+    let mut expressions = Vec::new();
 
-    Ok((i, builder::Rule(head, predicates, constraints)))
+    for el in elements.drain(..) {
+        match el {
+            PredOrExpr::P(predicate) => predicates.push(predicate),
+            PredOrExpr::E(expression) => {
+                let ops = expression.opcodes();
+                println!("got ops: {:?}", ops);
+                let e = builder::Expression { ops };
+                expressions.push(e);
+            },
+        }
+    }
+
+    Ok((i, builder::Rule(head, predicates, expressions)))
+}
+
+enum PredOrExpr {
+  P(builder::Predicate),
+  E(Expr),
+}
+
+fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr> {
+    alt((
+        map(predicate, PredOrExpr::P),
+        map(expr, PredOrExpr::E),
+    ))(i)
 }
 
 impl TryFrom<&str> for builder::Fact {
@@ -182,217 +201,132 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
     ))
 }
 
-fn constraint(i: &str) -> IResult<&str, builder::Constraint> {
+#[derive(Debug, PartialEq)]
+pub enum Expr {
+  Value(builder::Term),
+  Unary(builder::Op, Box<Expr>),
+  Binary(builder::Op, Box<Expr>, Box<Expr>),
+}
+
+impl Expr {
+    pub fn opcodes(self) -> Vec<builder::Op> {
+        let mut v = Vec::new();
+        self.into_opcodes(&mut v);
+        v
+    }
+
+    fn into_opcodes(self, v: &mut Vec<builder::Op>) {
+        match self {
+            Expr::Value(t) => v.push(builder::Op::Value(t)),
+            Expr::Unary(op, expr) => {
+                expr.into_opcodes(v);
+                v.push(op);
+            },
+            Expr::Binary(op, left, right) => {
+                left.into_opcodes(v);
+                right.into_opcodes(v);
+                v.push(op);
+            },
+
+        }
+    }
+}
+
+fn unary(i: &str) -> IResult<&str, Expr> {
+    println!("unary:\t{}", i);
     let (i, _) = space0(i)?;
-    let (i, id) = map_res(preceded(char('$'), name), |s| s.parse())(i)?;
-    let (i, kind) = constraint_kind(i)?;
+    let (i, _) = tag("-")(i)?;
+    let (i, _) = space0(i)?;
+    let (i, value) = expr(i)?;
 
-    Ok((i, builder::Constraint { id, kind }))
+    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Negate), Box::new(value))))
 }
 
-#[derive(Clone)]
-enum Operator {
-    LessThan,
-    GreaterThan,
-    LessOrEqual,
-    GreaterOrEqual,
-    Equal,
-    In,
-    NotIn,
-    Matches,
+fn binary_op_0(i: &str) -> IResult<&str, builder::Binary> {
+    use builder::Binary;
+    value(Binary::And, tag("&&"))(i)
 }
 
-fn operator(i: &str) -> IResult<&str, Operator> {
+fn binary_op_1(i: &str) -> IResult<&str, builder::Binary> {
+    use builder::Binary;
     alt((
-        value(Operator::LessOrEqual, tag("<=")),
-        value(Operator::GreaterOrEqual, tag(">=")),
-        value(Operator::LessThan, tag("<")),
-        value(Operator::GreaterThan, tag(">")),
-        value(Operator::Equal, tag("==")),
-        value(Operator::In, tag("in")),
-        value(Operator::NotIn, tag("not in")),
-        value(Operator::Matches, tag("matches")),
+        value(Binary::LessOrEqual, tag("<=")),
+        value(Binary::GreaterOrEqual, tag(">=")),
+        value(Binary::LessThan, tag("<")),
+        value(Binary::GreaterThan, tag(">")),
+        value(Binary::Equal, tag("==")),
     ))(i)
 }
 
-fn constraint_kind(i: &str) -> IResult<&str, builder::ConstraintKind> {
-    let (i, op) = delimited(space0, operator, space0)(i)?;
+fn binary_op_2(i: &str) -> IResult<&str, builder::Binary> {
+    use builder::Binary;
+    value(Binary::Add, tag("+"))(i)
+}
 
-    match op {
-        Operator::LessThan => alt((
-            map(parse_date, |d| {
-                builder::ConstraintKind::Date(builder::DateConstraint::Before(
-                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
-                ))
-            }),
-            map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::LessThan(i))
-            }),
-        ))(i),
-        Operator::GreaterThan => alt((
-            map(parse_date, |d| {
-                builder::ConstraintKind::Date(builder::DateConstraint::After(
-                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
-                ))
-            }),
-            map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::GreaterThan(i))
-            }),
-        ))(i),
-        Operator::LessOrEqual => alt((
-            map(parse_date, |d| {
-                builder::ConstraintKind::Date(builder::DateConstraint::Before(
-                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
-                ))
-            }),
-            map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::LessOrEqual(i))
-            }),
-        ))(i),
-        Operator::GreaterOrEqual => alt((
-            map(parse_date, |d| {
-                builder::ConstraintKind::Date(builder::DateConstraint::After(
-                    SystemTime::UNIX_EPOCH + Duration::from_secs(d),
-                ))
-            }),
-            map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::GreaterOrEqual(i))
-            }),
-        ))(i),
-        Operator::Equal => alt((
-            map(parse_integer, |i| {
-                builder::ConstraintKind::Integer(datalog::IntConstraint::Equal(i))
-            }),
-            map(parse_string, |s| {
-                builder::ConstraintKind::String(datalog::StrConstraint::Equal(s))
-            }),
-            map(parse_bytes, |s| {
-                builder::ConstraintKind::Bytes(datalog::BytesConstraint::Equal(s))
-            }),
-        ))(i),
-        Operator::In => delimited(
-            char('['),
-            alt((
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_integer),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Integer(datalog::IntConstraint::In(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_string),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::String(datalog::StrConstraint::In(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_symbol),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Symbol(builder::SymbolConstraint::In(
-                            h.drain(..).map(|s| s.to_string()).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_bytes),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Bytes(datalog::BytesConstraint::In(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-            )),
-            preceded(space0, char(']')),
-        )(i),
-        Operator::NotIn => delimited(
-            char('['),
-            alt((
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_integer),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Integer(datalog::IntConstraint::NotIn(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_string),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::String(datalog::StrConstraint::NotIn(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_symbol),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Symbol(builder::SymbolConstraint::NotIn(
-                            h.drain(..).map(|s| s.to_string()).collect(),
-                        ))
-                    },
-                ),
-                map(
-                    separated_list1(
-                        preceded(space0, char(',')),
-                        preceded(space0, parse_bytes),
-                    ),
-                    |mut h| {
-                        builder::ConstraintKind::Bytes(datalog::BytesConstraint::NotIn(
-                            h.drain(..).collect(),
-                        ))
-                    },
-                ),
-            )),
-            preceded(space0, char(']')),
-        )(i),
-        Operator::Matches => alt((
-            map_opt(parse_string, |mut s| {
-                if !s.is_empty() {
-                    if s.get(..1) == Some("*") {
-                        let _ = s.remove(0);
-                        return Some(builder::ConstraintKind::String(
-                            datalog::StrConstraint::Suffix(s),
-                        ));
-                    } else if s.get(s.len() - 1..) == Some("*") {
-                        let _ = s.pop();
-                        return Some(builder::ConstraintKind::String(
-                            datalog::StrConstraint::Prefix(s),
-                        ));
-                    }
-                }
-                None
-            }),
-            map(
-                regex, //delimited(char('/'), parse_string_internal, char('/')),
-                |s| builder::ConstraintKind::String(datalog::StrConstraint::Regex(s)),
-            ),
-        ))(i),
-    }
+fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
+    use builder::Binary;
+    alt((
+        value(Binary::In, tag("in")),
+        value(Binary::NotIn, tag("not in")),
+        value(Binary::Prefix, tag("starts with")),
+        value(Binary::Suffix, tag("ends with")),
+        value(Binary::Regex, tag("matches")),
+    ))(i)
+}
+
+fn expr_term(i: &str) -> IResult<&str, Expr> {
+    println!("expr_term:\t{}", i);
+    alt((
+        unary,
+        map(term, Expr::Value),
+    ))(i)
+}
+
+fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
+  remainder.into_iter().fold(initial, |acc, pair| {
+    let (op, expr) = pair;
+    Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr))
+  })
+}
+
+fn expr(i: &str) -> IResult<&str, Expr> {
+    println!("expr:\t{}", i);
+    let (i, initial) = expr1(i)?;
+
+    println!("got {:?}", (i, &initial));
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_0), expr1)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+fn expr1(i: &str) -> IResult<&str, Expr> {
+    println!("expr1:\t{}", i);
+    let (i, initial) = expr2(i)?;
+
+    println!("got {:?}", (i, &initial));
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_1), expr2)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+fn expr2(i: &str) -> IResult<&str, Expr> {
+    println!("expr2:\t{}", i);
+    let (i, initial) = expr3(i)?;
+
+    println!("got {:?}", (i, &initial));
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+fn expr3(i: &str) -> IResult<&str, Expr> {
+    println!("expr3:\t{}", i);
+    let (i, initial) = expr_term(i)?;
+
+    println!("got {:?}", (i, &initial));
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_3), expr_term)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
 }
 
 fn name(i: &str) -> IResult<&str, &str> {
@@ -497,6 +431,8 @@ fn boolean(i: &str) -> IResult<&str, builder::Term> {
 
 //FIXME: replace panics with proper parse errors
 fn set(i: &str) -> IResult<&str, builder::Term> {
+    //println!("set:\t{}", i);
+    let (i, _) = preceded(space0, char('['))(i)?;
     let (i, mut list) = separated_list1(preceded(space0, char(',')), term_in_set)(i)?;
 
     let mut set = BTreeSet::new();
@@ -524,6 +460,8 @@ fn set(i: &str) -> IResult<&str, builder::Term> {
 
         set.insert(term);
     }
+
+    let (i, _) = preceded(space0, char(']'))(i)?;
 
     Ok((i, builder::set(set)))
 }
@@ -600,217 +538,238 @@ mod tests {
 
     #[test]
     fn constraint() {
+        use builder::{Expression, Op, Binary, Unary, date, var, int, set, string, symbol};
+        use std::time::{SystemTime, Duration};
+        use std::collections::BTreeSet;
+
         assert_eq!(
-            super::constraint("$0 <= 2030-12-31T12:59:59+00:00"),
+            super::expr("$0 <= 2030-12-31T12:59:59+00:00")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Date(builder::DateConstraint::Before(
-                        std::time::SystemTime::UNIX_EPOCH
-                            + std::time::Duration::from_secs(1924952399)
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399)))),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 >= 2030-12-31T12:59:59+00:00"),
+            super::expr("$0 >= 2030-12-31T12:59:59+00:00")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Date(builder::DateConstraint::After(
-                        std::time::SystemTime::UNIX_EPOCH
-                            + std::time::Duration::from_secs(1924952399)
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399)))),
+                    Op::Binary(Binary::GreaterOrEqual),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 < 1234"),
+            super::expr("$0 < 1234")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LessThan(1234)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1234)),
+                    Op::Binary(Binary::LessThan),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 > 1234"),
+            super::expr("$0 > 1234")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::GreaterThan(1234)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1234)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 <= 1234"),
+            super::expr("$0 <= 1234")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::LessOrEqual(
-                        1234
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1234)),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 >= -1234"),
+            super::expr("$0 >= -1234")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::GreaterOrEqual(
-                        -1234
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1234)),
+                    Op::Unary(Unary::Negate),
+                    Op::Binary(Binary::GreaterOrEqual),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 == 1"),
+            super::expr("$0 == 1")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::Equal(1)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1)),
+                    Op::Binary(Binary::Equal),
+                ],
             ))
         );
 
-        let h = [1, 2].iter().cloned().collect::<HashSet<_>>();
+        let h = [int(1), int(2)].iter().cloned().collect::<BTreeSet<_>>();
         assert_eq!(
-            super::constraint("$0 in [1, 2]"),
+            super::expr("$0 in [1, 2]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::In(h.clone())),
-                }
-            ))
-        );
-
-        assert_eq!(
-            super::constraint("$0 not in [1, 2]"),
-            Ok((
-                "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Integer(builder::IntConstraint::NotIn(h)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h.clone())),
+                    Op::Binary(Binary::In),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 == \"abc\""),
+            super::expr("$0 not in [1, 2]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::Equal(
-                        "abc".to_string()
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h)),
+                    Op::Binary(Binary::NotIn),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 matches \"*abc\""),
+            super::expr("$0 == \"abc\"")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::Suffix(
-                        "abc".to_string()
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::Equal),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 matches \"abc*\""),
+            super::expr("$0 ends with \"abc\"")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::Prefix(
-                        "abc".to_string()
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::Suffix),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 matches /abc[0-9]+/"),
+            super::expr("$0 starts with \"abc\"")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::Regex(
-                        "abc[0-9]+".to_string()
-                    )),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::Prefix),
+                ],
             ))
         );
 
-        let h = ["abc".to_string(), "def".to_string()]
+        assert_eq!(
+            super::expr("$0 matches \"abc[0-9]+\"")
+                .map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc[0-9]+")),
+                    Op::Binary(Binary::Regex),
+                ],
+            ))
+        );
+
+        let h = [string("abc"), string("def")]
             .iter()
             .cloned()
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::constraint("$0 in [\"abc\", \"def\"]"),
+            super::expr("$0 in [\"abc\", \"def\"]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::In(h.clone())),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h.clone())),
+                    Op::Binary(Binary::In),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 not in [\"abc\", \"def\"]"),
+            super::expr("$0 not in [\"abc\", \"def\"]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::String(datalog::StrConstraint::NotIn(h)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h.clone())),
+                    Op::Binary(Binary::NotIn),
+                ],
             ))
         );
 
-        let h = ["abc".to_string(), "def".to_string()]
+        let h = [symbol("abc"), symbol("def")]
             .iter()
             .cloned()
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::constraint("$0 in [#abc, #def]"),
+            super::expr("$0 in [#abc, #def]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Symbol(builder::SymbolConstraint::In(h.clone())),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h.clone())),
+                    Op::Binary(Binary::In),
+                ],
             ))
         );
 
         assert_eq!(
-            super::constraint("$0 not in [#abc, #def]"),
+            super::expr("$0 not in [#abc, #def]")
+                .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
-                builder::Constraint {
-                    id: "0".to_string(),
-                    kind: builder::ConstraintKind::Symbol(builder::SymbolConstraint::NotIn(h)),
-                }
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(set(h.clone())),
+                    Op::Binary(Binary::NotIn),
+                ],
             ))
         );
     }
@@ -874,8 +833,11 @@ mod tests {
 
     #[test]
     fn constrained_rule() {
+        use builder::{Expression, Op, Binary, var, date};
+        use std::time::{SystemTime, Duration};
+
         assert_eq!(
-            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\") @ $0 <= 2019-12-04T09:46:41+00:00"),
+            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\"), $0 <= 2019-12-04T09:46:41+00:00"),
             Ok((
                 "",
                 builder::constrained_rule(
@@ -887,16 +849,47 @@ mod tests {
                         builder::pred("time", &[builder::s("ambient"), builder::variable("0")]),
                         builder::pred("resource", &[builder::s("ambient"), builder::string("file1")]),
                     ],
-                    &[builder::Constraint {
-                      id: "0".to_string(),
-                      kind: builder::ConstraintKind::Date(builder::DateConstraint::Before(
-                          std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1575452801))),
-                    }]
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(var("0")),
+                            Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1575452801)))),
+                            Op::Binary(Binary::LessOrEqual),
+                        ]
+                    }],
                 )
             ))
         );
     }
 
+    #[test]
+    fn constrained_rule_ordering() {
+        use builder::{Expression, Op, Binary, var, date};
+        use std::time::{SystemTime, Duration};
+
+        assert_eq!(
+            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), $0 <= 2019-12-04T09:46:41+00:00, resource(#ambient, \"file1\")"),
+            Ok((
+                "",
+                builder::constrained_rule(
+                    "valid_date",
+                    &[
+                        builder::string("file1"),
+                    ],
+                    &[
+                        builder::pred("time", &[builder::s("ambient"), builder::variable("0")]),
+                        builder::pred("resource", &[builder::s("ambient"), builder::string("file1")]),
+                    ],
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(var("0")),
+                            Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1575452801)))),
+                            Op::Binary(Binary::LessOrEqual),
+                        ]
+                    }],
+                )
+            ))
+        );
+    }
     #[test]
     fn caveat() {
         let empty: &[builder::Term] = &[];
@@ -925,5 +918,109 @@ mod tests {
                 }
             ))
         );
+    }
+
+    #[test]
+    fn expression() {
+        use builder::{Op, Unary, Binary, Term, var, date, int, string};
+        use super::Expr;
+        use std::time::{SystemTime, Duration};
+        use crate::datalog::SymbolTable;
+
+        let mut syms = SymbolTable::new();
+
+        let input = " - 1 ";
+        println!("parsing: {}", input);
+        let res = super::expr(input);
+        assert_eq!(
+            res,
+            Ok((
+                " ",
+                Expr::Unary(Op::Unary(Unary::Negate), Box::new(Expr::Value(Term::Integer(1))))
+            ))
+        );
+
+        let ops = res.unwrap().1.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops }.convert(&mut syms);
+        println!("print: {}", e.print(&syms).unwrap());
+
+        let input = " $0 <= 2019-12-04T09:46:41+00:00";
+        println!("parsing: {}", input);
+        let res = super::expr(input);
+        assert_eq!(
+            res,
+            Ok((
+                "",
+                Expr::Binary(
+                    Op::Binary(Binary::LessOrEqual),
+                    Box::new(Expr::Value(var("0"))),
+                    Box::new(Expr::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1575452801))))
+                ))
+            ))
+        );
+
+        let ops = res.unwrap().1.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops }.convert(&mut syms);
+        println!("print: {}", e.print(&syms).unwrap());
+
+        let input = " 1 < $test + 2 ";
+        println!("parsing: {}", input);
+        let res = super::expr(input);
+        assert_eq!(
+            res,
+            Ok((
+                " ",
+                Expr::Binary(
+                    Op::Binary(Binary::LessThan),
+                    Box::new(Expr::Value(int(1))),
+                    Box::new(Expr::Binary(
+                        Op::Binary(Binary::Add),
+                        Box::new(Expr::Value(var("test"))),
+                        Box::new(Expr::Value(int(2))),
+                    ))
+                )
+            ))
+        );
+
+        let ops = res.unwrap().1.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops }.convert(&mut syms);
+        println!("print: {}", e.print(&syms).unwrap());
+
+        let input = " 2 < $test && $var2 starts with \"test\" && true ";
+        println!("parsing: {}", input);
+        let res = super::expr(input);
+        assert_eq!(
+            res,
+            Ok((
+                " ",
+                Expr::Binary(
+                    Op::Binary(Binary::And),
+                    Box::new(Expr::Binary(
+                        Op::Binary(Binary::And),
+                        Box::new(Expr::Binary(
+                            Op::Binary(Binary::LessThan),
+                            Box::new(Expr::Value(int(2))),
+                            Box::new(Expr::Value(var("test"))),
+                        )),
+                        Box::new(Expr::Binary(
+                            Op::Binary(Binary::Prefix),
+                            Box::new(Expr::Value(var("var2"))),
+                            Box::new(Expr::Value(string("test"))),
+                        )),
+                    )),
+                Box::new(Expr::Value(Term::Bool(true))),
+    )
+            ))
+        );
+
+        let ops = res.unwrap().1.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops }.convert(&mut syms);
+        println!("print: {}", e.print(&syms).unwrap());
+
+        //panic!();
     }
 }

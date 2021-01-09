@@ -166,16 +166,16 @@ pub mod v0 {
             body.push(proto_predicate_to_token_predicate(p)?);
         }
 
-        let mut constraints = vec![];
+        let mut expressions = vec![];
 
         for c in input.constraints.iter() {
-            constraints.push(proto_constraint_to_token_constraint(c)?);
+            expressions.push(proto_constraint_to_token_constraint(c)?);
         }
 
         Ok(Rule {
             head: proto_predicate_to_token_predicate(&input.head)?,
             body,
-            constraints,
+            expressions,
         })
     }
 
@@ -245,7 +245,7 @@ pub mod v0 {
 
     pub fn proto_constraint_to_token_constraint(
         input: &schema::ConstraintV0,
-    ) -> Result<Constraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -259,46 +259,27 @@ pub mod v0 {
         match kind {
             Kind::Int => {
                 if let Some(ref i) = input.int {
-                    return proto_int_constraint_to_token_int_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Int(c),
-                    });
+                    return proto_int_constraint_to_token_int_expression(ID::Variable(input.id), i);
                 }
             }
             Kind::String => {
                 if let Some(ref i) = input.str {
-                    return proto_str_constraint_to_token_str_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Str(c),
-                    });
+                    return proto_str_constraint_to_token_str_expression(ID::Variable(input.id), i);
                 }
             }
             Kind::Date => {
                 if let Some(ref i) = input.date {
-                    return proto_date_constraint_to_token_date_constraint(i).map(|c| Constraint {
-                        id: input.id,
-                        kind: ConstraintKind::Date(c),
-                    });
+                    return proto_date_constraint_to_token_date_expression(ID::Variable(input.id), i);
                 }
             }
             Kind::Symbol => {
                 if let Some(ref i) = input.symbol {
-                    return proto_symbol_constraint_to_token_symbol_constraint(i).map(|c| {
-                        Constraint {
-                            id: input.id,
-                            kind: ConstraintKind::Symbol(c),
-                        }
-                    });
+                    return proto_symbol_constraint_to_token_symbol_expression(ID::Variable(input.id), i);
                 }
             }
             Kind::Bytes => {
                 if let Some(ref i) = input.bytes {
-                    return proto_bytes_constraint_to_token_bytes_constraint(i).map(|c| {
-                        Constraint {
-                            id: input.id,
-                            kind: ConstraintKind::Bytes(c),
-                        }
-                    });
+                    return proto_bytes_constraint_to_token_bytes_expression(ID::Variable(input.id), i);
                 }
             }
         }
@@ -308,9 +289,10 @@ pub mod v0 {
         ))
     }
 
-    pub fn proto_int_constraint_to_token_int_constraint(
+    pub fn proto_int_constraint_to_token_int_expression(
+        id: ID,
         input: &schema::IntConstraintV0,
-    ) -> Result<IntConstraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::int_constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -324,39 +306,45 @@ pub mod v0 {
         match kind {
             Kind::Lower => {
                 if let Some(i) = input.lower {
-                    return Ok(IntConstraint::LessThan(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::LessThan)] });
                 }
             }
             Kind::Larger => {
                 if let Some(i) = input.larger {
-                    return Ok(IntConstraint::GreaterThan(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::GreaterThan)] });
                 }
             }
             Kind::LowerOrEqual => {
                 if let Some(i) = input.lower_or_equal {
-                    return Ok(IntConstraint::LessOrEqual(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::LessOrEqual)] });
                 }
             }
             Kind::LargerOrEqual => {
                 if let Some(i) = input.larger_or_equal {
-                    return Ok(IntConstraint::GreaterOrEqual(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::GreaterOrEqual)] });
                 }
             }
             Kind::Equal => {
                 if let Some(i) = input.equal {
-                    return Ok(IntConstraint::Equal(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::Equal)] });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(IntConstraint::In(input.in_set.iter().cloned().collect()));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
+                        Op::Binary(Binary::In)
+                    ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(IntConstraint::NotIn(
-                        input.not_in_set.iter().cloned().collect(),
-                    ));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
+                        Op::Binary(Binary::NotIn)
+                    ] });
                 }
             }
         }
@@ -366,9 +354,10 @@ pub mod v0 {
         ))
     }
 
-    pub fn proto_str_constraint_to_token_str_constraint(
+    pub fn proto_str_constraint_to_token_str_expression(
+        id: ID,
         input: &schema::StringConstraintV0,
-    ) -> Result<StrConstraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::string_constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -382,34 +371,40 @@ pub mod v0 {
         match kind {
             Kind::Prefix => {
                 if let Some(ref s) = input.prefix {
-                    return Ok(StrConstraint::Prefix(s.clone()));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Prefix)] });
                 }
             }
             Kind::Suffix => {
                 if let Some(ref s) = input.suffix {
-                    return Ok(StrConstraint::Suffix(s.clone()));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Suffix)] });
                 }
             }
             Kind::Equal => {
                 if let Some(ref s) = input.equal {
-                    return Ok(StrConstraint::Equal(s.clone()));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Equal)] });
                 }
             }
             Kind::Regex => {
                 if let Some(ref r) = input.regex {
-                    return Ok(StrConstraint::Regex(r.clone()));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(r.clone())), Op::Binary(Binary::Regex)] });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(StrConstraint::In(input.in_set.iter().cloned().collect()));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
+                        Op::Binary(Binary::In)
+                    ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(StrConstraint::NotIn(
-                        input.not_in_set.iter().cloned().collect(),
-                    ));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
+                        Op::Binary(Binary::NotIn)
+                    ] });
                 }
             }
         }
@@ -419,9 +414,10 @@ pub mod v0 {
         ))
     }
 
-    pub fn proto_date_constraint_to_token_date_constraint(
+    pub fn proto_date_constraint_to_token_date_expression(
+        id: ID,
         input: &schema::DateConstraintV0,
-    ) -> Result<DateConstraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::date_constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -435,12 +431,12 @@ pub mod v0 {
         match kind {
             Kind::Before => {
                 if let Some(i) = input.before {
-                    return Ok(DateConstraint::Before(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Date(i)), Op::Binary(Binary::LessOrEqual)] });
                 }
             }
             Kind::After => {
                 if let Some(i) = input.after {
-                    return Ok(DateConstraint::After(i));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Date(i)), Op::Binary(Binary::GreaterOrEqual)] });
                 }
             }
         }
@@ -450,9 +446,10 @@ pub mod v0 {
         ))
     }
 
-    pub fn proto_symbol_constraint_to_token_symbol_constraint(
+    pub fn proto_symbol_constraint_to_token_symbol_expression(
+        id: ID,
         input: &schema::SymbolConstraintV0,
-    ) -> Result<SymbolConstraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::symbol_constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -466,14 +463,20 @@ pub mod v0 {
         match kind {
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(SymbolConstraint::In(input.in_set.iter().cloned().collect()));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
+                        Op::Binary(Binary::In)
+                    ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(SymbolConstraint::NotIn(
-                        input.not_in_set.iter().cloned().collect(),
-                    ));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
+                        Op::Binary(Binary::NotIn)
+                    ] });
                 }
             }
         }
@@ -483,9 +486,10 @@ pub mod v0 {
         ))
     }
 
-    pub fn proto_bytes_constraint_to_token_bytes_constraint(
+    pub fn proto_bytes_constraint_to_token_bytes_expression(
+        id: ID,
         input: &schema::BytesConstraintV0,
-    ) -> Result<BytesConstraint, error::Format> {
+    ) -> Result<Expression, error::Format> {
         use schema::bytes_constraint_v0::Kind;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
@@ -499,19 +503,25 @@ pub mod v0 {
         match kind {
             Kind::Equal => {
                 if let Some(ref s) = input.equal {
-                    return Ok(BytesConstraint::Equal(s.clone()));
+                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Bytes(s.clone())), Op::Binary(Binary::Equal)] });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(BytesConstraint::In(input.in_set.iter().cloned().collect()));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
+                        Op::Binary(Binary::In)
+                    ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(BytesConstraint::NotIn(
-                        input.not_in_set.iter().cloned().collect(),
-                    ));
+                    return Ok(Expression { ops: vec![
+                        Op::Value(id),
+                        Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
+                        Op::Binary(Binary::NotIn)
+                    ] });
                 }
             }
         }
@@ -564,10 +574,10 @@ pub mod v1 {
                 .iter()
                 .map(token_predicate_to_proto_predicate)
                 .collect(),
-            constraints: input
-                .constraints
+            expressions: input
+                .expressions
                 .iter()
-                .map(token_constraint_to_proto_constraint)
+                .map(token_expression_to_proto_expression)
                 .collect(),
         }
     }
@@ -579,16 +589,16 @@ pub mod v1 {
             body.push(proto_predicate_to_token_predicate(p)?);
         }
 
-        let mut constraints = vec![];
+        let mut expressions = vec![];
 
-        for c in input.constraints.iter() {
-            constraints.push(proto_constraint_to_token_constraint(c)?);
+        for c in input.expressions.iter() {
+            expressions.push(proto_expression_to_token_expression(c)?);
         }
 
         Ok(Rule {
             head: proto_predicate_to_token_predicate(&input.head)?,
             body,
-            constraints,
+            expressions,
         })
     }
 
@@ -706,46 +716,96 @@ pub mod v1 {
         }
     }
 
-    pub fn token_constraint_to_proto_constraint(input: &Constraint) -> schema::ConstraintV1 {
-        use schema::constraint_v1::Constraint;
+    pub fn token_expression_to_proto_expression(input: &Expression) -> schema::ExpressionV1 {
+        schema::ExpressionV1 {
+            ops: input.ops.iter().map(|op| {
+                let content = match op {
+                    Op::Value(i) => schema::op::Content::Value(token_id_to_proto_id(i)),
+                    Op::Unary(u) => {
+                        use schema::op_unary::Kind;
 
-        match input.kind {
-            ConstraintKind::Int(ref c) => schema::ConstraintV1 {
-                id: input.id,
-                constraint: Some(Constraint::Int(
-                    token_int_constraint_to_proto_int_constraint(c),
-                )),
-            },
-            ConstraintKind::Str(ref c) => schema::ConstraintV1 {
-                id: input.id,
-                constraint: Some(Constraint::String(
-                    token_str_constraint_to_proto_str_constraint(c),
-                )),
-            },
-            ConstraintKind::Date(ref c) => schema::ConstraintV1 {
-                id: input.id,
-                constraint: Some(Constraint::Date(
-                    token_date_constraint_to_proto_date_constraint(c),
-                )),
-            },
-            ConstraintKind::Symbol(ref c) => schema::ConstraintV1 {
-                id: input.id,
-                constraint: Some(Constraint::Symbol(
-                    token_symbol_constraint_to_proto_symbol_constraint(c),
-                )),
-            },
-            ConstraintKind::Bytes(ref c) => schema::ConstraintV1 {
-                id: input.id,
-                constraint: Some(Constraint::Bytes(
-                    token_bytes_constraint_to_proto_bytes_constraint(c),
-                )),
-            },
+                        schema::op::Content::Unary(schema::OpUnary {
+                            kind: match u {
+                                Unary::Negate => Kind::Negate,
+                            } as i32,
+                        })
+                    },
+                    Op::Binary(b) => {
+                        use schema::op_binary::Kind;
+
+                        schema::op::Content::Binary(schema::OpBinary {
+                            kind: match b {
+                                Binary::LessThan => Kind::LessThan,
+                                Binary::GreaterThan => Kind::GreaterThan,
+                                Binary::LessOrEqual => Kind::LessOrEqual,
+                                Binary::GreaterOrEqual => Kind::GreaterOrEqual,
+                                Binary::Equal => Kind::Equal,
+                                Binary::In => Kind::In,
+                                Binary::NotIn => Kind::NotIn,
+                                Binary::Prefix => Kind::Prefix,
+                                Binary::Suffix => Kind::Suffix,
+                                Binary::Regex => Kind::Regex,
+                                Binary::Add => Kind::Add,
+                                Binary::Sub => Kind::Sub,
+                                Binary::Mul => Kind::Mul,
+                                Binary::Div => Kind::Div,
+                                Binary::And => Kind::And,
+                                Binary::Or => Kind::Or,
+                            } as i32,
+                        })
+                    },
+                };
+
+                schema::Op { content: Some(content) }
+            }).collect(),
         }
     }
 
-    pub fn proto_constraint_to_token_constraint(
-        input: &schema::ConstraintV1,
-    ) -> Result<Constraint, error::Format> {
+    pub fn proto_expression_to_token_expression(
+        input: &schema::ExpressionV1,
+    ) -> Result<Expression, error::Format> {
+        use schema::{op, op_unary, op_binary};
+        let mut ops = Vec::new();
+
+        for op in input.ops.iter() {
+            let translated = match op.content.as_ref() {
+                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_id(&id)?),
+                Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
+                    Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
+                    None => return Err(error::Format::DeserializationError(
+                        "deserialization error: unary operation is empty".to_string(),
+                    )),
+                }
+                Some(op::Content::Binary(b)) => match op_binary::Kind::from_i32(b.kind) {
+                    Some(op_binary::Kind::LessThan) => Op::Binary(Binary::LessThan),
+                    Some(op_binary::Kind::GreaterThan) => Op::Binary(Binary::GreaterThan),
+                    Some(op_binary::Kind::LessOrEqual) => Op::Binary(Binary::LessOrEqual),
+                    Some(op_binary::Kind::GreaterOrEqual) => Op::Binary(Binary::GreaterOrEqual),
+                    Some(op_binary::Kind::Equal) => Op::Binary(Binary::Equal),
+                    Some(op_binary::Kind::In) => Op::Binary(Binary::In),
+                    Some(op_binary::Kind::NotIn) => Op::Binary(Binary::NotIn),
+                    Some(op_binary::Kind::Prefix) => Op::Binary(Binary::Prefix),
+                    Some(op_binary::Kind::Suffix) => Op::Binary(Binary::Suffix),
+                    Some(op_binary::Kind::Regex) => Op::Binary(Binary::Regex),
+                    Some(op_binary::Kind::Add) => Op::Binary(Binary::Add),
+                    Some(op_binary::Kind::Sub) => Op::Binary(Binary::Sub),
+                    Some(op_binary::Kind::Mul) => Op::Binary(Binary::Mul),
+                    Some(op_binary::Kind::Div) => Op::Binary(Binary::Div),
+                    Some(op_binary::Kind::And) => Op::Binary(Binary::And),
+                    Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
+                    None => return Err(error::Format::DeserializationError(
+                        "deserialization error: binary operation is empty".to_string(),
+                    )),
+                }
+                None => return Err(error::Format::DeserializationError(
+                    "deserialization error: operation is empty".to_string(),
+                    )),
+            };
+            ops.push(translated);
+        }
+
+        Ok(Expression { ops })
+        /*
         use schema::constraint_v1;
 
         match &input.constraint {
@@ -782,223 +842,6 @@ pub mod v1 {
                     kind: ConstraintKind::Bytes(c),
                 })
             }
-        }
-    }
-
-    pub fn token_int_constraint_to_proto_int_constraint(
-        input: &IntConstraint,
-    ) -> schema::IntConstraintV1 {
-        use schema::int_constraint_v1::Constraint;
-
-        match input {
-            IntConstraint::LessThan(i) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::LessThan(*i)),
-            },
-            IntConstraint::GreaterThan(i) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::GreaterThan(*i)),
-            },
-            IntConstraint::LessOrEqual(i) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::LessOrEqual(*i)),
-            },
-            IntConstraint::GreaterOrEqual(i) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::GreaterOrEqual(*i)),
-            },
-            IntConstraint::Equal(i) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::Equal(*i)),
-            },
-            IntConstraint::In(s) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::InSet(schema::IntSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-            IntConstraint::NotIn(s) => schema::IntConstraintV1 {
-                constraint: Some(Constraint::NotInSet(schema::IntSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-        }
-    }
-
-    pub fn proto_int_constraint_to_token_int_constraint(
-        input: &schema::IntConstraintV1,
-    ) -> Result<IntConstraint, error::Format> {
-        use schema::int_constraint_v1::Constraint;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: integer constraint enum is empty".to_string(),
-            )),
-            Some(Constraint::LessThan(i)) => Ok(IntConstraint::LessThan(*i)),
-            Some(Constraint::GreaterThan(i)) => Ok(IntConstraint::GreaterThan(*i)),
-            Some(Constraint::LessOrEqual(i)) => Ok(IntConstraint::LessOrEqual(*i)),
-            Some(Constraint::GreaterOrEqual(i)) => Ok(IntConstraint::GreaterOrEqual(*i)),
-            Some(Constraint::Equal(i)) => Ok(IntConstraint::Equal(*i)),
-            Some(Constraint::InSet(schema::IntSet { set })) => {
-                Ok(IntConstraint::In(set.iter().cloned().collect()))
-            }
-            Some(Constraint::NotInSet(schema::IntSet { set })) => {
-                Ok(IntConstraint::NotIn(set.iter().cloned().collect()))
-            }
-        }
-    }
-
-    pub fn token_str_constraint_to_proto_str_constraint(
-        input: &StrConstraint,
-    ) -> schema::StringConstraintV1 {
-        use schema::string_constraint_v1::Constraint;
-
-        match input {
-            StrConstraint::Prefix(s) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::Prefix(s.clone())),
-            },
-            StrConstraint::Suffix(s) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::Suffix(s.clone())),
-            },
-            StrConstraint::Equal(s) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::Equal(s.clone())),
-            },
-            StrConstraint::Regex(r) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::Regex(r.clone())),
-            },
-            StrConstraint::In(s) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::InSet(schema::StringSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-            StrConstraint::NotIn(s) => schema::StringConstraintV1 {
-                constraint: Some(Constraint::NotInSet(schema::StringSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-        }
-    }
-
-    pub fn proto_str_constraint_to_token_str_constraint(
-        input: &schema::StringConstraintV1,
-    ) -> Result<StrConstraint, error::Format> {
-        use schema::string_constraint_v1::Constraint;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: string constraint enum is empty".to_string(),
-            )),
-            Some(Constraint::Prefix(s)) => Ok(StrConstraint::Prefix(s.clone())),
-            Some(Constraint::Suffix(s)) => Ok(StrConstraint::Suffix(s.clone())),
-            Some(Constraint::Equal(s)) => Ok(StrConstraint::Equal(s.clone())),
-            Some(Constraint::InSet(schema::StringSet { set })) => {
-                Ok(StrConstraint::In(set.iter().cloned().collect()))
-            }
-            Some(Constraint::NotInSet(schema::StringSet { set })) => {
-                Ok(StrConstraint::NotIn(set.iter().cloned().collect()))
-            }
-            Some(Constraint::Regex(s)) => Ok(StrConstraint::Regex(s.clone())),
-        }
-    }
-
-    pub fn token_date_constraint_to_proto_date_constraint(
-        input: &DateConstraint,
-    ) -> schema::DateConstraintV1 {
-        use schema::date_constraint_v1::Constraint;
-
-        match input {
-            DateConstraint::Before(i) => schema::DateConstraintV1 {
-                constraint: Some(Constraint::Before(*i)),
-            },
-            DateConstraint::After(i) => schema::DateConstraintV1 {
-                constraint: Some(Constraint::After(*i)),
-            },
-        }
-    }
-
-    pub fn proto_date_constraint_to_token_date_constraint(
-        input: &schema::DateConstraintV1,
-    ) -> Result<DateConstraint, error::Format> {
-        use schema::date_constraint_v1::Constraint;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: date constraint enum is empty".to_string(),
-            )),
-            Some(Constraint::Before(i)) => Ok(DateConstraint::Before(*i)),
-            Some(Constraint::After(i)) => Ok(DateConstraint::After(*i)),
-        }
-    }
-
-    pub fn token_symbol_constraint_to_proto_symbol_constraint(
-        input: &SymbolConstraint,
-    ) -> schema::SymbolConstraintV1 {
-        use schema::symbol_constraint_v1::Constraint;
-
-        match input {
-            SymbolConstraint::In(s) => schema::SymbolConstraintV1 {
-                constraint: Some(Constraint::InSet(schema::SymbolSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-            SymbolConstraint::NotIn(s) => schema::SymbolConstraintV1 {
-                constraint: Some(Constraint::NotInSet(schema::SymbolSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-        }
-    }
-
-    pub fn proto_symbol_constraint_to_token_symbol_constraint(
-        input: &schema::SymbolConstraintV1,
-    ) -> Result<SymbolConstraint, error::Format> {
-        use schema::symbol_constraint_v1::Constraint;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: symbol constraint enum is empty".to_string(),
-            )),
-            Some(Constraint::InSet(schema::SymbolSet { set })) => {
-                Ok(SymbolConstraint::In(set.iter().cloned().collect()))
-            }
-            Some(Constraint::NotInSet(schema::SymbolSet { set })) => {
-                Ok(SymbolConstraint::NotIn(set.iter().cloned().collect()))
-            }
-        }
-    }
-
-    pub fn token_bytes_constraint_to_proto_bytes_constraint(
-        input: &BytesConstraint,
-    ) -> schema::BytesConstraintV1 {
-        use schema::bytes_constraint_v1::Constraint;
-
-        match input {
-            BytesConstraint::Equal(s) => schema::BytesConstraintV1 {
-                constraint: Some(Constraint::Equal(s.clone())),
-            },
-            BytesConstraint::In(s) => schema::BytesConstraintV1 {
-                constraint: Some(Constraint::InSet(schema::BytesSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-            BytesConstraint::NotIn(s) => schema::BytesConstraintV1 {
-                constraint: Some(Constraint::NotInSet(schema::BytesSet {
-                    set: s.iter().cloned().collect(),
-                })),
-            },
-        }
-    }
-
-    pub fn proto_bytes_constraint_to_token_bytes_constraint(
-        input: &schema::BytesConstraintV1,
-    ) -> Result<BytesConstraint, error::Format> {
-        use schema::bytes_constraint_v1::Constraint;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: bytes constraint enum is empty".to_string(),
-            )),
-            Some(Constraint::Equal(s)) => Ok(BytesConstraint::Equal(s.clone())),
-            Some(Constraint::InSet(schema::BytesSet { set })) => {
-                Ok(BytesConstraint::In(set.iter().cloned().collect()))
-            }
-            Some(Constraint::NotInSet(schema::BytesSet { set })) => {
-                Ok(BytesConstraint::NotIn(set.iter().cloned().collect()))
-            }
-        }
+        }*/
     }
 }

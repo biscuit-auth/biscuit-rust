@@ -1,7 +1,7 @@
 //! Verifier structure and associated functions
 use super::builder::{
-    constrained_rule, date, fact, pred, s, string, Constraint, ConstraintKind, Fact,
-    IntConstraint, Rule, Caveat, var,
+    constrained_rule, date, fact, pred, s, string, Fact,
+    Rule, Caveat, var, Expression, Op, Binary, Term,
 };
 use super::Biscuit;
 use crate::datalog;
@@ -200,9 +200,12 @@ impl Verifier {
             "revocation_check",
             &[var("id")],
             &[pred("revocation_id", &[var("id")])],
-            &[Constraint {
-                id: "id".to_string(),
-                kind: ConstraintKind::Integer(IntConstraint::NotIn(ids.iter().cloned().collect())),
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("id")),
+                    Op::Value(Term::Set(ids.iter().map(|i| Term::Integer(*i)).collect())),
+                    Op::Binary(Binary::NotIn),
+                ]
             }],
         );
         let _ = self.add_caveat(caveat);

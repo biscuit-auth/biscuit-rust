@@ -192,8 +192,8 @@
 //!
 //! - `caveat() <- resource("file1")`
 //! - `caveat() <- resource($0), owner("user1", $0)` the $0 represents a "hole" that must be filled with the correct value
-//! - `caveat() <- time($0) @ $0 < 2019-02-05T23:00:00Z` expiration date
-//! - `caveat() <- application($0), operation($1), user($2), right(#app, $0, $1), owner($2, $0), credit($2, $3) @ $3 > 0` verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
+//! - `caveat() <- time($0), $0 < 2019-02-05T23:00:00Z` expiration date
+//! - `caveat() <- application($0), operation($1), user($2), right(#app, $0, $1), owner($2, $0), credit($2, $3), $3 > 0` verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
 //!
 //! ## Symbols and symbol tables
 //!

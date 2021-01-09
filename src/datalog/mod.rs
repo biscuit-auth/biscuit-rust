@@ -7,9 +7,11 @@ use regex::Regex;
 
 pub type Symbol = u64;
 mod symbol;
+mod expression;
 pub use symbol::*;
+pub use expression::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum ID {
     Symbol(Symbol),
     Variable(u32),
@@ -80,117 +82,12 @@ impl Fact {
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
-    pub constraints: Vec<Constraint>,
+    pub expressions: Vec<Expression>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Constraint {
-    pub id: u32,
-    pub kind: ConstraintKind,
-}
-
-impl AsRef<Constraint> for Constraint {
-    fn as_ref(&self) -> &Constraint {
+impl AsRef<Expression> for Expression {
+    fn as_ref(&self) -> &Expression {
         self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConstraintKind {
-    Int(IntConstraint),
-    Str(StrConstraint),
-    Date(DateConstraint),
-    Symbol(SymbolConstraint),
-    Bytes(BytesConstraint),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum IntConstraint {
-    LessThan(i64),
-    GreaterThan(i64),
-    LessOrEqual(i64),
-    GreaterOrEqual(i64),
-    Equal(i64),
-    In(HashSet<i64>),
-    NotIn(HashSet<i64>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum StrConstraint {
-    Prefix(String),
-    Suffix(String),
-    Equal(String),
-    In(HashSet<String>),
-    NotIn(HashSet<String>),
-    Regex(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum DateConstraint {
-    Before(u64),
-    After(u64),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum SymbolConstraint {
-    In(HashSet<u64>),
-    NotIn(HashSet<u64>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum BytesConstraint {
-    Equal(Vec<u8>),
-    In(HashSet<Vec<u8>>),
-    NotIn(HashSet<Vec<u8>>),
-}
-
-impl Constraint {
-    pub fn check(&self, name: u32, id: &ID) -> bool {
-        if name != self.id {
-            return true;
-        }
-
-        match (id, &self.kind) {
-            (ID::Variable(_), _) => panic!("should not check constraint on a variable"),
-            (ID::Integer(i), ConstraintKind::Int(c)) => match c {
-                IntConstraint::LessThan(j) => *i < *j,
-                IntConstraint::GreaterThan(j) => *i > *j,
-                IntConstraint::LessOrEqual(j) => *i <= *j,
-                IntConstraint::GreaterOrEqual(j) => *i >= *j,
-                IntConstraint::Equal(j) => *i == *j,
-                IntConstraint::In(h) => h.contains(i),
-                IntConstraint::NotIn(h) => !h.contains(i),
-            },
-            (ID::Str(s), ConstraintKind::Str(c)) => match c {
-                StrConstraint::Prefix(pref) => s.as_str().starts_with(pref.as_str()),
-                StrConstraint::Suffix(suff) => s.as_str().ends_with(suff.as_str()),
-                StrConstraint::Equal(s2) => s == s2,
-                StrConstraint::Regex(r) => {
-                  if let Some(re) = Regex::new(r).ok() {
-                    re.is_match(s)
-                  } else {
-                    // an invalid regex will never match
-                    false
-                  }
-                },
-                StrConstraint::In(h) => h.contains(s),
-                StrConstraint::NotIn(h) => !h.contains(s),
-            },
-            (ID::Date(d), ConstraintKind::Date(c)) => match c {
-                DateConstraint::Before(b) => d <= b,
-                DateConstraint::After(b) => d >= b,
-            },
-            (ID::Symbol(s), ConstraintKind::Symbol(c)) => match c {
-                SymbolConstraint::In(h) => h.contains(s),
-                SymbolConstraint::NotIn(h) => !h.contains(s),
-            },
-            (ID::Bytes(s), ConstraintKind::Bytes(c)) => match c {
-                BytesConstraint::Equal(s2) => s == s2,
-                BytesConstraint::In(h) => h.contains(s),
-                BytesConstraint::NotIn(h) => !h.contains(s),
-            },
-            _ => false,
-        }
     }
 }
 
@@ -225,7 +122,7 @@ impl Rule {
         let variables = MatchedVariables::new(variables_set);
 
         new_facts.extend(
-            CombineIt::new(variables, &self.body, &self.constraints, facts).map(|h| {
+            CombineIt::new(variables, &self.body, &self.expressions, facts).map(|h| {
                 let mut p = self.head.clone();
                 for index in 0..p.ids.len() {
                     let value = match &p.ids[index] {
@@ -252,7 +149,7 @@ impl Rule {
 pub struct CombineIt<'a> {
     variables: MatchedVariables,
     predicates: &'a [Predicate],
-    constraints: &'a [Constraint],
+    expressions: &'a [Expression],
     all_facts: &'a HashSet<Fact>,
     current_facts: Box<dyn Iterator<Item = &'a Fact> + 'a>,
     current_it: Option<Box<CombineIt<'a>>>,
@@ -262,14 +159,14 @@ impl<'a> CombineIt<'a> {
     pub fn new(
         variables: MatchedVariables,
         predicates: &'a [Predicate],
-        constraints: &'a [Constraint],
+        expressions: &'a [Expression],
         facts: &'a HashSet<Fact>,
     ) -> Self {
         let p = predicates[0].clone();
         CombineIt {
             variables,
             predicates,
-            constraints,
+            expressions,
             all_facts: facts,
             current_facts: Box::new(
                 facts
@@ -287,7 +184,32 @@ impl<'a> Iterator for CombineIt<'a> {
     fn next(&mut self) -> Option<HashMap<u32, ID>> {
         // if we're the last iterator in the recursive chain, stop here
         if self.predicates.is_empty() {
-            return self.variables.complete();
+            //return None;
+            //return self.variables.complete();
+            match self.variables.complete() {
+                None => return None,
+                // we got a complete set of variables, let's test the expressions
+                Some(variables) => {
+                    //println!("predicates empty, will test variables: {:?}", variables);
+                    let mut valid = true;
+                    for e in self.expressions.iter() {
+                        match e.evaluate(&variables) {
+                            Some(ID::Bool(true)) => {},
+                            _res => {
+                                //println!("expr returned {:?}", res);
+                                valid = false;
+                                break;
+                            },
+                        }
+                    }
+
+                    if valid {
+                        return Some(variables);
+                    } else {
+                        return None;
+                    }
+                },
+            }
         }
 
         loop {
@@ -303,12 +225,6 @@ impl<'a> Iterator for CombineIt<'a> {
                         let mut match_ids = true;
                         for (key, id) in pred.ids.iter().zip(&current_fact.predicate.ids) {
                             if let (ID::Variable(k), id) = (key, id) {
-                                for c in self.constraints {
-                                    if !c.check(*k, id) {
-                                        match_ids = false;
-                                        break;
-                                    }
-                                }
                                 if !vars.insert(*k, &id) {
                                     match_ids = false;
                                 }
@@ -324,10 +240,34 @@ impl<'a> Iterator for CombineIt<'a> {
                         }
 
                         if self.predicates.len() == 1 {
-                            if let Some(val) = vars.complete() {
-                                return Some(val);
-                            } else {
-                                continue;
+                            match vars.complete() {
+                                None => {
+                                    //println!("variables not complete, continue");
+                                    continue;
+                                },
+                                // we got a complete set of variables, let's test the expressions
+                                Some(variables) => {
+                                    //println!("will test with variables: {:?}", variables);
+                                    let mut valid = true;
+                                    for e in self.expressions.iter() {
+                                        match e.evaluate(&variables) {
+                                            Some(ID::Bool(true)) => {
+                                                //println!("expression returned true");
+                                            },
+                                            e => {
+                                                //println!("expression returned {:?}", e);
+                                                valid = false;
+                                                break;
+                                            },
+                                        }
+                                    }
+
+                                    if valid {
+                                        return Some(variables);
+                                    } else {
+                                        continue;
+                                    }
+                                },
                             }
                         } else {
                             // create a new iterator with the matched variables, the rest of the predicates,
@@ -335,7 +275,7 @@ impl<'a> Iterator for CombineIt<'a> {
                             self.current_it = Some(Box::new(CombineIt::new(
                                 vars,
                                 &self.predicates[1..],
-                                self.constraints,
+                                self.expressions,
                                 &self.all_facts,
                             )));
                         }
@@ -418,20 +358,20 @@ pub fn rule<I: AsRef<ID>, P: AsRef<Predicate>>(
     Rule {
         head: pred(head_name, head_ids),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        constraints: Vec::new(),
+        expressions: Vec::new(),
     }
 }
 
-pub fn constrained_rule<I: AsRef<ID>, P: AsRef<Predicate>, C: AsRef<Constraint>>(
+pub fn expressed_rule<I: AsRef<ID>, P: AsRef<Predicate>, C: AsRef<Expression>>(
     head_name: Symbol,
     head_ids: &[I],
     predicates: &[P],
-    constraints: &[C],
+    expressions: &[C],
 ) -> Rule {
     Rule {
         head: pred(head_name, head_ids),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        constraints: constraints.iter().map(|c| c.as_ref().clone()).collect(),
+        expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
     }
 }
 
@@ -718,17 +658,18 @@ mod tests {
         assert_eq!(res2, compared);
 
         // test constraints
-        let res = w.query_rule(constrained_rule(
+        let res = w.query_rule(expressed_rule(
             join,
             &[var(&mut syms, "left"), var(&mut syms, "right")],
             &[
                 pred(t1, &[var(&mut syms, "id"), var(&mut syms, "left")]),
                 pred(t2, &[var(&mut syms, "t2_id"), var(&mut syms, "right"), var(&mut syms, "id")]),
             ],
-            &[Constraint {
-                id: syms.insert("id") as u32,
-                kind: ConstraintKind::Int(IntConstraint::LessThan(1)),
-            }],
+            &[ Expression { ops: vec![
+                Op::Value(var(&mut syms, "id")),
+                Op::Value(ID::Integer(1)),
+                Op::Binary(Binary::LessThan),
+            ] } ],
         ));
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
@@ -759,17 +700,18 @@ mod tests {
         w.add_fact(fact(route, &[&int(4), &app_1, &string("mx.example.com")]));
 
         fn test_suffix(w: &World, syms: &mut SymbolTable, suff: Symbol, route: Symbol, suffix: &str) -> Vec<Fact> {
-            w.query_rule(constrained_rule(
+            w.query_rule(expressed_rule(
                 suff,
                 &[var(syms, "app_id"), var(syms, "domain_name")],
                 &[pred(
                     route,
                     &[var(syms, "route_id"), var(syms, "app_id"), var(syms, "domain_name")],
                 )],
-                &[Constraint {
-                    id: syms.insert("domain_name") as u32,
-                    kind: ConstraintKind::Str(StrConstraint::Suffix(suffix.to_string())),
-                }],
+                &[ Expression { ops: vec![
+                    Op::Value(var(syms, "domain_name")),
+                    Op::Value(ID::Str(suffix.to_string())),
+                    Op::Binary(Binary::Suffix),
+                ] } ],
             ))
         }
 
@@ -823,21 +765,24 @@ mod tests {
         w.add_fact(fact(x, &[&date(&t1), &abc]));
         w.add_fact(fact(x, &[&date(&t3), &def]));
 
-        let r1 = constrained_rule(
+        let r1 = expressed_rule(
             before,
             &[var(&mut syms, "date"), var(&mut syms, "val")],
             &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
-                Constraint {
-                    id: syms.insert("date") as u32,
-                    kind: ConstraintKind::Date(DateConstraint::Before(t2_timestamp)),
-                },
-                Constraint {
-                    id: syms.insert("date") as u32,
-                    kind: ConstraintKind::Date(DateConstraint::After(0)),
-                },
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "date")),
+                    Op::Value(ID::Date(t2_timestamp)),
+                    Op::Binary(Binary::LessOrEqual),
+                ] },
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "date")),
+                    Op::Value(ID::Date(0)),
+                    Op::Binary(Binary::GreaterOrEqual),
+                ] },
             ],
         );
+
 
         println!("testing r1: {}", syms.print_rule(&r1));
         let res = w.query_rule(r1);
@@ -851,19 +796,21 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
 
-        let r2 = constrained_rule(
+        let r2 = expressed_rule(
             after,
             &[var(&mut syms, "date"), var(&mut syms, "val")],
             &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
-                Constraint {
-                    id: syms.insert("date") as u32,
-                    kind: ConstraintKind::Date(DateConstraint::After(t2_timestamp)),
-                },
-                Constraint {
-                    id: syms.insert("date") as u32,
-                    kind: ConstraintKind::Date(DateConstraint::After(0)),
-                },
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "date")),
+                    Op::Value(ID::Date(t2_timestamp)),
+                    Op::Binary(Binary::GreaterOrEqual),
+                ] },
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "date")),
+                    Op::Value(ID::Date(0)),
+                    Op::Binary(Binary::GreaterOrEqual),
+                ] },
             ],
         );
 
@@ -895,15 +842,19 @@ mod tests {
         w.add_fact(fact(x, &[&abc, &int(0), &string("test")]));
         w.add_fact(fact(x, &[&def, &int(2), &string("hello")]));
 
-        let res = w.query_rule(constrained_rule(
+        let res = w.query_rule(expressed_rule(
             int_set,
             &[var(&mut syms, "sym"), var(&mut syms, "str")],
             &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
-            &[Constraint {
-                id: syms.insert("int") as u32,
-                kind: ConstraintKind::Int(IntConstraint::In([0, 1].iter().cloned().collect())),
-            }],
+            &[
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "int")),
+                    Op::Value(ID::Set([ID::Integer(0), ID::Integer(1)].iter().cloned().collect())),
+                    Op::Binary(Binary::In),
+                ] },
+            ],
         ));
+
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -917,17 +868,19 @@ mod tests {
         let abc_sym_id = syms.insert("abc");
         let ghi_sym_id = syms.insert("ghi");
 
-        let res = w.query_rule(constrained_rule(
+        let res = w.query_rule(expressed_rule(
             symbol_set,
             &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")],
             &[pred(x, &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")])],
-            &[Constraint {
-                id: syms.insert("symbol") as u32,
-                kind: ConstraintKind::Symbol(SymbolConstraint::NotIn(
-                    [abc_sym_id, ghi_sym_id].iter().cloned().collect(),
-                )),
-            }],
+            &[
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "symbol")),
+                    Op::Value(ID::Set([ID::Symbol(abc_sym_id), ID::Symbol(ghi_sym_id)].iter().cloned().collect())),
+                    Op::Binary(Binary::NotIn),
+                ] },
+            ],
         ));
+
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -938,19 +891,17 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
 
-        let res = w.query_rule(constrained_rule(
+        let res = w.query_rule(expressed_rule(
             string_set,
             &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")],
             &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
-            &[Constraint {
-                id: syms.insert("str") as u32,
-                kind: ConstraintKind::Str(StrConstraint::In(
-                    ["test".to_string(), "aaa".to_string()]
-                        .iter()
-                        .cloned()
-                        .collect(),
-                )),
-            }],
+            &[
+                Expression { ops: vec![
+                    Op::Value(var(&mut syms, "str")),
+                    Op::Value(ID::Set([ID::Str("test".to_string()), ID::Str("aaa".to_string())].iter().cloned().collect())),
+                    Op::Binary(Binary::In),
+                ] },
+            ],
         ));
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
@@ -1013,5 +964,50 @@ mod tests {
         }
 
         assert!(res.is_empty());
+    }
+
+    #[test]
+    fn int_expr() {
+        let mut w = World::new();
+        let mut syms = SymbolTable::new();
+
+        let abc = syms.add("abc");
+        let def = syms.add("def");
+        let x = syms.insert("x");
+        let less_than = syms.insert("less_than");
+
+        w.add_fact(fact(x, &[&int(-2), &abc]));
+        w.add_fact(fact(x, &[&int(0), &def]));
+
+        let r1 = expressed_rule(
+            less_than,
+            &[var(&mut syms, "nb"), var(&mut syms, "val")],
+            &[pred(x, &[var(&mut syms, "nb"), var(&mut syms, "val")])],
+            &[
+                Expression { ops: vec![
+                    Op::Value(ID::Integer(5)),
+                    Op::Value(ID::Integer(-4)),
+                    Op::Binary(Binary::Add),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var(&mut syms, "nb")),
+                    Op::Binary(Binary::LessThan),
+                ] },
+            ],
+        );
+
+        println!("world:\n{}\n", syms.print_world(&w));
+        println!("\ntesting r1: {}\n", syms.print_rule(&r1));
+        let res = w.query_rule(r1);
+        for fact in &res {
+            println!("\t{}", syms.print_fact(fact));
+        }
+
+        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        println!("got res: {:?}", res2);
+        let compared = (vec![fact(less_than, &[&int(0), &def])])
+            .drain(..)
+            .collect::<HashSet<_>>();
+        assert_eq!(res2, compared);
+        //panic!();
     }
 }

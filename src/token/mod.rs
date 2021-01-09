@@ -922,7 +922,7 @@ mod tests {
                         block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
-                            "prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*"
+                            "prefix($resource) <- resource(#ambient, $resource), $resource starts with \"/folder1/\""
                         )
                     }),
                 ])))
@@ -938,7 +938,7 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix($resource) <- resource(#ambient, $resource) @ $resource matches /folder1/*") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix($resource) <- resource(#ambient, $resource), $resource starts with \"/folder1/\"") }),
                 FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
               ]))));
         }
@@ -1253,7 +1253,7 @@ mod tests {
         println!("biscuit1 (authority): {}", biscuit1.print());
 
         let mut block2 = biscuit1.create_block();
-        block2.add_rule("has_bytes($0) <- bytes(#authority, $0) @ $0 in [ hex:00000000, hex:0102AB ]").unwrap();
+        block2.add_rule("has_bytes($0) <- bytes(#authority, $0), $0 in [ hex:00000000, hex:0102AB ]").unwrap();
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1
             .append_with_rng(&mut rng, &keypair2, block2)

@@ -7,10 +7,10 @@ use crate::datalog::{
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
 use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH},
-  collections::{HashSet, BTreeSet}};
+  collections::BTreeSet};
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{IntConstraint, StrConstraint, BytesConstraint};
+pub use crate::datalog::{Unary, Binary};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -125,9 +125,12 @@ impl BlockBuilder {
             "prefix",
             &[var("resource")],
             &[pred("resource", &[s("ambient"), var("resource")])],
-            &[Constraint {
-                id: "resource".to_string(),
-                kind: ConstraintKind::String(datalog::StrConstraint::Prefix(prefix.to_string())),
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(prefix)),
+                    Op::Binary(Binary::Prefix),
+                ]
             }],
         );
 
@@ -139,23 +142,29 @@ impl BlockBuilder {
             "suffix",
             &[var("resource")],
             &[pred("resource", &[s("ambient"), var("resource")])],
-            &[Constraint {
-                id: "resource".to_string(),
-                kind: ConstraintKind::String(datalog::StrConstraint::Suffix(suffix.to_string())),
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(suffix)),
+                    Op::Binary(Binary::Suffix),
+                ]
             }],
         );
 
         let _ = self.add_caveat(caveat);
     }
 
-    pub fn expiration_date(&mut self, date: SystemTime) {
+    pub fn expiration_date(&mut self, exp: SystemTime) {
         let caveat = constrained_rule(
             "expiration",
             &[var("date")],
             &[pred("time", &[s("ambient"), var("date")])],
-            &[Constraint {
-                id: "date".to_string(),
-                kind: ConstraintKind::Date(DateConstraint::Before(date)),
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("date")),
+                    Op::Value(date(&exp)),
+                    Op::Binary(Binary::LessOrEqual),
+                ]
             }],
         );
 
@@ -421,175 +430,86 @@ impl fmt::Display for Fact {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Constraint {
-    pub id: String,
-    pub kind: ConstraintKind,
+pub struct Expression {
+    pub ops: Vec<Op>,
 }
 
-impl Constraint {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Constraint {
-        datalog::Constraint {
-          // this conversion should be fine, the symbol table will not grow to
-          // more than u32::MAX entries
-          id: symbols.insert(&self.id) as u32,
-          kind: self.kind.convert(symbols),
+impl Expression {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Expression {
+        datalog::Expression {
+            ops: self.ops.iter().map(|op| op.convert(symbols)).collect()
         }
     }
 
-    pub fn convert_from(c: &datalog::Constraint, symbols: &SymbolTable) -> Self {
-        Constraint {
-            id: symbols.print_symbol(c.id as u64),
-            kind: ConstraintKind::convert_from(&c.kind, symbols),
+    pub fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
+        Expression {
+            ops: e.ops.iter().map(|op| Op::convert_from(op, symbols)).collect()
         }
     }
 }
 
-impl AsRef<Constraint> for Constraint {
-    fn as_ref(&self) -> &Constraint {
+impl AsRef<Expression> for Expression {
+    fn as_ref(&self) -> &Expression {
         self
     }
 }
 
-impl fmt::Display for Constraint {
+impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
-            ConstraintKind::Integer(IntConstraint::LessThan(i)) => write!(f, "${} < {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::GreaterThan(i)) => write!(f, "${} > {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::LessOrEqual(i)) => write!(f, "${} <= {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::GreaterOrEqual(i)) => write!(f, "${} >= {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::Equal(i)) => write!(f, "${} == {}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
-            ConstraintKind::Integer(IntConstraint::NotIn(i)) => write!(f, "${} not in {:?}", self.id, i),
-            ConstraintKind::String(StrConstraint::Prefix(i)) => write!(f, "${} matches {}*", self.id, i),
-            ConstraintKind::String(StrConstraint::Suffix(i)) => write!(f, "${} matches *{}", self.id, i),
-            ConstraintKind::String(StrConstraint::Equal(i)) => write!(f, "${} == {}", self.id, i),
-            ConstraintKind::String(StrConstraint::Regex(i)) => write!(f, "${} matches /{}/", self.id, i),
-            ConstraintKind::String(StrConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
-            ConstraintKind::String(StrConstraint::NotIn(i)) => write!(f, "${} not in {:?}", self.id, i),
-            ConstraintKind::Date(DateConstraint::Before(date)) => {
-              //let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              let date: chrono::DateTime<chrono::Utc> = (*date).into();
-              write!(f, "${} <= {}", self.id, date.to_rfc3339())
-            },
-            ConstraintKind::Date(DateConstraint::After(date)) => {
-              //let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              let date: chrono::DateTime<chrono::Utc> = (*date).into();
-              write!(f, "${} >= {}", self.id, date.to_rfc3339())
-            },
-            ConstraintKind::Symbol(SymbolConstraint::In(i)) => write!(f, "${} in {:?}", self.id, i),
-            ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
-                write!(f, "${} not in {:?}", self.id, i)
-            },
-            ConstraintKind::Bytes(BytesConstraint::Equal(i)) => write!(f, "${} == {}", self.id, hex::encode(i)),
-            ConstraintKind::Bytes(BytesConstraint::In(i)) => {
-                write!(f, "${} in {:?}", self.id, i.iter()
-                       .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
-            },
-            ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
-                write!(f, "${} not in {:?}", self.id, i.iter()
-                       .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
-            },
-        }
-    }
-}
-
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConstraintKind {
-    Integer(datalog::IntConstraint),
-    String(datalog::StrConstraint),
-    Date(DateConstraint),
-    Symbol(SymbolConstraint),
-    Bytes(datalog::BytesConstraint),
-}
-
-impl ConstraintKind {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::ConstraintKind {
-      match self {
-        ConstraintKind::Integer(i) => datalog::ConstraintKind::Int(i.clone()),
-        ConstraintKind::String(s) => datalog::ConstraintKind::Str(s.clone()),
-        ConstraintKind::Bytes(s) => datalog::ConstraintKind::Bytes(s.clone()),
-        ConstraintKind::Date(DateConstraint::Before(date)) => {
-          let dur = date.duration_since(UNIX_EPOCH).expect("date should be after Unix Epoch");
-          datalog::ConstraintKind::Date(datalog::DateConstraint::Before(dur.as_secs()))
-        },
-        ConstraintKind::Date(DateConstraint::After(date)) => {
-          let dur = date.duration_since(UNIX_EPOCH).expect("date should be after Unix Epoch");
-          datalog::ConstraintKind::Date(datalog::DateConstraint::After(dur.as_secs()))
-        }
-        ConstraintKind::Symbol(SymbolConstraint::In(h)) => {
-          let hset = h.iter().map(|s| symbols.insert(&s)).collect();
-          datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::In(hset))
-        },
-        ConstraintKind::Symbol(SymbolConstraint::NotIn(h)) => {
-          let hset = h.iter().map(|s| symbols.insert(&s)).collect();
-          datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::NotIn(hset))
-        },
-      }
-    }
-
-    pub fn convert_from(c: &datalog::ConstraintKind, symbols: &SymbolTable) -> Self {
-      match c {
-        datalog::ConstraintKind::Int(i) => ConstraintKind::Integer(i.clone()),
-        datalog::ConstraintKind::Str(s) => ConstraintKind::String(s.clone()),
-        datalog::ConstraintKind::Date(datalog::DateConstraint::Before(secs)) => {
-          let date = UNIX_EPOCH + Duration::from_secs(*secs);
-          ConstraintKind::Date(DateConstraint::Before(date))
-        },
-        datalog::ConstraintKind::Date(datalog::DateConstraint::After(secs)) => {
-          let date = UNIX_EPOCH + Duration::from_secs(*secs);
-          ConstraintKind::Date(DateConstraint::After(date))
-        }
-        datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::In(h)) => {
-          let hset = h.iter().map(|s| symbols.print_symbol(*s)).collect();
-          ConstraintKind::Symbol(SymbolConstraint::In(hset))
-        },
-        datalog::ConstraintKind::Symbol(datalog::SymbolConstraint::NotIn(h)) => {
-          let hset = h.iter().map(|s| symbols.print_symbol(*s)).collect();
-          ConstraintKind::Symbol(SymbolConstraint::NotIn(hset))
-        },
-        datalog::ConstraintKind::Bytes(s) => ConstraintKind::Bytes(s.clone()),
-      }
+        write!(f, "FIXME: {:?}", self)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum DateConstraint {
-    Before(SystemTime),
-    After(SystemTime),
+pub enum Op {
+    Value(Term),
+    Unary(Unary),
+    Binary(Binary),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum SymbolConstraint {
-    In(HashSet<String>),
-    NotIn(HashSet<String>),
+impl Op {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Op {
+        match self {
+            Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
+            Op::Unary(u) => datalog::Op::Unary(u.clone()),
+            Op::Binary(b) => datalog::Op::Binary(b.clone()),
+        }
+    }
+
+    pub fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Self {
+        match op {
+            datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)),
+            datalog::Op::Unary(u) => Op::Unary(u.clone()),
+            datalog::Op::Binary(b) => Op::Binary(b.clone()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule(
     pub Predicate,
     pub Vec<Predicate>,
-    pub Vec<Constraint>,
+    pub Vec<Expression>,
 );
 
 impl Rule {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
         let head = self.0.convert(symbols);
         let mut body = vec![];
-        let mut constraints = vec![];
+        let mut expressions = vec![];
 
         for p in self.1.iter() {
             body.push(p.convert(symbols));
         }
 
         for c in self.2.iter() {
-            constraints.push(c.convert(symbols));
+            expressions.push(c.convert(symbols));
         }
 
         datalog::Rule {
             head,
             body,
-            constraints,
+            expressions,
         }
     }
 
@@ -597,7 +517,7 @@ impl Rule {
         Rule(
             Predicate::convert_from(&r.head, symbols),
             r.body.iter().map(|p| Predicate::convert_from(p, symbols)).collect(),
-            r.constraints.iter().map(|c| Constraint::convert_from(c, symbols)).collect(),
+            r.expressions.iter().map(|c| Expression::convert_from(c, symbols)).collect(),
         )
     }
 }
@@ -617,7 +537,7 @@ impl fmt::Display for Rule {
         }
 
         if self.2.len() > 0 {
-            write!(f, " @ {}", self.2[0])?;
+            write!(f, ", {}", self.2[0])?;
 
             if self.2.len() > 1 {
                 for i in 1..self.2.len() {
@@ -715,16 +635,16 @@ pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Constraint>>(
+pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
     head_name: &str,
     head_ids: &[I],
     predicates: &[P],
-    constraints: &[C],
+    expressions: &[E],
 ) -> Rule {
     Rule(
         pred(head_name, head_ids),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        constraints.iter().map(|c| c.as_ref().clone()).collect(),
+        expressions.iter().map(|c| c.as_ref().clone()).collect(),
     )
 }
 

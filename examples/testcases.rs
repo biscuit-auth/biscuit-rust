@@ -15,7 +15,7 @@ use std::{
   fs::File,
   io::Write,
   time::*,
-  collections::HashSet
+  collections::BTreeSet
 };
 
 fn main() {
@@ -888,17 +888,20 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
             pred("time", &[s("ambient"), variable("0")]),
             pred("resource", &[s("ambient"), string("file1")]),
         ],
-        &[Constraint {
-          id: "0".to_string(),
-          kind: ConstraintKind::Date(DateConstraint::Before(date1)),
-        }]
+        &[
+            Expression { ops: vec![
+                Op::Value(var("0")),
+                Op::Value(date(&date1)),
+                Op::Binary(Binary::LessOrEqual)
+            ] },
+        ],
     ));
 
     // timestamp for Friday, December 31, 1999 12:59:59 PM UTC
     let date2 = SystemTime::UNIX_EPOCH + Duration::from_secs(946645199);
 
-    let mut strings = HashSet::new();
-    strings.insert("file1".to_string());
+    let mut strings = BTreeSet::new();
+    strings.insert(string("file1"));
 
     // generate a valid date fact for any file other than "file1" if before date2
     block2.add_rule(constrained_rule(
@@ -909,15 +912,17 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
             pred("resource", &[s("ambient"), variable("1")]),
         ],
         &[
-          Constraint {
-            id: "0".to_string(),
-            kind: ConstraintKind::Date(DateConstraint::Before(date2)),
-          },
-          Constraint {
-            id: "1".to_string(),
-            kind: ConstraintKind::String(StrConstraint::NotIn(strings))
-          }
-        ]
+            Expression { ops: vec![
+                Op::Value(var("0")),
+                Op::Value(date(&date2)),
+                Op::Binary(Binary::LessOrEqual)
+            ] },
+            Expression { ops: vec![
+                Op::Value(var("1")),
+                Op::Value(set(strings)),
+                Op::Binary(Binary::NotIn)
+            ] },
+        ],
     ));
 
     block2.add_caveat(rule(
@@ -986,12 +991,11 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         &[
             pred("resource", &[s("ambient"), variable("0")]),
         ],
-        &[
-          Constraint {
-            id: "0".to_string(),
-            kind: ConstraintKind::String(StrConstraint::Regex("file[0-9]+.txt".to_string())),
-          },
-        ]
+        &[Expression { ops: vec![
+            Op::Value(var("0")),
+            Op::Value(string("file[0-9]+.txt")),
+            Op::Binary(Binary::Regex)
+        ] } ],
     ));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();

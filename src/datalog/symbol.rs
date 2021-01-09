@@ -4,9 +4,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;
-use super::{ID, World, Fact, Rule, Constraint, ConstraintKind, Caveat,
-  IntConstraint, StrConstraint, SymbolConstraint, BytesConstraint,
-  DateConstraint, Predicate};
+use super::{ID, World, Fact, Rule, Caveat, Predicate};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
@@ -65,8 +63,8 @@ impl SymbolTable {
             ID::Str(s) => format!("\"{}\"", s),
             ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
             ID::Date(d) => {
-                let t = UNIX_EPOCH + Duration::from_secs(*d);
-                format!("{:?}", t)
+                let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
+                format!("{}", date.to_rfc3339())
             },
             ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
             ID::Bool(b) => if *b {
@@ -75,16 +73,11 @@ impl SymbolTable {
                 "false".to_string()
             },
             ID::Set(s) => {
-                let ids = s
-                    .iter()
-                    .map(|id| self.print_id(id))
-                    .collect::<Vec<_>>();
-
-                format!("[ {}]", ids.join(", "))
+                let ids = s.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
+                format!("{:?}", ids)
             }
         }
     }
-
     pub fn print_fact(&self, f: &Fact) -> String {
         self.print_predicate(&f.predicate)
     }
@@ -105,65 +98,31 @@ impl SymbolTable {
         )
     }
 
-    pub fn print_constraint(&self, c: &Constraint) -> String {
-        match &c.kind {
-            ConstraintKind::Int(IntConstraint::LessThan(i)) => format!("${} < {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::GreaterThan(i)) => format!("${} > {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::LessOrEqual(i)) => format!("${} <= {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::GreaterOrEqual(i)) => format!("${} >= {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::Equal(i)) => format!("${} == {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::In(i)) => format!("${} in {:?}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Int(IntConstraint::NotIn(i)) => format!("${} not in {:?}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::Prefix(i)) => format!("${} matches {}*", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::Suffix(i)) => format!("${} matches *{}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::Equal(i)) => format!("${} == {}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::Regex(i)) => format!("${} matches /{}/", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::In(i)) => format!("${} in {:?}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Str(StrConstraint::NotIn(i)) => format!("${} not in {:?}", self.print_symbol(c.id as u64), i),
-            ConstraintKind::Date(DateConstraint::Before(i)) => {
-              let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} <= {}", self.print_symbol(c.id as u64), date.to_rfc3339())
-            },
-            ConstraintKind::Date(DateConstraint::After(i)) => {
-              let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*i as i64, 0), Utc);
-              format!("${} >= {}", self.print_symbol(c.id as u64), date.to_rfc3339())
-            },
-            ConstraintKind::Symbol(SymbolConstraint::In(i)) => format!("${} in {:?}", c.id, i),
-            ConstraintKind::Symbol(SymbolConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", self.print_symbol(c.id as u64), i)
-            }
-            ConstraintKind::Bytes(BytesConstraint::Equal(i)) => format!("${} == hex:{}", c.id, hex::encode(i)),
-            ConstraintKind::Bytes(BytesConstraint::In(i)) => {
-                format!("${} in {:?}", self.print_symbol(c.id as u64), i.iter()
-                        .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
-            },
-            ConstraintKind::Bytes(BytesConstraint::NotIn(i)) => {
-                format!("${} not in {:?}", self.print_symbol(c.id as u64), i.iter()
-                        .map(|s| format!("hex:{}", hex::encode(s))).collect::<HashSet<_>>())
-            },
-        }
+    pub fn print_expression(&self, e: &super::expression::Expression) -> String {
+        e.print(self).unwrap_or_else(|| format!("<invalid expression: {:?}>", e.ops))
     }
 
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
         let preds: Vec<_> = r.body.iter().map(|p| self.print_predicate(p)).collect();
-        let constraints: Vec<_> = r
-            .constraints
+
+        let expressions: Vec<_> = r
+            .expressions
             .iter()
-            .map(|c| self.print_constraint(c))
+            .map(|c| self.print_expression(c))
             .collect();
 
-        let c = if constraints.is_empty() {
-          String::new()
+        let e = if expressions.is_empty() {
+            String::new()
         } else {
-          format!(" @ {}", constraints.join(", "))
+            format!(", {}", expressions.join(", "))
         };
 
         format!(
             "{} <- {}{}",
             res,
             preds.join(", "),
-            c
+            e
         )
     }
 

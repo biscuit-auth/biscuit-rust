@@ -265,7 +265,7 @@ pub struct RuleV1 {
     #[prost(message, repeated, tag="2")]
     pub body: ::prost::alloc::vec::Vec<PredicateV1>,
     #[prost(message, repeated, tag="3")]
-    pub constraints: ::prost::alloc::vec::Vec<ConstraintV1>,
+    pub expressions: ::prost::alloc::vec::Vec<ExpressionV1>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CaveatV1 {
@@ -448,4 +448,67 @@ pub mod bytes_constraint_v1 {
 pub struct BytesSet {
     #[prost(bytes="vec", repeated, tag="1")]
     pub set: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExpressionV1 {
+    #[prost(message, repeated, tag="1")]
+    pub ops: ::prost::alloc::vec::Vec<Op>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Op {
+    #[prost(oneof="op::Content", tags="1, 2, 3")]
+    pub content: ::core::option::Option<op::Content>,
+}
+/// Nested message and enum types in `Op`.
+pub mod op {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(message, tag="1")]
+        Value(super::Idv1),
+        #[prost(message, tag="2")]
+        Unary(super::OpUnary),
+        #[prost(message, tag="3")]
+        Binary(super::OpBinary),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpUnary {
+    #[prost(enumeration="op_unary::Kind", required, tag="1")]
+    pub kind: i32,
+}
+/// Nested message and enum types in `OpUnary`.
+pub mod op_unary {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Kind {
+        Negate = 0,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpBinary {
+    #[prost(enumeration="op_binary::Kind", required, tag="1")]
+    pub kind: i32,
+}
+/// Nested message and enum types in `OpBinary`.
+pub mod op_binary {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Kind {
+        LessThan = 0,
+        GreaterThan = 1,
+        LessOrEqual = 2,
+        GreaterOrEqual = 3,
+        Equal = 4,
+        In = 5,
+        NotIn = 6,
+        Prefix = 7,
+        Suffix = 8,
+        Regex = 9,
+        Add = 10,
+        Sub = 11,
+        Mul = 12,
+        Div = 13,
+        And = 14,
+        Or = 15,
+    }
 }
