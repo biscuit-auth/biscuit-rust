@@ -77,10 +77,10 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .iter()
             .map(v1::token_rule_to_proto_rule)
             .collect(),
-        caveats_v1: input
-            .caveats
+        checks_v1: input
+            .checks
             .iter()
-            .map(v1::token_caveat_to_proto_caveat)
+            .map(v1::token_check_to_proto_check)
             .collect(),
     }
 }
@@ -96,7 +96,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 
     let mut facts = vec![];
     let mut rules = vec![];
-    let mut caveats = vec![];
+    let mut checks = vec![];
     if version == 0 {
         for fact in input.facts_v0.iter() {
             facts.push(v0::proto_fact_to_token_fact(fact)?);
@@ -107,7 +107,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         }
 
         for caveat in input.caveats_v0.iter() {
-            caveats.push(v0::proto_caveat_to_token_caveat(caveat)?);
+            checks.push(v0::proto_caveat_to_token_check(caveat)?);
         }
     } else {
         for fact in input.facts_v1.iter() {
@@ -118,8 +118,8 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
             rules.push(v1::proto_rule_to_token_rule(rule)?);
         }
 
-        for caveat in input.caveats_v1.iter() {
-            caveats.push(v1::proto_caveat_to_token_caveat(caveat)?);
+        for check in input.checks_v1.iter() {
+            checks.push(v1::proto_check_to_token_check(check)?);
         }
     }
 
@@ -132,7 +132,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         },
         facts,
         rules,
-        caveats,
+        checks,
         context,
         version,
     })
@@ -149,14 +149,14 @@ pub mod v0 {
         })
     }
 
-    pub fn proto_caveat_to_token_caveat(input: &schema::CaveatV0) -> Result<Caveat, error::Format> {
+    pub fn proto_caveat_to_token_check(input: &schema::CaveatV0) -> Result<Check, error::Format> {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
             queries.push(proto_rule_to_token_rule(q)?);
         }
 
-        Ok(Caveat { queries })
+        Ok(Check { queries })
     }
 
     pub fn proto_rule_to_token_rule(input: &schema::RuleV0) -> Result<Rule, error::Format> {
@@ -550,20 +550,20 @@ pub mod v1 {
         })
     }
 
-    pub fn token_caveat_to_proto_caveat(input: &Caveat) -> schema::CaveatV1 {
-        schema::CaveatV1 {
+    pub fn token_check_to_proto_check(input: &Check) -> schema::CheckV1 {
+        schema::CheckV1 {
             queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
         }
     }
 
-    pub fn proto_caveat_to_token_caveat(input: &schema::CaveatV1) -> Result<Caveat, error::Format> {
+    pub fn proto_check_to_token_check(input: &schema::CheckV1) -> Result<Check, error::Format> {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
             queries.push(proto_rule_to_token_rule(q)?);
         }
 
-        Ok(Caveat { queries })
+        Ok(Check { queries })
     }
 
     pub fn token_rule_to_proto_rule(input: &Rule) -> schema::RuleV1 {

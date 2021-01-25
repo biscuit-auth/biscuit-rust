@@ -46,7 +46,7 @@ pub struct Block {
     #[prost(message, repeated, tag="9")]
     pub rules_v1: ::prost::alloc::vec::Vec<RuleV1>,
     #[prost(message, repeated, tag="10")]
-    pub caveats_v1: ::prost::alloc::vec::Vec<CaveatV1>,
+    pub checks_v1: ::prost::alloc::vec::Vec<CheckV1>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FactV0 {
@@ -268,7 +268,7 @@ pub struct RuleV1 {
     pub expressions: ::prost::alloc::vec::Vec<ExpressionV1>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CaveatV1 {
+pub struct CheckV1 {
     #[prost(message, repeated, tag="1")]
     pub queries: ::prost::alloc::vec::Vec<RuleV1>,
 }

@@ -37,14 +37,14 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
     predicate(i).map(|(i, p)| (i, builder::Fact(p)))
 }
 
-/// parse a Datalog caveat
-pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
+/// parse a Datalog check
+pub fn check(i: &str) -> IResult<&str, builder::Check> {
     let (i, _) = space0(i)?;
 
     let (i, _) = tag_no_case("check if")(i)?;
 
-    let (i, queries) = caveat_body(i)?;
-    Ok((i, builder::Caveat { queries }))
+    let (i, queries) = check_body(i)?;
+    Ok((i, builder::Check { queries }))
 }
 
 /// parse an allow rule
@@ -58,7 +58,7 @@ pub fn allow(i: &str) -> IResult<&str, builder::Policy> {
 
     let (i, _) = tag_no_case("allow if")(i)?;
 
-    let (i, queries) = caveat_body(i)?;
+    let (i, queries) = check_body(i)?;
     Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Allow }))
 }
 
@@ -68,12 +68,12 @@ pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
 
     let (i, _) = tag_no_case("deny if")(i)?;
 
-    let (i, queries) = caveat_body(i)?;
+    let (i, queries) = check_body(i)?;
     Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Deny }))
 }
 
-/// parse a Datalog caveat body
-pub fn caveat_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
+/// parse a Datalog check body
+pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
     let (i, mut queries) = separated_list1(
       preceded(space0, tag_no_case("or")),
       preceded(space0, rule_body)
@@ -144,21 +144,21 @@ impl FromStr for builder::Rule {
     }
 }
 
-impl TryFrom<&str> for builder::Caveat {
+impl TryFrom<&str> for builder::Check {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        caveat(value)
+        check(value)
             .map(|(_, o)| o)
             .map_err(|_| error::Token::ParseError)
     }
 }
 
-impl FromStr for builder::Caveat {
+impl FromStr for builder::Check {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        caveat(s)
+        check(s)
             .map(|(_, o)| o)
             .map_err(|_| error::Token::ParseError)
     }
@@ -952,13 +952,13 @@ mod tests {
         );
     }
     #[test]
-    fn caveat() {
+    fn check() {
         let empty: &[builder::Term] = &[];
         assert_eq!(
-            super::caveat("check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"),
+            super::check("check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"),
             Ok((
                 "",
-                builder::Caveat {
+                builder::Check {
                     queries: vec![
                         builder::rule(
                             "query",

@@ -78,10 +78,10 @@ fn main() {
     authority_rules(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    verifier_authority_caveats(&mut rng, &target, &root, test);
+    verifier_authority_checks(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    authority_caveats(&mut rng, &target, &root, test);
+    authority_checks(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
     block_rules(&mut rng, &target, &root, test);
@@ -90,10 +90,10 @@ fn main() {
     regex_constraint(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    multi_queries_caveats(&mut rng, &target, &root, test);
+    multi_queries_checks(&mut rng, &target, &root, test);
 
     println!("\n------------------------------\n");
-    caveat_head_name(&mut rng, &target, &root, test);
+    check_head_name(&mut rng, &target, &root, test);
 }
 
 fn validate_token(
@@ -101,7 +101,7 @@ fn validate_token(
     data: &[u8],
     ambient_facts: Vec<Fact>,
     ambient_rules: Vec<Rule>,
-    caveats: Vec<Vec<Rule>>,
+    checks: Vec<Vec<Rule>>,
 ) -> Result<(), error::Token> {
     let token = Biscuit::from(&data[..])?;
 
@@ -112,8 +112,8 @@ fn validate_token(
     for rule in ambient_rules {
         verifier.add_rule(rule);
     }
-    for caveat in caveats {
-        verifier.add_caveat(&caveat[..]);
+    for check in checks {
+        verifier.add_check(&check[..]);
     }
 
     println!("verifier world:\n{}", verifier.print_world());
@@ -161,8 +161,8 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -183,7 +183,7 @@ fn basic_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         print_diff(&actual, &expected);
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test1_basic", &data[..]);
@@ -217,8 +217,8 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -234,7 +234,7 @@ fn different_root_key<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyP
         let v = load_testcase(target, "test2_different_root_key");
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test2_different_root_key", &data[..]);
@@ -275,8 +275,8 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -292,7 +292,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(rng: &mut T, target: &str, root:
         let v = load_testcase(target, "test3_invalid_signature_format");
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let serialized = biscuit2.container().unwrap();
         let mut proto = serialized.to_proto();
@@ -337,8 +337,8 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, t
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -354,7 +354,7 @@ fn random_block<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, t
         let v = load_testcase(target, "test4_random_block");
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let serialized = biscuit2.container().unwrap();
         let mut proto = serialized.to_proto();
@@ -401,8 +401,8 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -418,7 +418,7 @@ fn invalid_signature<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         let v = load_testcase(target, "test5_invalid_signature");
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let mut serialized = biscuit2.container().unwrap().clone();
         serialized.signature.z = serialized.signature.z + Scalar::one();
@@ -463,8 +463,8 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -476,12 +476,12 @@ fn reordered_blocks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
-    println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+    println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
     let mut block3 = biscuit2.create_block();
 
-    block3.add_caveat(rule(
-        "caveat2",
+    block3.add_check(rule(
+        "check2",
         &[var("0")],
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
@@ -536,8 +536,8 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[pred("operation", &[s("ambient"), s("read")])],
     ));
@@ -556,7 +556,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(rng: &mut T, target: &str, r
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test7_invalid_block_fact_authority", &data[..]);
@@ -590,8 +590,8 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[var("0")],
         &[pred("operation", &[s("ambient"), s("read")])],
     ));
@@ -607,7 +607,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test8_invalid_block_fact_ambient", &data[..]);
@@ -634,8 +634,8 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, 
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[string("file1")],
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
@@ -655,7 +655,7 @@ fn expired_token<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, 
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test9_expired_token", &data[..]);
@@ -704,8 +704,8 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[variable("0"), variable("1")],
         &[
             pred("right", &[s("authority"), var("0"), var("1")]),
@@ -713,8 +713,8 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
             pred("operation", &[s("ambient"), var("1")]),
         ],
     ));
-    block2.add_caveat(rule(
-        "caveat2",
+    block2.add_check(rule(
+        "check2",
         &[variable("0")],
         &[
             pred("resource", &[s("ambient"), var("0")]),
@@ -731,7 +731,7 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test10_authority_rules", &data[..]);
@@ -755,8 +755,8 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 
 }
 
-fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## verifier authority caveats: test11_verifier_authority_caveats.bc");
+fn verifier_authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
+    println!("## verifier authority checks: test11_verifier_authority_checks.bc");
 
     let mut builder = Biscuit::builder(&root);
 
@@ -768,7 +768,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test11_verifier_authority_caveats");
+        let v = load_testcase(target, "test11_verifier_authority_checks");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -776,7 +776,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test11_verifier_authority_caveats", &data[..]);
+        write_testcase(target, "test11_verifier_authority_checks", &data[..]);
         data
     };
 
@@ -791,7 +791,7 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
             ],
             vec![],
             vec![vec![rule(
-              "caveat1",
+              "check1",
               &[variable("0"), variable("1")],
               &[
               pred("right", &[s("authority"), var("0"), var("1")]),
@@ -804,13 +804,13 @@ fn verifier_authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, roo
 
 }
 
-fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## authority caveats: test12_authority_caveats.bc");
+fn authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
+    println!("## authority checks: test12_authority_checks.bc");
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_caveat(rule(
-        "caveat1",
+    builder.add_authority_check(rule(
+        "check1",
         &[string("file1")],
         &[pred("resource", &[s("ambient"), string("file1")])],
     ));
@@ -818,7 +818,7 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test12_authority_caveats");
+        let v = load_testcase(target, "test12_authority_checks");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -826,7 +826,7 @@ fn authority_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPa
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test12_authority_caveats", &data[..]);
+        write_testcase(target, "test12_authority_checks", &data[..]);
         data
     };
 
@@ -925,8 +925,8 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         ],
     ));
 
-    block2.add_caveat(rule(
-        "caveat1",
+    block2.add_check(rule(
+        "check1",
         &[variable("0")],
         &[
             pred("valid_date", &[variable("0")]),
@@ -943,7 +943,7 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        println!("biscuit2 (1 caveat):\n```\n{}\n```\n", biscuit2.print());
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test13_block_rules", &data[..]);
@@ -985,7 +985,7 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_caveat(constrained_rule(
+    builder.add_authority_check(constrained_rule(
         "resource_match",
         &[variable("0")],
         &[
@@ -1040,8 +1040,8 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     );
 }
 
-fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## multi queries caveats: test15_multi_queries_caveats.bc");
+fn multi_queries_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
+    println!("## multi queries checks: test15_multi_queries_checks.bc");
 
     let mut builder = Biscuit::builder(&root);
 
@@ -1054,7 +1054,7 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test15_multi_queries_caveats");
+        let v = load_testcase(target, "test15_multi_queries_checks");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -1062,7 +1062,7 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test15_multi_queries_caveats", &data[..]);
+        write_testcase(target, "test15_multi_queries_checks", &data[..]);
 
         data
     };
@@ -1090,13 +1090,13 @@ fn multi_queries_caveats<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &K
     );
 }
 
-fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## caveat head name should be independent from fact names: test16_caveat_head_name.bc");
+fn check_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
+    println!("## check head name should be independent from fact names: test16_check_head_name.bc");
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_caveat(rule(
-        "caveat1",
+    builder.add_authority_check(rule(
+        "check1",
         &[s("test")],
         &[
             pred("resource", &[s("ambient"), s("hello")]),
@@ -1108,7 +1108,7 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     //println!("biscuit1 (authority): {}", biscuit1.print());
 
     let mut block2 = biscuit1.create_block();
-    block2.add_fact(fact("caveat1", &[s("test")])).unwrap();
+    block2.add_fact(fact("check1", &[s("test")])).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1
@@ -1116,14 +1116,14 @@ fn caveat_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         .unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test16_caveat_head_name");
+        let v = load_testcase(target, "test16_check_head_name");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         println!("biscuit: {}", biscuit2.print());
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test16_caveat_head_name", &data[..]);
+        write_testcase(target, "test16_check_head_name", &data[..]);
         data
     };
 

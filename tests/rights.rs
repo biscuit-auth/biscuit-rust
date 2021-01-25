@@ -33,7 +33,7 @@ fn main() {
     //v.add_operation("read");
     //v.add_operation("write");
 
-    v.add_caveat(rule(
+    v.add_check(rule(
         "right",
         &[s("right")],
         &[pred(

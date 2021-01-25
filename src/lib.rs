@@ -20,9 +20,9 @@
 //! token, and the [Verifier](`crate::token::verifier::Verifier`), used to
 //! check authorization policies on a token.
 //!
-//! In this example we will see how we can create a token, add some caveats,
-//! serialize and deserialize a token, append more caveats, and validate
-//! those caveats in the context of a request:
+//! In this example we will see how we can create a token, add some checks,
+//! serialize and deserialize a token, append more checks, and validate
+//! those checks in the context of a request:
 //!
 //! ```rust
 //! extern crate biscuit_auth as biscuit;
@@ -66,11 +66,11 @@
 //!
 //!     let mut builder = deser.create_block();
 //!
-//!     // caveats are implemented as logic rules. If the rule produces something,
-//!     // the caveat is successful
-//!     builder.add_caveat(rule(
+//!     // checks are implemented as logic rules. If the rule produces something,
+//!     // the check is successful
+//!     builder.add_check(rule(
 //!       // the rule's name
-//!       "caveat",
+//!       "check",
 //!       // the "head" of the rule, defining the kind of result that is produced
 //!       &[s("resource")],
 //!       // here we require the presence of a "resource" fact with the "ambient" tag
@@ -82,8 +82,8 @@
 //!       ],
 //!     ));
 //!
-//!     // the previous caveat could also be written like this
-//!     // builder.add_caveat("caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), !operation(#ambient, #read)")?;
+//!     // the previous check could also be written like this
+//!     // builder.add_check("check if resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
 //!
 //!     let keypair = KeyPair::new();
 //!     // we can now create a new token
@@ -93,8 +93,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 374 bytes
-//!   assert_eq!(token2.len(), 374);
+//!   // this new token fits in 373 bytes
+//!   assert_eq!(token2.len(), 373);
 //!
 //!   /************** VERIFICATION ****************/
 //!
@@ -110,11 +110,11 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_caveat("check if right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_check("check if right(#authority, \"/a/file1.txt\", #read)");
 //!
 //!   // we choose if we want to allow or deny access
 //!   // we can define a serie of allow/deny policies in the same
-//!   // format  as caveats
+//!   // format as checks
 //!   v1.allow();
 //!
 //!   // the token restricts to read operations:
@@ -123,7 +123,7 @@
 //!   let mut v2 = biscuit2.verify(public_key)?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_caveat("write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_check("check if right(#authority, \"/a/file1.txt\", #write)");
 //!
 //!   // the second verifier requested a read operation
 //!   assert!(v2.verify().is_err());
@@ -131,7 +131,7 @@
 //!   let mut v3 = biscuit2.verify(public_key)?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_caveat("read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_check("check if right(#authority, \"/a/file2.txt\", #read)");
 //!
 //!   // the third verifier requests /a/file2.txt
 //!   assert!(v3.verify().is_err());

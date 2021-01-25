@@ -1,4 +1,4 @@
-//! Logic language implementation for caveats
+//! Logic language implementation for checks
 use std::collections::{HashMap, HashSet, BTreeSet};
 use std::convert::AsRef;
 use std::fmt;
@@ -92,7 +92,7 @@ impl AsRef<Expression> for Expression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Caveat {
+pub struct Check {
     pub queries: Vec<Rule>,
 }
 
@@ -979,8 +979,8 @@ mod tests {
         let file2 = syms.add("file2");
         let read = syms.add("read");
         let write = syms.add("write");
-        let caveat1 = syms.insert("caveat1");
-        let caveat2 = syms.insert("caveat2");
+        let check1 = syms.insert("check1");
+        let check2 = syms.insert("check2");
 
         w.add_fact(fact(resource, &[&ambient, &file2]));
         w.add_fact(fact(operation, &[&ambient, &write]));
@@ -989,7 +989,7 @@ mod tests {
         w.add_fact(fact(right, &[&authority, &file1, &write]));
 
         let res = w.query_rule(rule(
-            caveat1,
+            check1,
             &[&file1],
             &[pred(resource, &[&ambient, &file1])],
         ));
@@ -1001,7 +1001,7 @@ mod tests {
         assert!(res.is_empty());
 
         let res = w.query_rule(rule(
-            caveat2,
+            check2,
             &[ID::Variable(0)],
             &[
                 pred(resource, &[&ambient, &ID::Variable(0)]),

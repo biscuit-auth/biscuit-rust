@@ -1,10 +1,10 @@
-//! Logic language implementation for caveats
+//! Symbol table implementation
 use std::collections::HashSet;
 use std::time::{Duration, UNIX_EPOCH};
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;
-use super::{ID, World, Fact, Rule, Caveat, Predicate};
+use super::{ID, World, Fact, Rule, Check, Predicate};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
@@ -138,7 +138,7 @@ impl SymbolTable {
         )
     }
 
-    pub fn print_caveat(&self, c: &Caveat) -> String {
+    pub fn print_check(&self, c: &Check) -> String {
         let queries = c
             .queries
             .iter()

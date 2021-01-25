@@ -17,7 +17,7 @@ pub struct BlockBuilder {
     pub index: u32,
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
-    pub caveats: Vec<Caveat>,
+    pub checks: Vec<Check>,
     pub context: Option<String>,
 }
 
@@ -27,7 +27,7 @@ impl BlockBuilder {
             index,
             facts: vec![],
             rules: vec![],
-            caveats: vec![],
+            checks: vec![],
             context: None,
         }
     }
@@ -44,9 +44,9 @@ impl BlockBuilder {
         Ok(())
     }
 
-    pub fn add_caveat<C: TryInto<Caveat>>(&mut self, caveat: C) -> Result<(), error::Token> {
-        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
-        self.caveats.push(caveat);
+    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token> {
+        let check = check.try_into().map_err(|_| error::Token::ParseError)?;
+        self.checks.push(check);
         Ok(())
     }
 
@@ -67,9 +67,9 @@ impl BlockBuilder {
             rules.push(rule.convert(&mut symbols));
         }
 
-        let mut caveats = Vec::new();
-        for caveat in self.caveats {
-            caveats.push(caveat.convert(&mut symbols));
+        let mut checks = Vec::new();
+        for check in self.checks {
+            checks.push(check.convert(&mut symbols));
         }
         let new_syms = SymbolTable {
             symbols: symbols.symbols.split_off(symbols_start),
@@ -80,14 +80,14 @@ impl BlockBuilder {
             symbols: new_syms,
             facts,
             rules,
-            caveats,
+            checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
         }
     }
 
     pub fn check_right(&mut self, right: &str) {
-        let caveat = rule(
+        let check = rule(
             "check_right",
             &[s(right)],
             &[
@@ -97,31 +97,31 @@ impl BlockBuilder {
             ],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn check_resource(&mut self, resource: &str) {
-        let caveat = rule(
+        let check = rule(
             "resource_check",
             &[s("resource_check")],
             &[pred("resource", &[s("ambient"), string(resource)])],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn check_operation(&mut self, operation: &str) {
-        let caveat = rule(
+        let check = rule(
             "operation_check",
             &[s("operation_check")],
             &[pred("operation", &[s("ambient"), s(operation)])],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn resource_prefix(&mut self, prefix: &str) {
-        let caveat = constrained_rule(
+        let check = constrained_rule(
             "prefix",
             &[var("resource")],
             &[pred("resource", &[s("ambient"), var("resource")])],
@@ -134,11 +134,11 @@ impl BlockBuilder {
             }],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn resource_suffix(&mut self, suffix: &str) {
-        let caveat = constrained_rule(
+        let check = constrained_rule(
             "suffix",
             &[var("resource")],
             &[pred("resource", &[s("ambient"), var("resource")])],
@@ -151,11 +151,11 @@ impl BlockBuilder {
             }],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn expiration_date(&mut self, exp: SystemTime) {
-        let caveat = constrained_rule(
+        let check = constrained_rule(
             "expiration",
             &[var("date")],
             &[pred("time", &[s("ambient"), var("date")])],
@@ -168,7 +168,7 @@ impl BlockBuilder {
             }],
         );
 
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     pub fn revocation_id(&mut self, id: i64) {
@@ -183,7 +183,7 @@ pub struct BiscuitBuilder<'a> {
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
-    pub caveats: Vec<datalog::Caveat>,
+    pub checks: Vec<datalog::Check>,
     pub context: Option<String>,
 }
 
@@ -198,7 +198,7 @@ impl<'a> BiscuitBuilder<'a> {
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
-            caveats: vec![],
+            checks: vec![],
             context: None,
         }
     }
@@ -219,10 +219,10 @@ impl<'a> BiscuitBuilder<'a> {
         Ok(())
     }
 
-    pub fn add_authority_caveat<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
-        let caveat = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let r = caveat.convert(&mut self.symbols);
-        self.caveats.push(datalog::Caveat { queries: vec![r]});
+    pub fn add_authority_check<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
+        let check = rule.try_into().map_err(|_| error::Token::ParseError)?;
+        let r = check.convert(&mut self.symbols);
+        self.checks.push(datalog::Check { queries: vec![r]});
         Ok(())
     }
 
@@ -249,7 +249,7 @@ impl<'a> BiscuitBuilder<'a> {
             symbols: new_syms,
             facts: self.facts,
             rules: self.rules,
-            caveats: self.caveats,
+            checks: self.checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
         };
@@ -563,47 +563,47 @@ impl fmt::Display for Rule {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Caveat {
+pub struct Check {
     pub queries: Vec<Rule>,
 }
 
-impl Caveat {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Caveat {
+impl Check {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Check {
         let mut queries = vec![];
         for q in self.queries.iter() {
             queries.push(q.convert(symbols));
         }
 
-        datalog::Caveat { queries }
+        datalog::Check { queries }
     }
 
-    pub fn convert_from(r: &datalog::Caveat, symbols: &SymbolTable) -> Self {
+    pub fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Self {
         let mut queries = vec![];
         for q in r.queries.iter() {
             queries.push(Rule::convert_from(q, symbols));
         }
 
-        Caveat { queries }
+        Check { queries }
     }
 }
 
-impl TryFrom<Rule> for Caveat {
+impl TryFrom<Rule> for Check {
     type Error = error::Token;
 
     fn try_from(value: Rule) -> Result<Self, Self::Error> {
-        Ok(Caveat { queries: vec![value] })
+        Ok(Check { queries: vec![value] })
     }
 }
 
-impl TryFrom<&[Rule]> for Caveat {
+impl TryFrom<&[Rule]> for Check {
     type Error = error::Token;
 
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
-        Ok(Caveat { queries: values.to_vec() })
+        Ok(Check { queries: values.to_vec() })
     }
 }
 
-impl fmt::Display for Caveat {
+impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "check if ")?;
 

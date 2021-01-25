@@ -20,7 +20,7 @@ pub enum Token {
     MissingSymbols,
     #[error("tried to append a block to a sealed token")]
     Sealed,
-    #[error("caveat validation failed")]
+    #[error("check validation failed")]
     FailedLogic(Logic),
     #[error("Datalog parsing error")]
     ParseError,
@@ -78,8 +78,8 @@ pub enum Logic {
     InvalidBlockFact(u32, String),
     #[error("a rule provided by a block is generating facts with the authority or ambient tag")]
     InvalidBlockRule(u32, String),
-    #[error("list of caveats that failed validation")]
-    FailedCaveats(Vec<FailedCaveat>),
+    #[error("list of checks that failed validation")]
+    FailedChecks(Vec<FailedCheck>),
     #[error("the verifier already contains a token")]
     VerifierNotEmpty,
     #[error("denied by policy")]
@@ -88,26 +88,26 @@ pub enum Logic {
     NoMatchingPolicy,
 }
 
-/// caveat check errors
+/// check check errors
 #[derive(Error, Clone, Debug, PartialEq)]
-pub enum FailedCaveat {
-    #[error("a caveat failed in a block")]
-    Block(FailedBlockCaveat),
-    #[error("a caveat provided by the verifier failed")]
-    Verifier(FailedVerifierCaveat),
+pub enum FailedCheck {
+    #[error("a check failed in a block")]
+    Block(FailedBlockCheck),
+    #[error("a check provided by the verifier failed")]
+    Verifier(FailedVerifierCheck),
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FailedBlockCaveat {
+pub struct FailedBlockCheck {
     pub block_id: u32,
-    pub caveat_id: u32,
+    pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FailedVerifierCaveat {
-    pub caveat_id: u32,
+pub struct FailedVerifierCheck {
+    pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
 }

@@ -1,7 +1,7 @@
 //! Verifier structure and associated functions
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Fact,
-    Rule, Caveat, var, Expression, Op, Binary, Term, Policy,
+    Rule, Check, var, Expression, Op, Binary, Term, Policy,
     PolicyKind,
 };
 use super::Biscuit;
@@ -16,8 +16,8 @@ use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
 pub struct Verifier {
     world: datalog::World,
     symbols: datalog::SymbolTable,
-    caveats: Vec<Caveat>,
-    token_caveats: Vec<Vec<datalog::Caveat>>,
+    checks: Vec<Check>,
+    token_checks: Vec<Vec<datalog::Check>>,
     policies: Vec<Policy>,
     has_token: bool,
 }
@@ -30,8 +30,8 @@ impl Verifier {
         Ok(Verifier {
             world,
             symbols,
-            caveats: vec![],
-            token_caveats: token.caveats(),
+            checks: vec![],
+            token_checks: token.checks(),
             policies: vec![],
             has_token: true,
         })
@@ -44,7 +44,7 @@ impl Verifier {
     /// * there is a lot of data to load in the verifier on each check
     ///
     /// In the latter case, we can create an empty verifier, load it
-    /// with the facts, rules and caveats, and each time a token must be checked,
+    /// with the facts, rules and checks, and each time a token must be checked,
     /// clone the verifier and load the token with [`Verifier::add_token`]
     pub fn new() -> Result<Self, error::Logic> {
         let world = datalog::World::new();
@@ -53,14 +53,14 @@ impl Verifier {
         Ok(Verifier {
             world,
             symbols,
-            caveats: vec![],
-            token_caveats: vec![],
+            checks: vec![],
+            token_checks: vec![],
             policies: vec![],
             has_token: false,
         })
     }
 
-    /// Loads a token's facts, rules and caveats in a verifier
+    /// Loads a token's facts, rules and checks in a verifier
     pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Logic> {
         if self.has_token {
             return Err(error::Logic::VerifierNotEmpty);
@@ -119,20 +119,20 @@ impl Verifier {
             }
         }
 
-        let mut token_caveats: Vec<Vec<datalog::Caveat>> = Vec::new();
-        let caveats = token.authority.caveats.iter()
-            .map(|c| Caveat::convert_from(&c, &token.symbols).convert(&mut self.symbols))
+        let mut token_checks: Vec<Vec<datalog::Check>> = Vec::new();
+        let checks = token.authority.checks.iter()
+            .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
             .collect();
-        token_caveats.push(caveats);
+        token_checks.push(checks);
 
         for block in token.blocks.iter() {
-            let caveats = block.caveats.iter()
-                .map(|c| Caveat::convert_from(&c, &token.symbols).convert(&mut self.symbols))
+            let checks = block.checks.iter()
+                .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
                 .collect();
-            token_caveats.push(caveats);
+            token_checks.push(checks);
         }
 
-        self.token_caveats = token_caveats;
+        self.token_checks = token_checks;
         Ok(())
     }
 
@@ -176,10 +176,10 @@ impl Verifier {
            .collect())
     }
 
-    /// add a caveat to the verifier
-    pub fn add_caveat<R: TryInto<Caveat>>(&mut self, caveat: R) -> Result<(), error::Token> {
-        let caveat = caveat.try_into().map_err(|_| error::Token::ParseError)?;
-        self.caveats.push(caveat);
+    /// add a check to the verifier
+    pub fn add_check<R: TryInto<Check>>(&mut self, check: R) -> Result<(), error::Token> {
+        let check = check.try_into().map_err(|_| error::Token::ParseError)?;
+        self.checks.push(check);
         Ok(())
     }
 
@@ -200,7 +200,7 @@ impl Verifier {
     }
 
     pub fn revocation_check(&mut self, ids: &[i64]) {
-        let caveat = constrained_rule(
+        let check = constrained_rule(
             "revocation_check",
             &[var("id")],
             &[pred("revocation_id", &[var("id")])],
@@ -212,7 +212,7 @@ impl Verifier {
                 ]
             }],
         );
-        let _ = self.add_caveat(caveat);
+        let _ = self.add_check(check);
     }
 
     /// add a policy to the verifier
@@ -230,16 +230,16 @@ impl Verifier {
         self.add_policy("deny if true")
     }
 
-    /// checks all the caveats
+    /// checks all the checks
     ///
-    /// on error, this can return a list of all the failed caveats
+    /// on error, this can return a list of all the failed checks
     pub fn verify(&mut self) -> Result<(), error::Token> {
         self.verify_with_limits(VerifierLimits::default())
     }
 
-    /// checks all the caveats
+    /// checks all the checks
     ///
-    /// on error, this can return a list of all the failed caveats
+    /// on error, this can return a list of all the failed checks
     ///
     /// this method can specify custom runtime limits
     pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<(), error::Token> {
@@ -255,11 +255,11 @@ impl Verifier {
         let time_limit = start + limits.max_time;
 
         let mut errors = vec![];
-        for (i, caveat) in self.caveats.iter().enumerate() {
-            let c = caveat.convert(&mut self.symbols);
+        for (i, check) in self.checks.iter().enumerate() {
+            let c = check.convert(&mut self.symbols);
             let mut successful = false;
 
-            for query in caveat.queries.iter() {
+            for query in check.queries.iter() {
                 let res = self.world.query_rule(query.convert(&mut self.symbols));
 
                 let now = SystemTime::now();
@@ -274,18 +274,18 @@ impl Verifier {
             }
 
             if !successful {
-                errors.push(error::FailedCaveat::Verifier(error::FailedVerifierCaveat {
-                    caveat_id: i as u32,
-                    rule: self.symbols.print_caveat(&c),
+                errors.push(error::FailedCheck::Verifier(error::FailedVerifierCheck {
+                    check_id: i as u32,
+                    rule: self.symbols.print_check(&c),
                 }));
             }
         }
 
-        for (i, block_caveats) in self.token_caveats.iter().enumerate() {
-            for (j, caveat) in block_caveats.iter().enumerate() {
+        for (i, block_checks) in self.token_checks.iter().enumerate() {
+            for (j, check) in block_checks.iter().enumerate() {
                 let mut successful = false;
 
-                for query in caveat.queries.iter() {
+                for query in check.queries.iter() {
                     let res = self.world.query_rule(query.clone());
 
                     let now = SystemTime::now();
@@ -300,17 +300,17 @@ impl Verifier {
                 }
 
                 if !successful {
-                    errors.push(error::FailedCaveat::Block(error::FailedBlockCaveat {
+                    errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
                         block_id: i as u32,
-                        caveat_id: j as u32,
-                        rule: self.symbols.print_caveat(caveat),
+                        check_id: j as u32,
+                        rule: self.symbols.print_check(check),
                     }));
                 }
             }
         }
 
         if !errors.is_empty() {
-            Err(error::Token::FailedLogic(error::Logic::FailedCaveats(
+            Err(error::Token::FailedLogic(error::Logic::FailedChecks(
                 errors,
             )))
         } else {
@@ -353,14 +353,14 @@ impl Verifier {
             .collect::<Vec<_>>();
         rules.sort();
 
-        let mut caveats = Vec::new();
-        for (index, caveat) in self.caveats.iter().enumerate() {
-            caveats.push(format!("Verifier[{}]: {}", index, caveat));
+        let mut checks = Vec::new();
+        for (index, check) in self.checks.iter().enumerate() {
+            checks.push(format!("Verifier[{}]: {}", index, check));
         }
 
-        for (i, block_caveats) in self.token_caveats.iter().enumerate() {
-            for (j, caveat) in block_caveats.iter().enumerate() {
-                caveats.push(format!("Block[{}][{}]: {}", i, j, self.symbols.print_caveat(caveat)));
+        for (i, block_checks) in self.token_checks.iter().enumerate() {
+            for (j, check) in block_checks.iter().enumerate() {
+                checks.push(format!("Block[{}][{}]: {}", i, j, self.symbols.print_check(check)));
             }
         }
 
@@ -369,17 +369,17 @@ impl Verifier {
             policies.push(policy.to_string());
         }
 
-        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  caveats: {:#?}\n  policies: {:#?}\n}}", facts, rules, caveats, policies)
+        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}", facts, rules, checks, policies)
     }
 
     /// returns all of the data loaded in the verifier
-    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Caveat>) {
-        let mut caveats = self.caveats.clone();
-        caveats.extend(self.token_caveats.iter().flatten().map(|c| Caveat::convert_from(c, &self.symbols)));
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
+        let mut checks = self.checks.clone();
+        checks.extend(self.token_checks.iter().flatten().map(|c| Check::convert_from(c, &self.symbols)));
 
         (self.world.facts.iter().map(|f| Fact::convert_from(f, &self.symbols)).collect(),
          self.world.rules.iter().map(|r| Rule::convert_from(r, &self.symbols)).collect(),
-         caveats
+         checks
         )
     }
 }
