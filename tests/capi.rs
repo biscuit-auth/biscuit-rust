@@ -28,9 +28,9 @@ mod capi {
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
                 printf("block builder creation error? %s\n", error_message());
-                block_builder_add_caveat(bb, "op(#read) <- operation(#ambient, #read)");
+                block_builder_add_check(bb, "check if operation(#ambient, #read)");
                 block_builder_add_fact(bb, "hello(\"world\")");
-                printf("builder add caveat error? %s\n", error_message());
+                printf("builder add check error? %s\n", error_message());
 
                 char *seed2 = "ijklmnopijklmnopijklmnopijklmnop";
                 char *seed3 = "ABCDEFGHABCDEFGHABCDEFGHABCDEFGH";
@@ -42,29 +42,29 @@ mod capi {
 
                 Verifier * verifier = biscuit_verify(b2, root);
                 printf("verifier creation error? %s\n", error_message());
-                verifier_add_caveat(verifier, "right(#abcd) <- right(#efgh)");
-                printf("verifier add caveat error? %s\n", error_message());
+                verifier_add_check(verifier, "check if right(#efgh)");
+                printf("verifier add check error? %s\n", error_message());
                 char* world_print = verifier_print(verifier);
                 printf("verifier world:\n%s\n", world_print);
                 string_free(world_print);
                 if(!verifier_verify(verifier)) {
                     printf("verifier error(code = %d): %s\n", error_kind(), error_message());
 
-                    if(error_kind() == LogicFailedCaveats) {
-                        uint64_t error_count = error_caveat_count();
-                        printf("failed caveats (%ld):\n", error_count);
+                    if(error_kind() == LogicFailedChecks) {
+                        uint64_t error_count = error_check_count();
+                        printf("failed checks (%ld):\n", error_count);
 
                         for(uint64_t i = 0; i < error_count; i++) {
-                            if(error_caveat_is_verifier(i)) {
-                                uint64_t caveat_id = error_caveat_id(i);
-                                const char* rule = error_caveat_rule(i);
+                            if(error_check_is_verifier(i)) {
+                                uint64_t check_id = error_check_id(i);
+                                const char* rule = error_check_rule(i);
 
-                                printf("  Verifier caveat %ld: %s\n", caveat_id, rule);
+                                printf("  Verifier check %ld: %s\n", check_id, rule);
                             } else {
-                                uint64_t caveat_id = error_caveat_id(i);
-                                uint64_t block_id = error_caveat_block_id(i);
-                                const char* rule = error_caveat_rule(i);
-                                printf("  Block %ld, caveat %ld: %s\n", block_id, caveat_id, rule);
+                                uint64_t check_id = error_check_id(i);
+                                uint64_t block_id = error_check_block_id(i);
+                                const char* rule = error_check_rule(i);
+                                printf("  Block %ld, check %ld: %s\n", block_id, check_id, rule);
                             }
 
                         }
@@ -97,10 +97,10 @@ builder creation error? (null)
 builder add authority error? (null)
 biscuit creation error? (null)
 block builder creation error? (null)
-builder add caveat error? (null)
+builder add check error? (null)
 biscuit append error? (null)
 verifier creation error? (null)
-verifier add caveat error? (null)
+verifier add check error? (null)
 verifier world:
 World {
   facts: [
@@ -108,17 +108,18 @@ World {
     "right(#authority, \"file1\", #read)",
 ]
   rules: []
-  caveats: [
-    "Verifier[0]: right(#abcd) <- right(#efgh)",
-    "Block[1][0]: op(#read) <- operation(#ambient, #read)",
+  checks: [
+    "Verifier[0]: check if right(#efgh)",
+    "Block[1][0]: check if operation(#ambient, #read)",
 ]
+  policies: []
 }
-verifier error(code = 21): caveat validation failed
-failed caveats (2):
-  Verifier caveat 0: right(#abcd) <- right(#efgh)
-  Block 1, caveat 0: op(#read) <- operation(#ambient, #read)
-serialized size: 277
-wrote 277 bytes
+verifier error(code = 21): check validation failed
+failed checks (2):
+  Verifier check 0: check if right(#efgh)
+  Block 1, check 0: check if operation(#ambient, #read)
+serialized size: 262
+wrote 262 bytes
 "#);
     }
 

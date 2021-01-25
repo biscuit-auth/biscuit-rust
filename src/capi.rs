@@ -73,8 +73,10 @@ pub enum ErrorKind {
     LogicInvalidAmbientFact,
     LogicInvalidBlockFact,
     LogicInvalidBlockRule,
-    LogicFailedCaveats,
+    LogicFailedChecks,
     LogicVerifierNotEmpty,
+    LogicDeny,
+    LogicNoMatchingPolicy,
     ParseError,
     TooManyFacts,
     TooManyIterations,
@@ -113,8 +115,10 @@ pub extern fn error_kind() -> ErrorKind {
                             Token::FailedLogic(Logic::InvalidAmbientFact(_)) => ErrorKind::LogicInvalidAmbientFact,
                             Token::FailedLogic(Logic::InvalidBlockFact(_,_)) => ErrorKind::LogicInvalidBlockFact,
                             Token::FailedLogic(Logic::InvalidBlockRule(_,_)) => ErrorKind::LogicInvalidBlockRule,
-                            Token::FailedLogic(Logic::FailedCaveats(_)) => ErrorKind::LogicFailedCaveats,
+                            Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
                             Token::FailedLogic(Logic::VerifierNotEmpty) => ErrorKind::LogicVerifierNotEmpty,
+                            Token::FailedLogic(Logic::Deny) => ErrorKind::LogicDeny,
+                            Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
                             Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
                             Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
                             Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
@@ -128,11 +132,11 @@ pub extern fn error_kind() -> ErrorKind {
 }
 
 #[no_mangle]
-pub extern fn error_caveat_count() -> u64 {
+pub extern fn error_check_count() -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| {
         match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
                 => v.len() as u64,
             _ => 0,
         }
@@ -140,18 +144,18 @@ pub extern fn error_caveat_count() -> u64 {
 }
 
 #[no_mangle]
-pub extern fn error_caveat_id(caveat_index: u64) -> u64 {
+pub extern fn error_check_id(check_index: u64) -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| {
         match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
                 => {
-                    if caveat_index >= v.len() as u64 {
+                    if check_index >= v.len() as u64 {
                         u64::MAX
                     } else {
-                        match v[caveat_index as usize] {
-                            FailedCaveat::Block(FailedBlockCaveat { caveat_id, ..}) => caveat_id as u64,
-                            FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id, ..}) => caveat_id as u64,
+                        match v[check_index as usize] {
+                            FailedCheck::Block(FailedBlockCheck { check_id, ..}) => check_id as u64,
+                            FailedCheck::Verifier(FailedVerifierCheck { check_id, ..}) => check_id as u64,
                         }
                     }
                 },
@@ -161,17 +165,17 @@ pub extern fn error_caveat_id(caveat_index: u64) -> u64 {
 }
 
 #[no_mangle]
-pub extern fn error_caveat_block_id(caveat_index: u64) -> u64 {
+pub extern fn error_check_block_id(check_index: u64) -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| {
         match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
                 => {
-                    if caveat_index >= v.len() as u64 {
+                    if check_index >= v.len() as u64 {
                         u64::MAX
                     } else {
-                        match v[caveat_index as usize] {
-                            FailedCaveat::Block(FailedBlockCaveat { block_id, ..}) => block_id as u64,
+                        match v[check_index as usize] {
+                            FailedCheck::Block(FailedBlockCheck { block_id, ..}) => block_id as u64,
                             _ => u64::MAX,
                         }
                     }
@@ -184,7 +188,7 @@ pub extern fn error_caveat_block_id(caveat_index: u64) -> u64 {
 /// deallocation is handled by Biscuit
 /// the string is overwritten on each call
 #[no_mangle]
-pub extern fn error_caveat_rule(caveat_index: u64) -> *const c_char {
+pub extern fn error_check_rule(check_index: u64) -> *const c_char {
     use crate::error::*;
     thread_local! {
         static CAVEAT_RULE: RefCell<Option<CString>> = RefCell::new(None);
@@ -192,14 +196,14 @@ pub extern fn error_caveat_rule(caveat_index: u64) -> *const c_char {
 
     LAST_ERROR.with(|prev| {
         match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
                 => {
-                    if caveat_index >= v.len() as u64 {
+                    if check_index >= v.len() as u64 {
                         std::ptr::null()
                     } else {
-                        let rule = match &v[caveat_index as usize] {
-                            FailedCaveat::Block(FailedBlockCaveat { rule, ..}) => rule,
-                            FailedCaveat::Verifier(FailedVerifierCaveat { rule, ..}) => rule,
+                        let rule = match &v[check_index as usize] {
+                            FailedCheck::Block(FailedBlockCheck { rule, ..}) => rule,
+                            FailedCheck::Verifier(FailedVerifierCheck { rule, ..}) => rule,
                         };
                         let err = CString::new(rule.clone()).ok();
                         CAVEAT_RULE.with(|ret| {
@@ -214,18 +218,18 @@ pub extern fn error_caveat_rule(caveat_index: u64) -> *const c_char {
 }
 
 #[no_mangle]
-pub extern fn error_caveat_is_verifier(caveat_index: u64) -> bool {
+pub extern fn error_check_is_verifier(check_index: u64) -> bool {
     use crate::error::*;
     LAST_ERROR.with(|prev| {
         match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedCaveats(ref v))))
+            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
                 => {
-                    if caveat_index >= v.len() as u64 {
+                    if check_index >= v.len() as u64 {
                         false
                     } else {
-                        match v[caveat_index as usize] {
-                            FailedCaveat::Block(FailedBlockCaveat { .. }) => false,
-                            FailedCaveat::Verifier(FailedVerifierCaveat { .. }) => true,
+                        match v[check_index as usize] {
+                            FailedCheck::Block(FailedBlockCheck { .. }) => false,
+                            FailedCheck::Verifier(FailedVerifierCheck { .. }) => true,
                         }
                     }
                 },
@@ -452,9 +456,9 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_rule<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
+pub unsafe extern "C" fn biscuit_builder_add_authority_check<'a>(
     builder: Option<&mut BiscuitBuilder<'a>>,
-    caveat: *const c_char,
+    check: *const c_char,
 ) -> bool {
     if builder.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -462,8 +466,8 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
     }
     let builder = builder.unwrap();
 
-    let caveat = CStr::from_ptr(caveat);
-    let s = caveat.to_str();
+    let check = CStr::from_ptr(check);
+    let s = check.to_str();
     if s.is_err() {
         update_last_error(Error::InvalidArgument);
         return false;
@@ -471,7 +475,7 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_caveat<'a>(
 
     builder
         .0
-        .add_authority_caveat(s.unwrap())
+        .add_authority_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
@@ -706,7 +710,7 @@ pub unsafe extern "C" fn biscuit_block_rule_count(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_block_caveat_count(
+pub unsafe extern "C" fn biscuit_block_check_count(
     biscuit: Option<&Biscuit>,
     block_index: u32,
 ) -> usize {
@@ -718,10 +722,10 @@ pub unsafe extern "C" fn biscuit_block_caveat_count(
     let biscuit = biscuit.unwrap();
 
     if block_index == 0 {
-        biscuit.0.authority.caveats.len()
+        biscuit.0.authority.checks.len()
     } else {
         match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b.caveats.len(),
+            Some(b) => b.checks.len(),
             None => {
                 update_last_error(Error::InvalidArgument);
                 return 0;
@@ -815,10 +819,10 @@ pub unsafe extern "C" fn biscuit_block_rule(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_block_caveat(
+pub unsafe extern "C" fn biscuit_block_check(
     biscuit: Option<&Biscuit>,
     block_index: u32,
-    caveat_index: u32,
+    check_index: u32,
 ) -> *mut c_char {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -839,13 +843,13 @@ pub unsafe extern "C" fn biscuit_block_caveat(
         }
     };
 
-    match block.caveats.get(caveat_index as usize) {
+    match block.checks.get(check_index as usize) {
         None => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
         },
-        Some(caveat) => {
-            match CString::new(biscuit.0.symbols.print_caveat(caveat)) {
+        Some(check) => {
+            match CString::new(biscuit.0.symbols.print_check(check)) {
                 Ok(s) => s.into_raw(),
                 Err(_) => {
                     update_last_error(Error::InvalidArgument);
@@ -1055,9 +1059,9 @@ pub unsafe extern "C" fn block_builder_add_rule(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn block_builder_add_caveat(
+pub unsafe extern "C" fn block_builder_add_check(
     builder: Option<&mut BlockBuilder>,
-    caveat: *const c_char,
+    check: *const c_char,
 ) -> bool {
     if builder.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -1065,8 +1069,8 @@ pub unsafe extern "C" fn block_builder_add_caveat(
     }
     let builder = builder.unwrap();
 
-    let caveat = CStr::from_ptr(caveat);
-    let s = caveat.to_str();
+    let check = CStr::from_ptr(check);
+    let s = check.to_str();
     if s.is_err() {
         update_last_error(Error::InvalidArgument);
         return false;
@@ -1074,7 +1078,7 @@ pub unsafe extern "C" fn block_builder_add_caveat(
 
     builder
         .0
-        .add_caveat(s.unwrap())
+        .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
@@ -1142,9 +1146,9 @@ pub unsafe extern "C" fn verifier_add_rule(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_add_caveat(
+pub unsafe extern "C" fn verifier_add_check(
     verifier: Option<&mut Verifier>,
-    caveat: *const c_char,
+    check: *const c_char,
 ) -> bool {
     if verifier.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -1152,8 +1156,8 @@ pub unsafe extern "C" fn verifier_add_caveat(
     }
     let verifier = verifier.unwrap();
 
-    let caveat = CStr::from_ptr(caveat);
-    let s = caveat.to_str();
+    let check = CStr::from_ptr(check);
+    let s = check.to_str();
     if s.is_err() {
         update_last_error(Error::InvalidArgument);
         return false;
@@ -1161,7 +1165,7 @@ pub unsafe extern "C" fn verifier_add_caveat(
 
     verifier
         .0
-        .add_caveat(s.unwrap())
+        .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
