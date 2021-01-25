@@ -102,8 +102,7 @@ impl SymbolTable {
         e.print(self).unwrap_or_else(|| format!("<invalid expression: {:?}>", e.ops))
     }
 
-    pub fn print_rule(&self, r: &Rule) -> String {
-        let res = self.print_predicate(&r.head);
+    pub fn print_rule_body(&self, r: &Rule) -> String {
         let preds: Vec<_> = r.body.iter().map(|p| self.print_predicate(p)).collect();
 
         let expressions: Vec<_> = r
@@ -115,14 +114,27 @@ impl SymbolTable {
         let e = if expressions.is_empty() {
             String::new()
         } else {
-            format!(", {}", expressions.join(", "))
+            if preds.is_empty() {
+                format!("{}", expressions.join(", "))
+            } else {
+                format!(", {}", expressions.join(", "))
+            }
         };
 
         format!(
-            "{} <- {}{}",
-            res,
+            "{}{}",
             preds.join(", "),
             e
+        )
+    }
+
+    pub fn print_rule(&self, r: &Rule) -> String {
+        let res = self.print_predicate(&r.head);
+
+        format!(
+            "{} <- {}",
+            res,
+            self.print_rule_body(r)
         )
     }
 
@@ -130,9 +142,9 @@ impl SymbolTable {
         let queries = c
             .queries
             .iter()
-            .map(|r| self.print_rule(r))
+            .map(|r| self.print_rule_body(r))
             .collect::<Vec<_>>();
 
-        queries.join(" || ")
+        format!("check if {}", queries.join(" or "))
     }
 }

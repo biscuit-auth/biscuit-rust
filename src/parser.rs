@@ -16,7 +16,7 @@
 use crate::{error, token::builder};
 use nom::{
     branch::alt,
-    bytes::complete::{escaped_transform, tag, take_while1},
+    bytes::complete::{escaped_transform, tag, tag_no_case, take_while1},
     character::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
@@ -39,12 +39,57 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
 
 /// parse a Datalog caveat
 pub fn caveat(i: &str) -> IResult<&str, builder::Caveat> {
-    let (i, queries) = separated_list1(
-      preceded(space0, tag("||")),
-      preceded(space0, rule)
+    let (i, _) = space0(i)?;
+
+    let (i, _) = tag_no_case("check if")(i)?;
+
+    let (i, queries) = caveat_body(i)?;
+    Ok((i, builder::Caveat { queries }))
+}
+
+/// parse an allow rule
+pub fn policy(i: &str) -> IResult<&str, builder::Policy> {
+    alt((allow, deny))(i)
+}
+
+/// parse an allow rule
+pub fn allow(i: &str) -> IResult<&str, builder::Policy> {
+    let (i, _) = space0(i)?;
+
+    let (i, _) = tag_no_case("allow if")(i)?;
+
+    let (i, queries) = caveat_body(i)?;
+    Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Allow }))
+}
+
+/// parse an allow rule
+pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
+    let (i, _) = space0(i)?;
+
+    let (i, _) = tag_no_case("deny if")(i)?;
+
+    let (i, queries) = caveat_body(i)?;
+    Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Deny }))
+}
+
+/// parse a Datalog caveat body
+pub fn caveat_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
+    let (i, mut queries) = separated_list1(
+      preceded(space0, tag_no_case("or")),
+      preceded(space0, rule_body)
     )(i)?;
 
-    Ok((i, builder::Caveat { queries }))
+    let queries = queries.drain(..).map(|rule_body| {
+        builder::Rule(
+            builder::Predicate {
+                name: "query".to_string(),
+                ids: Vec::new(),
+            },
+            rule_body.0,
+            rule_body.1
+        )
+    }).collect();
+    Ok((i, queries))
 }
 
 /// parse a Datalog rule
@@ -54,41 +99,9 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, _) = space0(i)?;
-
-    let (i, mut elements) = separated_list1(
-      preceded(space0, char(',')),
-      preceded(space0, predicate_or_expression)
-    )(i)?;
-
-    let mut predicates = Vec::new();
-    let mut expressions = Vec::new();
-
-    for el in elements.drain(..) {
-        match el {
-            PredOrExpr::P(predicate) => predicates.push(predicate),
-            PredOrExpr::E(expression) => {
-                let ops = expression.opcodes();
-                println!("got ops: {:?}", ops);
-                let e = builder::Expression { ops };
-                expressions.push(e);
-            },
-        }
-    }
+    let (i, (predicates, expressions)) = rule_body(i)?;
 
     Ok((i, builder::Rule(head, predicates, expressions)))
-}
-
-enum PredOrExpr {
-  P(builder::Predicate),
-  E(Expr),
-}
-
-fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr> {
-    alt((
-        map(predicate, PredOrExpr::P),
-        map(expr, PredOrExpr::E),
-    ))(i)
 }
 
 impl TryFrom<&str> for builder::Fact {
@@ -151,6 +164,26 @@ impl FromStr for builder::Caveat {
     }
 }
 
+impl TryFrom<&str> for builder::Policy {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        policy(value)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
+impl FromStr for builder::Policy {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        policy(s)
+            .map(|(_, o)| o)
+            .map_err(|_| error::Token::ParseError)
+    }
+}
+
 impl FromStr for builder::Predicate {
     type Err = error::Token;
 
@@ -201,6 +234,44 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
     ))
 }
 
+/// parse a Datalog rule body
+pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>)> {
+
+    let (i, mut elements) = separated_list1(
+      preceded(space0, char(',')),
+      preceded(space0, predicate_or_expression)
+    )(i)?;
+
+    let mut predicates = Vec::new();
+    let mut expressions = Vec::new();
+
+    for el in elements.drain(..) {
+        match el {
+            PredOrExpr::P(predicate) => predicates.push(predicate),
+            PredOrExpr::E(expression) => {
+                let ops = expression.opcodes();
+                let e = builder::Expression { ops };
+                expressions.push(e);
+            },
+        }
+    }
+
+    Ok((i, (predicates, expressions)))
+}
+
+enum PredOrExpr {
+  P(builder::Predicate),
+  E(Expr),
+}
+
+fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr> {
+    alt((
+        map(predicate, PredOrExpr::P),
+        map(expr, PredOrExpr::E),
+    ))(i)
+}
+
+
 #[derive(Debug, PartialEq)]
 pub enum Expr {
   Value(builder::Term),
@@ -233,7 +304,6 @@ impl Expr {
 }
 
 fn unary(i: &str) -> IResult<&str, Expr> {
-    println!("unary:\t{}", i);
     let (i, _) = space0(i)?;
     let (i, _) = tag("-")(i)?;
     let (i, _) = space0(i)?;
@@ -275,7 +345,6 @@ fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
 }
 
 fn expr_term(i: &str) -> IResult<&str, Expr> {
-    println!("expr_term:\t{}", i);
     alt((
         unary,
         map(term, Expr::Value),
@@ -290,40 +359,32 @@ fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
 }
 
 fn expr(i: &str) -> IResult<&str, Expr> {
-    println!("expr:\t{}", i);
     let (i, initial) = expr1(i)?;
 
-    println!("got {:?}", (i, &initial));
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_0), expr1)))(i)?;
 
     Ok((i, fold_exprs(initial, remainder)))
 }
 
 fn expr1(i: &str) -> IResult<&str, Expr> {
-    println!("expr1:\t{}", i);
     let (i, initial) = expr2(i)?;
 
-    println!("got {:?}", (i, &initial));
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_1), expr2)))(i)?;
 
     Ok((i, fold_exprs(initial, remainder)))
 }
 
 fn expr2(i: &str) -> IResult<&str, Expr> {
-    println!("expr2:\t{}", i);
     let (i, initial) = expr3(i)?;
 
-    println!("got {:?}", (i, &initial));
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
 
     Ok((i, fold_exprs(initial, remainder)))
 }
 
 fn expr3(i: &str) -> IResult<&str, Expr> {
-    println!("expr3:\t{}", i);
     let (i, initial) = expr_term(i)?;
 
-    println!("got {:?}", (i, &initial));
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_3), expr_term)))(i)?;
 
     Ok((i, fold_exprs(initial, remainder)))
@@ -894,13 +955,13 @@ mod tests {
     fn caveat() {
         let empty: &[builder::Term] = &[];
         assert_eq!(
-            super::caveat("right() <- resource(#ambient, $0), operation(#ambient, #read) || right() <- admin(#authority)"),
+            super::caveat("check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"),
             Ok((
                 "",
                 builder::Caveat {
                     queries: vec![
                         builder::rule(
-                            "right",
+                            "query",
                             empty,
                             &[
                                 builder::pred("resource", &[builder::s("ambient"), builder::variable("0")]),
@@ -908,7 +969,7 @@ mod tests {
                             ]
                         ),
                         builder::rule(
-                            "right",
+                            "query",
                             empty,
                             &[
                                 builder::pred("admin", &[builder::s("authority")]),

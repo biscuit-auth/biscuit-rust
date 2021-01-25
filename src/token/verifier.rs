@@ -1,7 +1,8 @@
 //! Verifier structure and associated functions
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Fact,
-    Rule, Caveat, var, Expression, Op, Binary, Term,
+    Rule, Caveat, var, Expression, Op, Binary, Term, Policy,
+    PolicyKind,
 };
 use super::Biscuit;
 use crate::datalog;
@@ -17,6 +18,7 @@ pub struct Verifier {
     symbols: datalog::SymbolTable,
     caveats: Vec<Caveat>,
     token_caveats: Vec<Vec<datalog::Caveat>>,
+    policies: Vec<Policy>,
     has_token: bool,
 }
 
@@ -30,6 +32,7 @@ impl Verifier {
             symbols,
             caveats: vec![],
             token_caveats: token.caveats(),
+            policies: vec![],
             has_token: true,
         })
     }
@@ -52,6 +55,7 @@ impl Verifier {
             symbols,
             caveats: vec![],
             token_caveats: vec![],
+            policies: vec![],
             has_token: false,
         })
     }
@@ -211,6 +215,21 @@ impl Verifier {
         let _ = self.add_caveat(caveat);
     }
 
+    /// add a policy to the verifier
+    pub fn add_policy<R: TryInto<Policy>>(&mut self, policy: R) -> Result<(), error::Token> {
+        let policy = policy.try_into().map_err(|_| error::Token::ParseError)?;
+        self.policies.push(policy);
+        Ok(())
+    }
+
+    pub fn allow(&mut self) -> Result<(), error::Token> {
+        self.add_policy("allow if true")
+    }
+
+    pub fn deny(&mut self) -> Result<(), error::Token> {
+        self.add_policy("deny if true")
+    }
+
     /// checks all the caveats
     ///
     /// on error, this can return a list of all the failed caveats
@@ -295,7 +314,26 @@ impl Verifier {
                 errors,
             )))
         } else {
-            Ok(())
+            for (_i, policy) in self.policies.iter().enumerate() {
+
+                for query in policy.queries.iter() {
+                    let res = self.world.query_match(query.convert(&mut self.symbols));
+
+                    let now = SystemTime::now();
+                    if now >= time_limit {
+                        return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                    }
+
+                    if res {
+                        return match policy.kind {
+                            PolicyKind::Allow => Ok(()),
+                            PolicyKind::Deny =>
+                                Err(error::Token::FailedLogic(error::Logic::Deny))
+                        }
+                    }
+                }
+            }
+            Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy))
         }
     }
 
@@ -326,7 +364,12 @@ impl Verifier {
             }
         }
 
-        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  caveats: {:#?}\n}}", facts, rules, caveats)
+        let mut policies = Vec::new();
+        for policy in self.policies.iter() {
+            policies.push(policy.to_string());
+        }
+
+        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  caveats: {:#?}\n  policies: {:#?}\n}}", facts, rules, caveats, policies)
     }
 
     /// returns all of the data loaded in the verifier

@@ -865,8 +865,8 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("caveat1($resource) <- resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("caveat2(#file1) <- resource(#ambient, #file1)") })
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 0, caveat_id: 0, rule: String::from("check if resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("check if resource(#ambient, #file1)") })
               ]))));
         }
     }
@@ -902,9 +902,11 @@ mod tests {
             let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
+            println!("verifier:\n{}", verifier.print_world());
             res.unwrap();
         }
 
@@ -912,6 +914,7 @@ mod tests {
             let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder2/file3");
             verifier.add_operation("read");
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res2: {:?}", res);
@@ -922,7 +925,7 @@ mod tests {
                         block_id: 1,
                         caveat_id: 0,
                         rule: String::from(
-                            "prefix($resource) <- resource(#ambient, $resource), $resource starts with \"/folder1/\""
+                            "check if resource(#ambient, $resource), $resource starts with \"/folder1/\""
                         )
                     }),
                 ])))
@@ -938,8 +941,8 @@ mod tests {
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("prefix($resource) <- resource(#ambient, $resource), $resource starts with \"/folder1/\"") }),
-                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check_right(#read) <- resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 0, rule: String::from("check if resource(#ambient, $resource), $resource starts with \"/folder1/\"") }),
+                FailedCaveat::Block(FailedBlockCaveat { block_id: 1, caveat_id: 1, rule: String::from("check if resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
               ]))));
         }
     }
@@ -973,6 +976,7 @@ mod tests {
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
@@ -986,6 +990,7 @@ mod tests {
             verifier.add_operation("read");
             verifier.set_time();
             verifier.revocation_check(&[0, 1, 2, 5, 1234]);
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res3: {:?}", res);
@@ -1028,6 +1033,7 @@ mod tests {
             let mut verifier = biscuit2.verify(root.public()).unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
@@ -1047,6 +1053,7 @@ mod tests {
             let mut verifier = biscuit3.verify_sealed().unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
+            verifier.allow().unwrap();
 
             let res = verifier.verify();
             println!("res1: {:?}", res);
@@ -1082,7 +1089,7 @@ mod tests {
       println!("res: {:?}", res);
       assert_eq!(res,
         Err(Token::FailedLogic(Logic::FailedCaveats(vec![
-          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("right(#right) <- right(#authority, \"file2\", #write)") }),
+          FailedCaveat::Verifier(FailedVerifierCaveat { caveat_id: 0, rule: String::from("check if right(#authority, \"file2\", #write)") }),
       ]))));
     }
 
@@ -1189,7 +1196,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                   block_id: 0,
                   caveat_id: 0,
-                  rule: String::from("caveat1() <- resource(#ambient, #hello)"),
+                  rule: String::from("check if resource(#ambient, #hello)"),
                 }),
               ]))));
 
@@ -1215,6 +1222,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
         let mut verifier1 = biscuit1.verify(root.public()).unwrap();
+        verifier1.allow().unwrap();
         let res1 = verifier1.verify();
         println!("res1: {:?}", res1);
         assert_eq!(
@@ -1223,7 +1231,7 @@ mod tests {
                 FailedCaveat::Block(FailedBlockCaveat {
                     block_id: 0,
                     caveat_id: 0,
-                    rule: String::from("requires_name($name) <- name($name)"),
+                    rule: String::from("check if name($name)"),
                 }),
             ]))));
 
@@ -1237,6 +1245,7 @@ mod tests {
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
         let mut verifier2 = biscuit2.verify(root.public()).unwrap();
+        verifier2.allow().unwrap();
         let res2 = verifier2.verify();
         assert_eq!(res2, Ok(()));
     }
@@ -1260,7 +1269,8 @@ mod tests {
             .unwrap();
 
         let mut verifier = biscuit2.verify(root.public()).unwrap();
-        verifier.add_caveat("ok(0) <- has_bytes($0)").unwrap();
+        verifier.add_caveat("check if has_bytes($0)").unwrap();
+        verifier.allow();
 
         let res = verifier.verify();
         println!("res1: {:?}", res);

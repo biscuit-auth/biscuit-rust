@@ -143,6 +143,47 @@ impl Rule {
             }),
         );
     }
+
+    pub fn find_match(&self, facts: &HashSet<Fact>) -> bool {
+        // gather all of the variables used in that rule
+        let variables_set = self
+            .body
+            .iter()
+            .flat_map(|pred| {
+                pred.ids
+                    .iter()
+                    .filter_map(|id| match id {
+                        ID::Variable(i) => Some(*i),
+                        _ => None,
+                    })
+            })
+            .collect::<HashSet<_>>();
+
+        let variables = MatchedVariables::new(variables_set);
+
+        let mut it = CombineIt::new(variables, &self.body, &self.expressions, facts).map(|h| {
+            let mut p = self.head.clone();
+            for index in 0..p.ids.len() {
+                let value = match &p.ids[index] {
+                    ID::Variable(i) => match h.get(i) {
+                        Some(val) => val,
+                        None => {
+                            println!("error: variables that appear in the head should appear in the body and constraints as well");
+                            continue;
+                        }
+                    },
+                    _ => continue,
+                };
+
+                p.ids[index] = value.clone();
+            }
+
+            Fact { predicate: p }
+        });
+
+        let next = it.next();
+        next.is_some()
+    }
 }
 
 /// recursive iterator for rule application
@@ -162,17 +203,23 @@ impl<'a> CombineIt<'a> {
         expressions: &'a [Expression],
         facts: &'a HashSet<Fact>,
     ) -> Self {
-        let p = predicates[0].clone();
+        let current_facts:Box<dyn Iterator<Item = &'a Fact> + 'a> = if predicates.is_empty() {
+            Box::new(facts.iter())
+        } else {
+            let p = predicates[0].clone();
+            Box::new(
+                facts
+                .iter()
+                .filter(move |fact| match_preds(&fact.predicate, &p))
+                )
+        };
+
         CombineIt {
             variables,
             predicates,
             expressions,
             all_facts: facts,
-            current_facts: Box::new(
-                facts
-                    .iter()
-                    .filter(move |fact| match_preds(&fact.predicate, &p)),
-            ),
+            current_facts,
             current_it: None,
         }
     }
@@ -495,6 +542,10 @@ impl World {
         let mut new_facts: Vec<Fact> = Vec::new();
         rule.apply(&self.facts, &mut new_facts);
         new_facts
+    }
+
+    pub fn query_match(&self, rule: Rule) -> bool {
+        rule.find_match(&self.facts)
     }
 }
 

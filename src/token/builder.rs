@@ -456,7 +456,10 @@ impl AsRef<Expression> for Expression {
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "FIXME: {:?}", self)
+        let mut syms = super::default_symbol_table();
+        let expr = self.convert(&mut syms);
+        let s = expr.print(&syms).unwrap();
+        write!(f, "{}", s)
     }
 }
 
@@ -522,32 +525,40 @@ impl Rule {
     }
 }
 
+fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if r.1.len() > 0 {
+        write!(f, "{}", r.1[0])?;
+
+        if r.1.len() > 1 {
+            for i in 1..r.1.len() {
+                write!(f, ", {}", r.1[i])?;
+            }
+        }
+    }
+
+    if r.2.len() > 0 {
+        if r.1.len() > 0 {
+            write!(f, ", ")?;
+        }
+
+        write!(f, "{}", r.2[0])?;
+
+        if r.2.len() > 1 {
+            for i in 1..r.2.len() {
+                write!(f, ", {}", r.2[i])?;
+            }
+        }
+
+    }
+
+    Ok(())
+}
+
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} <- ", self.0)?;
 
-        if self.1.len() > 0 {
-            write!(f, "{}", self.1[0])?;
-
-            if self.1.len() > 1 {
-                for i in 1..self.1.len() {
-                    write!(f, ", {}", self.1[i])?;
-                }
-            }
-        }
-
-        if self.2.len() > 0 {
-            write!(f, ", {}", self.2[0])?;
-
-            if self.2.len() > 1 {
-                for i in 1..self.2.len() {
-                    write!(f, ", {}", self.2[i])?;
-                }
-            }
-
-        }
-
-        Ok(())
+        display_rule_body(self, f)
     }
 }
 
@@ -594,13 +605,56 @@ impl TryFrom<&[Rule]> for Caveat {
 
 impl fmt::Display for Caveat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "check if ")?;
+
         if self.queries.len() > 0 {
-            write!(f, "{}", self.queries[0])?;
+            display_rule_body(&self.queries[0], f)?;
 
             if self.queries.len() > 1 {
                 for i in 1..self.queries.len() {
-                    write!(f, " || {}", self.queries[i])?;
+                    write!(f, " or ")?;
+                    display_rule_body(&self.queries[i], f)?;
                 }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PolicyKind {
+    Allow,
+    Deny,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct Policy {
+    pub queries: Vec<Rule>,
+    pub kind: PolicyKind,
+}
+
+impl fmt::Display for Policy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.queries.len() > 0 {
+            match self.kind {
+                PolicyKind::Allow => write!(f, "allow if ")?,
+                PolicyKind::Deny => write!(f, "deny if ")?,
+            }
+
+            if self.queries.len() > 0 {
+                display_rule_body(&self.queries[0], f)?;
+
+                if self.queries.len() > 1 {
+                    for i in 1..self.queries.len() {
+                        write!(f, " or ")?;
+                        display_rule_body(&self.queries[i], f)?;
+                    }
+                }
+            }
+        } else {
+            match self.kind {
+                PolicyKind::Allow => write!(f, "allow")?,
+                PolicyKind::Deny => write!(f, "deny")?,
             }
         }
 

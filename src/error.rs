@@ -82,6 +82,10 @@ pub enum Logic {
     FailedCaveats(Vec<FailedCaveat>),
     #[error("the verifier already contains a token")]
     VerifierNotEmpty,
+    #[error("denied by policy")]
+    Deny,
+    #[error("no matching policy was found")]
+    NoMatchingPolicy,
 }
 
 /// caveat check errors

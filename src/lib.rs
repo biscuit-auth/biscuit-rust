@@ -110,7 +110,12 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_caveat("read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_caveat("check if right(#authority, \"/a/file1.txt\", #read)");
+//!
+//!   // we choose if we want to allow or deny access
+//!   // we can define a serie of allow/deny policies in the same
+//!   // format  as caveats
+//!   v1.allow();
 //!
 //!   // the token restricts to read operations:
 //!   assert!(v1.verify().is_ok());
