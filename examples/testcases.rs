@@ -756,7 +756,7 @@ fn authority_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
 }
 
 fn verifier_authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## verifier authority checks: test11_verifier_authority_checks.bc");
+    println!("## verifier authority checks: test11_verifier_authority_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
 
@@ -805,7 +805,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
 }
 
 fn authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## authority checks: test12_authority_checks.bc");
+    println!("## authority checks: test12_authority_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
 
@@ -1041,7 +1041,7 @@ fn regex_constraint<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
 }
 
 fn multi_queries_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## multi queries checks: test15_multi_queries_checks.bc");
+    println!("## multi queries checks: test15_multi_queries_caveats.bc");
 
     let mut builder = Biscuit::builder(&root);
 
@@ -1091,7 +1091,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &Ke
 }
 
 fn check_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
-    println!("## check head name should be independent from fact names: test16_check_head_name.bc");
+    println!("## check head name should be independent from fact names: test16_caveat_head_name.bc");
 
     let mut builder = Biscuit::builder(&root);
 
