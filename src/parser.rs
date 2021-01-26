@@ -22,7 +22,7 @@ use nom::{
         is_alphanumeric,
     },
     combinator::{map, map_res, opt, recognize, value},
-    multi::{separated_list0, separated_list1, many0},
+    multi::{separated_list0, separated_list1, many0, fold_many0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
@@ -589,20 +589,42 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term> {
     preceded(space0, alt((symbol, string, date, integer, bytes, boolean)))(i)
 }
 
-fn regex(i: &str) -> IResult<&str, String> {
-    delimited(
-        char('/'),
-        escaped_transform(
-            take_while1(|c: char| c != '\\' && c != '/'),
-            '\\',
-            alt((
-                map(char('\\'), |_| "\\"),
-                map(char('"'), |_| "\""),
-                map(char('n'), |_| "\n"),
-                map(char('/'), |_| "/"),
-            )),
-        ),
-        char('/'),
+#[derive(Clone,Debug,PartialEq,Default)]
+pub struct SourceResult {
+    facts: Vec<builder::Fact>,
+    rules: Vec<builder::Rule>,
+    checks: Vec<builder::Check>,
+    policies: Vec<builder::Policy>,
+}
+
+enum SourceElement {
+    Fact(builder::Fact),
+    Rule(builder::Rule),
+    Check(builder::Check),
+    Policy(builder::Policy),
+}
+
+pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
+    let result = SourceResult::default();
+
+    fold_many0(
+        alt((
+            map(rule, SourceElement::Rule),
+            map(fact, SourceElement::Fact),
+            map(check, SourceElement::Check),
+            map(policy, SourceElement::Policy),
+        )),
+        result,
+        |mut source_result, elem| {
+            match elem {
+                SourceElement::Fact(f) => source_result.facts.push(f),
+                SourceElement::Rule(r) => source_result.rules.push(r),
+                SourceElement::Check(c) => source_result.checks.push(c),
+                SourceElement::Policy(p) => source_result.policies.push(p),
+            };
+
+            source_result
+        }
     )(i)
 }
 
@@ -1144,9 +1166,7 @@ mod tests {
 
     #[test]
     fn parens() {
-        use builder::{Op, Unary, Binary, Term, var, date, int, string};
-        use super::Expr;
-        use std::time::{SystemTime, Duration};
+        use builder::{Op, Unary, Binary, int};
         use std::collections::HashMap;
         use crate::datalog::SymbolTable;
 
@@ -1206,5 +1226,128 @@ mod tests {
         );
         assert_eq!(&printed, "(1 + 2) * 3");
         assert_eq!(result, datalog::ID::Integer(9));
+    }
+
+    #[test]
+    fn source_file() {
+        use builder::{fact, rule, pred, constrained_rule, string, int, s, var,
+          boolean, Op, Binary, Expression, Check, Policy, PolicyKind};
+
+        let input = r#"
+          fact("string", #symbol)
+          fact2(1234)
+
+          rule_head($var0) <- fact($var0, $var1), 1 < 2
+
+          check if 1 == 2
+
+          allow if rule_head("string")
+
+          check if
+              fact(5678)
+              or fact(1234), "test".starts_with("abc")
+
+          deny if true
+        "#;
+
+        let res = super::parse_source(input);
+        println!("res:\n{:#?}", res);
+
+        let empty_terms:&[builder::Term] = &[];
+        let empty_preds:&[builder::Predicate] = &[];
+
+        let expected = super::SourceResult {
+            facts: vec![
+                fact("fact", &[string("string"), s("symbol")]),
+                fact("fact2", &[int(1234)]),
+            ],
+            rules: vec![
+                constrained_rule(
+                    "rule_head",
+                    &[var("var0")],
+                    &[pred("fact", &[var("var0"), var("var1")])],
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(int(1)),
+                            Op::Value(int(2)),
+                            Op::Binary(Binary::LessThan)
+                        ]
+                    }],
+                )
+            ],
+            checks: vec![
+                Check {
+                    queries: vec![
+                        constrained_rule(
+                            "query",
+                            empty_terms,
+                            empty_preds,
+                            &[Expression {
+                                ops: vec![
+                                    Op::Value(int(1)),
+                                    Op::Value(int(2)),
+                                    Op::Binary(Binary::Equal)
+                                ]
+                            }],
+                        )
+                    ],
+                },
+                Check {
+                    queries: vec![
+                        rule(
+                            "query",
+                            empty_terms,
+                            &[pred("fact", &[int(5678)])],
+                        ),
+                        constrained_rule(
+                            "query",
+                            empty_terms,
+                            &[pred("fact", &[int(1234)])],
+                            &[Expression {
+                                ops: vec![
+                                    Op::Value(string("test")),
+                                    Op::Value(string("abc")),
+                                    Op::Binary(Binary::Prefix)
+                                ]
+                            }],
+                        ),
+                    ],
+                    },
+            ],
+            policies: vec![
+                Policy {
+                    kind: PolicyKind::Allow,
+                    queries: vec![
+                        rule(
+                            "query",
+                            empty_terms,
+                            &[pred("rule_head", &[string("string")])],
+                        ),
+                    ],
+                },
+                Policy {
+                    kind: PolicyKind::Deny,
+                    queries: vec![
+                        constrained_rule(
+                            "query",
+                            empty_terms,
+                            empty_preds,
+                            &[Expression {
+                                ops: vec![
+                                    Op::Value(boolean(true)),
+                                ]
+                            }],
+                        )
+                    ],
+                },
+            ],
+        };
+
+        let result = res.unwrap().1;
+        assert_eq!(result.facts, expected.facts);
+        assert_eq!(result.rules, expected.rules);
+        assert_eq!(result.checks, expected.checks);
+        assert_eq!(result.policies, expected.policies);
+        //panic!();
     }
 }
