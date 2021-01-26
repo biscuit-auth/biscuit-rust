@@ -24,7 +24,6 @@ pub enum Unary {
 impl Unary {
     fn evaluate(&self, value: ID) -> Option<ID> {
         match (self, value) {
-            (Unary::Negate, ID::Integer(i)) => Some(ID::Integer(-1i64 * i)),
             (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
             (Unary::Parens, i) => Some(i),
              _ => {
@@ -36,7 +35,7 @@ impl Unary {
 
     pub fn print(&self, value: String, _symbols: &SymbolTable) -> String {
         match self {
-            Unary::Negate => format!("-{}", value),
+            Unary::Negate => format!("!{}", value),
             Unary::Parens => format!("({})", value),
         }
     }
@@ -216,9 +215,10 @@ mod tests {
 
         let ops = vec![
             Op::Value(ID::Integer(1)),
-            Op::Unary(Unary::Negate),
             Op::Value(ID::Variable(2)),
             Op::Binary(Binary::LessThan),
+            Op::Unary(Unary::Parens),
+            Op::Unary(Unary::Negate),
         ];
 
         let values: HashMap<u32, ID> = [(2, ID::Integer(0))]
@@ -231,7 +231,6 @@ mod tests {
 
         let res = e.evaluate(&values);
         assert_eq!(res, Some(ID::Bool(true)));
-        //panic!();
     }
 
     #[test]
@@ -292,8 +291,7 @@ mod tests {
         };
 
         let ops1 = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Unary(Unary::Negate),
+            Op::Value(ID::Integer(-1)),
             Op::Value(ID::Variable(2)),
             Op::Binary(Binary::LessThan),
         ];

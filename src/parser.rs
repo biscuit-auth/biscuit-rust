@@ -312,7 +312,7 @@ fn unary(i: &str) -> IResult<&str, Expr> {
 
 fn unary_negate(i: &str) -> IResult<&str, Expr> {
     let (i, _) = space0(i)?;
-    let (i, _) = tag("-")(i)?;
+    let (i, _) = tag("!")(i)?;
     let (i, _) = space0(i)?;
     let (i, value) = expr(i)?;
 
@@ -701,8 +701,7 @@ mod tests {
                 "",
                 vec![
                     Op::Value(var("0")),
-                    Op::Value(int(1234)),
-                    Op::Unary(Unary::Negate),
+                    Op::Value(int(-1234)),
                     Op::Binary(Binary::GreaterOrEqual),
                 ],
             ))
@@ -1017,14 +1016,14 @@ mod tests {
 
         let mut syms = SymbolTable::new();
 
-        let input = " - 1 ";
+        let input = " -1 ";
         println!("parsing: {}", input);
         let res = super::expr(input);
         assert_eq!(
             res,
             Ok((
                 " ",
-                Expr::Unary(Op::Unary(Unary::Negate), Box::new(Expr::Value(Term::Integer(1))))
+                Expr::Value(Term::Integer(-1))
             ))
         );
 
