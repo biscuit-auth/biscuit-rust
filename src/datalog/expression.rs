@@ -92,10 +92,10 @@ impl Binary {
             (Binary::In, ID::Bytes(i), ID::Set(set)) => Some(ID::Bool(set.contains(&ID::Bytes(i)))),
             (Binary::NotIn, ID::Bytes(i), ID::Set(set)) => Some(ID::Bool(!set.contains(&ID::Bytes(i)))),
 
-            (Binary::Add, ID::Integer(i), ID::Integer(j)) => Some(ID::Integer(i + j)),
-            (Binary::Sub, ID::Integer(i), ID::Integer(j)) => Some(ID::Integer(i - j)),
-            (Binary::Mul, ID::Integer(i), ID::Integer(j)) => Some(ID::Integer(i * j)),
-            (Binary::Div, ID::Integer(i), ID::Integer(j)) => Some(ID::Integer(i / j)),
+            (Binary::Add, ID::Integer(i), ID::Integer(j)) => i.checked_add(j).map(ID::Integer),
+            (Binary::Sub, ID::Integer(i), ID::Integer(j)) => i.checked_sub(j).map(ID::Integer),
+            (Binary::Mul, ID::Integer(i), ID::Integer(j)) => i.checked_mul(j).map(ID::Integer),
+            (Binary::Div, ID::Integer(i), ID::Integer(j)) => i.checked_div(j).map(ID::Integer),
             (Binary::And, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i & j)),
             (Binary::Or, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i | j)),
             _ => {
@@ -234,6 +234,52 @@ mod tests {
         //panic!();
     }
 
+    #[test]
+    fn checked() {
+        let ops = vec![
+            Op::Value(ID::Integer(1)),
+            Op::Value(ID::Integer(0)),
+            Op::Binary(Binary::Div),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values);
+        assert_eq!(res, None);
+
+        let ops = vec![
+            Op::Value(ID::Integer(1)),
+            Op::Value(ID::Integer(i64::MAX)),
+            Op::Binary(Binary::Add),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values);
+        assert_eq!(res, None);
+
+        let ops = vec![
+            Op::Value(ID::Integer(-10)),
+            Op::Value(ID::Integer(i64::MAX)),
+            Op::Binary(Binary::Sub),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values);
+        assert_eq!(res, None);
+
+        let ops = vec![
+            Op::Value(ID::Integer(2)),
+            Op::Value(ID::Integer(i64::MAX)),
+            Op::Binary(Binary::Mul),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values);
+        assert_eq!(res, None);
+    }
 
     #[test]
     fn printer() {
