@@ -18,6 +18,7 @@ pub enum Op {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Unary {
     Negate,
+    Parens,
 }
 
 impl Unary {
@@ -25,6 +26,7 @@ impl Unary {
         match (self, value) {
             (Unary::Negate, ID::Integer(i)) => Some(ID::Integer(-1i64 * i)),
             (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
+            (Unary::Parens, i) => Some(i),
              _ => {
                  //println!("unexpected value type on the stack");
                  return None;
@@ -35,6 +37,7 @@ impl Unary {
     pub fn print(&self, value: String, _symbols: &SymbolTable) -> String {
         match self {
             Unary::Negate => format!("-{}", value),
+            Unary::Parens => format!("({})", value),
         }
     }
 }

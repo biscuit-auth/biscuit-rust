@@ -304,12 +304,30 @@ impl Expr {
 }
 
 fn unary(i: &str) -> IResult<&str, Expr> {
+    alt((
+        unary_parens,
+        unary_negate,
+    ))(i)
+}
+
+fn unary_negate(i: &str) -> IResult<&str, Expr> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("-")(i)?;
     let (i, _) = space0(i)?;
     let (i, value) = expr(i)?;
 
     Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Negate), Box::new(value))))
+}
+
+fn unary_parens(i: &str) -> IResult<&str, Expr> {
+    let (i, _) = space0(i)?;
+    let (i, _) = tag("(")(i)?;
+    let (i, _) = space0(i)?;
+    let (i, value) = expr(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = tag(")")(i)?;
+
+    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value))))
 }
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary> {
@@ -959,6 +977,7 @@ mod tests {
             ))
         );
     }
+
     #[test]
     fn check() {
         let empty: &[builder::Term] = &[];
@@ -1091,5 +1110,71 @@ mod tests {
         println!("print: {}", e.print(&syms).unwrap());
 
         //panic!();
+    }
+
+    #[test]
+    fn parens() {
+        use builder::{Op, Unary, Binary, Term, var, date, int, string};
+        use super::Expr;
+        use std::time::{SystemTime, Duration};
+        use std::collections::HashMap;
+        use crate::datalog::SymbolTable;
+
+        let mut syms = SymbolTable::new();
+
+        let input = " 1 + 2 * 3 ";
+        println!("parsing: {}", input);
+        let (_, res) = super::expr(input).unwrap();
+
+        let ops = res.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops: ops.clone() }.convert(&mut syms);
+
+        let printed = e.print(&syms).unwrap();
+        println!("print: {}", e.print(&syms).unwrap());
+        let h = HashMap::new();
+        let result = e.evaluate(&h).unwrap();
+        println!("evaluates to: {:?}", result);
+
+        assert_eq!(
+            ops,
+            vec![
+                Op::Value(int(1)),
+                Op::Value(int(2)),
+                Op::Value(int(3)),
+                Op::Binary(Binary::Mul),
+                Op::Binary(Binary::Add),
+            ]
+        );
+        assert_eq!(&printed, "1 + 2 * 3");
+        assert_eq!(result, datalog::ID::Integer(7));
+
+        let input = " (1 + 2) * 3 ";
+        println!("parsing: {}", input);
+        let (_, res) = super::expr(input).unwrap();
+
+        let ops = res.opcodes();
+        println!("ops: {:#?}", ops);
+        let e = builder::Expression { ops: ops.clone() }.convert(&mut syms);
+
+        let printed = e.print(&syms).unwrap();
+        println!("print: {}", e.print(&syms).unwrap());
+        let h = HashMap::new();
+        let result = e.evaluate(&h).unwrap();
+        println!("evaluates to: {:?}", result);
+
+        assert_eq!(
+            ops,
+            vec![
+                Op::Value(int(1)),
+                Op::Value(int(2)),
+                Op::Binary(Binary::Add),
+                Op::Unary(Unary::Parens),
+                Op::Value(int(3)),
+                Op::Binary(Binary::Mul),
+            ]
+        );
+        assert_eq!(&printed, "(1 + 2) * 3");
+        assert_eq!(result, datalog::ID::Integer(9));
     }
 }

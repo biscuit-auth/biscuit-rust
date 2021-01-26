@@ -727,6 +727,7 @@ pub mod v1 {
                         schema::op::Content::Unary(schema::OpUnary {
                             kind: match u {
                                 Unary::Negate => Kind::Negate,
+                                Unary::Parens => Kind::Parens,
                             } as i32,
                         })
                     },
@@ -772,6 +773,7 @@ pub mod v1 {
                 Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_id(&id)?),
                 Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
+                    Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
                     None => return Err(error::Format::DeserializationError(
                         "deserialization error: unary operation is empty".to_string(),
                     )),

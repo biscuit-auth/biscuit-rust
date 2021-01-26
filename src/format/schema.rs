@@ -482,6 +482,7 @@ pub mod op_unary {
     #[repr(i32)]
     pub enum Kind {
         Negate = 0,
+        Parens = 1,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
