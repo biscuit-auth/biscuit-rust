@@ -314,7 +314,10 @@ fn unary(i: &str) -> IResult<&str, Expr> {
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary> {
     use builder::Binary;
-    value(Binary::And, tag("&&"))(i)
+    alt((
+        value(Binary::And, tag("&&")),
+        value(Binary::Or, tag("||")),
+    ))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary> {
@@ -330,12 +333,17 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary> {
 
 fn binary_op_2(i: &str) -> IResult<&str, builder::Binary> {
     use builder::Binary;
-    value(Binary::Add, tag("+"))(i)
+    alt((
+        value(Binary::Add, tag("+")),
+        value(Binary::Sub, tag("-")),
+    ))(i)
 }
 
 fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
     use builder::Binary;
     alt((
+        value(Binary::Mul, tag("*")),
+        value(Binary::Div, tag("/")),
         value(Binary::In, tag("in")),
         value(Binary::NotIn, tag("not in")),
         value(Binary::Prefix, tag("starts with")),
