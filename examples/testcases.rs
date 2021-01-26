@@ -116,6 +116,8 @@ fn validate_token(
         verifier.add_check(&check[..]);
     }
 
+    verifier.allow()?;
+
     println!("verifier world:\n{}", verifier.print_world());
     verifier.verify()?;
     Ok(())
@@ -920,7 +922,8 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
             Expression { ops: vec![
                 Op::Value(var("1")),
                 Op::Value(set(strings)),
-                Op::Binary(Binary::NotIn)
+                Op::Binary(Binary::Contains),
+                Op::Unary(Unary::Negate),
             ] },
         ],
     ));

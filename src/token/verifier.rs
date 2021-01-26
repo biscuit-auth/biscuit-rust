@@ -2,7 +2,7 @@
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, Fact,
     Rule, Check, var, Expression, Op, Binary, Term, Policy,
-    PolicyKind,
+    PolicyKind, Unary,
 };
 use super::Biscuit;
 use crate::datalog;
@@ -206,9 +206,10 @@ impl Verifier {
             &[pred("revocation_id", &[var("id")])],
             &[Expression {
                 ops: vec![
-                    Op::Value(var("id")),
                     Op::Value(Term::Set(ids.iter().map(|i| Term::Integer(*i)).collect())),
-                    Op::Binary(Binary::NotIn),
+                    Op::Value(var("id")),
+                    Op::Binary(Binary::Contains),
+                    Op::Unary(Unary::Negate),
                 ]
             }],
         );

@@ -362,10 +362,16 @@ fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
     alt((
         value(Binary::Mul, tag("*")),
         value(Binary::Div, tag("/")),
-        value(Binary::In, tag("in")),
-        value(Binary::NotIn, tag("not in")),
-        value(Binary::Prefix, tag("starts with")),
-        value(Binary::Suffix, tag("ends with")),
+    ))(i)
+}
+
+fn binary_op_4(i: &str) -> IResult<&str, builder::Binary> {
+    use builder::Binary;
+
+    alt((
+        value(Binary::Contains, tag("contains")),
+        value(Binary::Prefix, tag("starts_with")),
+        value(Binary::Suffix, tag("ends_with")),
         value(Binary::Regex, tag("matches")),
     ))(i)
 }
@@ -409,11 +415,33 @@ fn expr2(i: &str) -> IResult<&str, Expr> {
 }
 
 fn expr3(i: &str) -> IResult<&str, Expr> {
-    let (i, initial) = expr_term(i)?;
+    let (i, initial) = expr4(i)?;
 
-    let (i, remainder) = many0(tuple((preceded(space0, binary_op_3), expr_term)))(i)?;
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_3), expr4)))(i)?;
 
     Ok((i, fold_exprs(initial, remainder)))
+}
+
+fn expr4(i: &str) -> IResult<&str, Expr> {
+    let (i, initial) = expr_term(i)?;
+    let i2 = i.clone();
+
+    if let Ok((i, _)) = char::<_, ()>('.')(i) {
+        let (i, op) = binary_op_4(i)?;
+
+        let (i, _) = char('(')(i)?;
+        let (i, _) = space0(i)?;
+        // we only support a single argument for now
+        let (i, arg) = expr(i)?;
+        let (i, _) = space0(i)?;
+        let (i, _) = char(')')(i)?;
+
+        let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+
+        Ok((i, e))
+    } else {
+        Ok((i2, initial))
+    }
 }
 
 fn name(i: &str) -> IResult<&str, &str> {
@@ -722,27 +750,28 @@ mod tests {
 
         let h = [int(1), int(2)].iter().cloned().collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("$0 in [1, 2]")
+            super::expr("[1, 2].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h.clone())),
-                    Op::Binary(Binary::In),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
 
         assert_eq!(
-            super::expr("$0 not in [1, 2]")
+            super::expr("![1, 2].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h)),
-                    Op::Binary(Binary::NotIn),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
+                    Op::Unary(Unary::Negate),
                 ],
             ))
         );
@@ -761,7 +790,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 ends with \"abc\"")
+            super::expr("$0.ends_with(\"abc\")")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
@@ -774,7 +803,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 starts with \"abc\"")
+            super::expr("$0.starts_with(\"abc\")")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
@@ -787,7 +816,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 matches \"abc[0-9]+\"")
+            super::expr("$0.matches(\"abc[0-9]+\")")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
@@ -804,27 +833,28 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("$0 in [\"abc\", \"def\"]")
+            super::expr("[\"abc\", \"def\"].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h.clone())),
-                    Op::Binary(Binary::In),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
 
         assert_eq!(
-            super::expr("$0 not in [\"abc\", \"def\"]")
+            super::expr("![\"abc\", \"def\"].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h.clone())),
-                    Op::Binary(Binary::NotIn),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
+                    Op::Unary(Unary::Negate),
                 ],
             ))
         );
@@ -834,27 +864,28 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("$0 in [#abc, #def]")
+            super::expr("[#abc, #def].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h.clone())),
-                    Op::Binary(Binary::In),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
 
         assert_eq!(
-            super::expr("$0 not in [#abc, #def]")
+            super::expr("![#abc, #def].contains($0)")
                 .map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
-                    Op::Value(var("0")),
                     Op::Value(set(h.clone())),
-                    Op::Binary(Binary::NotIn),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
+                    Op::Unary(Unary::Negate),
                 ],
             ))
         );
@@ -1076,7 +1107,7 @@ mod tests {
         let e = builder::Expression { ops }.convert(&mut syms);
         println!("print: {}", e.print(&syms).unwrap());
 
-        let input = " 2 < $test && $var2 starts with \"test\" && true ";
+        let input = " 2 < $test && $var2.starts_with(\"test\") && true ";
         println!("parsing: {}", input);
         let res = super::expr(input);
         assert_eq!(

@@ -899,9 +899,9 @@ mod tests {
             &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[
                 Expression { ops: vec![
-                    Op::Value(var(&mut syms, "int")),
                     Op::Value(ID::Set([ID::Integer(0), ID::Integer(1)].iter().cloned().collect())),
-                    Op::Binary(Binary::In),
+                    Op::Value(var(&mut syms, "int")),
+                    Op::Binary(Binary::Contains),
                 ] },
             ],
         ));
@@ -925,9 +925,10 @@ mod tests {
             &[pred(x, &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[
                 Expression { ops: vec![
-                    Op::Value(var(&mut syms, "symbol")),
                     Op::Value(ID::Set([ID::Symbol(abc_sym_id), ID::Symbol(ghi_sym_id)].iter().cloned().collect())),
-                    Op::Binary(Binary::NotIn),
+                    Op::Value(var(&mut syms, "symbol")),
+                    Op::Binary(Binary::Contains),
+                    Op::Unary(Unary::Negate),
                 ] },
             ],
         ));
@@ -948,9 +949,9 @@ mod tests {
             &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[
                 Expression { ops: vec![
-                    Op::Value(var(&mut syms, "str")),
                     Op::Value(ID::Set([ID::Str("test".to_string()), ID::Str("aaa".to_string())].iter().cloned().collect())),
-                    Op::Binary(Binary::In),
+                    Op::Value(var(&mut syms, "str")),
+                    Op::Binary(Binary::Contains),
                 ] },
             ],
         ));

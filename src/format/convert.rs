@@ -332,18 +332,19 @@ pub mod v0 {
             Kind::In => {
                 if !input.in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
-                        Op::Binary(Binary::In)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains)
                     ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
-                        Op::Binary(Binary::NotIn)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains),
+                        Op::Unary(Unary::Negate),
                     ] });
                 }
             }
@@ -392,18 +393,19 @@ pub mod v0 {
             Kind::In => {
                 if !input.in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
-                        Op::Binary(Binary::In)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains)
                     ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
-                        Op::Binary(Binary::NotIn)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains),
+                        Op::Unary(Unary::Negate),
                     ] });
                 }
             }
@@ -464,18 +466,19 @@ pub mod v0 {
             Kind::In => {
                 if !input.in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
-                        Op::Binary(Binary::In)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains)
                     ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
-                        Op::Binary(Binary::NotIn)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains),
+                        Op::Unary(Unary::Negate),
                     ] });
                 }
             }
@@ -509,18 +512,19 @@ pub mod v0 {
             Kind::In => {
                 if !input.in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
-                        Op::Binary(Binary::In)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains),
                     ] });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
                     return Ok(Expression { ops: vec![
-                        Op::Value(id),
                         Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
-                        Op::Binary(Binary::NotIn)
+                        Op::Value(id),
+                        Op::Binary(Binary::Contains),
+                        Op::Unary(Unary::Negate),
                     ] });
                 }
             }
@@ -741,8 +745,7 @@ pub mod v1 {
                                 Binary::LessOrEqual => Kind::LessOrEqual,
                                 Binary::GreaterOrEqual => Kind::GreaterOrEqual,
                                 Binary::Equal => Kind::Equal,
-                                Binary::In => Kind::In,
-                                Binary::NotIn => Kind::NotIn,
+                                Binary::Contains => Kind::Contains,
                                 Binary::Prefix => Kind::Prefix,
                                 Binary::Suffix => Kind::Suffix,
                                 Binary::Regex => Kind::Regex,
@@ -784,8 +787,7 @@ pub mod v1 {
                     Some(op_binary::Kind::LessOrEqual) => Op::Binary(Binary::LessOrEqual),
                     Some(op_binary::Kind::GreaterOrEqual) => Op::Binary(Binary::GreaterOrEqual),
                     Some(op_binary::Kind::Equal) => Op::Binary(Binary::Equal),
-                    Some(op_binary::Kind::In) => Op::Binary(Binary::In),
-                    Some(op_binary::Kind::NotIn) => Op::Binary(Binary::NotIn),
+                    Some(op_binary::Kind::Contains) => Op::Binary(Binary::Contains),
                     Some(op_binary::Kind::Prefix) => Op::Binary(Binary::Prefix),
                     Some(op_binary::Kind::Suffix) => Op::Binary(Binary::Suffix),
                     Some(op_binary::Kind::Regex) => Op::Binary(Binary::Regex),
