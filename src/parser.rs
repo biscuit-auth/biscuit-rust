@@ -22,7 +22,7 @@ use nom::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
-    combinator::{map, map_res, opt, recognize, value},
+    combinator::{map, map_res, opt, recognize, value, cut},
     multi::{separated_list0, separated_list1, many0, fold_many0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
@@ -44,7 +44,7 @@ pub fn check(i: &str) -> IResult<&str, builder::Check> {
 
     let (i, _) = tag_no_case("check if")(i)?;
 
-    let (i, queries) = check_body(i)?;
+    let (i, queries) = cut(check_body)(i)?;
     Ok((i, builder::Check { queries }))
 }
 
@@ -59,7 +59,7 @@ pub fn allow(i: &str) -> IResult<&str, builder::Policy> {
 
     let (i, _) = tag_no_case("allow if")(i)?;
 
-    let (i, queries) = check_body(i)?;
+    let (i, queries) = cut(check_body)(i)?;
     Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Allow }))
 }
 
@@ -69,7 +69,7 @@ pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
 
     let (i, _) = tag_no_case("deny if")(i)?;
 
-    let (i, queries) = check_body(i)?;
+    let (i, queries) = cut(check_body)(i)?;
     Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Deny }))
 }
 
@@ -100,7 +100,7 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, (predicates, expressions)) = rule_body(i)?;
+    let (i, (predicates, expressions)) = cut(rule_body)(i)?;
 
     Ok((i, builder::Rule(head, predicates, expressions)))
 }
@@ -202,7 +202,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        separated_list1(preceded(space0, char(',')), term),
+        cut(separated_list1(preceded(space0, char(',')), term)),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -222,7 +222,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        separated_list0(preceded(space0, char(',')), term),
+        cut(separated_list0(preceded(space0, char(',')), term)),
         preceded(space0, char(')')),
     )(i)?;
 
