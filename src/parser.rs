@@ -22,7 +22,7 @@ use nom::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
-    combinator::{map, map_res, opt, recognize, value, cut},
+    combinator::{map, map_res, opt, recognize, value, cut, consumed},
     multi::{separated_list0, separated_list1, many0, fold_many0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
@@ -609,18 +609,18 @@ fn multiline_comment(i: &str) -> IResult<&str, ()> {
 }
 
 #[derive(Clone,Debug,PartialEq,Default)]
-pub struct SourceResult {
-    facts: Vec<builder::Fact>,
-    rules: Vec<builder::Rule>,
-    checks: Vec<builder::Check>,
-    policies: Vec<builder::Policy>,
+pub struct SourceResult<'a> {
+    facts: Vec<(&'a str, builder::Fact)>,
+    rules: Vec<(&'a str, builder::Rule)>,
+    checks: Vec<(&'a str, builder::Check)>,
+    policies: Vec<(&'a str, builder::Policy)>,
 }
 
-enum SourceElement {
-    Fact(builder::Fact),
-    Rule(builder::Rule),
-    Check(builder::Check),
-    Policy(builder::Policy),
+enum SourceElement<'a> {
+    Fact(&'a str, builder::Fact),
+    Rule(&'a str, builder::Rule),
+    Check(&'a str, builder::Check),
+    Policy(&'a str, builder::Policy),
     Comment,
 }
 
@@ -628,21 +628,24 @@ pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
     let result = SourceResult::default();
 
     fold_many0(
-        alt((
-            map(rule, SourceElement::Rule),
-            map(fact, SourceElement::Fact),
-            map(check, SourceElement::Check),
-            map(policy, SourceElement::Policy),
-            map(line_comment, |_| SourceElement::Comment),
-            map(multiline_comment, |_| SourceElement::Comment),
-        )),
+        preceded(
+            space0,
+            alt((
+                map(consumed(rule), |(i, r)| SourceElement::Rule(i, r)),
+                map(consumed(fact), |(i, f)| SourceElement::Fact(i, f)),
+                map(consumed(check), |(i, c)| SourceElement::Check(i, c)),
+                map(consumed(policy), |(i, p)| SourceElement::Policy(i, p)),
+                map(line_comment, |_| SourceElement::Comment),
+                map(multiline_comment, |_| SourceElement::Comment),
+            ))
+        ),
         result,
         |mut source_result, elem| {
             match elem {
-                SourceElement::Fact(f) => source_result.facts.push(f),
-                SourceElement::Rule(r) => source_result.rules.push(r),
-                SourceElement::Check(c) => source_result.checks.push(c),
-                SourceElement::Policy(p) => source_result.policies.push(p),
+                SourceElement::Fact(i, f) => source_result.facts.push((i, f)),
+                SourceElement::Rule(i, r) => source_result.rules.push((i, r)),
+                SourceElement::Check(i, c) => source_result.checks.push((i, c)),
+                SourceElement::Policy(i, p) => source_result.policies.push((i, p)),
                 SourceElement::Comment => {},
             };
 
@@ -1284,98 +1287,99 @@ mod tests {
         let empty_terms:&[builder::Term] = &[];
         let empty_preds:&[builder::Predicate] = &[];
 
-        let expected = super::SourceResult {
-            facts: vec![
-                fact("fact", &[string("string"), s("symbol")]),
-                fact("fact2", &[int(1234)]),
-            ],
-            rules: vec![
-                constrained_rule(
-                    "rule_head",
-                    &[var("var0")],
-                    &[pred("fact", &[var("var0"), var("var1")])],
-                    &[Expression {
-                        ops: vec![
-                            Op::Value(int(1)),
-                            Op::Value(int(2)),
-                            Op::Binary(Binary::LessThan)
-                        ]
-                    }],
-                )
-            ],
-            checks: vec![
-                Check {
-                    queries: vec![
-                        constrained_rule(
-                            "query",
-                            empty_terms,
-                            empty_preds,
-                            &[Expression {
-                                ops: vec![
-                                    Op::Value(int(1)),
-                                    Op::Value(int(2)),
-                                    Op::Binary(Binary::Equal)
-                                ]
-                            }],
-                        )
-                    ],
-                },
-                Check {
-                    queries: vec![
-                        rule(
-                            "query",
-                            empty_terms,
-                            &[pred("fact", &[int(5678)])],
-                        ),
-                        constrained_rule(
-                            "query",
-                            empty_terms,
-                            &[pred("fact", &[int(1234)])],
-                            &[Expression {
-                                ops: vec![
-                                    Op::Value(string("test")),
-                                    Op::Value(string("abc")),
-                                    Op::Binary(Binary::Prefix)
-                                ]
-                            }],
-                        ),
-                    ],
-                    },
-            ],
-            policies: vec![
-                Policy {
-                    kind: PolicyKind::Allow,
-                    queries: vec![
-                        rule(
-                            "query",
-                            empty_terms,
-                            &[pred("rule_head", &[string("string")])],
-                        ),
-                    ],
-                },
-                Policy {
-                    kind: PolicyKind::Deny,
-                    queries: vec![
-                        constrained_rule(
-                            "query",
-                            empty_terms,
-                            empty_preds,
-                            &[Expression {
-                                ops: vec![
-                                    Op::Value(boolean(true)),
-                                ]
-                            }],
-                        )
-                    ],
-                },
-            ],
-        };
+        let expected_facts = vec![
+            fact("fact", &[string("string"), s("symbol")]),
+            fact("fact2", &[int(1234)]),
+        ];
 
-        let (remaining, result) = res.unwrap();
+        let expected_rules = vec![
+            constrained_rule(
+                "rule_head",
+                &[var("var0")],
+                &[pred("fact", &[var("var0"), var("var1")])],
+                &[Expression {
+                    ops: vec![
+                        Op::Value(int(1)),
+                        Op::Value(int(2)),
+                        Op::Binary(Binary::LessThan)
+                    ]
+                }],
+            )
+        ];
+
+        let expected_checks = vec![
+            Check {
+                queries: vec![
+                    constrained_rule(
+                        "query",
+                        empty_terms,
+                        empty_preds,
+                        &[Expression {
+                            ops: vec![
+                                Op::Value(int(1)),
+                                Op::Value(int(2)),
+                                Op::Binary(Binary::Equal)
+                            ]
+                        }],
+                        )
+                ],
+            },
+            Check {
+                queries: vec![
+                    rule(
+                        "query",
+                        empty_terms,
+                        &[pred("fact", &[int(5678)])],
+                    ),
+                    constrained_rule(
+                        "query",
+                        empty_terms,
+                        &[pred("fact", &[int(1234)])],
+                        &[Expression {
+                            ops: vec![
+                                Op::Value(string("test")),
+                                Op::Value(string("abc")),
+                                Op::Binary(Binary::Prefix)
+                            ]
+                        }],
+                    ),
+                ],
+            },
+        ];
+
+        let expected_policies = vec![
+            Policy {
+                kind: PolicyKind::Allow,
+                queries: vec![
+                    rule(
+                        "query",
+                        empty_terms,
+                        &[pred("rule_head", &[string("string")])],
+                    ),
+                ],
+            },
+            Policy {
+                kind: PolicyKind::Deny,
+                queries: vec![
+                    constrained_rule(
+                        "query",
+                        empty_terms,
+                        empty_preds,
+                        &[Expression {
+                            ops: vec![
+                                Op::Value(boolean(true)),
+                            ]
+                        }],
+                    )
+                ],
+            },
+        ];
+
+        let (remaining, mut result) = res.unwrap();
         //assert_eq!(remaining, "\n");
-        assert_eq!(result.facts, expected.facts);
-        assert_eq!(result.rules, expected.rules);
-        assert_eq!(result.checks, expected.checks);
-        assert_eq!(result.policies, expected.policies);
+        assert_eq!(result.facts.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_facts);
+        assert_eq!(result.rules.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_rules);
+        assert_eq!(result.checks.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_checks);
+        assert_eq!(result.policies.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_policies);
     }
 }
