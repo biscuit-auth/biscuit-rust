@@ -610,10 +610,10 @@ fn multiline_comment(i: &str) -> IResult<&str, ()> {
 
 #[derive(Clone,Debug,PartialEq,Default)]
 pub struct SourceResult<'a> {
-    facts: Vec<(&'a str, builder::Fact)>,
-    rules: Vec<(&'a str, builder::Rule)>,
-    checks: Vec<(&'a str, builder::Check)>,
-    policies: Vec<(&'a str, builder::Policy)>,
+    pub facts: Vec<(&'a str, builder::Fact)>,
+    pub rules: Vec<(&'a str, builder::Rule)>,
+    pub checks: Vec<(&'a str, builder::Check)>,
+    pub policies: Vec<(&'a str, builder::Policy)>,
 }
 
 enum SourceElement<'a> {
