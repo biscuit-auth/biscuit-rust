@@ -16,7 +16,8 @@
 use crate::{error, token::builder};
 use nom::{
     branch::alt,
-    bytes::complete::{escaped_transform, tag, tag_no_case, take_while1},
+    bytes::complete::{escaped_transform, tag, tag_no_case, take_while, take_while1,
+      take_until},
     character::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
@@ -589,6 +590,24 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term> {
     preceded(space0, alt((symbol, string, date, integer, bytes, boolean)))(i)
 }
 
+fn line_comment(i: &str) -> IResult<&str, ()> {
+    let (i, _) = space0(i)?;
+    let (i, _) = tag("//")(i)?;
+    let (i, _) = take_while(|c| c != '\r' && c != '\n')(i)?;
+    let (i, _) = opt(alt((tag("\n"), tag("\r\n"))))(i)?;
+
+    Ok((i, ()))
+}
+
+fn multiline_comment(i: &str) -> IResult<&str, ()> {
+    let (i, _) = space0(i)?;
+    let (i, _) = tag("/*")(i)?;
+    let (i, _) = take_until("*/")(i)?;
+    let (i, _) = tag("*/")(i)?;
+
+    Ok((i, ()))
+}
+
 #[derive(Clone,Debug,PartialEq,Default)]
 pub struct SourceResult {
     facts: Vec<builder::Fact>,
@@ -602,6 +621,7 @@ enum SourceElement {
     Rule(builder::Rule),
     Check(builder::Check),
     Policy(builder::Policy),
+    Comment,
 }
 
 pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
@@ -613,6 +633,8 @@ pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
             map(fact, SourceElement::Fact),
             map(check, SourceElement::Check),
             map(policy, SourceElement::Policy),
+            map(line_comment, |_| SourceElement::Comment),
+            map(multiline_comment, |_| SourceElement::Comment),
         )),
         result,
         |mut source_result, elem| {
@@ -621,6 +643,7 @@ pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
                 SourceElement::Rule(r) => source_result.rules.push(r),
                 SourceElement::Check(c) => source_result.checks.push(c),
                 SourceElement::Policy(p) => source_result.policies.push(p),
+                SourceElement::Comment => {},
             };
 
             source_result
@@ -1239,9 +1262,14 @@ mod tests {
 
           rule_head($var0) <- fact($var0, $var1), 1 < 2
 
+          // line comment
           check if 1 == 2
 
           allow if rule_head("string")
+
+          /*
+           other comment
+          */
 
           check if
               fact(5678)
@@ -1343,11 +1371,11 @@ mod tests {
             ],
         };
 
-        let result = res.unwrap().1;
+        let (remaining, result) = res.unwrap();
+        //assert_eq!(remaining, "\n");
         assert_eq!(result.facts, expected.facts);
         assert_eq!(result.rules, expected.rules);
         assert_eq!(result.checks, expected.checks);
         assert_eq!(result.policies, expected.policies);
-        //panic!();
     }
 }
