@@ -219,10 +219,10 @@ impl<'a> BiscuitBuilder<'a> {
         Ok(())
     }
 
-    pub fn add_authority_check<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
-        let check = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let r = check.convert(&mut self.symbols);
-        self.checks.push(datalog::Check { queries: vec![r]});
+    pub fn add_authority_check<C: TryInto<Check>>(&mut self, rule: C) -> Result<(), error::Token> {
+        let check: Check = rule.try_into().map_err(|_| error::Token::ParseError)?;
+        let c = check.convert(&mut self.symbols);
+        self.checks.push(c);
         Ok(())
     }
 
@@ -700,6 +700,22 @@ pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions.iter().map(|c| c.as_ref().clone()).collect(),
     )
+}
+
+/// creates a check
+pub fn check<P: AsRef<Predicate>>(
+    predicates: &[P],
+) -> Check {
+    let empty_terms: &[Term] = &[];
+    Check {
+        queries: vec![
+            Rule(
+                pred("query", empty_terms),
+                predicates.iter().map(|p| p.as_ref().clone()).collect(),
+                Vec::new(),
+            )
+        ],
+    }
 }
 
 /// creates an integer value

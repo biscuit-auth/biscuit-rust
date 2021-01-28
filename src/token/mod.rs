@@ -713,7 +713,7 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::builder::{fact, pred, rule, s, var, int};
+    use super::builder::{fact, pred, rule, check, s, var, int};
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
@@ -1155,10 +1155,7 @@ mod tests {
 
         let mut builder = Biscuit::builder(&root);
 
-        let empty: &[builder::Term] = &[];
-        builder.add_authority_check(rule(
-            "check1",
-            empty,
+        builder.add_authority_check(check(
             &[
                 pred("resource", &[s("ambient"), s("hello")]),
             ],
@@ -1210,9 +1207,7 @@ mod tests {
 
         let mut builder = Biscuit::builder(&root);
 
-        builder.add_authority_check(rule(
-            "requires_name",
-            &[var("name")],
+        builder.add_authority_check(check(
             &[
                 pred("name", &[var("name")]),
             ],
