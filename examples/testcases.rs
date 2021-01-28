@@ -920,8 +920,8 @@ fn block_rules<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
                 Op::Binary(Binary::LessOrEqual)
             ] },
             Expression { ops: vec![
-                Op::Value(var("1")),
                 Op::Value(set(strings)),
+                Op::Value(var("1")),
                 Op::Binary(Binary::Contains),
                 Op::Unary(Unary::Negate),
             ] },
