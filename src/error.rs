@@ -83,7 +83,7 @@ pub enum Logic {
     #[error("the verifier already contains a token")]
     VerifierNotEmpty,
     #[error("denied by policy")]
-    Deny,
+    Deny(usize),
     #[error("no matching policy was found")]
     NoMatchingPolicy,
 }

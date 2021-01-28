@@ -235,7 +235,8 @@ impl Verifier {
     /// checks all the checks
     ///
     /// on error, this can return a list of all the failed checks
-    pub fn verify(&mut self) -> Result<(), error::Token> {
+    /// on success, it returns the index of the policy that matched
+    pub fn verify(&mut self) -> Result<usize, error::Token> {
         self.verify_with_limits(VerifierLimits::default())
     }
 
@@ -244,7 +245,7 @@ impl Verifier {
     /// on error, this can return a list of all the failed checks
     ///
     /// this method can specify custom runtime limits
-    pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<(), error::Token> {
+    pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<usize, error::Token> {
         let start = Instant::now();
 
         //FIXME: should check for the presence of any other symbol in the token
@@ -316,7 +317,7 @@ impl Verifier {
                 errors,
             )))
         } else {
-            for (_i, policy) in self.policies.iter().enumerate() {
+            for (i, policy) in self.policies.iter().enumerate() {
 
                 for query in policy.queries.iter() {
                     let res = self.world.query_match(query.convert(&mut self.symbols));
@@ -328,9 +329,9 @@ impl Verifier {
 
                     if res {
                         return match policy.kind {
-                            PolicyKind::Allow => Ok(()),
+                            PolicyKind::Allow => Ok(i),
                             PolicyKind::Deny =>
-                                Err(error::Token::FailedLogic(error::Logic::Deny))
+                                Err(error::Token::FailedLogic(error::Logic::Deny(i)))
                         }
                     }
                 }

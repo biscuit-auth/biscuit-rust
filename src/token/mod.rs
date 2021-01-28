@@ -1242,7 +1242,7 @@ mod tests {
         let mut verifier2 = biscuit2.verify(root.public()).unwrap();
         verifier2.allow().unwrap();
         let res2 = verifier2.verify();
-        assert_eq!(res2, Ok(()));
+        assert_eq!(res2, Ok(0));
     }
 
     #[test]
