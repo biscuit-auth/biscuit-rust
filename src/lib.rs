@@ -235,3 +235,5 @@ mod capi;
 
 #[cfg(cargo_c)]
 pub use capi::*;
+
+mod time;

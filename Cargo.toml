@@ -15,6 +15,7 @@ default = ["regex-full"]
 regex-full = [ "regex/perf", "regex/unicode"]
 # used by cargo-c to signal the compilation of C bindings
 capi = ["inline-c"]
+wasm = ["wasm-bindgen"]
 
 [dependencies]
 rand_core = "^0.5"
@@ -32,6 +33,7 @@ zeroize = { version = "1", default-features = false }
 thiserror = "1"
 rand = { version = "0.7" }
 inline-c = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [dev-dependencies]
 rand = "0.7"

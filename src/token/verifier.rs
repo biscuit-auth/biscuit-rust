@@ -8,6 +8,7 @@ use super::Biscuit;
 use crate::datalog;
 use crate::error;
 use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
+use crate::time::Instant;
 
 /// used to check authorization policies on a token
 ///
@@ -244,7 +245,7 @@ impl Verifier {
     ///
     /// this method can specify custom runtime limits
     pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<(), error::Token> {
-        let start = SystemTime::now();
+        let start = Instant::now();
 
         //FIXME: should check for the presence of any other symbol in the token
         if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
@@ -263,7 +264,7 @@ impl Verifier {
             for query in check.queries.iter() {
                 let res = self.world.query_rule(query.convert(&mut self.symbols));
 
-                let now = SystemTime::now();
+                let now = Instant::now();
                 if now >= time_limit {
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
@@ -289,7 +290,7 @@ impl Verifier {
                 for query in check.queries.iter() {
                     let res = self.world.query_rule(query.clone());
 
-                    let now = SystemTime::now();
+                    let now = Instant::now();
                     if now >= time_limit {
                         return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                     }
@@ -320,7 +321,7 @@ impl Verifier {
                 for query in policy.queries.iter() {
                     let res = self.world.query_match(query.convert(&mut self.symbols));
 
-                    let now = SystemTime::now();
+                    let now = Instant::now();
                     if now >= time_limit {
                         return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                     }

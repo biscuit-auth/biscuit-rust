@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::time::Instant;
 use regex::Regex;
 
 pub type Symbol = u64;
@@ -482,7 +483,7 @@ impl World {
     }
 
     pub fn run_with_limits(&mut self, limits: RunLimits) -> Result<(), crate::error::RunLimit> {
-        let start = SystemTime::now();
+        let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
 
@@ -508,7 +509,7 @@ impl World {
                 return Err(crate::error::RunLimit::TooManyFacts);
             }
 
-            let now = SystemTime::now();
+            let now = Instant::now();
             if now >= time_limit {
                 return Err(crate::error::RunLimit::Timeout);
             }
