@@ -770,7 +770,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test11_verifier_authority_checks");
+        let v = load_testcase(target, "test11_verifier_authority_caveats");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -778,7 +778,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test11_verifier_authority_checks", &data[..]);
+        write_testcase(target, "test11_verifier_authority_caveats", &data[..]);
         data
     };
 
@@ -820,7 +820,7 @@ fn authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test12_authority_checks");
+        let v = load_testcase(target, "test12_authority_caveats");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -828,7 +828,7 @@ fn authority_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPai
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test12_authority_checks", &data[..]);
+        write_testcase(target, "test12_authority_caveats", &data[..]);
         data
     };
 
@@ -1057,7 +1057,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &Ke
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test15_multi_queries_checks");
+        let v = load_testcase(target, "test15_multi_queries_caveats");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
@@ -1065,7 +1065,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &Ke
         println!("biscuit:\n```\n{}\n```\n", biscuit1.print());
 
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test15_multi_queries_checks", &data[..]);
+        write_testcase(target, "test15_multi_queries_caveats", &data[..]);
 
         data
     };
@@ -1119,14 +1119,14 @@ fn check_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         .unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test16_check_head_name");
+        let v = load_testcase(target, "test16_caveat_head_name");
         let expected = Biscuit::from(&v[..]).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         println!("biscuit: {}", biscuit2.print());
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test16_check_head_name", &data[..]);
+        write_testcase(target, "test16_caveat_head_name", &data[..]);
         data
     };
 
