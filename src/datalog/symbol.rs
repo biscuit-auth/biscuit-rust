@@ -74,7 +74,7 @@ impl SymbolTable {
             },
             ID::Set(s) => {
                 let ids = s.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
-                format!("{:?}", ids)
+                format!("[{}]", ids.join(", "))
             }
         }
     }
