@@ -95,7 +95,7 @@ pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
 pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
     let (i, mut queries) = separated_list1(
       preceded(space0, tag_no_case("or")),
-      preceded(space0, rule_body)
+      preceded(space0, cut(rule_body))
     )(i)?;
 
     let queries = queries.drain(..).map(|rule_body| {
@@ -220,7 +220,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        cut(separated_list1(preceded(space0, char(',')), term)),
+        cut(separated_list1(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -240,7 +240,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        cut(separated_list0(preceded(space0, char(',')), term)),
+        cut(separated_list0(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
     )(i)?;
 
@@ -258,7 +258,7 @@ pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder
 
     let (i, mut elements) = separated_list1(
       preceded(space0, char(',')),
-      preceded(space0, predicate_or_expression)
+      preceded(space0, cut(predicate_or_expression))
     )(i)?;
 
     let mut predicates = Vec::new();
@@ -567,7 +567,7 @@ fn boolean(i: &str) -> IResult<&str, builder::Term> {
 fn set(i: &str) -> IResult<&str, builder::Term> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
-    let (i, mut list) = separated_list1(preceded(space0, char(',')), term_in_set)(i)?;
+    let (i, mut list) = separated_list1(preceded(space0, char(',')), cut(term_in_set))(i)?;
 
     let mut set = BTreeSet::new();
 
