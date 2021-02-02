@@ -35,7 +35,25 @@ use std::{
 
 /// parse a Datalog fact
 pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
-    predicate(i).map(|(i, p)| (i, builder::Fact(p)))
+    let (i, _) = space0(i)?;
+    let (i, fact_name) = name(i)?;
+
+    let (i, _) = space0(i)?;
+    let (i, ids) = delimited(
+        char('('),
+        cut(separated_list1(preceded(space0, char(',')), cut(term_in_fact))),
+        preceded(space0, char(')')),
+    )(i)?;
+
+    Ok((
+        i,
+        builder::Fact(
+            builder::Predicate {
+                name: fact_name.to_string(),
+                ids,
+            }
+        ),
+    ))
 }
 
 /// parse a Datalog check
@@ -586,6 +604,10 @@ fn term(i: &str) -> IResult<&str, builder::Term> {
     preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean, set)))(i)
 }
 
+fn term_in_fact(i: &str) -> IResult<&str, builder::Term> {
+    preceded(space0, alt((symbol, string, date, integer, bytes, boolean, set)))(i)
+}
+
 fn term_in_set(i: &str) -> IResult<&str, builder::Term> {
     preceded(space0, alt((symbol, string, date, integer, bytes, boolean)))(i)
 }
@@ -955,6 +977,14 @@ mod tests {
                 )
             ))
         );
+
+        use nom::error::*;
+        // facts should not contain variables
+        assert_eq!(
+            super::fact("right( #authority, $var, #read )"),
+            Err(nom::Err::Failure(Error::from_error_kind("$var, #read )", ErrorKind::Char)))
+        );
+
     }
 
     #[test]
