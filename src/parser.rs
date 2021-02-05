@@ -24,7 +24,7 @@ use nom::{
     },
     combinator::{map, map_res, opt, recognize, value, cut, consumed, eof},
     multi::{separated_list0, separated_list1, many0, fold_many0},
-    sequence::{delimited, pair, preceded, tuple},
+    sequence::{delimited, pair, preceded, tuple, terminated},
     error::{ErrorKind, ParseError, FromExternalError},
     IResult,
 };
@@ -290,7 +290,7 @@ fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
         map(predicate, PredOrExpr::P),
         map(expr, PredOrExpr::E),
       )),
-      ","
+      ",;"
     )(i)
 }
 
@@ -404,7 +404,7 @@ fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
         unary,
         reduce(
             map(term, Expr::Value),
-            " ,\n)"
+            " ,\n);"
         ),
     ))(i)
 }
@@ -475,7 +475,7 @@ fn name(i: &str) -> IResult<&str, &str, Error> {
 
     reduce(
         take_while1(is_name_char),
-        " ,:(\n"
+        " ,:(\n;"
     )(i)
 }
 
@@ -614,7 +614,6 @@ fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean, set)))(i)
 }
 
-//fn error<'a, F, O, P, R>(mut parser: P, context: F, reducer: R) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
 fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
@@ -625,7 +624,7 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
                 Some('$') => "variables are not allowed in facts".to_string(),
                 _ => "expected a valid term".to_string(),
             },
-            " ,)\n",
+            " ,)\n;",
         ),
     )(i)
 }
@@ -640,7 +639,7 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
                 Some('$') => "variables are not allowed in sets".to_string(),
                 _ => "expected a valid term".to_string(),
             },
-            " ,]\n",
+            " ,]\n;",
         ),
     )(i)
 }
@@ -679,34 +678,60 @@ enum SourceElement<'a> {
     Comment,
 }
 
-pub fn parse_source(i: &str) -> IResult<&str, SourceResult, Error> {
-    let result = SourceResult::default();
+pub fn sep(i: &str) -> IResult<&str, &str, Error> {
+    println!("sep:\n{}", i);
+    let (i, _) = space0(i)?;
+    println!("before alt:\n{}", i);
+    let res = alt((tag(";"), eof))(i);
+    println!("res: {:?})", res);
+    res
+}
 
-    fold_many0(
-        preceded(
-            space0,
-            alt((
-                map(consumed(rule), |(i, r)| SourceElement::Rule(i, r)),
-                map(consumed(fact), |(i, f)| SourceElement::Fact(i, f)),
-                map(consumed(check), |(i, c)| SourceElement::Check(i, c)),
-                map(consumed(policy), |(i, p)| SourceElement::Policy(i, p)),
+pub fn parse_source(mut i: &str) -> IResult<&str, SourceResult, Error> {
+    let mut result = SourceResult::default();
+
+    loop {
+        let (i2, _) = space0(i)?;
+        i = i2;
+
+        if i.is_empty() {
+            return Ok((i, result));
+        }
+
+        match alt((
+                map(terminated(consumed(rule), sep), |(i, r)| SourceElement::Rule(i, r)),
+                map(terminated(consumed(fact), sep), |(i, f)| SourceElement::Fact(i, f)),
+                map(terminated(consumed(check), sep), |(i, c)| SourceElement::Check(i, c)),
+                map(terminated(consumed(policy), sep), |(i, p)| SourceElement::Policy(i, p)),
                 map(line_comment, |_| SourceElement::Comment),
                 map(multiline_comment, |_| SourceElement::Comment),
-            ))
-        ),
-        result,
-        |mut source_result, elem| {
-            match elem {
-                SourceElement::Fact(i, f) => source_result.facts.push((i, f)),
-                SourceElement::Rule(i, r) => source_result.rules.push((i, r)),
-                SourceElement::Check(i, c) => source_result.checks.push((i, c)),
-                SourceElement::Policy(i, p) => source_result.policies.push((i, p)),
-                SourceElement::Comment => {},
-            };
+            ))(i) {
+            Ok((i2, o)) => {
+                match o {
+                    SourceElement::Fact(i, f) => result.facts.push((i, f)),
+                    SourceElement::Rule(i, r) => result.rules.push((i, r)),
+                    SourceElement::Check(i, c) => result.checks.push((i, c)),
+                    SourceElement::Policy(i, p) => result.policies.push((i, p)),
+                    SourceElement::Comment => {},
+                }
 
-            source_result
+                i = i2;
+            },
+            Err(nom::Err::Incomplete(_)) => panic!(),
+            Err(nom::Err::Error(mut e)) => {
+                if let Some(index) = e.input.find(|c| c == ';') {
+                    e.input = &(e.input)[..index];
+                }
+                return Err(nom::Err::Error(e));
+            },
+            Err(nom::Err::Failure(mut e)) => {
+                if let Some(index) = e.input.find(|c| c == ';') {
+                    e.input = &(e.input)[..index];
+                }
+                return Err(nom::Err::Failure(e));
+            },
         }
-    )(i)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -1416,15 +1441,15 @@ mod tests {
           boolean, Op, Binary, Expression, Check, Policy, PolicyKind};
 
         let input = r#"
-          fact("string", #symbol)
-          fact2(1234)
+          fact("string", #symbol);
+          fact2(1234);
 
-          rule_head($var0) <- fact($var0, $var1), 1 < 2
+          rule_head($var0) <- fact($var0, $var1), 1 < 2;
 
           // line comment
-          check if 1 == 2
+          check if 1 == 2;
 
-          allow if rule_head("string")
+          allow if rule_head("string");
 
           /*
            other comment
@@ -1432,13 +1457,13 @@ mod tests {
 
           check if
               fact(5678)
-              or fact(1234), "test".starts_with("abc")
+              or fact(1234), "test".starts_with("abc");
 
           deny if true
         "#;
 
         let res = super::parse_source(input);
-        println!("res:\n{:#?}", res);
+        println!("parse_source res:\n{:#?}", res);
 
         let empty_terms:&[builder::Term] = &[];
         let empty_preds:&[builder::Predicate] = &[];
