@@ -22,7 +22,7 @@ use nom::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
-    combinator::{map, map_res, opt, recognize, value, cut, consumed},
+    combinator::{map, map_res, opt, recognize, value, cut, consumed, eof},
     multi::{separated_list0, separated_list1, many0, fold_many0},
     sequence::{delimited, pair, preceded, tuple},
     error::{ErrorKind, ParseError, FromExternalError},
@@ -649,7 +649,7 @@ fn line_comment(i: &str) -> IResult<&str, (), Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("//")(i)?;
     let (i, _) = take_while(|c| c != '\r' && c != '\n')(i)?;
-    let (i, _) = opt(alt((tag("\n"), tag("\r\n"))))(i)?;
+    let (i, _) = alt((tag("\n"), tag("\r\n"), eof))(i)?;
 
     Ok((i, ()))
 }
