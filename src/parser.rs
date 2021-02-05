@@ -23,10 +23,10 @@ use nom::{
         is_alphanumeric,
     },
     combinator::{map, map_res, opt, recognize, value, cut, consumed, eof},
-    multi::{separated_list0, separated_list1, many0, fold_many0},
+    multi::{separated_list0, separated_list1, many0},
     sequence::{delimited, pair, preceded, tuple, terminated},
     error::{ErrorKind, ParseError, FromExternalError},
-    IResult,
+    IResult, Offset,
 };
 use std::{
     convert::{TryFrom, TryInto},
@@ -687,25 +687,30 @@ pub fn sep(i: &str) -> IResult<&str, &str, Error> {
     res
 }
 
-pub fn parse_source(mut i: &str) -> IResult<&str, SourceResult, Error> {
+pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
     let mut result = SourceResult::default();
+    let mut errors = Vec::new();
 
     loop {
-        let (i2, _) = space0(i)?;
-        i = i2;
-
         if i.is_empty() {
-            return Ok((i, result));
+            if errors.is_empty() {
+                return Ok((i, result));
+            } else {
+                return Err(errors);
+            }
         }
 
-        match alt((
+        match terminated(
+            alt((
                 map(terminated(consumed(rule), sep), |(i, r)| SourceElement::Rule(i, r)),
                 map(terminated(consumed(fact), sep), |(i, f)| SourceElement::Fact(i, f)),
                 map(terminated(consumed(check), sep), |(i, c)| SourceElement::Check(i, c)),
                 map(terminated(consumed(policy), sep), |(i, p)| SourceElement::Policy(i, p)),
                 map(line_comment, |_| SourceElement::Comment),
                 map(multiline_comment, |_| SourceElement::Comment),
-            ))(i) {
+            )),
+            space0
+        )(i) {
             Ok((i2, o)) => {
                 match o {
                     SourceElement::Fact(i, f) => result.facts.push((i, f)),
@@ -722,13 +727,30 @@ pub fn parse_source(mut i: &str) -> IResult<&str, SourceResult, Error> {
                 if let Some(index) = e.input.find(|c| c == ';') {
                     e.input = &(e.input)[..index];
                 }
-                return Err(nom::Err::Error(e));
+
+                let offset = i.offset(e.input);
+                if let Some(index) = &i[offset..].find(|c| c == ';') {
+                    i = &i[offset+index+1..];
+                } else {
+                    i = &i[i.len()..];
+                }
+
+                errors.push(e);
             },
             Err(nom::Err::Failure(mut e)) => {
+                println!("e: {:?}", e);
                 if let Some(index) = e.input.find(|c| c == ';') {
                     e.input = &(e.input)[..index];
                 }
-                return Err(nom::Err::Failure(e));
+
+                let offset = i.offset(e.input);
+                if let Some(index) = &i[offset..].find(|c| c == ';') {
+                    i = &i[offset+index+1..];
+                } else {
+                    i = &i[i.len()..];
+                }
+
+                errors.push(e);
             },
         }
     }
