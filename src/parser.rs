@@ -25,6 +25,7 @@ use nom::{
     combinator::{map, map_res, opt, recognize, value, cut, consumed},
     multi::{separated_list0, separated_list1, many0, fold_many0},
     sequence::{delimited, pair, preceded, tuple},
+    error::{ErrorKind, ParseError, FromExternalError},
     IResult,
 };
 use std::{
@@ -34,7 +35,7 @@ use std::{
 };
 
 /// parse a Datalog fact
-pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
+pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
 
@@ -57,7 +58,7 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact> {
 }
 
 /// parse a Datalog check
-pub fn check(i: &str) -> IResult<&str, builder::Check> {
+pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, _) = space0(i)?;
 
     let (i, _) = tag_no_case("check if")(i)?;
@@ -67,12 +68,12 @@ pub fn check(i: &str) -> IResult<&str, builder::Check> {
 }
 
 /// parse an allow rule
-pub fn policy(i: &str) -> IResult<&str, builder::Policy> {
+pub fn policy(i: &str) -> IResult<&str, builder::Policy, Error> {
     alt((allow, deny))(i)
 }
 
 /// parse an allow rule
-pub fn allow(i: &str) -> IResult<&str, builder::Policy> {
+pub fn allow(i: &str) -> IResult<&str, builder::Policy, Error> {
     let (i, _) = space0(i)?;
 
     let (i, _) = tag_no_case("allow if")(i)?;
@@ -82,7 +83,7 @@ pub fn allow(i: &str) -> IResult<&str, builder::Policy> {
 }
 
 /// parse an allow rule
-pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
+pub fn deny(i: &str) -> IResult<&str, builder::Policy, Error> {
     let (i, _) = space0(i)?;
 
     let (i, _) = tag_no_case("deny if")(i)?;
@@ -92,7 +93,7 @@ pub fn deny(i: &str) -> IResult<&str, builder::Policy> {
 }
 
 /// parse a Datalog check body
-pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
+pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
     let (i, mut queries) = separated_list1(
       preceded(space0, tag_no_case("or")),
       preceded(space0, cut(rule_body))
@@ -112,7 +113,7 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>> {
 }
 
 /// parse a Datalog rule
-pub fn rule(i: &str) -> IResult<&str, builder::Rule> {
+pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
     let (i, head) = rule_head(i)?;
     let (i, _) = space0(i)?;
 
@@ -213,7 +214,7 @@ impl FromStr for builder::Predicate {
     }
 }
 
-fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
+fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
 
@@ -233,7 +234,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate> {
     ))
 }
 
-fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
+fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
 
@@ -254,7 +255,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate> {
 }
 
 /// parse a Datalog rule body
-pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>)> {
+pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>), Error> {
 
     let (i, mut elements) = separated_list1(
       preceded(space0, char(',')),
@@ -283,11 +284,14 @@ enum PredOrExpr {
   E(Expr),
 }
 
-fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr> {
-    alt((
+fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
+    reduce(
+      alt((
         map(predicate, PredOrExpr::P),
         map(expr, PredOrExpr::E),
-    ))(i)
+      )),
+      ","
+    )(i)
 }
 
 
@@ -322,14 +326,14 @@ impl Expr {
     }
 }
 
-fn unary(i: &str) -> IResult<&str, Expr> {
+fn unary(i: &str) -> IResult<&str, Expr, Error> {
     alt((
         unary_parens,
         unary_negate,
     ))(i)
 }
 
-fn unary_negate(i: &str) -> IResult<&str, Expr> {
+fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("!")(i)?;
     let (i, _) = space0(i)?;
@@ -338,7 +342,7 @@ fn unary_negate(i: &str) -> IResult<&str, Expr> {
     Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Negate), Box::new(value))))
 }
 
-fn unary_parens(i: &str) -> IResult<&str, Expr> {
+fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("(")(i)?;
     let (i, _) = space0(i)?;
@@ -349,7 +353,7 @@ fn unary_parens(i: &str) -> IResult<&str, Expr> {
     Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value))))
 }
 
-fn binary_op_0(i: &str) -> IResult<&str, builder::Binary> {
+fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::And, tag("&&")),
@@ -357,7 +361,7 @@ fn binary_op_0(i: &str) -> IResult<&str, builder::Binary> {
     ))(i)
 }
 
-fn binary_op_1(i: &str) -> IResult<&str, builder::Binary> {
+fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::LessOrEqual, tag("<=")),
@@ -368,7 +372,7 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary> {
     ))(i)
 }
 
-fn binary_op_2(i: &str) -> IResult<&str, builder::Binary> {
+fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::Add, tag("+")),
@@ -376,7 +380,7 @@ fn binary_op_2(i: &str) -> IResult<&str, builder::Binary> {
     ))(i)
 }
 
-fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
+fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::Mul, tag("*")),
@@ -384,7 +388,7 @@ fn binary_op_3(i: &str) -> IResult<&str, builder::Binary> {
     ))(i)
 }
 
-fn binary_op_4(i: &str) -> IResult<&str, builder::Binary> {
+fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
     alt((
@@ -395,10 +399,13 @@ fn binary_op_4(i: &str) -> IResult<&str, builder::Binary> {
     ))(i)
 }
 
-fn expr_term(i: &str) -> IResult<&str, Expr> {
+fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
     alt((
         unary,
-        map(term, Expr::Value),
+        reduce(
+            map(term, Expr::Value),
+            " ,\n)"
+        ),
     ))(i)
 }
 
@@ -409,7 +416,7 @@ fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
   })
 }
 
-fn expr(i: &str) -> IResult<&str, Expr> {
+fn expr(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr1(i)?;
 
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_0), expr1)))(i)?;
@@ -417,7 +424,7 @@ fn expr(i: &str) -> IResult<&str, Expr> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-fn expr1(i: &str) -> IResult<&str, Expr> {
+fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr2(i)?;
 
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_1), expr2)))(i)?;
@@ -425,7 +432,7 @@ fn expr1(i: &str) -> IResult<&str, Expr> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-fn expr2(i: &str) -> IResult<&str, Expr> {
+fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr3(i)?;
 
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
@@ -433,7 +440,7 @@ fn expr2(i: &str) -> IResult<&str, Expr> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-fn expr3(i: &str) -> IResult<&str, Expr> {
+fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr4(i)?;
 
     let (i, remainder) = many0(tuple((preceded(space0, binary_op_3), expr4)))(i)?;
@@ -441,7 +448,7 @@ fn expr3(i: &str) -> IResult<&str, Expr> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-fn expr4(i: &str) -> IResult<&str, Expr> {
+fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
     let i2 = i.clone();
 
@@ -463,17 +470,20 @@ fn expr4(i: &str) -> IResult<&str, Expr> {
     }
 }
 
-fn name(i: &str) -> IResult<&str, &str> {
+fn name(i: &str) -> IResult<&str, &str, Error> {
     let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_';
 
-    take_while1(is_name_char)(i)
+    reduce(
+        take_while1(is_name_char),
+        " ,:(\n"
+    )(i)
 }
 
-fn printable(i: &str) -> IResult<&str, &str> {
+fn printable(i: &str) -> IResult<&str, &str, Error> {
     take_while1(|c: char| c != '\\' && c != '"')(i)
 }
 
-fn parse_string_internal(i: &str) -> IResult<&str, String> {
+fn parse_string_internal(i: &str) -> IResult<&str, String, Error> {
     escaped_transform(
         printable,
         '\\',
@@ -485,31 +495,31 @@ fn parse_string_internal(i: &str) -> IResult<&str, String> {
     )(i)
 }
 
-fn parse_string(i: &str) -> IResult<&str, String> {
+fn parse_string(i: &str) -> IResult<&str, String, Error> {
     delimited(char('"'), parse_string_internal, char('"'))(i)
 }
 
-fn string(i: &str) -> IResult<&str, builder::Term> {
+fn string(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_string(i).map(|(i, s)| (i, builder::Term::Str(s)))
 }
 
-fn parse_symbol(i: &str) -> IResult<&str, &str> {
+fn parse_symbol(i: &str) -> IResult<&str, &str, Error> {
     preceded(char('#'), name)(i)
 }
 
-fn symbol(i: &str) -> IResult<&str, builder::Term> {
+fn symbol(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_symbol(i).map(|(i, s)| (i, builder::s(s)))
 }
 
-fn parse_integer(i: &str) -> IResult<&str, i64> {
+fn parse_integer(i: &str) -> IResult<&str, i64, Error> {
     map_res(recognize(pair(opt(char('-')), digit1)), |s: &str| s.parse())(i)
 }
 
-fn integer(i: &str) -> IResult<&str, builder::Term> {
+fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_integer(i).map(|(i, n)| (i, builder::int(n)))
 }
 
-fn parse_date(i: &str) -> IResult<&str, u64> {
+fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')'), |s| {
             let r = chrono::DateTime::parse_from_rfc3339(s);
@@ -522,11 +532,11 @@ fn parse_date(i: &str) -> IResult<&str, u64> {
     )(i)
 }
 
-fn date(i: &str) -> IResult<&str, builder::Term> {
+fn date(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_date(i).map(|(i, t)| (i, builder::Term::Date(t)))
 }
 
-fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>> {
+fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>, Error> {
     preceded(
         tag("hex:"),
         map_res(
@@ -541,30 +551,30 @@ fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>> {
     )(i)
 }
 
-fn bytes(i: &str) -> IResult<&str, builder::Term> {
+fn bytes(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_bytes(i).map(|(i, s)| (i, builder::Term::Bytes(s)))
 }
 
-fn variable(i: &str) -> IResult<&str, builder::Term> {
+fn variable(i: &str) -> IResult<&str, builder::Term, Error> {
     map(
         preceded(char('$'), name),
         builder::variable,
     )(i)
 }
 
-fn parse_bool(i: &str) -> IResult<&str, bool> {
+fn parse_bool(i: &str) -> IResult<&str, bool, Error> {
     alt((
         value(true, tag("true")),
         value(false, tag("false")),
     ))(i)
 }
 
-fn boolean(i: &str) -> IResult<&str, builder::Term> {
+fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
 }
 
 //FIXME: replace panics with proper parse errors
-fn set(i: &str) -> IResult<&str, builder::Term> {
+fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
     let (i, mut list) = separated_list1(preceded(space0, char(',')), cut(term_in_set))(i)?;
@@ -600,19 +610,42 @@ fn set(i: &str) -> IResult<&str, builder::Term> {
     Ok((i, builder::set(set)))
 }
 
-fn term(i: &str) -> IResult<&str, builder::Term> {
+fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean, set)))(i)
 }
 
-fn term_in_fact(i: &str) -> IResult<&str, builder::Term> {
-    preceded(space0, alt((symbol, string, date, integer, bytes, boolean, set)))(i)
+//fn error<'a, F, O, P, R>(mut parser: P, context: F, reducer: R) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
+fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
+    preceded(
+        space0,
+        error(
+            alt((symbol, string, date, integer, bytes, boolean, set)),
+            |input| match input.chars().next() {
+                None | Some(',') | Some(')') => "missing term".to_string(),
+                Some('$') => "variables are not allowed in facts".to_string(),
+                _ => "expected a valid term".to_string(),
+            },
+            " ,)\n",
+        ),
+    )(i)
 }
 
-fn term_in_set(i: &str) -> IResult<&str, builder::Term> {
-    preceded(space0, alt((symbol, string, date, integer, bytes, boolean)))(i)
+fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
+    preceded(
+        space0,
+        error(
+            alt((symbol, string, date, integer, bytes, boolean)),
+            |input| match input.chars().next() {
+                None | Some(',') | Some(']') => "missing term".to_string(),
+                Some('$') => "variables are not allowed in sets".to_string(),
+                _ => "expected a valid term".to_string(),
+            },
+            " ,]\n",
+        ),
+    )(i)
 }
 
-fn line_comment(i: &str) -> IResult<&str, ()> {
+fn line_comment(i: &str) -> IResult<&str, (), Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("//")(i)?;
     let (i, _) = take_while(|c| c != '\r' && c != '\n')(i)?;
@@ -621,7 +654,7 @@ fn line_comment(i: &str) -> IResult<&str, ()> {
     Ok((i, ()))
 }
 
-fn multiline_comment(i: &str) -> IResult<&str, ()> {
+fn multiline_comment(i: &str) -> IResult<&str, (), Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("/*")(i)?;
     let (i, _) = take_until("*/")(i)?;
@@ -646,7 +679,7 @@ enum SourceElement<'a> {
     Comment,
 }
 
-pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
+pub fn parse_source(i: &str) -> IResult<&str, SourceResult, Error> {
     let result = SourceResult::default();
 
     fold_many0(
@@ -674,6 +707,95 @@ pub fn parse_source(i: &str) -> IResult<&str, SourceResult> {
             source_result
         }
     )(i)
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Error<'a> {
+    pub input: &'a str,
+    pub code: ErrorKind,
+    pub message: Option<String>,
+}
+
+impl<'a> ParseError<&'a str> for Error<'a> {
+    fn from_error_kind(input: &'a str, kind: ErrorKind) -> Self {
+        Self {
+            input,
+            code: kind,
+            message: None,
+        }
+    }
+
+    fn append(_: &'a str, _: ErrorKind, other: Self) -> Self {
+        other
+    }
+}
+
+//FIXME: poperly handle other errors
+impl<'a, E> FromExternalError<&'a str, E> for Error<'a> {
+    fn from_external_error(input: &'a str, kind: ErrorKind, _e: E) -> Self {
+        Self {
+            input,
+            code: kind,
+            message: None,
+        }
+    }
+}
+
+fn error<'a, F, O, P>(mut parser: P, context: F, reducer: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
+where
+  P: nom::Parser<&'a str, O, Error<'a>>,
+  F: Fn(&'a str) -> String,
+{
+    move |i: &str| match parser.parse(i.clone()) {
+        Ok(res) => Ok(res),
+        Err(nom::Err::Incomplete(i)) => Err(nom::Err::Incomplete(i)),
+        Err(nom::Err::Error(mut e)) => {
+            if e.message.is_none() {
+                e.message = Some(context(e.input));
+            }
+
+            if let Some(index) = e.input.find(|c| reducer.contains(c)) {
+                e.input = &(e.input)[..index];
+            }
+
+            Err(nom::Err::Error(e))
+        }
+        Err(nom::Err::Failure(mut e)) => {
+            if e.message.is_none() {
+                e.message = Some(context(e.input));
+            }
+
+            if let Some(index) = e.input.find(|c| reducer.contains(c)) {
+                e.input = &(e.input)[..index];
+            }
+
+            Err(nom::Err::Failure(e))
+        }
+    }
+}
+
+fn reduce<'a, O, P>(mut parser: P, reducer: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
+where
+  P: nom::Parser<&'a str, O, Error<'a>>,
+{
+    move |i: &str| match parser.parse(i.clone()) {
+        Ok(res) => Ok(res),
+        Err(nom::Err::Incomplete(i)) => Err(nom::Err::Incomplete(i)),
+        Err(nom::Err::Error(mut e)) => {
+            if let Some(index) = e.input.find(|c| reducer.contains(c)) {
+                e.input = &(e.input)[..index];
+            }
+
+            Err(nom::Err::Error(e))
+        }
+        Err(nom::Err::Failure(mut e)) => {
+            if let Some(index) = e.input.find(|c| reducer.contains(c)) {
+                e.input = &(e.input)[..index];
+            }
+
+            Err(nom::Err::Failure(e))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -978,11 +1100,15 @@ mod tests {
             ))
         );
 
-        use nom::error::*;
+        use nom::error::{ErrorKind};
         // facts should not contain variables
         assert_eq!(
             super::fact("right( #authority, $var, #read )"),
-            Err(nom::Err::Failure(Error::from_error_kind("$var, #read )", ErrorKind::Char)))
+            Err(nom::Err::Failure(super::Error{
+                code: ErrorKind::Char,
+                input: "$var",
+                message: Some("variables are not allowed in facts".to_string()),
+            }))
         );
 
     }
