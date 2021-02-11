@@ -774,3 +774,101 @@ pub fn boolean(b: bool) -> Term {
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
 }
+
+impl TryFrom<Term> for i64 {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Integer(i) => Ok(i),
+            _ => Err(error::Token::ConversionError(format!("expected integer, got {:?}", value))),
+        }
+    }
+}
+
+impl TryFrom<Term> for bool {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Bool(b) => Ok(b),
+            _ => Err(error::Token::ConversionError(format!("expected boolean, got {:?}", value))),
+        }
+    }
+}
+
+impl TryFrom<Term> for String {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        println!("converting string from {:?}", value);
+        match value {
+            Term::Symbol(s) | Term::Str(s) => Ok(s),
+            _ => Err(error::Token::ConversionError(format!("expected string or symbol, got {:?}", value))),
+        }
+    }
+}
+
+impl TryFrom<Term> for Vec<u8> {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Bytes(b) => Ok(b),
+            _ => Err(error::Token::ConversionError(format!("expected byte array, got {:?}", value))),
+        }
+    }
+}
+
+impl TryFrom<Term> for SystemTime {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Date(d) => Ok(UNIX_EPOCH + Duration::from_secs(d)),
+            _ => Err(error::Token::ConversionError(format!("expected date, got {:?}", value))),
+        }
+    }
+}
+
+impl<T: Ord+TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Set(d) => {
+                d.iter().cloned().map(TryFrom::try_from).collect()
+            },
+            _ => Err(error::Token::ConversionError(format!("expected set, got {:?}", value))),
+        }
+    }
+}
+
+macro_rules! tuple_try_from(
+    ($ty1:ident, $ty2:ident, $($ty:ident),*) => (
+        tuple_try_from!(__impl $ty1, $ty2; $($ty),*);
+        );
+    (__impl $($ty: ident),+; $ty1:ident, $($ty2:ident),*) => (
+        tuple_try_from_impl!($($ty),+);
+        tuple_try_from!(__impl $($ty),+ , $ty1; $($ty2),*);
+        );
+    (__impl $($ty: ident),+; $ty1:ident) => (
+        tuple_try_from_impl!($($ty),+);
+        tuple_try_from_impl!($($ty),+, $ty1);
+        );
+    );
+
+macro_rules! tuple_try_from_impl(
+    ($($ty: ident),+) => (
+        impl<$($ty: TryFrom<Term, Error = error::Token>),+> TryFrom<Fact> for ($($ty),+) {
+            type Error = error::Token;
+            fn try_from(fact: Fact) -> Result<Self, Self::Error> {
+                let mut terms = fact.0.ids;
+                let mut it = terms.drain(..);
+
+                Ok((
+                        $(
+                            it.next().ok_or(error::Token::ConversionError("not enough terms in fact".to_string())).and_then($ty::try_from)?
+                         ),+
+                   ))
+
+            }
+        }
+        );
+    );
+
+tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);

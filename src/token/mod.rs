@@ -1135,7 +1135,7 @@ mod tests {
             let res = verifier.verify();
             println!("res1: {:?}", res);
 
-            let res2 = verifier.query(rule(
+            let res2:Result<Vec<builder::Fact>, crate::error::Token> = verifier.query(rule(
                 "revocation_id_verif",
                 &[builder::Term::Variable("id".to_string())],
                 &[pred("revocation_id", &[builder::Term::Variable("id".to_string())])]
@@ -1245,6 +1245,7 @@ mod tests {
         assert_eq!(res2, Ok(0));
     }
 
+    use std::convert::TryInto;
     #[test]
     fn bytes_constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -1271,8 +1272,8 @@ mod tests {
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res = verifier.query("data($0) <- bytes(#authority, $0)").unwrap();
+        let mut res: Vec<(String, Vec<u8>)> = verifier.query("data(#authority, $0) <- bytes(#authority, $0)").unwrap();
         println!("query result: {:x?}", res);
-        println!("query result: {}", res[0]);
+        println!("query result: {:?}", res[0]);
     }
 }

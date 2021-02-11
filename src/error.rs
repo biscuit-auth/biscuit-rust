@@ -2,6 +2,7 @@
 //!
 
 use thiserror::Error;
+use std::convert::{From, Infallible};
 
 /// the global error type for Biscuit
 #[derive(Error, Clone, Debug, PartialEq)]
@@ -26,8 +27,16 @@ pub enum Token {
     ParseError,
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
+    #[error("Cannot convert from Term: %s")]
+    ConversionError(String),
 }
 
+
+impl From<Infallible> for Token {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidBlockIndex {
     pub expected: u32,

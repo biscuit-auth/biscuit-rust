@@ -7,7 +7,7 @@ use super::builder::{
 use super::Biscuit;
 use crate::datalog;
 use crate::error;
-use std::{convert::TryInto, time::{SystemTime, Duration}, default::Default};
+use std::{convert::{TryFrom, TryInto}, time::{SystemTime, Duration}, default::Default};
 use crate::time::Instant;
 
 /// used to check authorization policies on a token
@@ -152,29 +152,30 @@ impl Verifier {
     }
 
     /// run a query over the verifier's Datalog engine to gather data
-    pub fn query<R: TryInto<Rule>>(
+    pub fn query<R: TryInto<Rule>, T:TryFrom<Fact, Error=E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-    ) -> Result<Vec<Fact>, error::Token> {
+    ) -> Result<Vec<T>, error::Token> {
         self.query_with_limits(rule, VerifierLimits::default())
     }
 
     /// run a query over the verifier's Datalog engine to gather data
     ///
     /// this method can specify custom runtime limits
-    pub fn query_with_limits<R: TryInto<Rule>>(
+    pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error=E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
         limits: VerifierLimits
-    ) -> Result<Vec<Fact>, error::Token> {
+    ) -> Result<Vec<T>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.run_with_limits(limits.into()).map_err(error::Token::RunLimit)?;
         let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
-        Ok(res
-           .drain(..)
-           .map(|f| Fact::convert_from(&f, &self.symbols))
-           .collect())
+        res
+            .drain(..)
+            .map(|f| Fact::convert_from(&f, &self.symbols))
+            .map(|fact| fact.try_into().map_err(Into::into))
+            .collect()
     }
 
     /// add a check to the verifier
