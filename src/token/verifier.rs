@@ -272,14 +272,14 @@ impl Verifier {
             let mut successful = false;
 
             for query in check.queries.iter() {
-                let res = self.world.query_rule(query.convert(&mut self.symbols));
+                let res = self.world.query_match(query.convert(&mut self.symbols));
 
                 let now = Instant::now();
                 if now >= time_limit {
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
-                if !res.is_empty() {
+                if res {
                     successful = true;
                     break;
                 }
@@ -298,14 +298,14 @@ impl Verifier {
                 let mut successful = false;
 
                 for query in check.queries.iter() {
-                    let res = self.world.query_rule(query.clone());
+                    let res = self.world.query_match(query.clone());
 
                     let now = Instant::now();
                     if now >= time_limit {
                         return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                     }
 
-                    if !res.is_empty() {
+                    if res {
                         successful = true;
                         break;
                     }
