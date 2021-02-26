@@ -339,6 +339,14 @@ impl Biscuit {
             world.facts.insert(fact);
         }
 
+        let mut revocation_ids = self.revocation_identifiers();
+        let revocation_id_sym = symbols.get("revocation_id").unwrap();
+        for (i, id) in revocation_ids.drain(..).enumerate() {
+            world.facts.insert(
+                Fact::new(revocation_id_sym, &[ID::Integer(i as i64), ID::Bytes(id)])
+            );
+        }
+
         for rule in self.authority.rules.iter().cloned() {
             world.rules.push(rule);
         }
@@ -608,6 +616,32 @@ impl Biscuit {
       }
 
       res
+    }
+
+    /// returns a list of revocation Ids for each block, in order
+    pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
+        use sha2::{Digest, Sha256};
+
+        let mut res = Vec::new();
+        let mut h = Sha256::new();
+
+        if let Some(token) = self.container.as_ref() {
+            h.update(&token.authority);
+            h.update(&token.keys[0].to_bytes());
+
+            let h2 = h.clone();
+            res.push(h2.finalize().as_slice().into());
+
+            for (i, block) in token.blocks.iter().enumerate() {
+                h.update(&block);
+                h.update(&token.keys[1+i].to_bytes());
+
+                let h2 = h.clone();
+                res.push(h2.finalize().as_slice().into());
+            }
+        }
+
+        res
     }
 
     /// pretty printer for this token

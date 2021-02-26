@@ -83,6 +83,14 @@ impl Verifier {
             self.world.facts.insert(fact);
         }
 
+        let mut revocation_ids = token.revocation_identifiers();
+        let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
+        for (i, id) in revocation_ids.drain(..).enumerate() {
+            self.world.facts.insert(
+                datalog::Fact::new(revocation_id_sym, &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)])
+            );
+        }
+
         for rule in token.authority.rules.iter().cloned() {
             let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);
             self.world.rules.push(rule);
