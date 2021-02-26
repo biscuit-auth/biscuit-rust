@@ -577,7 +577,7 @@ fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
-    let (i, mut list) = separated_list1(preceded(space0, char(',')), cut(term_in_set))(i)?;
+    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
 
     let mut set = BTreeSet::new();
 
@@ -679,11 +679,8 @@ enum SourceElement<'a> {
 }
 
 pub fn sep(i: &str) -> IResult<&str, &str, Error> {
-    println!("sep:\n{}", i);
     let (i, _) = space0(i)?;
-    println!("before alt:\n{}", i);
     let res = alt((tag(";"), eof))(i);
-    println!("res: {:?})", res);
     res
 }
 
@@ -738,7 +735,6 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
                 errors.push(e);
             },
             Err(nom::Err::Failure(mut e)) => {
-                println!("e: {:?}", e);
                 if let Some(index) = e.input.find(|c| c == ';') {
                     e.input = &(e.input)[..index];
                 }
