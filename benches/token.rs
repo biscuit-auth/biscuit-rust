@@ -22,7 +22,7 @@ fn create_block_1(b: &mut Bencher) {
   let data = token.to_vec().unwrap();
 
   b.bytes = data.len() as u64;
-  assert_eq!(b.bytes, 208);
+  assert_eq!(b.bytes, 192);
   b.iter(|| {
     let mut builder = Biscuit::builder(&root);
     builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")],));
@@ -56,7 +56,7 @@ fn append_block_2(b: &mut Bencher) {
   let data = token2.to_vec().unwrap();
 
   b.bytes = (data.len() - base_data.len()) as u64;
-  assert_eq!(b.bytes, 170);
+  assert_eq!(b.bytes, 160);
   b.iter(|| {
     let token = Biscuit::from(&base_data).unwrap();
     let mut block_builder = token.create_block();
@@ -93,7 +93,7 @@ fn append_block_5(b: &mut Bencher) {
   let data = token2.to_vec().unwrap();
 
   b.bytes = (data.len() - base_data.len()) as u64;
-  assert_eq!(b.bytes, 170);
+  assert_eq!(b.bytes, 160);
   b.iter(|| {
     let token2 = Biscuit::from(&data).unwrap();
     let mut b = token2.create_block();
@@ -148,6 +148,7 @@ fn verify_block_2(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   b.bytes = data.len() as u64;
@@ -156,6 +157,7 @@ fn verify_block_2(b: &mut Bencher) {
     let mut verifier = token.verify(root.public()).unwrap();
     verifier.add_resource("file1");
     verifier.add_operation("read");
+    verifier.allow();
     verifier.verify().unwrap();
   });
 }
@@ -208,6 +210,7 @@ fn verify_block_5(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   b.bytes = data.len() as u64;
@@ -216,6 +219,7 @@ fn verify_block_5(b: &mut Bencher) {
     let mut verifier = token.verify(root.public()).unwrap();
     verifier.add_resource("file1");
     verifier.add_operation("read");
+    verifier.allow();
     verifier.verify().unwrap();
   });
 }
@@ -247,6 +251,7 @@ fn check_signature_2(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   b.bytes = data.len() as u64;
@@ -303,6 +308,7 @@ fn check_signature_5(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   b.bytes = data.len() as u64;
@@ -339,6 +345,7 @@ fn caveats_block_2(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   let token = Biscuit::from(&data).unwrap();
@@ -347,6 +354,7 @@ fn caveats_block_2(b: &mut Bencher) {
     let mut verifier = token.verify(root.public()).unwrap();
     verifier.add_resource("file1");
     verifier.add_operation("read");
+    verifier.allow();
     verifier.verify().unwrap();
   });
 }
@@ -378,6 +386,7 @@ fn caveats_block_create_verifier2(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   let token = Biscuit::from(&data).unwrap();
@@ -414,6 +423,7 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
   let mut verifier = token.verify(root.public()).unwrap();
   verifier.add_resource("file1");
   verifier.add_operation("read");
+  verifier.allow();
   verifier.verify().unwrap();
 
   let token = Biscuit::from(&data).unwrap();
@@ -421,6 +431,7 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
   b.iter(|| {
     verifier.add_resource("file1");
     verifier.add_operation("read");
+    verifier.allow();
     verifier.verify().unwrap();
   });
 }
