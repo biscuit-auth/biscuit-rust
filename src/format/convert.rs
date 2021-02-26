@@ -732,6 +732,7 @@ pub mod v1 {
                             kind: match u {
                                 Unary::Negate => Kind::Negate,
                                 Unary::Parens => Kind::Parens,
+                                Unary::Length => Kind::Length,
                             } as i32,
                         })
                     },
@@ -755,6 +756,8 @@ pub mod v1 {
                                 Binary::Div => Kind::Div,
                                 Binary::And => Kind::And,
                                 Binary::Or => Kind::Or,
+                                Binary::Intersection => Kind::Intersection,
+                                Binary::Union => Kind::Union,
                             } as i32,
                         })
                     },
@@ -777,6 +780,7 @@ pub mod v1 {
                 Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
                     Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
+                    Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
                     None => return Err(error::Format::DeserializationError(
                         "deserialization error: unary operation is empty".to_string(),
                     )),
@@ -797,6 +801,8 @@ pub mod v1 {
                     Some(op_binary::Kind::Div) => Op::Binary(Binary::Div),
                     Some(op_binary::Kind::And) => Op::Binary(Binary::And),
                     Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
+                    Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
+                    Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
                     None => return Err(error::Format::DeserializationError(
                         "deserialization error: binary operation is empty".to_string(),
                     )),
@@ -809,43 +815,5 @@ pub mod v1 {
         }
 
         Ok(Expression { ops })
-        /*
-        use schema::constraint_v1;
-
-        match &input.constraint {
-            None => Err(error::Format::DeserializationError(
-                "deserialization error: constraint enum is empty".to_string(),
-            )),
-            Some(constraint_v1::Constraint::Int(i)) => {
-                proto_int_constraint_to_token_int_constraint(i).map(|c| Constraint {
-                    id: input.id,
-                    kind: ConstraintKind::Int(c),
-                })
-            }
-            Some(constraint_v1::Constraint::String(i)) => {
-                proto_str_constraint_to_token_str_constraint(i).map(|c| Constraint {
-                    id: input.id,
-                    kind: ConstraintKind::Str(c),
-                })
-            }
-            Some(constraint_v1::Constraint::Date(i)) => {
-                proto_date_constraint_to_token_date_constraint(i).map(|c| Constraint {
-                    id: input.id,
-                    kind: ConstraintKind::Date(c),
-                })
-            }
-            Some(constraint_v1::Constraint::Symbol(i)) => {
-                proto_symbol_constraint_to_token_symbol_constraint(i).map(|c| Constraint {
-                    id: input.id,
-                    kind: ConstraintKind::Symbol(c),
-                })
-            }
-            Some(constraint_v1::Constraint::Bytes(i)) => {
-                proto_bytes_constraint_to_token_bytes_constraint(i).map(|c| Constraint {
-                    id: input.id,
-                    kind: ConstraintKind::Bytes(c),
-                })
-            }
-        }*/
     }
 }

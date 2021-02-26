@@ -19,6 +19,7 @@ pub enum Op {
 pub enum Unary {
     Negate,
     Parens,
+    Length,
 }
 
 impl Unary {
@@ -26,6 +27,9 @@ impl Unary {
         match (self, value) {
             (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
             (Unary::Parens, i) => Some(i),
+            (Unary::Length, ID::Str(s)) => Some(ID::Integer(s.len() as i64)),
+            (Unary::Length, ID::Bytes(s)) => Some(ID::Integer(s.len() as i64)),
+            (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
              _ => {
                  //println!("unexpected value type on the stack");
                  return None;
@@ -37,6 +41,7 @@ impl Unary {
         match self {
             Unary::Negate => format!("!{}", value),
             Unary::Parens => format!("({})", value),
+            Unary::Length => format!("{}.length()", value),
         }
     }
 }
@@ -58,38 +63,58 @@ pub enum Binary {
     Div,
     And,
     Or,
+    Intersection,
+    Union,
 }
 
 impl Binary {
     fn evaluate(&self, left: ID, right: ID) -> Option<ID> {
         match (self, left, right) {
+            // integer
             (Binary::LessThan, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i < j)),
             (Binary::GreaterThan, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i > j)),
             (Binary::LessOrEqual, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i <= j)),
             (Binary::GreaterOrEqual, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i >= j)),
             (Binary::Equal, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i == j)),
-            (Binary::Contains, ID::Set(set), ID::Integer(i)) => Some(ID::Bool(set.contains(&ID::Integer(i)))),
+            (Binary::Add, ID::Integer(i), ID::Integer(j)) => i.checked_add(j).map(ID::Integer),
+            (Binary::Sub, ID::Integer(i), ID::Integer(j)) => i.checked_sub(j).map(ID::Integer),
+            (Binary::Mul, ID::Integer(i), ID::Integer(j)) => i.checked_mul(j).map(ID::Integer),
+            (Binary::Div, ID::Integer(i), ID::Integer(j)) => i.checked_div(j).map(ID::Integer),
 
+            // string
             (Binary::Prefix, ID::Str(s), ID::Str(pref)) => Some(ID::Bool(s.as_str().starts_with(pref.as_str()))),
             (Binary::Suffix, ID::Str(s), ID::Str(suff)) => Some(ID::Bool(s.as_str().ends_with(suff.as_str()))),
             (Binary::Regex, ID::Str(s), ID::Str(r)) => {
                 Some(ID::Bool(Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false)))
             },
             (Binary::Equal, ID::Str(i), ID::Str(j)) => Some(ID::Bool(i == j)),
-            (Binary::Contains, ID::Set(set), ID::Str(i)) => Some(ID::Bool(set.contains(&ID::Str(i)))),
 
+            // date
+            (Binary::LessThan, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i < j)),
+            (Binary::GreaterThan, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i > j)),
             (Binary::LessOrEqual, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i <= j)),
             (Binary::GreaterOrEqual, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i >= j)),
+            (Binary::Equal, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i == j)),
 
+            // symbol
+            (Binary::Equal, ID::Symbol(i), ID::Symbol(j)) => Some(ID::Bool(i == j)),
+
+            // byte array
+            (Binary::Equal, ID::Bytes(i), ID::Bytes(j)) => Some(ID::Bool(i == j)),
+
+            // set
+            (Binary::Equal, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set == s)),
+            (Binary::Intersection, ID::Set(set), ID::Set(s)) => Some(ID::Set(set.intersection(&s).cloned().collect())),
+            (Binary::Union, ID::Set(set), ID::Set(s)) => Some(ID::Set(set.union(&s).cloned().collect())),
+            (Binary::Contains, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set.is_superset(&s))),
+            (Binary::Contains, ID::Set(set), ID::Integer(i)) => Some(ID::Bool(set.contains(&ID::Integer(i)))),
+            (Binary::Contains, ID::Set(set), ID::Date(i)) => Some(ID::Bool(set.contains(&ID::Date(i)))),
+            (Binary::Contains, ID::Set(set), ID::Bool(i)) => Some(ID::Bool(set.contains(&ID::Bool(i)))),
+            (Binary::Contains, ID::Set(set), ID::Str(i)) => Some(ID::Bool(set.contains(&ID::Str(i)))),
+            (Binary::Contains, ID::Set(set), ID::Bytes(i)) => Some(ID::Bool(set.contains(&ID::Bytes(i)))),
             (Binary::Contains, ID::Set(set), ID::Symbol(i)) => Some(ID::Bool(set.contains(&ID::Symbol(i)))),
 
-            (Binary::Equal, ID::Bytes(i), ID::Bytes(j)) => Some(ID::Bool(i == j)),
-            (Binary::Contains, ID::Set(set), ID::Bytes(i)) => Some(ID::Bool(set.contains(&ID::Bytes(i)))),
-
-            (Binary::Add, ID::Integer(i), ID::Integer(j)) => i.checked_add(j).map(ID::Integer),
-            (Binary::Sub, ID::Integer(i), ID::Integer(j)) => i.checked_sub(j).map(ID::Integer),
-            (Binary::Mul, ID::Integer(i), ID::Integer(j)) => i.checked_mul(j).map(ID::Integer),
-            (Binary::Div, ID::Integer(i), ID::Integer(j)) => i.checked_div(j).map(ID::Integer),
+            // boolean
             (Binary::And, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i & j)),
             (Binary::Or, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i | j)),
             _ => {
@@ -116,6 +141,8 @@ impl Binary {
             Binary::Div => format!("{} / {}", left, right),
             Binary::And => format!("{} && {}", left, right),
             Binary::Or => format!("{} || {}", left, right),
+            Binary::Intersection => format!("{}.intersection({})", left, right),
+            Binary::Union => format!("{}.union({})", left, right),
         }
     }
 }

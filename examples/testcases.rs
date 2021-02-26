@@ -94,6 +94,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     check_head_name(&mut rng, &target, &root, test);
+
+    println!("\n------------------------------\n");
+    expressions(&mut rng, &target, &root, test);
 }
 
 fn validate_token(
@@ -1127,6 +1130,97 @@ fn check_head_name<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair
         println!("biscuit: {}", biscuit2.print());
         let data = biscuit2.to_vec().unwrap();
         write_testcase(target, "test16_caveat_head_name", &data[..]);
+        data
+    };
+
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![],
+            vec![],
+            vec![],
+        )
+    );
+}
+
+fn expressions<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, test: bool) {
+    println!("## test expression syntax and all available operations: test17_expressions.bc");
+
+    let mut builder = Biscuit::builder(&root);
+
+    //boolean true
+    builder.add_authority_check("check if true");
+    //boolean false and negation
+    builder.add_authority_check("check if !false");
+    //boolean and
+    builder.add_authority_check("check if !false and true");
+    //boolean or
+    builder.add_authority_check("check if false or true");
+    //boolean parens
+    builder.add_authority_check("check if (true or false) and true");
+
+    //integer less than
+    builder.add_authority_check("check if 1 < 2");
+    //integer greater than
+    builder.add_authority_check("check if 2 > 1");
+    //integer less or equal
+    builder.add_authority_check("check if 1 <= 2");
+    builder.add_authority_check("check if 1 <= 1");
+    //integer greater or equal
+    builder.add_authority_check("check if 2 >= 1");
+    builder.add_authority_check("check if 2 >= 2");
+    //integer equal
+    builder.add_authority_check("check if 3 == 3");
+    //integer add sub mul div
+    builder.add_authority_check("check if 1 + 2 * 3 - 4 /2 == 5");
+
+    // string prefix and suffix
+    builder.add_authority_check("check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")");
+    // string regex
+    builder.add_authority_check("check if \"aaabde\".matches(\"a*c?.e\")");
+    // string equal
+    builder.add_authority_check("check if \"abcD12\" == \"abcD12\"");
+
+    //date less than
+    builder.add_authority_check("check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00");
+    //date greater than
+    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 > 2019-12-04T09:46:41+00:00");
+    //date less or equal
+    builder.add_authority_check("check if 2019-12-04T09:46:41+00:00 <= 2020-12-04T09:46:41+00:00");
+    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00");
+    //date greater or equal
+    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00");
+    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00");
+    //date equal
+    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00");
+
+    //symbol equal
+    builder.add_authority_check("check if #abc == #abc");
+
+    //bytes equal
+    builder.add_authority_check("check if hex:12ab == hex:12ab");
+
+    // set contains
+    builder.add_authority_check("check if [1, 2].contains(2)");
+    builder.add_authority_check("check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00)");
+    builder.add_authority_check("check if [true, false, true].contains(true)");
+    builder.add_authority_check("check if [\"abc\", \"def\"].contains(\"abc\")");
+    builder.add_authority_check("check if [hex:12ab, hex:34de].contains(hex:34de)");
+    builder.add_authority_check("check if [#hello, #world].contains(#hello)");
+
+    let biscuit = builder.build_with_rng(rng).unwrap();
+
+    let data = if test {
+        let v = load_testcase(target, "test17_expressions");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit: {}", biscuit.print());
+        let data = biscuit.to_vec().unwrap();
+        write_testcase(target, "test17_expressions", &data[..]);
         data
     };
 

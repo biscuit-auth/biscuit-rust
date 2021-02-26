@@ -330,6 +330,7 @@ fn unary(i: &str) -> IResult<&str, Expr, Error> {
     alt((
         unary_parens,
         unary_negate,
+        unary_length,
     ))(i)
 }
 
@@ -351,6 +352,15 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = tag(")")(i)?;
 
     Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value))))
+}
+
+fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, _) = space0(i)?;
+    let (i, value) = alt((map(term, Expr::Value), unary_parens))(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = tag(".length()")(i)?;
+
+    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value))))
 }
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
@@ -521,7 +531,7 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
-        map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')'), |s| {
+        map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']'), |s| {
             let r = chrono::DateTime::parse_from_rfc3339(s);
             r
         }),

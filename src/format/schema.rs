@@ -483,6 +483,7 @@ pub mod op_unary {
     pub enum Kind {
         Negate = 0,
         Parens = 1,
+        Length = 2,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -510,5 +511,7 @@ pub mod op_binary {
         Div = 12,
         And = 13,
         Or = 14,
+        Intersection = 15,
+        Union = 16,
     }
 }
