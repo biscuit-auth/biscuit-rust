@@ -854,7 +854,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{datalog, token::builder};
-    use std::collections::HashSet;
 
     #[test]
     fn name() {

@@ -1,6 +1,4 @@
 //! Symbol table implementation
-use std::collections::HashSet;
-use std::time::{Duration, UNIX_EPOCH};
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;

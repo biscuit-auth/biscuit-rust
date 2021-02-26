@@ -1279,7 +1279,6 @@ mod tests {
         assert_eq!(res2, Ok(0));
     }
 
-    use std::convert::TryInto;
     #[test]
     fn bytes_constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);

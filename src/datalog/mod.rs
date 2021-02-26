@@ -4,7 +4,6 @@ use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::time::Instant;
-use regex::Regex;
 
 pub type Symbol = u64;
 mod symbol;
@@ -302,7 +301,7 @@ impl<'a> Iterator for CombineIt<'a> {
                                             Some(ID::Bool(true)) => {
                                                 //println!("expression returned true");
                                             },
-                                            e => {
+                                            _e => {
                                                 //println!("expression returned {:?}", e);
                                                 valid = false;
                                                 break;
