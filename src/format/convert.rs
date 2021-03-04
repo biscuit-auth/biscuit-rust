@@ -5,7 +5,7 @@ use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 use super::schema;
 use crate::datalog::*;
 use crate::error;
-use crate::token::Block;
+use crate::token::{Block, verifier::VerifierPolicies};
 
 pub fn token_sig_to_proto_sig(input: &TokenSignature) -> schema::Signature {
     schema::Signature {
@@ -134,6 +134,80 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         rules,
         checks,
         context,
+        version,
+    })
+}
+
+pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierPolicies {
+    let mut symbols = input.symbols.clone();
+    let policies = input
+            .policies
+            .iter()
+            .map(|p| v1::policy_to_proto_policy(p, &mut symbols))
+            .collect();
+
+    schema::VerifierPolicies {
+        symbols: symbols.symbols,
+        version: Some(input.version),
+        facts: input
+            .facts
+            .iter()
+            .map(v1::token_fact_to_proto_fact)
+            .collect(),
+        rules: input
+            .rules
+            .iter()
+            .map(v1::token_rule_to_proto_rule)
+            .collect(),
+        checks: input
+            .checks
+            .iter()
+            .map(v1::token_check_to_proto_check)
+            .collect(),
+        policies,
+    }
+}
+
+pub fn proto_verifier_to_verifier(input: &schema::VerifierPolicies) -> Result<VerifierPolicies, error::Format> {
+    let version = input.version.unwrap_or(0);
+    if version == 0 || version > crate::token::MAX_SCHEMA_VERSION {
+        return Err(error::Format::Version {
+            maximum: crate::token::MAX_SCHEMA_VERSION,
+            actual: version,
+        });
+    }
+
+    let symbols = SymbolTable {
+        symbols: input.symbols.clone(),
+    };
+
+    let mut facts = vec![];
+    let mut rules = vec![];
+    let mut checks = vec![];
+    let mut policies = vec![];
+
+    for fact in input.facts.iter() {
+        facts.push(v1::proto_fact_to_token_fact(fact)?);
+    }
+
+    for rule in input.rules.iter() {
+        rules.push(v1::proto_rule_to_token_rule(rule)?);
+    }
+
+    for check in input.checks.iter() {
+        checks.push(v1::proto_check_to_token_check(check)?);
+    }
+
+    for policy in input.policies.iter() {
+        policies.push(v1::proto_policy_to_policy(policy, &symbols)?);
+    }
+
+    Ok(VerifierPolicies {
+        symbols,
+        facts,
+        rules,
+        checks,
+        policies,
         version,
     })
 }
@@ -568,6 +642,48 @@ pub mod v1 {
         }
 
         Ok(Check { queries })
+    }
+
+    pub fn policy_to_proto_policy(input: &crate::token::builder::Policy, symbols: &mut SymbolTable) -> schema::Policy {
+        schema::Policy {
+            queries: input.queries.iter()
+                .map(|q| q.convert(symbols))
+                .map(|r| token_rule_to_proto_rule(&r))
+                .collect(),
+            kind: match input.kind {
+                crate::token::builder::PolicyKind::Allow => schema::policy::Kind::Allow as i32,
+                crate::token::builder::PolicyKind::Deny => schema::policy::Kind::Deny as i32,
+            },
+        }
+    }
+
+    pub fn proto_policy_to_policy(input: &schema::Policy, symbols: &SymbolTable) -> Result<crate::token::builder::Policy, error::Format> {
+        use schema::policy::Kind;
+        let mut queries = vec![];
+
+        for q in input.queries.iter() {
+            let c = proto_rule_to_token_rule(q)?;
+            let c = crate::token::builder::Rule::convert_from(&c, symbols);
+            queries.push(c);
+        }
+
+        let kind = if let Some(i) = Kind::from_i32(input.kind) {
+            i
+        } else {
+            return Err(error::Format::DeserializationError(
+                "deserialization error: invalid policy kind".to_string(),
+            ));
+        };
+
+        let kind = match kind {
+            Kind::Allow => crate::token::builder::PolicyKind::Allow,
+            Kind::Deny => crate::token::builder::PolicyKind::Deny,
+        };
+
+        Ok(crate::token::builder::Policy {
+          queries,
+          kind,
+        })
     }
 
     pub fn token_rule_to_proto_rule(input: &Rule) -> schema::RuleV1 {

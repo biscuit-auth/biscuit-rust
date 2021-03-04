@@ -9,6 +9,7 @@ use crate::datalog;
 use crate::error;
 use std::{convert::{TryFrom, TryInto}, time::{SystemTime, Duration}, default::Default};
 use crate::time::Instant;
+use prost::Message;
 
 /// used to check authorization policies on a token
 ///
@@ -59,6 +60,61 @@ impl Verifier {
             policies: vec![],
             has_token: false,
         })
+    }
+
+    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
+        let data = crate::format::schema::VerifierPolicies::decode(slice).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+
+        let VerifierPolicies { version, symbols, mut facts, rules, mut checks, policies } =
+            crate::format::convert::proto_verifier_to_verifier(&data)?;
+
+
+        let world = datalog::World {
+            facts:facts.drain(..).collect(),
+            rules,
+        };
+        let checks = checks.drain(..).map(|c| Check::convert_from(&c, &symbols)).collect();
+
+        Ok(Verifier {
+            world,
+            symbols,
+            checks,
+            token_checks: vec![],
+            policies,
+            has_token: false,
+        })
+    }
+
+    // serializes a verifier's content
+    //
+    // you can use this to save a set of policies and load them quickly before
+    // verification, or to store a verification context to debug it later
+    pub fn save(&self) -> Result<Vec<u8>, error::Token> {
+        let mut symbols = self.symbols.clone();
+        let mut checks:Vec<datalog::Check> = self.checks.iter().map(|c| c.convert(&mut symbols)).collect();
+        for block_checks in &self.token_checks {
+            checks.extend_from_slice(&block_checks[..]);
+        }
+
+        let policies = VerifierPolicies {
+            version: crate::token::MAX_SCHEMA_VERSION,
+            symbols,
+            facts: self.world.facts.iter().cloned().collect(),
+            rules: self.world.rules.clone(),
+            checks,
+            policies: self.policies.clone(),
+        };
+
+        let proto = crate::format::convert::verifier_to_proto_verifier(&policies);
+
+        let mut v = Vec::new();
+
+        proto.encode(&mut v)
+            .map(|_| v)
+            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
+            .map_err(error::Token::Format)
     }
 
     /// Loads a token's facts, rules and checks in a verifier
@@ -394,6 +450,20 @@ impl Verifier {
          checks
         )
     }
+}
+
+#[derive(Debug,Clone)]
+pub struct VerifierPolicies {
+    pub version: u32,
+    /// list of symbols introduced by this block
+    pub symbols: datalog::SymbolTable,
+    /// list of facts provided by this block
+    pub facts: Vec<datalog::Fact>,
+    /// list of rules provided by this block
+    pub rules: Vec<datalog::Rule>,
+    /// checks that the token and ambient data must validate
+    pub checks: Vec<datalog::Check>,
+    pub policies: Vec<Policy>,
 }
 
 /// runtime limits for the Datalog engine

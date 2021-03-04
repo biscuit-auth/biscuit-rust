@@ -515,3 +515,34 @@ pub mod op_binary {
         Union = 16,
     }
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Policy {
+    #[prost(message, repeated, tag="1")]
+    pub queries: ::prost::alloc::vec::Vec<RuleV1>,
+    #[prost(enumeration="policy::Kind", required, tag="2")]
+    pub kind: i32,
+}
+/// Nested message and enum types in `Policy`.
+pub mod policy {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Kind {
+        Allow = 0,
+        Deny = 1,
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VerifierPolicies {
+    #[prost(string, repeated, tag="1")]
+    pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="2")]
+    pub version: ::core::option::Option<u32>,
+    #[prost(message, repeated, tag="3")]
+    pub facts: ::prost::alloc::vec::Vec<FactV1>,
+    #[prost(message, repeated, tag="4")]
+    pub rules: ::prost::alloc::vec::Vec<RuleV1>,
+    #[prost(message, repeated, tag="5")]
+    pub checks: ::prost::alloc::vec::Vec<CheckV1>,
+    #[prost(message, repeated, tag="6")]
+    pub policies: ::prost::alloc::vec::Vec<Policy>,
+}

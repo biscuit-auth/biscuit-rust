@@ -37,6 +37,13 @@ impl From<Infallible> for Token {
         unreachable!()
     }
 }
+
+impl From<Format> for Token {
+    fn from(e: Format) -> Self {
+        Token::Format(e)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidBlockIndex {
     pub expected: u32,
