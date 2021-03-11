@@ -15,7 +15,7 @@ Non goals:
 
 # Usage
 
-In this example we will see how we can create a token, add some caveats, serialize and deserialize a token, append more caveats, and validate those caveats in the context of a request:
+In this example we will see how we can create a token, add some checks, serialize and deserialize a token, append more checks, and validate those checks in the context of a request:
 
 ```rust
 extern crate rand;
@@ -24,18 +24,16 @@ extern crate biscuit_auth as biscuit;
 use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
 
 fn main() -> Result<(), error::Token> {
-  let mut rng = rand::thread_rng();
-
   // let's generate the root key pair. The root public key will be necessary
   // to verify the token
-  let root = KeyPair::new(&mut rng);
+  let root = KeyPair::new();
   let public_key = root.public();
 
   // creating a first token
   let token1 = {
     // the first block of the token is the authority block. It contains global
     // information like which operation types are available
-    let mut builder = Biscuit::builder(&mut rng, &root);
+    let mut builder = Biscuit::builder(&root);
 
     // let's define some access rights
     // every fact added to the authority block must have the authority fact
@@ -62,28 +60,15 @@ fn main() -> Result<(), error::Token> {
 
     let mut builder = deser.create_block();
 
-    // caveats are implemented as logic rules. If the rule produces something,
-    // the caveat is successful
-    builder.add_caveat(rule(
-      // the rule's name
-      "caveat",
-      // the "head" of the rule, defining the kind of result that is produced
-      &[s("resource")],
-      // here we require the presence of a "resource" fact with the "ambient" tag
-      // (meaning it is provided by the verifier)
-      &[
-        pred("resource", &[s("ambient"), string("/a/file1.txt")]),
-        // we restrict to read operations
-        pred("operation", &[s("ambient"), s("read")]),
-      ],
-    ));
+    // checks are implemented as logic rules. If the rule produces something,
+    // the check is successful
+    // here we verify the presence of a `resource` fact with a path set to "/a/file1.txt"
+    // and a read operation
+    builder.add_check("check if resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
 
-    // the previous caveat could also be written like this
-    // builder.add_caveat("caveat(#resource) <- resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
-
-    let keypair = KeyPair::new(&mut rng);
+    let keypair = KeyPair::new();
     // we can now create a new token
-    let biscuit = deser.append(&mut rng, &keypair, builder.build())?;
+    let biscuit = deser.append(&keypair, builder.build())?;
     println!("biscuit (authority): {}", biscuit.print());
 
     biscuit.to_vec()?
@@ -105,18 +90,27 @@ fn main() -> Result<(), error::Token> {
   let mut v1 = biscuit2.verify(public_key)?;
   v1.add_resource("/a/file1.txt");
   v1.add_operation("read");
-  // we will check that the token has the corresponding right
-  v1.add_rule("read_right(#read_right) <- right(#authority, \"/a/file1.txt\", #read)");
+
+  // a verifier can come with allow/deny policies. While checks are all tested
+  // and must all succeeed, allow/deny policies are tried one by one in order,
+  // and we stop verification on the first that matches
+  //
+  // here we will check that the token has the corresponding right
+  v1.add_policy("allow if right(#authority, \"/a/file1.txt\", #read)");
+  // default deny policy, equivalent to "deny if true"
+  v1.deny();
 
   let mut v2 = biscuit2.verify(public_key)?;
   v2.add_resource("/a/file1.txt");
   v2.add_operation("write");
-  v2.add_rule("write_right(#write_right) <- right(#authority, \"/a/file1.txt\", #write)");
+  v2.add_policy("allow if <- right(#authority, \"/a/file1.txt\", #write)");
+  v1.deny();
 
   let mut v3 = biscuit2.verify(public_key)?;
   v3.add_resource("/a/file2.txt");
   v3.add_operation("read");
-  v3.add_rule("read_right(#read_right) <- right(#authority, \"/a/file2.txt\", #read)");
+  v3.add_rule("allow if right(#authority, \"/a/file2.txt\", #read)");
+  v1.deny();
 
   // the token restricts to read operations:
   assert!(v1.verify().is_ok());
@@ -133,11 +127,17 @@ fn main() -> Result<(), error::Token> {
 
 ### blocks
 
-A Biscuit token is made with a list of blocks defining data and caveats that must be validated upon reception with a request. Any failed caveat will invalidate the entire token.
+A Biscuit token is made with a list of blocks defining data and checks that must
+be validated upon reception with a request. Any failed check will invalidate the
+entire token.
 
-If you hold a valid token, it is possible to add a new block to restrict further the token, like limiting access to one particular resource, or adding a short expiration date. This will generate a new, valid token. This can be done offline, without asking the original token creator.
+If you hold a valid token, it is possible to add a new block to restrict further
+the token, like limiting access to one particular resource, or adding a short
+expiration date. This will generate a new, valid token. This can be done offline,
+without asking the original token creator.
 
-On the other hand, if a block is modified or removed, the token will fail the cryptographic signature verification.
+On the other hand, if a block is modified or removed, the token will fail the
+cryptographic signature verification.
 
 ### Cryptography
 
@@ -146,11 +146,11 @@ Biscuit tokens get inspiration from macaroons and JSON Web Tokens, reproducing u
 - offline delegation like macaroons
 - based on public key cryptography like JWT, so any application holding the root public key can verify a token (while macaroons are based on a root shared secret)
 
-### A logic language for caveats: Datalog with constraints
+### A logic language for authorization policies: Datalog
 
 We rely on a modified version of Datalog, that can represent complex behaviours in a compact form, and add flexible constraints on data.
 
-Here are examples of caveats that can be implemented with that language:
+Here are examples of checks that can be implemented with that language:
 
 - valid if the requested resource is "file.txt" and the operation is "read"
 - valid if current time is before January 1st 2030, 00h00mn00s UTC
@@ -164,17 +164,17 @@ Like Datalog, this language is based around facts and rules, but with some sligh
 - an ambient fact starts with the #ambient symbol. It can only be provided by the verifier. It gives information on the current request, like which resource is accessed or the current time
 - Blocks can provide facts but they cannot be authority or ambient facts. They contain rules that use facts from the current block, or from the authority and ambient contexts. If all rules in a block succeed, the block is validated.
 
-A caveat rule requires the presence of one or more facts, and can have additional constraints on these facts (the constraints are implemented separately to simplify the language implementation: among other things, it avoids implementing negation). It is possible to create rules like these ones:
+A check rule requires the presence of one or more facts, and can have additional expressions on these facts. It is possible to create rules like these ones:
 
-- caveat = resource("file1")
-- caveat = resource(0?) & owner("user1", 0?) // the 0? represents a "hole" that must be filled with the correct value
-- caveat = time(0?) | 0? < 2019-02-05T23:00:00Z // expiration date
-- application(0?) & operation(1?) &user(2?) & & right(app, 0?, 1?) & owner(2?, 0?) & credit(2?, 3?) | 3? > 0 // verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
+- check if resource("file1")
+- check if resource($path) & owner("user1", $path) // the $path represents a variable. We look for a set of paths where $path resolves to the same value everywhere
+- check if time($t), $t < 2019-02-05T23:00:00Z // expiration date
+- check if application($app), operation($op), user($user), right(#app, $app, $op), owner($user, $app), credit($user, $amount), $amount > 0 // verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
 
 ### Symbols and symbol tables
 To reduce the size of tokens, the language supports a data type called "symbol". A symbol is a string that we can refer to with a number, an index in the symbol table that is carried with the token. Symbols can be checked for equality, or presence in a set, but lack the other constraints on strings like prefix or suffix matching.
 
-They can be used for pretty printing of a fact or rule. As an example, with a table containing ["resource", "operation", "read", "caveat1"], we could have the following rule: #4 <- #0("file.txt") & #1(#2)that would be printed ascaveat1 <- resoucr("file.txt") & operation(read)`
+They can be used for pretty printing of a fact or rule. As an example, with a table containing ["resource", "operation", "read", "rule1"], we could have the following rule: `#4 <- #0("file.txt") & #1(#2)` that would be printed as `rule1 <- resource("file.txt"), operation(read)`
 
 biscuit implementations come with a default symbol table to avoid transmitting frequent values with every token.
 
