@@ -105,6 +105,8 @@ verifier world:
 World {
   facts: [
     "hello(\"world\")",
+    "revocation_id(0, hex:f5e7f4c5af9f057b414535b94c02a82e185cd21054220f10935b403ec15f54f9)",
+    "revocation_id(1, hex:4639618cf1a4a6c4210dad868b14a9869299e7f997c36fa353c8052d6517d438)",
     "right(#authority, \"file1\", #read)",
 ]
   rules: []
@@ -114,7 +116,7 @@ World {
 ]
   policies: []
 }
-verifier error(code = 21): check validation failed
+verifier error(code = 22): check validation failed
 failed checks (2):
   Verifier check 0: check if right(#efgh)
   Block 1, check 0: check if operation(#ambient, #read)

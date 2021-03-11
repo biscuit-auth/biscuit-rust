@@ -52,6 +52,7 @@ pub extern "C" fn error_message() -> *const c_char {
 
 #[repr(C)]
 pub enum ErrorKind {
+    None,
     InvalidArgument,
     InternalError,
     FormatSignatureInvalidFormat,
@@ -81,7 +82,7 @@ pub enum ErrorKind {
     TooManyFacts,
     TooManyIterations,
     Timeout,
-    None,
+    ConversionError,
 }
 
 #[no_mangle]
@@ -135,11 +136,12 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     }
                     Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
                     Token::FailedLogic(Logic::VerifierNotEmpty) => ErrorKind::LogicVerifierNotEmpty,
-                    Token::FailedLogic(Logic::Deny) => ErrorKind::LogicDeny,
+                    Token::FailedLogic(Logic::Deny(_)) => ErrorKind::LogicDeny,
                     Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
                     Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
                     Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
+                    Token::ConversionError(_) => ErrorKind::ConversionError,
                 }
             }
         },
@@ -1162,7 +1164,7 @@ pub unsafe extern "C" fn verifier_verify(verifier: Option<&mut Verifier>) -> boo
     let verifier = verifier.unwrap();
 
     match verifier.0.verify() {
-        Ok(()) => true,
+        Ok(_index) => true,
         Err(e) => {
             update_last_error(Error::Biscuit(e));
             false
