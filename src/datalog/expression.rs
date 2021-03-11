@@ -32,7 +32,7 @@ impl Unary {
             (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
              _ => {
                  //println!("unexpected value type on the stack");
-                 return None;
+                 None
              }
         }
     }
@@ -119,7 +119,7 @@ impl Binary {
             (Binary::Or, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i | j)),
             _ => {
                 //println!("unexpected value type on the stack");
-                return None;
+                None
             }
         }
     }

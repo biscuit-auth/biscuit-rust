@@ -62,7 +62,7 @@ impl SymbolTable {
             ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
             ID::Date(d) => {
                 let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
-                format!("{}", date.to_rfc3339())
+                date.to_rfc3339()
             },
             ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
             ID::Bool(b) => if *b {
@@ -113,7 +113,7 @@ impl SymbolTable {
             String::new()
         } else {
             if preds.is_empty() {
-                format!("{}", expressions.join(", "))
+                expressions.join(", ")
             } else {
                 format!(", {}", expressions.join(", "))
             }

@@ -140,8 +140,7 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let mut blocks = Vec::new();
-        blocks.push(self.authority.clone());
+        let mut blocks = vec![self.authority.clone()];
         blocks.extend(self.blocks.iter().cloned());
 
         let signature = self.signature.sign(rng, keypair, &v);
@@ -165,8 +164,7 @@ impl SerializedBiscuit {
             return Err(error::Format::EmptyKeys);
         }
 
-        let mut blocks = Vec::new();
-        blocks.push(self.authority.clone());
+        let mut blocks = vec![self.authority.clone()];
         blocks.extend(self.blocks.iter().cloned());
 
         self.signature

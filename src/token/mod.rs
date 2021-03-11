@@ -518,17 +518,17 @@ impl Biscuit {
     /// create the first block's builder
     ///
     /// call [`builder::BiscuitBuilder::build`] to create the token
-    pub fn builder<'a>(
-        root: &'a KeyPair,
-    ) -> BiscuitBuilder<'a> {
+    pub fn builder(
+        root: &KeyPair,
+    ) -> BiscuitBuilder {
         Biscuit::builder_with_symbols(root, default_symbol_table())
     }
 
     /// create the first block's builder, sing a provided symbol table
-    pub fn builder_with_symbols<'a>(
-        root: &'a KeyPair,
+    pub fn builder_with_symbols(
+        root: &KeyPair,
         symbols: SymbolTable,
-    ) -> BiscuitBuilder<'a> {
+    ) -> BiscuitBuilder {
         BiscuitBuilder::new(root, symbols)
     }
 
@@ -608,8 +608,7 @@ impl Biscuit {
     /// the context is a free form text field in which application specific data
     /// can be stored
     pub fn context(&self) -> Vec<Option<String>> {
-      let mut res = vec![];
-      res.push(self.authority.context.clone());
+      let mut res = vec![self.authority.context.clone()];
 
       for b in self.blocks.iter() {
         res.push(b.context.clone());
@@ -1305,7 +1304,7 @@ mod tests {
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let mut res: Vec<(String, Vec<u8>)> = verifier.query("data(#authority, $0) <- bytes(#authority, $0)").unwrap();
+        let res: Vec<(String, Vec<u8>)> = verifier.query("data(#authority, $0) <- bytes(#authority, $0)").unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
     }

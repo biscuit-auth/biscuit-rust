@@ -460,7 +460,6 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
 
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
-    let i2 = i.clone();
 
     if let Ok((i, _)) = char::<_, ()>('.')(i) {
         let (i, op) = binary_op_4(i)?;
@@ -476,7 +475,7 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
 
         Ok((i, e))
     } else {
-        Ok((i2, initial))
+        Ok((i, initial))
     }
 }
 
@@ -532,12 +531,10 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']'), |s| {
-            let r = chrono::DateTime::parse_from_rfc3339(s);
-            r
+            chrono::DateTime::parse_from_rfc3339(s)
         }),
         |t| {
-            let r = t.timestamp().try_into();
-            r
+            t.timestamp().try_into()
         },
     )(i)
 }
@@ -552,9 +549,9 @@ fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>, Error> {
         map_res(
             take_while1(|c| {
                 let c = c as u8;
-                (b'0' <= c && c <= b'9')
-                    || (b'a' <= c && c <= b'f')
-                    || (b'A' <= c && c <= b'F')
+                (b'0'..=b'9').contains(&c)
+                    || (b'a'..=b'f').contains(&c)
+                    ||(b'A'..=b'F').contains(&c)
             }),
             hex::decode
         )
@@ -690,8 +687,7 @@ enum SourceElement<'a> {
 
 pub fn sep(i: &str) -> IResult<&str, &str, Error> {
     let (i, _) = space0(i)?;
-    let res = alt((tag(";"), eof))(i);
-    res
+    alt((tag(";"), eof))(i)
 }
 
 pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
@@ -799,7 +795,7 @@ where
   P: nom::Parser<&'a str, O, Error<'a>>,
   F: Fn(&'a str) -> String,
 {
-    move |i: &str| match parser.parse(i.clone()) {
+    move |i: &str| match parser.parse(i) {
         Ok(res) => Ok(res),
         Err(nom::Err::Incomplete(i)) => Err(nom::Err::Incomplete(i)),
         Err(nom::Err::Error(mut e)) => {
@@ -831,7 +827,7 @@ fn reduce<'a, O, P>(mut parser: P, reducer: &'static str) -> impl FnMut(&'a str)
 where
   P: nom::Parser<&'a str, O, Error<'a>>,
 {
-    move |i: &str| match parser.parse(i.clone()) {
+    move |i: &str| match parser.parse(i) {
         Ok(res) => Ok(res),
         Err(nom::Err::Incomplete(i)) => Err(nom::Err::Incomplete(i)),
         Err(nom::Err::Error(mut e)) => {
@@ -897,7 +893,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{Expression, Op, Binary, Unary, date, var, int, set, string, symbol};
+        use builder::{Op, Binary, Unary, date, var, int, set, string, symbol};
         use std::time::{SystemTime, Duration};
         use std::collections::BTreeSet;
 
@@ -1296,7 +1292,7 @@ mod tests {
 
     #[test]
     fn expression() {
-        use builder::{Op, Unary, Binary, Term, var, date, int, string};
+        use builder::{Op, Binary, Term, var, date, int, string};
         use super::Expr;
         use std::time::{SystemTime, Duration};
         use crate::datalog::SymbolTable;
@@ -1583,7 +1579,7 @@ mod tests {
             },
         ];
 
-        let (remaining, mut result) = res.unwrap();
+        let (_remaining, mut result) = res.unwrap();
         //assert_eq!(remaining, "\n");
         assert_eq!(result.facts.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_facts);
         assert_eq!(result.rules.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_rules);

@@ -203,12 +203,12 @@ pub fn proto_verifier_to_verifier(input: &schema::VerifierPolicies) -> Result<Ve
     }
 
     Ok(VerifierPolicies {
+        version,
         symbols,
         facts,
         rules,
         checks,
         policies,
-        version,
     })
 }
 

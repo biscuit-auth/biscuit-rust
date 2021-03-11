@@ -67,7 +67,7 @@ impl Verifier {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let VerifierPolicies { version, symbols, mut facts, rules, mut checks, policies } =
+        let VerifierPolicies { version: _, symbols, mut facts, rules, mut checks, policies } =
             crate::format::convert::proto_verifier_to_verifier(&data)?;
 
 
