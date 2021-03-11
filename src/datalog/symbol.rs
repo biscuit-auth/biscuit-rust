@@ -2,7 +2,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type Symbol = u64;
-use super::{ID, World, Fact, Rule, Check, Predicate};
+use super::{Check, Fact, Predicate, Rule, World, ID};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
@@ -37,7 +37,10 @@ impl SymbolTable {
     }
 
     pub fn print_symbol(&self, s: Symbol) -> String {
-      self.symbols.get(s as usize).map(|s| s.to_string()).unwrap_or_else(|| format!("<{}?>", s))
+        self.symbols
+            .get(s as usize)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("<{}?>", s))
     }
 
     pub fn print_world(&self, w: &World) -> String {
@@ -61,15 +64,18 @@ impl SymbolTable {
             ID::Str(s) => format!("\"{}\"", s),
             ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
             ID::Date(d) => {
-                let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
+                let date =
+                    DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
                 date.to_rfc3339()
-            },
+            }
             ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
-            ID::Bool(b) => if *b {
-                "true".to_string()
-            } else {
-                "false".to_string()
-            },
+            ID::Bool(b) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
             ID::Set(s) => {
                 let ids = s.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
                 format!("[{}]", ids.join(", "))
@@ -81,11 +87,7 @@ impl SymbolTable {
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {
-        let strings = p
-            .ids
-            .iter()
-            .map(|id| self.print_id(id))
-            .collect::<Vec<_>>();
+        let strings = p.ids.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
         format!(
             "{}({})",
             self.symbols
@@ -97,7 +99,8 @@ impl SymbolTable {
     }
 
     pub fn print_expression(&self, e: &super::expression::Expression) -> String {
-        e.print(self).unwrap_or_else(|| format!("<invalid expression: {:?}>", e.ops))
+        e.print(self)
+            .unwrap_or_else(|| format!("<invalid expression: {:?}>", e.ops))
     }
 
     pub fn print_rule_body(&self, r: &Rule) -> String {
@@ -119,21 +122,13 @@ impl SymbolTable {
             }
         };
 
-        format!(
-            "{}{}",
-            preds.join(", "),
-            e
-        )
+        format!("{}{}", preds.join(", "), e)
     }
 
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
 
-        format!(
-            "{} <- {}",
-            res,
-            self.print_rule_body(r)
-        )
+        format!("{} <- {}", res, self.print_rule_body(r))
     }
 
     pub fn print_check(&self, c: &Check) -> String {

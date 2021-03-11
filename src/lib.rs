@@ -220,15 +220,15 @@ extern crate hmac;
 extern crate prost;
 extern crate prost_types;
 extern crate rand_core;
-extern crate sha2;
 extern crate regex;
+extern crate sha2;
 
 pub mod crypto;
 pub mod datalog;
 pub mod error;
 pub mod format;
-pub mod token;
 pub mod parser;
+pub mod token;
 
 #[cfg(cargo_c)]
 mod capi;

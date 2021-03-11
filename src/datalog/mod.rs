@@ -1,15 +1,15 @@
 //! Logic language implementation for checks
-use std::collections::{HashMap, HashSet, BTreeSet};
+use crate::time::Instant;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use crate::time::Instant;
 
 pub type Symbol = u64;
-mod symbol;
 mod expression;
-pub use symbol::*;
+mod symbol;
 pub use expression::*;
+pub use symbol::*;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum ID {
@@ -96,7 +96,6 @@ pub struct Check {
     pub queries: Vec<Rule>,
 }
 
-
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}({:?})", self.predicate.name, self.predicate.ids)
@@ -110,12 +109,10 @@ impl Rule {
             .body
             .iter()
             .flat_map(|pred| {
-                pred.ids
-                    .iter()
-                    .filter_map(|id| match id {
-                        ID::Variable(i) => Some(*i),
-                        _ => None,
-                    })
+                pred.ids.iter().filter_map(|id| match id {
+                    ID::Variable(i) => Some(*i),
+                    _ => None,
+                })
             })
             .collect::<HashSet<_>>();
 
@@ -150,12 +147,10 @@ impl Rule {
             .body
             .iter()
             .flat_map(|pred| {
-                pred.ids
-                    .iter()
-                    .filter_map(|id| match id {
-                        ID::Variable(i) => Some(*i),
-                        _ => None,
-                    })
+                pred.ids.iter().filter_map(|id| match id {
+                    ID::Variable(i) => Some(*i),
+                    _ => None,
+                })
             })
             .collect::<HashSet<_>>();
 
@@ -203,15 +198,15 @@ impl<'a> CombineIt<'a> {
         expressions: &'a [Expression],
         facts: &'a HashSet<Fact>,
     ) -> Self {
-        let current_facts:Box<dyn Iterator<Item = &'a Fact> + 'a> = if predicates.is_empty() {
+        let current_facts: Box<dyn Iterator<Item = &'a Fact> + 'a> = if predicates.is_empty() {
             Box::new(facts.iter())
         } else {
             let p = predicates[0].clone();
             Box::new(
                 facts
-                .iter()
-                .filter(move |fact| match_preds(&fact.predicate, &p))
-                )
+                    .iter()
+                    .filter(move |fact| match_preds(&fact.predicate, &p)),
+            )
         };
 
         CombineIt {
@@ -241,12 +236,12 @@ impl<'a> Iterator for CombineIt<'a> {
                     let mut valid = true;
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables) {
-                            Some(ID::Bool(true)) => {},
+                            Some(ID::Bool(true)) => {}
                             _res => {
                                 //println!("expr returned {:?}", res);
                                 valid = false;
                                 break;
-                            },
+                            }
                         }
                     }
 
@@ -255,7 +250,7 @@ impl<'a> Iterator for CombineIt<'a> {
                     } else {
                         return None;
                     }
-                },
+                }
             }
         }
 
@@ -291,7 +286,7 @@ impl<'a> Iterator for CombineIt<'a> {
                                 None => {
                                     //println!("variables not complete, continue");
                                     continue;
-                                },
+                                }
                                 // we got a complete set of variables, let's test the expressions
                                 Some(variables) => {
                                     //println!("will test with variables: {:?}", variables);
@@ -300,12 +295,12 @@ impl<'a> Iterator for CombineIt<'a> {
                                         match e.evaluate(&variables) {
                                             Some(ID::Bool(true)) => {
                                                 //println!("expression returned true");
-                                            },
+                                            }
                                             _e => {
                                                 //println!("expression returned {:?}", e);
                                                 valid = false;
                                                 break;
-                                            },
+                                            }
                                         }
                                     }
 
@@ -314,7 +309,7 @@ impl<'a> Iterator for CombineIt<'a> {
                                     } else {
                                         continue;
                                     }
-                                },
+                                }
                             }
                         } else {
                             // create a new iterator with the matched variables, the rest of the predicates,
@@ -595,8 +590,14 @@ mod tests {
             grandparent,
             &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
             &[
-                pred(parent, &[var(&mut syms, "grandparent"), var(&mut syms, "parent")]),
-                pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "grandchild")]),
+                pred(
+                    parent,
+                    &[var(&mut syms, "grandparent"), var(&mut syms, "parent")],
+                ),
+                pred(
+                    parent,
+                    &[var(&mut syms, "parent"), var(&mut syms, "grandchild")],
+                ),
             ],
         );
 
@@ -610,8 +611,14 @@ mod tests {
             grandparent,
             &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
             &[
-                pred(parent, &[var(&mut syms, "grandparent"), var(&mut syms, "parent")]),
-                pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "grandchild")]),
+                pred(
+                    parent,
+                    &[var(&mut syms, "grandparent"), var(&mut syms, "parent")],
+                ),
+                pred(
+                    parent,
+                    &[var(&mut syms, "parent"), var(&mut syms, "grandchild")],
+                ),
             ],
         );
 
@@ -621,7 +628,10 @@ mod tests {
         w.run().unwrap();
 
         println!("parents:");
-        let res = w.query(pred(parent, &[var(&mut syms, "parent"), var(&mut syms, "child")]));
+        let res = w.query(pred(
+            parent,
+            &[var(&mut syms, "parent"), var(&mut syms, "child")],
+        ));
         for fact in res {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -632,11 +642,17 @@ mod tests {
         );
         println!(
             "grandparents: {:?}",
-            w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]))
+            w.query(pred(
+                grandparent,
+                &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]
+            ))
         );
         w.add_fact(fact(parent, &[&c, &e]));
         w.run().unwrap();
-        let mut res = w.query(pred(grandparent, &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]));
+        let mut res = w.query(pred(
+            grandparent,
+            &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
+        ));
         println!("grandparents after inserting parent(C, E): {:?}", res);
 
         let res = res.drain(..).cloned().collect::<HashSet<_>>();
@@ -691,7 +707,14 @@ mod tests {
             &[var(&mut syms, "left"), var(&mut syms, "right")],
             &[
                 pred(t1, &[var(&mut syms, "id"), var(&mut syms, "left")]),
-                pred(t2, &[var(&mut syms, "t2_id"), var(&mut syms, "right"), var(&mut syms, "id")]),
+                pred(
+                    t2,
+                    &[
+                        var(&mut syms, "t2_id"),
+                        var(&mut syms, "right"),
+                        var(&mut syms, "id"),
+                    ],
+                ),
             ],
         ));
         for fact in &res {
@@ -714,13 +737,22 @@ mod tests {
             &[var(&mut syms, "left"), var(&mut syms, "right")],
             &[
                 pred(t1, &[var(&mut syms, "id"), var(&mut syms, "left")]),
-                pred(t2, &[var(&mut syms, "t2_id"), var(&mut syms, "right"), var(&mut syms, "id")]),
+                pred(
+                    t2,
+                    &[
+                        var(&mut syms, "t2_id"),
+                        var(&mut syms, "right"),
+                        var(&mut syms, "id"),
+                    ],
+                ),
             ],
-            &[ Expression { ops: vec![
-                Op::Value(var(&mut syms, "id")),
-                Op::Value(ID::Integer(1)),
-                Op::Binary(Binary::LessThan),
-            ] } ],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var(&mut syms, "id")),
+                    Op::Value(ID::Integer(1)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            }],
         ));
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
@@ -750,19 +782,31 @@ mod tests {
         w.add_fact(fact(route, &[&int(3), &app_0, &string("www.example.com")]));
         w.add_fact(fact(route, &[&int(4), &app_1, &string("mx.example.com")]));
 
-        fn test_suffix(w: &World, syms: &mut SymbolTable, suff: Symbol, route: Symbol, suffix: &str) -> Vec<Fact> {
+        fn test_suffix(
+            w: &World,
+            syms: &mut SymbolTable,
+            suff: Symbol,
+            route: Symbol,
+            suffix: &str,
+        ) -> Vec<Fact> {
             w.query_rule(expressed_rule(
                 suff,
                 &[var(syms, "app_id"), var(syms, "domain_name")],
                 &[pred(
                     route,
-                    &[var(syms, "route_id"), var(syms, "app_id"), var(syms, "domain_name")],
+                    &[
+                        var(syms, "route_id"),
+                        var(syms, "app_id"),
+                        var(syms, "domain_name"),
+                    ],
                 )],
-                &[ Expression { ops: vec![
-                    Op::Value(var(syms, "domain_name")),
-                    Op::Value(ID::Str(suffix.to_string())),
-                    Op::Binary(Binary::Suffix),
-                ] } ],
+                &[Expression {
+                    ops: vec![
+                        Op::Value(var(syms, "domain_name")),
+                        Op::Value(ID::Str(suffix.to_string())),
+                        Op::Binary(Binary::Suffix),
+                    ],
+                }],
             ))
         }
 
@@ -821,19 +865,22 @@ mod tests {
             &[var(&mut syms, "date"), var(&mut syms, "val")],
             &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
-                Expression { ops: vec![
-                    Op::Value(var(&mut syms, "date")),
-                    Op::Value(ID::Date(t2_timestamp)),
-                    Op::Binary(Binary::LessOrEqual),
-                ] },
-                Expression { ops: vec![
-                    Op::Value(var(&mut syms, "date")),
-                    Op::Value(ID::Date(0)),
-                    Op::Binary(Binary::GreaterOrEqual),
-                ] },
+                Expression {
+                    ops: vec![
+                        Op::Value(var(&mut syms, "date")),
+                        Op::Value(ID::Date(t2_timestamp)),
+                        Op::Binary(Binary::LessOrEqual),
+                    ],
+                },
+                Expression {
+                    ops: vec![
+                        Op::Value(var(&mut syms, "date")),
+                        Op::Value(ID::Date(0)),
+                        Op::Binary(Binary::GreaterOrEqual),
+                    ],
+                },
             ],
         );
-
 
         println!("testing r1: {}", syms.print_rule(&r1));
         let res = w.query_rule(r1);
@@ -852,16 +899,20 @@ mod tests {
             &[var(&mut syms, "date"), var(&mut syms, "val")],
             &[pred(x, &[var(&mut syms, "date"), var(&mut syms, "val")])],
             &[
-                Expression { ops: vec![
-                    Op::Value(var(&mut syms, "date")),
-                    Op::Value(ID::Date(t2_timestamp)),
-                    Op::Binary(Binary::GreaterOrEqual),
-                ] },
-                Expression { ops: vec![
-                    Op::Value(var(&mut syms, "date")),
-                    Op::Value(ID::Date(0)),
-                    Op::Binary(Binary::GreaterOrEqual),
-                ] },
+                Expression {
+                    ops: vec![
+                        Op::Value(var(&mut syms, "date")),
+                        Op::Value(ID::Date(t2_timestamp)),
+                        Op::Binary(Binary::GreaterOrEqual),
+                    ],
+                },
+                Expression {
+                    ops: vec![
+                        Op::Value(var(&mut syms, "date")),
+                        Op::Value(ID::Date(0)),
+                        Op::Binary(Binary::GreaterOrEqual),
+                    ],
+                },
             ],
         );
 
@@ -896,14 +947,23 @@ mod tests {
         let res = w.query_rule(expressed_rule(
             int_set,
             &[var(&mut syms, "sym"), var(&mut syms, "str")],
-            &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
-            &[
-                Expression { ops: vec![
-                    Op::Value(ID::Set([ID::Integer(0), ID::Integer(1)].iter().cloned().collect())),
+            &[pred(
+                x,
+                &[
+                    var(&mut syms, "sym"),
+                    var(&mut syms, "int"),
+                    var(&mut syms, "str"),
+                ],
+            )],
+            &[Expression {
+                ops: vec![
+                    Op::Value(ID::Set(
+                        [ID::Integer(0), ID::Integer(1)].iter().cloned().collect(),
+                    )),
                     Op::Value(var(&mut syms, "int")),
                     Op::Binary(Binary::Contains),
-                ] },
-            ],
+                ],
+            }],
         ));
 
         for fact in &res {
@@ -921,16 +981,32 @@ mod tests {
 
         let res = w.query_rule(expressed_rule(
             symbol_set,
-            &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")],
-            &[pred(x, &[var(&mut syms, "symbol"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[
-                Expression { ops: vec![
-                    Op::Value(ID::Set([ID::Symbol(abc_sym_id), ID::Symbol(ghi_sym_id)].iter().cloned().collect())),
+                var(&mut syms, "symbol"),
+                var(&mut syms, "int"),
+                var(&mut syms, "str"),
+            ],
+            &[pred(
+                x,
+                &[
+                    var(&mut syms, "symbol"),
+                    var(&mut syms, "int"),
+                    var(&mut syms, "str"),
+                ],
+            )],
+            &[Expression {
+                ops: vec![
+                    Op::Value(ID::Set(
+                        [ID::Symbol(abc_sym_id), ID::Symbol(ghi_sym_id)]
+                            .iter()
+                            .cloned()
+                            .collect(),
+                    )),
                     Op::Value(var(&mut syms, "symbol")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
-                ] },
-            ],
+                ],
+            }],
         ));
 
         for fact in &res {
@@ -945,15 +1021,31 @@ mod tests {
 
         let res = w.query_rule(expressed_rule(
             string_set,
-            &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")],
-            &[pred(x, &[var(&mut syms, "sym"), var(&mut syms, "int"), var(&mut syms, "str")])],
             &[
-                Expression { ops: vec![
-                    Op::Value(ID::Set([ID::Str("test".to_string()), ID::Str("aaa".to_string())].iter().cloned().collect())),
+                var(&mut syms, "sym"),
+                var(&mut syms, "int"),
+                var(&mut syms, "str"),
+            ],
+            &[pred(
+                x,
+                &[
+                    var(&mut syms, "sym"),
+                    var(&mut syms, "int"),
+                    var(&mut syms, "str"),
+                ],
+            )],
+            &[Expression {
+                ops: vec![
+                    Op::Value(ID::Set(
+                        [ID::Str("test".to_string()), ID::Str("aaa".to_string())]
+                            .iter()
+                            .cloned()
+                            .collect(),
+                    )),
                     Op::Value(var(&mut syms, "str")),
                     Op::Binary(Binary::Contains),
-                ] },
-            ],
+                ],
+            }],
         ));
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
@@ -1035,8 +1127,8 @@ mod tests {
             less_than,
             &[var(&mut syms, "nb"), var(&mut syms, "val")],
             &[pred(x, &[var(&mut syms, "nb"), var(&mut syms, "val")])],
-            &[
-                Expression { ops: vec![
+            &[Expression {
+                ops: vec![
                     Op::Value(ID::Integer(5)),
                     Op::Value(ID::Integer(-4)),
                     Op::Binary(Binary::Add),
@@ -1044,8 +1136,8 @@ mod tests {
                     Op::Binary(Binary::Mul),
                     Op::Value(var(&mut syms, "nb")),
                     Op::Binary(Binary::LessThan),
-                ] },
-            ],
+                ],
+            }],
         );
 
         println!("world:\n{}\n", syms.print_world(&w));

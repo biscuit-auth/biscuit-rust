@@ -16,22 +16,21 @@
 use crate::{error, token::builder};
 use nom::{
     branch::alt,
-    bytes::complete::{escaped_transform, tag, tag_no_case, take_while, take_while1,
-      take_until},
+    bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
     character::{
         complete::{char, digit1, multispace0 as space0},
         is_alphanumeric,
     },
-    combinator::{map, map_res, opt, recognize, value, cut, consumed, eof},
-    multi::{separated_list0, separated_list1, many0},
-    sequence::{delimited, pair, preceded, tuple, terminated},
-    error::{ErrorKind, ParseError, FromExternalError},
+    combinator::{consumed, cut, eof, map, map_res, opt, recognize, value},
+    error::{ErrorKind, FromExternalError, ParseError},
+    multi::{many0, separated_list0, separated_list1},
+    sequence::{delimited, pair, preceded, terminated, tuple},
     IResult, Offset,
 };
 use std::{
+    collections::BTreeSet,
     convert::{TryFrom, TryInto},
     str::FromStr,
-    collections::BTreeSet,
 };
 
 /// parse a Datalog fact
@@ -42,18 +41,19 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
     let (i, _) = space0(i)?;
     let (i, ids) = delimited(
         char('('),
-        cut(separated_list1(preceded(space0, char(',')), cut(term_in_fact))),
+        cut(separated_list1(
+            preceded(space0, char(',')),
+            cut(term_in_fact),
+        )),
         preceded(space0, char(')')),
     )(i)?;
 
     Ok((
         i,
-        builder::Fact(
-            builder::Predicate {
-                name: fact_name.to_string(),
-                ids,
-            }
-        ),
+        builder::Fact(builder::Predicate {
+            name: fact_name.to_string(),
+            ids,
+        }),
     ))
 }
 
@@ -79,7 +79,13 @@ pub fn allow(i: &str) -> IResult<&str, builder::Policy, Error> {
     let (i, _) = tag_no_case("allow if")(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
-    Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Allow }))
+    Ok((
+        i,
+        builder::Policy {
+            queries,
+            kind: builder::PolicyKind::Allow,
+        },
+    ))
 }
 
 /// parse an allow rule
@@ -89,26 +95,35 @@ pub fn deny(i: &str) -> IResult<&str, builder::Policy, Error> {
     let (i, _) = tag_no_case("deny if")(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
-    Ok((i, builder::Policy { queries, kind: builder::PolicyKind::Deny }))
+    Ok((
+        i,
+        builder::Policy {
+            queries,
+            kind: builder::PolicyKind::Deny,
+        },
+    ))
 }
 
 /// parse a Datalog check body
 pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
     let (i, mut queries) = separated_list1(
-      preceded(space0, tag_no_case("or")),
-      preceded(space0, cut(rule_body))
+        preceded(space0, tag_no_case("or")),
+        preceded(space0, cut(rule_body)),
     )(i)?;
 
-    let queries = queries.drain(..).map(|rule_body| {
-        builder::Rule(
-            builder::Predicate {
-                name: "query".to_string(),
-                ids: Vec::new(),
-            },
-            rule_body.0,
-            rule_body.1
-        )
-    }).collect();
+    let queries = queries
+        .drain(..)
+        .map(|rule_body| {
+            builder::Rule(
+                builder::Predicate {
+                    name: "query".to_string(),
+                    ids: Vec::new(),
+                },
+                rule_body.0,
+                rule_body.1,
+            )
+        })
+        .collect();
     Ok((i, queries))
 }
 
@@ -255,11 +270,12 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
 }
 
 /// parse a Datalog rule body
-pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>), Error> {
-
+pub fn rule_body(
+    i: &str,
+) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>), Error> {
     let (i, mut elements) = separated_list1(
-      preceded(space0, char(',')),
-      preceded(space0, cut(predicate_or_expression))
+        preceded(space0, char(',')),
+        preceded(space0, cut(predicate_or_expression)),
     )(i)?;
 
     let mut predicates = Vec::new();
@@ -272,7 +288,7 @@ pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder
                 let ops = expression.opcodes();
                 let e = builder::Expression { ops };
                 expressions.push(e);
-            },
+            }
         }
     }
 
@@ -280,26 +296,22 @@ pub fn rule_body(i: &str) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder
 }
 
 enum PredOrExpr {
-  P(builder::Predicate),
-  E(Expr),
+    P(builder::Predicate),
+    E(Expr),
 }
 
 fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
     reduce(
-      alt((
-        map(predicate, PredOrExpr::P),
-        map(expr, PredOrExpr::E),
-      )),
-      ",;"
+        alt((map(predicate, PredOrExpr::P), map(expr, PredOrExpr::E))),
+        ",;",
     )(i)
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum Expr {
-  Value(builder::Term),
-  Unary(builder::Op, Box<Expr>),
-  Binary(builder::Op, Box<Expr>, Box<Expr>),
+    Value(builder::Term),
+    Unary(builder::Op, Box<Expr>),
+    Binary(builder::Op, Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
@@ -315,23 +327,18 @@ impl Expr {
             Expr::Unary(op, expr) => {
                 expr.into_opcodes(v);
                 v.push(op);
-            },
+            }
             Expr::Binary(op, left, right) => {
                 left.into_opcodes(v);
                 right.into_opcodes(v);
                 v.push(op);
-            },
-
+            }
         }
     }
 }
 
 fn unary(i: &str) -> IResult<&str, Expr, Error> {
-    alt((
-        unary_parens,
-        unary_negate,
-        unary_length,
-    ))(i)
+    alt((unary_parens, unary_negate, unary_length))(i)
 }
 
 fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
@@ -340,7 +347,10 @@ fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, value) = expr(i)?;
 
-    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Negate), Box::new(value))))
+    Ok((
+        i,
+        Expr::Unary(builder::Op::Unary(builder::Unary::Negate), Box::new(value)),
+    ))
 }
 
 fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
@@ -351,7 +361,10 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag(")")(i)?;
 
-    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value))))
+    Ok((
+        i,
+        Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value)),
+    ))
 }
 
 fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
@@ -360,15 +373,15 @@ fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag(".length()")(i)?;
 
-    Ok((i, Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value))))
+    Ok((
+        i,
+        Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value)),
+    ))
 }
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((
-        value(Binary::And, tag("&&")),
-        value(Binary::Or, tag("||")),
-    ))(i)
+    alt((value(Binary::And, tag("&&")), value(Binary::Or, tag("||"))))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
@@ -384,18 +397,12 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
 
 fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((
-        value(Binary::Add, tag("+")),
-        value(Binary::Sub, tag("-")),
-    ))(i)
+    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
 }
 
 fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((
-        value(Binary::Mul, tag("*")),
-        value(Binary::Div, tag("/")),
-    ))(i)
+    alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
 }
 
 fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
@@ -410,20 +417,14 @@ fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
 }
 
 fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
-    alt((
-        unary,
-        reduce(
-            map(term, Expr::Value),
-            " ,\n);"
-        ),
-    ))(i)
+    alt((unary, reduce(map(term, Expr::Value), " ,\n);")))(i)
 }
 
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
-  remainder.into_iter().fold(initial, |acc, pair| {
-    let (op, expr) = pair;
-    Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr))
-  })
+    remainder.into_iter().fold(initial, |acc, pair| {
+        let (op, expr) = pair;
+        Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr))
+    })
 }
 
 fn expr(i: &str) -> IResult<&str, Expr, Error> {
@@ -482,10 +483,7 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
 fn name(i: &str) -> IResult<&str, &str, Error> {
     let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_';
 
-    reduce(
-        take_while1(is_name_char),
-        " ,:(\n;"
-    )(i)
+    reduce(take_while1(is_name_char), " ,:(\n;")(i)
 }
 
 fn printable(i: &str) -> IResult<&str, &str, Error> {
@@ -530,12 +528,11 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
-        map_res(take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']'), |s| {
-            chrono::DateTime::parse_from_rfc3339(s)
-        }),
-        |t| {
-            t.timestamp().try_into()
-        },
+        map_res(
+            take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']'),
+            |s| chrono::DateTime::parse_from_rfc3339(s),
+        ),
+        |t| t.timestamp().try_into(),
     )(i)
 }
 
@@ -551,10 +548,10 @@ fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>, Error> {
                 let c = c as u8;
                 (b'0'..=b'9').contains(&c)
                     || (b'a'..=b'f').contains(&c)
-                    ||(b'A'..=b'F').contains(&c)
+                    || (b'A'..=b'F').contains(&c)
             }),
-            hex::decode
-        )
+            hex::decode,
+        ),
     )(i)
 }
 
@@ -563,17 +560,11 @@ fn bytes(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn variable(i: &str) -> IResult<&str, builder::Term, Error> {
-    map(
-        preceded(char('$'), name),
-        builder::variable,
-    )(i)
+    map(preceded(char('$'), name), builder::variable)(i)
 }
 
 fn parse_bool(i: &str) -> IResult<&str, bool, Error> {
-    alt((
-        value(true, tag("true")),
-        value(false, tag("false")),
-    ))(i)
+    alt((value(true, tag("true")), value(false, tag("false"))))(i)
 }
 
 fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
@@ -618,7 +609,10 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
-    preceded(space0, alt((symbol, string, date, variable, integer, bytes, boolean, set)))(i)
+    preceded(
+        space0,
+        alt((symbol, string, date, variable, integer, bytes, boolean, set)),
+    )(i)
 }
 
 fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
@@ -669,7 +663,7 @@ fn multiline_comment(i: &str) -> IResult<&str, (), Error> {
     Ok((i, ()))
 }
 
-#[derive(Clone,Debug,PartialEq,Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct SourceResult<'a> {
     pub facts: Vec<(&'a str, builder::Fact)>,
     pub rules: Vec<(&'a str, builder::Rule)>,
@@ -705,26 +699,35 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
 
         match terminated(
             alt((
-                map(terminated(consumed(rule), sep), |(i, r)| SourceElement::Rule(i, r)),
-                map(terminated(consumed(fact), sep), |(i, f)| SourceElement::Fact(i, f)),
-                map(terminated(consumed(check), sep), |(i, c)| SourceElement::Check(i, c)),
-                map(terminated(consumed(policy), sep), |(i, p)| SourceElement::Policy(i, p)),
+                map(terminated(consumed(rule), sep), |(i, r)| {
+                    SourceElement::Rule(i, r)
+                }),
+                map(terminated(consumed(fact), sep), |(i, f)| {
+                    SourceElement::Fact(i, f)
+                }),
+                map(terminated(consumed(check), sep), |(i, c)| {
+                    SourceElement::Check(i, c)
+                }),
+                map(terminated(consumed(policy), sep), |(i, p)| {
+                    SourceElement::Policy(i, p)
+                }),
                 map(line_comment, |_| SourceElement::Comment),
                 map(multiline_comment, |_| SourceElement::Comment),
             )),
-            space0
-        )(i) {
+            space0,
+        )(i)
+        {
             Ok((i2, o)) => {
                 match o {
                     SourceElement::Fact(i, f) => result.facts.push((i, f)),
                     SourceElement::Rule(i, r) => result.rules.push((i, r)),
                     SourceElement::Check(i, c) => result.checks.push((i, c)),
                     SourceElement::Policy(i, p) => result.policies.push((i, p)),
-                    SourceElement::Comment => {},
+                    SourceElement::Comment => {}
                 }
 
                 i = i2;
-            },
+            }
             Err(nom::Err::Incomplete(_)) => panic!(),
             Err(nom::Err::Error(mut e)) => {
                 if let Some(index) = e.input.find(|c| c == ';') {
@@ -733,13 +736,13 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
 
                 let offset = i.offset(e.input);
                 if let Some(index) = &i[offset..].find(|c| c == ';') {
-                    i = &i[offset+index+1..];
+                    i = &i[offset + index + 1..];
                 } else {
                     i = &i[i.len()..];
                 }
 
                 errors.push(e);
-            },
+            }
             Err(nom::Err::Failure(mut e)) => {
                 if let Some(index) = e.input.find(|c| c == ';') {
                     e.input = &(e.input)[..index];
@@ -747,13 +750,13 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
 
                 let offset = i.offset(e.input);
                 if let Some(index) = &i[offset..].find(|c| c == ';') {
-                    i = &i[offset+index+1..];
+                    i = &i[offset + index + 1..];
                 } else {
                     i = &i[i.len()..];
                 }
 
                 errors.push(e);
-            },
+            }
         }
     }
 }
@@ -790,10 +793,14 @@ impl<'a, E> FromExternalError<&'a str, E> for Error<'a> {
     }
 }
 
-fn error<'a, F, O, P>(mut parser: P, context: F, reducer: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
+fn error<'a, F, O, P>(
+    mut parser: P,
+    context: F,
+    reducer: &'static str,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
 where
-  P: nom::Parser<&'a str, O, Error<'a>>,
-  F: Fn(&'a str) -> String,
+    P: nom::Parser<&'a str, O, Error<'a>>,
+    F: Fn(&'a str) -> String,
 {
     move |i: &str| match parser.parse(i) {
         Ok(res) => Ok(res),
@@ -823,9 +830,12 @@ where
     }
 }
 
-fn reduce<'a, O, P>(mut parser: P, reducer: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
+fn reduce<'a, O, P>(
+    mut parser: P,
+    reducer: &'static str,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, Error<'a>>
 where
-  P: nom::Parser<&'a str, O, Error<'a>>,
+    P: nom::Parser<&'a str, O, Error<'a>>,
 {
     move |i: &str| match parser.parse(i) {
         Ok(res) => Ok(res),
@@ -893,39 +903,40 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{Op, Binary, Unary, date, var, int, set, string, symbol};
-        use std::time::{SystemTime, Duration};
+        use builder::{date, int, set, string, symbol, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
+        use std::time::{Duration, SystemTime};
 
         assert_eq!(
-            super::expr("$0 <= 2030-12-31T12:59:59+00:00")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 <= 2030-12-31T12:59:59+00:00").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
                     Op::Value(var("0")),
-                    Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399)))),
+                    Op::Value(date(
+                        &(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399))
+                    )),
                     Op::Binary(Binary::LessOrEqual),
                 ],
             ))
         );
 
         assert_eq!(
-            super::expr("$0 >= 2030-12-31T12:59:59+00:00")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 >= 2030-12-31T12:59:59+00:00").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
                     Op::Value(var("0")),
-                    Op::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399)))),
+                    Op::Value(date(
+                        &(SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399))
+                    )),
                     Op::Binary(Binary::GreaterOrEqual),
                 ],
             ))
         );
 
         assert_eq!(
-            super::expr("$0 < 1234")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 < 1234").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -937,8 +948,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 > 1234")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 > 1234").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -950,8 +960,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 <= 1234")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 <= 1234").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -963,8 +972,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 >= -1234")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 >= -1234").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -976,8 +984,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 == 1")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 == 1").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -990,8 +997,7 @@ mod tests {
 
         let h = [int(1), int(2)].iter().cloned().collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[1, 2].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("[1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1003,8 +1009,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![1, 2].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("![1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1017,8 +1022,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 == \"abc\"")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 == \"abc\"").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1030,8 +1034,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0.ends_with(\"abc\")")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0.ends_with(\"abc\")").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1043,8 +1046,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0.starts_with(\"abc\")")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0.starts_with(\"abc\")").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1056,8 +1058,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0.matches(\"abc[0-9]+\")")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0.matches(\"abc[0-9]+\")").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1073,8 +1074,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[\"abc\", \"def\"].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1086,8 +1086,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![\"abc\", \"def\"].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1104,8 +1103,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[#abc, #def].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("[#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1117,8 +1115,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![#abc, #def].contains($0)")
-                .map(|(i, o)| (i, o.opcodes())),
+            super::expr("![#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1148,35 +1145,31 @@ mod tests {
             ))
         );
 
-        use nom::error::{ErrorKind};
+        use nom::error::ErrorKind;
         // facts should not contain variables
         assert_eq!(
             super::fact("right( #authority, $var, #read )"),
-            Err(nom::Err::Failure(super::Error{
+            Err(nom::Err::Failure(super::Error {
                 code: ErrorKind::Char,
                 input: "$var",
                 message: Some("variables are not allowed in facts".to_string()),
             }))
         );
-
     }
 
     #[test]
     fn fact_with_date() {
         assert_eq!(
             super::fact("date(#ambient,2019-12-02T13:49:53Z)"),
-            Ok(("",
+            Ok((
+                "",
                 builder::fact(
                     "date",
-                    &[
-                        builder::s("ambient"),
-                        builder::Term::Date(1575294593)
-                    ]
+                    &[builder::s("ambient"), builder::Term::Date(1575294593)]
                 )
             ))
         );
     }
-
 
     #[test]
     fn rule() {
@@ -1202,8 +1195,8 @@ mod tests {
 
     #[test]
     fn constrained_rule() {
-        use builder::{Expression, Op, Binary, var, date};
-        use std::time::{SystemTime, Duration};
+        use builder::{date, var, Binary, Expression, Op};
+        use std::time::{Duration, SystemTime};
 
         assert_eq!(
             super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\"), $0 <= 2019-12-04T09:46:41+00:00"),
@@ -1232,8 +1225,8 @@ mod tests {
 
     #[test]
     fn constrained_rule_ordering() {
-        use builder::{Expression, Op, Binary, var, date};
-        use std::time::{SystemTime, Duration};
+        use builder::{date, var, Binary, Expression, Op};
+        use std::time::{Duration, SystemTime};
 
         assert_eq!(
             super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), $0 <= 2019-12-04T09:46:41+00:00, resource(#ambient, \"file1\")"),
@@ -1264,7 +1257,9 @@ mod tests {
     fn check() {
         let empty: &[builder::Term] = &[];
         assert_eq!(
-            super::check("check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"),
+            super::check(
+                "check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"
+            ),
             Ok((
                 "",
                 builder::Check {
@@ -1273,16 +1268,20 @@ mod tests {
                             "query",
                             empty,
                             &[
-                                builder::pred("resource", &[builder::s("ambient"), builder::variable("0")]),
-                                builder::pred("operation", &[builder::s("ambient"), builder::s("read")]),
+                                builder::pred(
+                                    "resource",
+                                    &[builder::s("ambient"), builder::variable("0")]
+                                ),
+                                builder::pred(
+                                    "operation",
+                                    &[builder::s("ambient"), builder::s("read")]
+                                ),
                             ]
                         ),
                         builder::rule(
                             "query",
                             empty,
-                            &[
-                                builder::pred("admin", &[builder::s("authority")]),
-                            ]
+                            &[builder::pred("admin", &[builder::s("authority")]),]
                         ),
                     ]
                 }
@@ -1292,23 +1291,17 @@ mod tests {
 
     #[test]
     fn expression() {
-        use builder::{Op, Binary, Term, var, date, int, string};
         use super::Expr;
-        use std::time::{SystemTime, Duration};
         use crate::datalog::SymbolTable;
+        use builder::{date, int, string, var, Binary, Op, Term};
+        use std::time::{Duration, SystemTime};
 
         let mut syms = SymbolTable::new();
 
         let input = " -1 ";
         println!("parsing: {}", input);
         let res = super::expr(input);
-        assert_eq!(
-            res,
-            Ok((
-                " ",
-                Expr::Value(Term::Integer(-1))
-            ))
-        );
+        assert_eq!(res, Ok((" ", Expr::Value(Term::Integer(-1)))));
 
         let ops = res.unwrap().1.opcodes();
         println!("ops: {:#?}", ops);
@@ -1325,8 +1318,10 @@ mod tests {
                 Expr::Binary(
                     Op::Binary(Binary::LessOrEqual),
                     Box::new(Expr::Value(var("0"))),
-                    Box::new(Expr::Value(date(&(SystemTime::UNIX_EPOCH + Duration::from_secs(1575452801))))
-                ))
+                    Box::new(Expr::Value(date(
+                        &(SystemTime::UNIX_EPOCH + Duration::from_secs(1575452801))
+                    )))
+                )
             ))
         );
 
@@ -1381,8 +1376,8 @@ mod tests {
                             Box::new(Expr::Value(string("test"))),
                         )),
                     )),
-                Box::new(Expr::Value(Term::Bool(true))),
-    )
+                    Box::new(Expr::Value(Term::Bool(true))),
+                )
             ))
         );
 
@@ -1396,9 +1391,9 @@ mod tests {
 
     #[test]
     fn parens() {
-        use builder::{Op, Unary, Binary, int};
-        use std::collections::HashMap;
         use crate::datalog::SymbolTable;
+        use builder::{int, Binary, Op, Unary};
+        use std::collections::HashMap;
 
         let mut syms = SymbolTable::new();
 
@@ -1460,8 +1455,10 @@ mod tests {
 
     #[test]
     fn source_file() {
-        use builder::{fact, rule, pred, constrained_rule, string, int, s, var,
-          boolean, Op, Binary, Expression, Check, Policy, PolicyKind};
+        use builder::{
+            boolean, constrained_rule, fact, int, pred, rule, s, string, var, Binary, Check,
+            Expression, Op, Policy, PolicyKind,
+        };
 
         let input = r#"
           fact("string", #symbol);
@@ -1488,53 +1485,45 @@ mod tests {
         let res = super::parse_source(input);
         println!("parse_source res:\n{:#?}", res);
 
-        let empty_terms:&[builder::Term] = &[];
-        let empty_preds:&[builder::Predicate] = &[];
+        let empty_terms: &[builder::Term] = &[];
+        let empty_preds: &[builder::Predicate] = &[];
 
         let expected_facts = vec![
             fact("fact", &[string("string"), s("symbol")]),
             fact("fact2", &[int(1234)]),
         ];
 
-        let expected_rules = vec![
-            constrained_rule(
-                "rule_head",
-                &[var("var0")],
-                &[pred("fact", &[var("var0"), var("var1")])],
-                &[Expression {
-                    ops: vec![
-                        Op::Value(int(1)),
-                        Op::Value(int(2)),
-                        Op::Binary(Binary::LessThan)
-                    ]
-                }],
-            )
-        ];
+        let expected_rules = vec![constrained_rule(
+            "rule_head",
+            &[var("var0")],
+            &[pred("fact", &[var("var0"), var("var1")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            }],
+        )];
 
         let expected_checks = vec![
             Check {
-                queries: vec![
-                    constrained_rule(
-                        "query",
-                        empty_terms,
-                        empty_preds,
-                        &[Expression {
-                            ops: vec![
-                                Op::Value(int(1)),
-                                Op::Value(int(2)),
-                                Op::Binary(Binary::Equal)
-                            ]
-                        }],
-                        )
-                ],
+                queries: vec![constrained_rule(
+                    "query",
+                    empty_terms,
+                    empty_preds,
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(int(1)),
+                            Op::Value(int(2)),
+                            Op::Binary(Binary::Equal),
+                        ],
+                    }],
+                )],
             },
             Check {
                 queries: vec![
-                    rule(
-                        "query",
-                        empty_terms,
-                        &[pred("fact", &[int(5678)])],
-                    ),
+                    rule("query", empty_terms, &[pred("fact", &[int(5678)])]),
                     constrained_rule(
                         "query",
                         empty_terms,
@@ -1543,8 +1532,8 @@ mod tests {
                             ops: vec![
                                 Op::Value(string("test")),
                                 Op::Value(string("abc")),
-                                Op::Binary(Binary::Prefix)
-                            ]
+                                Op::Binary(Binary::Prefix),
+                            ],
                         }],
                     ),
                 ],
@@ -1554,36 +1543,46 @@ mod tests {
         let expected_policies = vec![
             Policy {
                 kind: PolicyKind::Allow,
-                queries: vec![
-                    rule(
-                        "query",
-                        empty_terms,
-                        &[pred("rule_head", &[string("string")])],
-                    ),
-                ],
+                queries: vec![rule(
+                    "query",
+                    empty_terms,
+                    &[pred("rule_head", &[string("string")])],
+                )],
             },
             Policy {
                 kind: PolicyKind::Deny,
-                queries: vec![
-                    constrained_rule(
-                        "query",
-                        empty_terms,
-                        empty_preds,
-                        &[Expression {
-                            ops: vec![
-                                Op::Value(boolean(true)),
-                            ]
-                        }],
-                    )
-                ],
+                queries: vec![constrained_rule(
+                    "query",
+                    empty_terms,
+                    empty_preds,
+                    &[Expression {
+                        ops: vec![Op::Value(boolean(true))],
+                    }],
+                )],
             },
         ];
 
         let (_remaining, mut result) = res.unwrap();
         //assert_eq!(remaining, "\n");
-        assert_eq!(result.facts.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_facts);
-        assert_eq!(result.rules.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_rules);
-        assert_eq!(result.checks.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_checks);
-        assert_eq!(result.policies.drain(..).map(|(_,r)| r).collect::<Vec<_>>(), expected_policies);
+        assert_eq!(
+            result.facts.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_facts
+        );
+        assert_eq!(
+            result.rules.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_rules
+        );
+        assert_eq!(
+            result.checks.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_checks
+        );
+        assert_eq!(
+            result
+                .policies
+                .drain(..)
+                .map(|(_, r)| r)
+                .collect::<Vec<_>>(),
+            expected_policies
+        );
     }
 }

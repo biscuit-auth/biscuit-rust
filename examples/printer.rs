@@ -1,4 +1,3 @@
-
 fn main() {
     let mut args = std::env::args();
     args.next();

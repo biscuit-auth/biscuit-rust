@@ -1,10 +1,10 @@
 #![allow(unused_must_use)]
-use biscuit_auth as biscuit;
 use biscuit::crypto::KeyPair;
 use biscuit::token::builder::*;
 use biscuit::token::*;
+use biscuit_auth as biscuit;
 
-use rand::{SeedableRng, prelude::StdRng};
+use rand::{prelude::StdRng, SeedableRng};
 
 fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
@@ -12,14 +12,8 @@ fn main() {
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("read")],
-    ));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file2"), s("read")],
-    ));
+    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
     builder.add_authority_fact(fact(
         "right",
         &[s("authority"), string("file1"), s("write")],

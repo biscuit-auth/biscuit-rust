@@ -1,15 +1,18 @@
 //! Verifier structure and associated functions
 use super::builder::{
-    constrained_rule, date, fact, pred, s, string, Fact,
-    Rule, Check, var, Expression, Op, Binary, Term, Policy,
-    PolicyKind, Unary,
+    constrained_rule, date, fact, pred, s, string, var, Binary, Check, Expression, Fact, Op,
+    Policy, PolicyKind, Rule, Term, Unary,
 };
 use super::Biscuit;
 use crate::datalog;
 use crate::error;
-use std::{convert::{TryFrom, TryInto}, time::{SystemTime, Duration}, default::Default};
 use crate::time::Instant;
 use prost::Message;
+use std::{
+    convert::{TryFrom, TryInto},
+    default::Default,
+    time::{Duration, SystemTime},
+};
 
 /// used to check authorization policies on a token
 ///
@@ -67,15 +70,23 @@ impl Verifier {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let VerifierPolicies { version: _, symbols, mut facts, rules, mut checks, policies } =
-            crate::format::convert::proto_verifier_to_verifier(&data)?;
-
+        let VerifierPolicies {
+            version: _,
+            symbols,
+            mut facts,
+            rules,
+            mut checks,
+            policies,
+        } = crate::format::convert::proto_verifier_to_verifier(&data)?;
 
         let world = datalog::World {
-            facts:facts.drain(..).collect(),
+            facts: facts.drain(..).collect(),
             rules,
         };
-        let checks = checks.drain(..).map(|c| Check::convert_from(&c, &symbols)).collect();
+        let checks = checks
+            .drain(..)
+            .map(|c| Check::convert_from(&c, &symbols))
+            .collect();
 
         Ok(Verifier {
             world,
@@ -93,7 +104,11 @@ impl Verifier {
     // verification, or to store a verification context to debug it later
     pub fn save(&self) -> Result<Vec<u8>, error::Token> {
         let mut symbols = self.symbols.clone();
-        let mut checks:Vec<datalog::Check> = self.checks.iter().map(|c| c.convert(&mut symbols)).collect();
+        let mut checks: Vec<datalog::Check> = self
+            .checks
+            .iter()
+            .map(|c| c.convert(&mut symbols))
+            .collect();
         for block_checks in &self.token_checks {
             checks.extend_from_slice(&block_checks[..]);
         }
@@ -111,7 +126,8 @@ impl Verifier {
 
         let mut v = Vec::new();
 
-        proto.encode(&mut v)
+        proto
+            .encode(&mut v)
             .map(|_| v)
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
             .map_err(error::Token::Format)
@@ -142,9 +158,10 @@ impl Verifier {
         let mut revocation_ids = token.revocation_identifiers();
         let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
         for (i, id) in revocation_ids.drain(..).enumerate() {
-            self.world.facts.insert(
-                datalog::Fact::new(revocation_id_sym, &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)])
-            );
+            self.world.facts.insert(datalog::Fact::new(
+                revocation_id_sym,
+                &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
+            ));
         }
 
         for rule in token.authority.rules.iter().cloned() {
@@ -185,13 +202,18 @@ impl Verifier {
         }
 
         let mut token_checks: Vec<Vec<datalog::Check>> = Vec::new();
-        let checks = token.authority.checks.iter()
+        let checks = token
+            .authority
+            .checks
+            .iter()
             .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
             .collect();
         token_checks.push(checks);
 
         for block in token.blocks.iter() {
-            let checks = block.checks.iter()
+            let checks = block
+                .checks
+                .iter()
                 .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
                 .collect();
             token_checks.push(checks);
@@ -216,7 +238,7 @@ impl Verifier {
     }
 
     /// run a query over the verifier's Datalog engine to gather data
-    pub fn query<R: TryInto<Rule>, T:TryFrom<Fact, Error=E>, E: Into<error::Token>>(
+    pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
     ) -> Result<Vec<T>, error::Token> {
@@ -226,17 +248,22 @@ impl Verifier {
     /// run a query over the verifier's Datalog engine to gather data
     ///
     /// this method can specify custom runtime limits
-    pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error=E>, E: Into<error::Token>>(
+    pub fn query_with_limits<
+        R: TryInto<Rule>,
+        T: TryFrom<Fact, Error = E>,
+        E: Into<error::Token>,
+    >(
         &mut self,
         rule: R,
-        limits: VerifierLimits
+        limits: VerifierLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.world.run_with_limits(limits.into()).map_err(error::Token::RunLimit)?;
+        self.world
+            .run_with_limits(limits.into())
+            .map_err(error::Token::RunLimit)?;
         let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
-        res
-            .drain(..)
+        res.drain(..)
             .map(|f| Fact::convert_from(&f, &self.symbols))
             .map(|fact| fact.try_into().map_err(Into::into))
             .collect()
@@ -276,7 +303,7 @@ impl Verifier {
                     Op::Value(var("id")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
-                ]
+                ],
             }],
         );
         let _ = self.add_check(check);
@@ -318,7 +345,9 @@ impl Verifier {
             return Err(error::Token::MissingSymbols);
         }
 
-        self.world.run_with_limits(limits.clone().into()).map_err(error::Token::RunLimit)?;
+        self.world
+            .run_with_limits(limits.clone().into())
+            .map_err(error::Token::RunLimit)?;
 
         let time_limit = start + limits.max_time;
 
@@ -383,7 +412,6 @@ impl Verifier {
             )))
         } else {
             for (i, policy) in self.policies.iter().enumerate() {
-
                 for query in policy.queries.iter() {
                     let res = self.world.query_match(query.convert(&mut self.symbols));
 
@@ -395,9 +423,10 @@ impl Verifier {
                     if res {
                         return match policy.kind {
                             PolicyKind::Allow => Ok(i),
-                            PolicyKind::Deny =>
+                            PolicyKind::Deny => {
                                 Err(error::Token::FailedLogic(error::Logic::Deny(i)))
-                        }
+                            }
+                        };
                     }
                 }
             }
@@ -407,14 +436,16 @@ impl Verifier {
 
     /// prints the content of the verifier
     pub fn print_world(&self) -> String {
-        let mut facts = self.world
+        let mut facts = self
+            .world
             .facts
             .iter()
             .map(|f| self.symbols.print_fact(f))
             .collect::<Vec<_>>();
         facts.sort();
 
-        let mut rules = self.world
+        let mut rules = self
+            .world
             .rules
             .iter()
             .map(|r| self.symbols.print_rule(r))
@@ -428,7 +459,12 @@ impl Verifier {
 
         for (i, block_checks) in self.token_checks.iter().enumerate() {
             for (j, check) in block_checks.iter().enumerate() {
-                checks.push(format!("Block[{}][{}]: {}", i, j, self.symbols.print_check(check)));
+                checks.push(format!(
+                    "Block[{}][{}]: {}",
+                    i,
+                    j,
+                    self.symbols.print_check(check)
+                ));
             }
         }
 
@@ -437,22 +473,39 @@ impl Verifier {
             policies.push(policy.to_string());
         }
 
-        format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}", facts, rules, checks, policies)
+        format!(
+            "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
+            facts, rules, checks, policies
+        )
     }
 
     /// returns all of the data loaded in the verifier
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
         let mut checks = self.checks.clone();
-        checks.extend(self.token_checks.iter().flatten().map(|c| Check::convert_from(c, &self.symbols)));
+        checks.extend(
+            self.token_checks
+                .iter()
+                .flatten()
+                .map(|c| Check::convert_from(c, &self.symbols)),
+        );
 
-        (self.world.facts.iter().map(|f| Fact::convert_from(f, &self.symbols)).collect(),
-         self.world.rules.iter().map(|r| Rule::convert_from(r, &self.symbols)).collect(),
-         checks
+        (
+            self.world
+                .facts
+                .iter()
+                .map(|f| Fact::convert_from(f, &self.symbols))
+                .collect(),
+            self.world
+                .rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &self.symbols))
+                .collect(),
+            checks,
         )
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct VerifierPolicies {
     pub version: u32,
     /// list of symbols introduced by this block
@@ -467,7 +520,7 @@ pub struct VerifierPolicies {
 }
 
 /// runtime limits for the Datalog engine
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct VerifierLimits {
     /// maximum number of Datalog facts (memory usage)
     pub max_facts: u32,
@@ -494,6 +547,5 @@ impl std::convert::From<VerifierLimits> for crate::datalog::RunLimits {
             max_iterations: limits.max_iterations,
             max_time: limits.max_time,
         }
-
     }
 }

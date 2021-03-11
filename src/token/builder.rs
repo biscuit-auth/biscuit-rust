@@ -1,16 +1,18 @@
 //! helper functions and structure to create tokens and blocks
 use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
-use crate::datalog::{
-    self, SymbolTable, ID,
-};
+use crate::datalog::{self, SymbolTable, ID};
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
-use std::{fmt, convert::{TryInto, TryFrom}, time::{SystemTime, Duration, UNIX_EPOCH},
-  collections::BTreeSet};
+use std::{
+    collections::BTreeSet,
+    convert::{TryFrom, TryInto},
+    fmt,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{Unary, Binary};
+pub use crate::datalog::{Binary, Unary};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
@@ -130,7 +132,7 @@ impl BlockBuilder {
                     Op::Value(var("resource")),
                     Op::Value(string(prefix)),
                     Op::Binary(Binary::Prefix),
-                ]
+                ],
             }],
         );
 
@@ -147,7 +149,7 @@ impl BlockBuilder {
                     Op::Value(var("resource")),
                     Op::Value(string(suffix)),
                     Op::Binary(Binary::Suffix),
-                ]
+                ],
             }],
         );
 
@@ -164,7 +166,7 @@ impl BlockBuilder {
                     Op::Value(var("date")),
                     Op::Value(date(&exp)),
                     Op::Binary(Binary::LessOrEqual),
-                ]
+                ],
             }],
         );
 
@@ -188,10 +190,7 @@ pub struct BiscuitBuilder<'a> {
 }
 
 impl<'a> BiscuitBuilder<'a> {
-    pub fn new(
-        root: &'a KeyPair,
-        base_symbols: SymbolTable,
-    ) -> BiscuitBuilder<'a> {
+    pub fn new(root: &'a KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a> {
         BiscuitBuilder {
             root,
             symbols_start: base_symbols.symbols.len(),
@@ -227,10 +226,8 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_right(&mut self, resource: &str, right: &str) {
-        let _ = self.add_authority_fact(fact(
-            "right",
-            &[s("authority"), string(resource), s(right)],
-        ));
+        let _ =
+            self.add_authority_fact(fact("right", &[s("authority"), string(resource), s(right)]));
     }
 
     pub fn set_context(&mut self, context: String) {
@@ -241,8 +238,13 @@ impl<'a> BiscuitBuilder<'a> {
         self.build_with_rng(&mut rand::rngs::OsRng)
     }
 
-    pub fn build_with_rng<R: RngCore + CryptoRng>(mut self, rng: &'a mut R) -> Result<Biscuit, error::Token> {
-        let new_syms = SymbolTable { symbols: self.symbols.symbols.split_off(self.symbols_start) };
+    pub fn build_with_rng<R: RngCore + CryptoRng>(
+        mut self,
+        rng: &'a mut R,
+    ) -> Result<Biscuit, error::Token> {
+        let new_syms = SymbolTable {
+            symbols: self.symbols.symbols.split_off(self.symbols_start),
+        };
 
         let authority_block = Block {
             index: 0,
@@ -285,16 +287,16 @@ impl Term {
     }
 
     pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
-      match f {
-        ID::Symbol(s) => Term::Symbol(symbols.print_symbol(*s)),
-        ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
-        ID::Integer(i) => Term::Integer(*i),
-        ID::Str(s) => Term::Str(s.clone()),
-        ID::Date(d) => Term::Date(*d),
-        ID::Bytes(s) => Term::Bytes(s.clone()),
-        ID::Bool(b) => Term::Bool(*b),
-        ID::Set(s) => Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect()),
-      }
+        match f {
+            ID::Symbol(s) => Term::Symbol(symbols.print_symbol(*s)),
+            ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+            ID::Integer(i) => Term::Integer(*i),
+            ID::Str(s) => Term::Str(s.clone()),
+            ID::Date(d) => Term::Date(*d),
+            ID::Bytes(s) => Term::Bytes(s.clone()),
+            ID::Bool(b) => Term::Bool(*b),
+            ID::Set(s) => Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect()),
+        }
     }
 }
 
@@ -331,17 +333,18 @@ impl fmt::Display for Term {
                 write!(f, "{:?}", t)
             }
             Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
-            Term::Bool(b) => if *b {
-                write!(f, "true")
-            } else {
-                write!(f, "false")
-            },
+            Term::Bool(b) => {
+                if *b {
+                    write!(f, "true")
+                } else {
+                    write!(f, "false")
+                }
+            }
             Term::Set(s) => {
-                let terms =  s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
+                let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
                 write!(f, "[ {}]", terms.join(", "))
             }
         }
-
     }
 }
 
@@ -365,8 +368,12 @@ impl Predicate {
 
     pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
         Predicate {
-          name: symbols.print_symbol(p.name),
-          ids: p.ids.iter().map(|id| Term::convert_from(&id, symbols)).collect(),
+            name: symbols.print_symbol(p.name),
+            ids: p
+                .ids
+                .iter()
+                .map(|id| Term::convert_from(&id, symbols))
+                .collect(),
         }
     }
 
@@ -400,7 +407,6 @@ impl fmt::Display for Predicate {
         write!(f, ")")
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Fact(pub Predicate);
@@ -437,13 +443,17 @@ pub struct Expression {
 impl Expression {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Expression {
         datalog::Expression {
-            ops: self.ops.iter().map(|op| op.convert(symbols)).collect()
+            ops: self.ops.iter().map(|op| op.convert(symbols)).collect(),
         }
     }
 
     pub fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
         Expression {
-            ops: e.ops.iter().map(|op| Op::convert_from(op, symbols)).collect()
+            ops: e
+                .ops
+                .iter()
+                .map(|op| Op::convert_from(op, symbols))
+                .collect(),
         }
     }
 }
@@ -489,11 +499,7 @@ impl Op {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Rule(
-    pub Predicate,
-    pub Vec<Predicate>,
-    pub Vec<Expression>,
-);
+pub struct Rule(pub Predicate, pub Vec<Predicate>, pub Vec<Expression>);
 
 impl Rule {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
@@ -519,8 +525,14 @@ impl Rule {
     pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
         Rule(
             Predicate::convert_from(&r.head, symbols),
-            r.body.iter().map(|p| Predicate::convert_from(p, symbols)).collect(),
-            r.expressions.iter().map(|c| Expression::convert_from(c, symbols)).collect(),
+            r.body
+                .iter()
+                .map(|p| Predicate::convert_from(p, symbols))
+                .collect(),
+            r.expressions
+                .iter()
+                .map(|c| Expression::convert_from(c, symbols))
+                .collect(),
         )
     }
 }
@@ -548,7 +560,6 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, ", {}", r.2[i])?;
             }
         }
-
     }
 
     Ok(())
@@ -591,7 +602,9 @@ impl TryFrom<Rule> for Check {
     type Error = error::Token;
 
     fn try_from(value: Rule) -> Result<Self, Self::Error> {
-        Ok(Check { queries: vec![value] })
+        Ok(Check {
+            queries: vec![value],
+        })
     }
 }
 
@@ -599,7 +612,9 @@ impl TryFrom<&[Rule]> for Check {
     type Error = error::Token;
 
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
-        Ok(Check { queries: values.to_vec() })
+        Ok(Check {
+            queries: values.to_vec(),
+        })
     }
 }
 
@@ -703,18 +718,14 @@ pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
 }
 
 /// creates a check
-pub fn check<P: AsRef<Predicate>>(
-    predicates: &[P],
-) -> Check {
+pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
-        queries: vec![
-            Rule(
-                pred("query", empty_terms),
-                predicates.iter().map(|p| p.as_ref().clone()).collect(),
-                Vec::new(),
-            )
-        ],
+        queries: vec![Rule(
+            pred("query", empty_terms),
+            predicates.iter().map(|p| p.as_ref().clone()).collect(),
+            Vec::new(),
+        )],
     }
 }
 
@@ -780,7 +791,10 @@ impl TryFrom<Term> for i64 {
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         match value {
             Term::Integer(i) => Ok(i),
-            _ => Err(error::Token::ConversionError(format!("expected integer, got {:?}", value))),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected integer, got {:?}",
+                value
+            ))),
         }
     }
 }
@@ -790,7 +804,10 @@ impl TryFrom<Term> for bool {
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         match value {
             Term::Bool(b) => Ok(b),
-            _ => Err(error::Token::ConversionError(format!("expected boolean, got {:?}", value))),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected boolean, got {:?}",
+                value
+            ))),
         }
     }
 }
@@ -801,7 +818,10 @@ impl TryFrom<Term> for String {
         println!("converting string from {:?}", value);
         match value {
             Term::Symbol(s) | Term::Str(s) => Ok(s),
-            _ => Err(error::Token::ConversionError(format!("expected string or symbol, got {:?}", value))),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected string or symbol, got {:?}",
+                value
+            ))),
         }
     }
 }
@@ -811,7 +831,10 @@ impl TryFrom<Term> for Vec<u8> {
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         match value {
             Term::Bytes(b) => Ok(b),
-            _ => Err(error::Token::ConversionError(format!("expected byte array, got {:?}", value))),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected byte array, got {:?}",
+                value
+            ))),
         }
     }
 }
@@ -821,19 +844,23 @@ impl TryFrom<Term> for SystemTime {
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         match value {
             Term::Date(d) => Ok(UNIX_EPOCH + Duration::from_secs(d)),
-            _ => Err(error::Token::ConversionError(format!("expected date, got {:?}", value))),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected date, got {:?}",
+                value
+            ))),
         }
     }
 }
 
-impl<T: Ord+TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
+impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         match value {
-            Term::Set(d) => {
-                d.iter().cloned().map(TryFrom::try_from).collect()
-            },
-            _ => Err(error::Token::ConversionError(format!("expected set, got {:?}", value))),
+            Term::Set(d) => d.iter().cloned().map(TryFrom::try_from).collect(),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected set, got {:?}",
+                value
+            ))),
         }
     }
 }

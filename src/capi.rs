@@ -1,9 +1,9 @@
 use rand::prelude::*;
 use std::{
-    fmt,
-    ffi::{CStr, CString},
-    os::raw::c_char,
     cell::RefCell,
+    ffi::{CStr, CString},
+    fmt,
+    os::raw::c_char,
 };
 
 enum Error {
@@ -20,7 +20,6 @@ impl fmt::Display for Error {
     }
 }
 
-
 thread_local! {
     static LAST_ERROR: RefCell<Option<Error>> = RefCell::new(None);
 }
@@ -32,21 +31,22 @@ fn update_last_error(err: Error) {
 }
 
 #[no_mangle]
-pub extern fn error_message() -> *const c_char {
+pub extern "C" fn error_message() -> *const c_char {
     thread_local! {
         static LAST: RefCell<Option<CString>> = RefCell::new(None);
     }
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(ref err) => {
-                let err = CString::new(err.to_string()).ok();
-                LAST.with(|ret| {
-                    *ret.borrow_mut() = err;
-                    ret.borrow().as_ref().map(|x| x.as_ptr()).unwrap_or(std::ptr::null())
-                })
-            },
-            None => std::ptr::null(),
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(ref err) => {
+            let err = CString::new(err.to_string()).ok();
+            LAST.with(|ret| {
+                *ret.borrow_mut() = err;
+                ret.borrow()
+                    .as_ref()
+                    .map(|x| x.as_ptr())
+                    .unwrap_or(std::ptr::null())
+            })
         }
+        None => std::ptr::null(),
     })
 }
 
@@ -85,156 +85,160 @@ pub enum ErrorKind {
 }
 
 #[no_mangle]
-pub extern fn error_kind() -> ErrorKind {
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(ref err) => {
-                match err {
-                    Error::InvalidArgument => ErrorKind::InvalidArgument,
-                    Error::Biscuit(e) => {
-                        use crate::error::*;
-                        match e {
-                            Token::InternalError => ErrorKind::InternalError,
-                            Token::Format(Format::Signature(Signature::InvalidFormat)) => ErrorKind::FormatSignatureInvalidFormat,
-                            Token::Format(Format::Signature(Signature::InvalidSignature)) => ErrorKind::FormatSignatureInvalidSignature,
-                            Token::Format(Format::SealedSignature) => ErrorKind::FormatSealedSignature,
-                            Token::Format(Format::EmptyKeys) => ErrorKind::FormatEmptyKeys,
-                            Token::Format(Format::UnknownPublicKey) => ErrorKind::FormatUnknownPublickKey,
-                            Token::Format(Format::DeserializationError(_)) => ErrorKind::FormatDeserializationError,
-                            Token::Format(Format::SerializationError(_)) => ErrorKind::FormatSerializationError,
-                            Token::Format(Format::BlockDeserializationError(_)) => ErrorKind::FormatBlockDeserializationError,
-                            Token::Format(Format::BlockSerializationError(_)) => ErrorKind::FormatBlockSerializationError,
-                            Token::Format(Format::Version { .. }) => ErrorKind::FormatVersion,
-                            Token::InvalidAuthorityIndex(_) => ErrorKind::InvalidAuthorityIndex,
-                            Token::InvalidBlockIndex(_) => ErrorKind::InvalidBlockIndex,
-                            Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
-                            Token::MissingSymbols => ErrorKind::MissingSymbols,
-                            Token::Sealed => ErrorKind::Sealed,
-                            Token::ParseError => ErrorKind::ParseError,
-                            Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => ErrorKind::LogicInvalidAuthorityFact,
-                            Token::FailedLogic(Logic::InvalidAmbientFact(_)) => ErrorKind::LogicInvalidAmbientFact,
-                            Token::FailedLogic(Logic::InvalidBlockFact(_,_)) => ErrorKind::LogicInvalidBlockFact,
-                            Token::FailedLogic(Logic::InvalidBlockRule(_,_)) => ErrorKind::LogicInvalidBlockRule,
-                            Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
-                            Token::FailedLogic(Logic::VerifierNotEmpty) => ErrorKind::LogicVerifierNotEmpty,
-                            Token::FailedLogic(Logic::Deny) => ErrorKind::LogicDeny,
-                            Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
-                            Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
-                            Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
-                            Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
-                        }
+pub extern "C" fn error_kind() -> ErrorKind {
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(ref err) => match err {
+            Error::InvalidArgument => ErrorKind::InvalidArgument,
+            Error::Biscuit(e) => {
+                use crate::error::*;
+                match e {
+                    Token::InternalError => ErrorKind::InternalError,
+                    Token::Format(Format::Signature(Signature::InvalidFormat)) => {
+                        ErrorKind::FormatSignatureInvalidFormat
                     }
+                    Token::Format(Format::Signature(Signature::InvalidSignature)) => {
+                        ErrorKind::FormatSignatureInvalidSignature
+                    }
+                    Token::Format(Format::SealedSignature) => ErrorKind::FormatSealedSignature,
+                    Token::Format(Format::EmptyKeys) => ErrorKind::FormatEmptyKeys,
+                    Token::Format(Format::UnknownPublicKey) => ErrorKind::FormatUnknownPublickKey,
+                    Token::Format(Format::DeserializationError(_)) => {
+                        ErrorKind::FormatDeserializationError
+                    }
+                    Token::Format(Format::SerializationError(_)) => {
+                        ErrorKind::FormatSerializationError
+                    }
+                    Token::Format(Format::BlockDeserializationError(_)) => {
+                        ErrorKind::FormatBlockDeserializationError
+                    }
+                    Token::Format(Format::BlockSerializationError(_)) => {
+                        ErrorKind::FormatBlockSerializationError
+                    }
+                    Token::Format(Format::Version { .. }) => ErrorKind::FormatVersion,
+                    Token::InvalidAuthorityIndex(_) => ErrorKind::InvalidAuthorityIndex,
+                    Token::InvalidBlockIndex(_) => ErrorKind::InvalidBlockIndex,
+                    Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
+                    Token::MissingSymbols => ErrorKind::MissingSymbols,
+                    Token::Sealed => ErrorKind::Sealed,
+                    Token::ParseError => ErrorKind::ParseError,
+                    Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => {
+                        ErrorKind::LogicInvalidAuthorityFact
+                    }
+                    Token::FailedLogic(Logic::InvalidAmbientFact(_)) => {
+                        ErrorKind::LogicInvalidAmbientFact
+                    }
+                    Token::FailedLogic(Logic::InvalidBlockFact(_, _)) => {
+                        ErrorKind::LogicInvalidBlockFact
+                    }
+                    Token::FailedLogic(Logic::InvalidBlockRule(_, _)) => {
+                        ErrorKind::LogicInvalidBlockRule
+                    }
+                    Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
+                    Token::FailedLogic(Logic::VerifierNotEmpty) => ErrorKind::LogicVerifierNotEmpty,
+                    Token::FailedLogic(Logic::Deny) => ErrorKind::LogicDeny,
+                    Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
+                    Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
+                    Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
+                    Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
                 }
-            },
-            None => ErrorKind::None,
-        }
+            }
+        },
+        None => ErrorKind::None,
     })
 }
 
 #[no_mangle]
-pub extern fn error_check_count() -> u64 {
+pub extern "C" fn error_check_count() -> u64 {
     use crate::error::*;
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
-                => v.len() as u64,
-            _ => 0,
-        }
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => v.len() as u64,
+        _ => 0,
     })
 }
 
 #[no_mangle]
-pub extern fn error_check_id(check_index: u64) -> u64 {
+pub extern "C" fn error_check_id(check_index: u64) -> u64 {
     use crate::error::*;
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
-                => {
-                    if check_index >= v.len() as u64 {
-                        u64::MAX
-                    } else {
-                        match v[check_index as usize] {
-                            FailedCheck::Block(FailedBlockCheck { check_id, ..}) => check_id as u64,
-                            FailedCheck::Verifier(FailedVerifierCheck { check_id, ..}) => check_id as u64,
-                        }
-                    }
-                },
-            _ => u64::MAX,
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
+            if check_index >= v.len() as u64 {
+                u64::MAX
+            } else {
+                match v[check_index as usize] {
+                    FailedCheck::Block(FailedBlockCheck { check_id, .. }) => check_id as u64,
+                    FailedCheck::Verifier(FailedVerifierCheck { check_id, .. }) => check_id as u64,
+                }
+            }
         }
+        _ => u64::MAX,
     })
 }
 
 #[no_mangle]
-pub extern fn error_check_block_id(check_index: u64) -> u64 {
+pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
     use crate::error::*;
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
-                => {
-                    if check_index >= v.len() as u64 {
-                        u64::MAX
-                    } else {
-                        match v[check_index as usize] {
-                            FailedCheck::Block(FailedBlockCheck { block_id, ..}) => block_id as u64,
-                            _ => u64::MAX,
-                        }
-                    }
-                },
-            _ => u64::MAX,
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
+            if check_index >= v.len() as u64 {
+                u64::MAX
+            } else {
+                match v[check_index as usize] {
+                    FailedCheck::Block(FailedBlockCheck { block_id, .. }) => block_id as u64,
+                    _ => u64::MAX,
+                }
+            }
         }
+        _ => u64::MAX,
     })
 }
 
 /// deallocation is handled by Biscuit
 /// the string is overwritten on each call
 #[no_mangle]
-pub extern fn error_check_rule(check_index: u64) -> *const c_char {
+pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
     use crate::error::*;
     thread_local! {
         static CAVEAT_RULE: RefCell<Option<CString>> = RefCell::new(None);
     }
 
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
-                => {
-                    if check_index >= v.len() as u64 {
-                        std::ptr::null()
-                    } else {
-                        let rule = match &v[check_index as usize] {
-                            FailedCheck::Block(FailedBlockCheck { rule, ..}) => rule,
-                            FailedCheck::Verifier(FailedVerifierCheck { rule, ..}) => rule,
-                        };
-                        let err = CString::new(rule.clone()).ok();
-                        CAVEAT_RULE.with(|ret| {
-                            *ret.borrow_mut() = err;
-                            ret.borrow().as_ref().map(|x| x.as_ptr()).unwrap_or(std::ptr::null())
-                        })
-                    }
-                },
-            _ => std::ptr::null(),
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
+            if check_index >= v.len() as u64 {
+                std::ptr::null()
+            } else {
+                let rule = match &v[check_index as usize] {
+                    FailedCheck::Block(FailedBlockCheck { rule, .. }) => rule,
+                    FailedCheck::Verifier(FailedVerifierCheck { rule, .. }) => rule,
+                };
+                let err = CString::new(rule.clone()).ok();
+                CAVEAT_RULE.with(|ret| {
+                    *ret.borrow_mut() = err;
+                    ret.borrow()
+                        .as_ref()
+                        .map(|x| x.as_ptr())
+                        .unwrap_or(std::ptr::null())
+                })
+            }
         }
+        _ => std::ptr::null(),
     })
 }
 
 #[no_mangle]
-pub extern fn error_check_is_verifier(check_index: u64) -> bool {
+pub extern "C" fn error_check_is_verifier(check_index: u64) -> bool {
     use crate::error::*;
-    LAST_ERROR.with(|prev| {
-        match *prev.borrow() {
-            Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v))))
-                => {
-                    if check_index >= v.len() as u64 {
-                        false
-                    } else {
-                        match v[check_index as usize] {
-                            FailedCheck::Block(FailedBlockCheck { .. }) => false,
-                            FailedCheck::Verifier(FailedVerifierCheck { .. }) => true,
-                        }
-                    }
-                },
-            _ => false,
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
+            if check_index >= v.len() as u64 {
+                false
+            } else {
+                match v[check_index as usize] {
+                    FailedCheck::Block(FailedBlockCheck { .. }) => false,
+                    FailedCheck::Verifier(FailedVerifierCheck { .. }) => true,
+                }
+            }
         }
+        _ => false,
     })
 }
 
@@ -261,32 +265,29 @@ pub unsafe extern "C" fn key_pair_new<'a>(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    Some(Box::new(KeyPair(crate::crypto::KeyPair::new_with_rng(&mut rng))))
+    Some(Box::new(KeyPair(crate::crypto::KeyPair::new_with_rng(
+        &mut rng,
+    ))))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn key_pair_public(
-    kp: Option<&KeyPair>,
-) -> Option<Box<PublicKey>> {
+pub unsafe extern "C" fn key_pair_public(kp: Option<&KeyPair>) -> Option<Box<PublicKey>> {
     if kp.is_none() {
         update_last_error(Error::InvalidArgument);
     }
-    let  kp = kp?;
+    let kp = kp?;
 
     Some(Box::new(PublicKey((*kp).0.public())))
 }
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn key_pair_serialize(
-    kp: Option<&KeyPair>,
-    buffer_ptr: *mut u8,
-) -> usize {
+pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *mut u8) -> usize {
     if kp.is_none() {
         update_last_error(Error::InvalidArgument);
         return 0;
     }
-    let  kp = kp.unwrap();
+    let kp = kp.unwrap();
 
     let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
@@ -296,28 +297,20 @@ pub unsafe extern "C" fn key_pair_serialize(
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn key_pair_deserialize(
-    buffer_ptr: *mut u8,
-) -> Option<Box<KeyPair>> {
+pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
     match crate::crypto::PrivateKey::from_bytes(input_slice) {
         None => {
             update_last_error(Error::InvalidArgument);
             None
-        },
-        Some(privkey) => {
-            Some(Box::new(KeyPair(crate::crypto::KeyPair::from(privkey))))
         }
+        Some(privkey) => Some(Box::new(KeyPair(crate::crypto::KeyPair::from(privkey)))),
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn key_pair_free(
-    _kp: Option<Box<KeyPair>>,
-) {
-
-}
+pub unsafe extern "C" fn key_pair_free(_kp: Option<Box<KeyPair>>) {}
 
 /// expects a 32 byte buffer
 #[no_mangle]
@@ -329,7 +322,7 @@ pub unsafe extern "C" fn public_key_serialize(
         update_last_error(Error::InvalidArgument);
         return 0;
     }
-    let  kp = kp.unwrap();
+    let kp = kp.unwrap();
 
     let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
@@ -339,28 +332,20 @@ pub unsafe extern "C" fn public_key_serialize(
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn public_key_deserialize(
-    buffer_ptr: *mut u8,
-) -> Option<Box<PublicKey>> {
+pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
     match crate::crypto::PublicKey::from_bytes(input_slice) {
         None => {
             update_last_error(Error::InvalidArgument);
             None
-        },
-        Some(pubkey) => {
-            Some(Box::new(PublicKey(pubkey)))
         }
+        Some(pubkey) => Some(Box::new(PublicKey(pubkey))),
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn public_key_free(
-    _kp: Option<Box<PublicKey>>,
-) {
-}
-
+pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder<'a>(
@@ -371,9 +356,9 @@ pub unsafe extern "C" fn biscuit_builder<'a>(
     }
     let key_pair = key_pair?;
 
-    Some(Box::new(BiscuitBuilder(
-        crate::token::Biscuit::builder(&key_pair.0),
-    )))
+    Some(Box::new(BiscuitBuilder(crate::token::Biscuit::builder(
+        &key_pair.0,
+    ))))
 }
 
 #[no_mangle]
@@ -393,7 +378,7 @@ pub unsafe extern "C" fn biscuit_builder_set_authority_context<'a>(
         Err(_) => {
             update_last_error(Error::InvalidArgument);
             false
-        },
+        }
         Ok(context) => {
             builder.0.set_context(context.to_string());
             true
@@ -502,14 +487,17 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
     seed.copy_from_slice(slice);
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    (*builder).0.clone().build_with_rng(&mut rng).map(Biscuit).map(Box::new).ok()
+    (*builder)
+        .0
+        .clone()
+        .build_with_rng(&mut rng)
+        .map(Biscuit)
+        .map(Box::new)
+        .ok()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_free<'a>(
-    _builder: Option<Box<BiscuitBuilder<'a>>>,
-) {
-}
+pub unsafe extern "C" fn biscuit_builder_free<'a>(_builder: Option<Box<BiscuitBuilder<'a>>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_from(
@@ -518,7 +506,10 @@ pub unsafe extern "C" fn biscuit_from(
 ) -> Option<Box<Biscuit>> {
     let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
 
-    crate::token::Biscuit::from(biscuit).map(Biscuit).map(Box::new).ok()
+    crate::token::Biscuit::from(biscuit)
+        .map(Biscuit)
+        .map(Box::new)
+        .ok()
 }
 
 #[no_mangle]
@@ -531,13 +522,14 @@ pub unsafe extern "C" fn biscuit_from_sealed(
     let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
     let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
 
-    crate::token::Biscuit::from_sealed(biscuit, secret).map(Biscuit).map(Box::new).ok()
+    crate::token::Biscuit::from_sealed(biscuit, secret)
+        .map(Biscuit)
+        .map(Box::new)
+        .ok()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_serialized_size(
-    biscuit: Option<&Biscuit>,
-) -> usize {
+pub unsafe extern "C" fn biscuit_serialized_size(biscuit: Option<&Biscuit>) -> usize {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
         return 0;
@@ -555,9 +547,7 @@ pub unsafe extern "C" fn biscuit_serialized_size(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_sealed_size(
-    biscuit: Option<&Biscuit>,
-) -> usize {
+pub unsafe extern "C" fn biscuit_sealed_size(biscuit: Option<&Biscuit>) -> usize {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
         return 0;
@@ -600,7 +590,7 @@ pub unsafe extern "C" fn biscuit_serialize(
 
             output_slice.copy_from_slice(&v[..]);
             v.len()
-        },
+        }
         Err(e) => {
             update_last_error(Error::Biscuit(e));
             0
@@ -637,7 +627,7 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
 
             output_slice.copy_from_slice(&v[..]);
             v.len()
-        },
+        }
         Err(e) => {
             update_last_error(Error::Biscuit(e));
             0
@@ -646,9 +636,7 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_block_count(
-    biscuit: Option<&Biscuit>,
-) -> usize {
+pub unsafe extern "C" fn biscuit_block_count(biscuit: Option<&Biscuit>) -> usize {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
         return 0;
@@ -763,16 +751,14 @@ pub unsafe extern "C" fn biscuit_block_fact(
         None => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
-        },
-        Some(fact) => {
-            match CString::new(biscuit.0.symbols.print_fact(fact)) {
-                Ok(s) => s.into_raw(),
-                Err(_) => {
-                    update_last_error(Error::InvalidArgument);
-                    return std::ptr::null_mut();
-                }
-            }
         }
+        Some(fact) => match CString::new(biscuit.0.symbols.print_fact(fact)) {
+            Ok(s) => s.into_raw(),
+            Err(_) => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        },
     }
 }
 
@@ -805,16 +791,14 @@ pub unsafe extern "C" fn biscuit_block_rule(
         None => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
-        },
-        Some(rule) => {
-            match CString::new(biscuit.0.symbols.print_rule(rule)) {
-                Ok(s) => s.into_raw(),
-                Err(_) => {
-                    update_last_error(Error::InvalidArgument);
-                    return std::ptr::null_mut();
-                }
-            }
         }
+        Some(rule) => match CString::new(biscuit.0.symbols.print_rule(rule)) {
+            Ok(s) => s.into_raw(),
+            Err(_) => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        },
     }
 }
 
@@ -847,16 +831,14 @@ pub unsafe extern "C" fn biscuit_block_check(
         None => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
-        },
-        Some(check) => {
-            match CString::new(biscuit.0.symbols.print_check(check)) {
-                Ok(s) => s.into_raw(),
-                Err(_) => {
-                    update_last_error(Error::InvalidArgument);
-                    return std::ptr::null_mut();
-                }
-            }
         }
+        Some(check) => match CString::new(biscuit.0.symbols.print_check(check)) {
+            Ok(s) => s.into_raw(),
+            Err(_) => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        },
     }
 }
 
@@ -887,16 +869,14 @@ pub unsafe extern "C" fn biscuit_block_context(
     match &block.context {
         None => {
             return std::ptr::null_mut();
-        },
-        Some(context) => {
-            match CString::new(context.clone()) {
-                Ok(s) => s.into_raw(),
-                Err(_) => {
-                    update_last_error(Error::InvalidArgument);
-                    return std::ptr::null_mut();
-                }
-            }
         }
+        Some(context) => match CString::new(context.clone()) {
+            Ok(s) => s.into_raw(),
+            Err(_) => {
+                update_last_error(Error::InvalidArgument);
+                return std::ptr::null_mut();
+            }
+        },
     }
 }
 
@@ -946,7 +926,10 @@ pub unsafe extern "C" fn biscuit_append_block(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    match biscuit.0.append_with_rng(&mut rng, &key_pair.0, builder.0.clone()) {
+    match biscuit
+        .0
+        .append_with_rng(&mut rng, &key_pair.0, builder.0.clone())
+    {
         Ok(token) => Some(Box::new(Biscuit(token))),
         Err(e) => {
             update_last_error(Error::Biscuit(e));
@@ -954,7 +937,6 @@ pub unsafe extern "C" fn biscuit_append_block(
         }
     }
 }
-
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
@@ -970,14 +952,16 @@ pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
     }
     let root = root?;
 
-    (*biscuit).0.verify((*root).0).map(Verifier).map(Box::new).ok()
+    (*biscuit)
+        .0
+        .verify((*root).0)
+        .map(Verifier)
+        .map(Box::new)
+        .ok()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_free(
-    _biscuit: Option<Box<Biscuit>>,
-) {
-}
+pub unsafe extern "C" fn biscuit_free(_biscuit: Option<Box<Biscuit>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn block_builder_set_context(
@@ -996,7 +980,7 @@ pub unsafe extern "C" fn block_builder_set_context(
         Err(_) => {
             update_last_error(Error::InvalidArgument);
             false
-        },
+        }
         Ok(context) => {
             builder.0.set_context(context.to_string());
             true
@@ -1086,10 +1070,7 @@ pub unsafe extern "C" fn block_builder_add_check(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn block_builder_free(
-    _builder: Option<Box<BlockBuilder>>,
-) {
-}
+pub unsafe extern "C" fn block_builder_free(_builder: Option<Box<BlockBuilder>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn verifier_add_fact(
@@ -1173,9 +1154,7 @@ pub unsafe extern "C" fn verifier_add_check(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_verify(
-    verifier: Option<&mut Verifier>,
-) -> bool {
+pub unsafe extern "C" fn verifier_verify(verifier: Option<&mut Verifier>) -> bool {
     if verifier.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
@@ -1192,9 +1171,7 @@ pub unsafe extern "C" fn verifier_verify(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_print(
-    verifier: Option<&mut Verifier>,
-) -> *mut c_char {
+pub unsafe extern "C" fn verifier_print(verifier: Option<&mut Verifier>) -> *mut c_char {
     if verifier.is_none() {
         update_last_error(Error::InvalidArgument);
         return std::ptr::null_mut();
@@ -1211,15 +1188,10 @@ pub unsafe extern "C" fn verifier_print(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_free(
-    _verifier: Option<Box<Verifier>>,
-) {
-}
+pub unsafe extern "C" fn verifier_free(_verifier: Option<Box<Verifier>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn string_free(
-  ptr: *mut c_char,
-) {
+pub unsafe extern "C" fn string_free(ptr: *mut c_char) {
     if ptr != std::ptr::null_mut() {
         CString::from_raw(ptr);
     }

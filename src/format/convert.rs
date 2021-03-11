@@ -5,7 +5,7 @@ use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 use super::schema;
 use crate::datalog::*;
 use crate::error;
-use crate::token::{Block, verifier::VerifierPolicies};
+use crate::token::{verifier::VerifierPolicies, Block};
 
 pub fn token_sig_to_proto_sig(input: &TokenSignature) -> schema::Signature {
     schema::Signature {
@@ -141,10 +141,10 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierPolicies {
     let mut symbols = input.symbols.clone();
     let policies = input
-            .policies
-            .iter()
-            .map(|p| v1::policy_to_proto_policy(p, &mut symbols))
-            .collect();
+        .policies
+        .iter()
+        .map(|p| v1::policy_to_proto_policy(p, &mut symbols))
+        .collect();
 
     schema::VerifierPolicies {
         symbols: symbols.symbols,
@@ -168,7 +168,9 @@ pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierP
     }
 }
 
-pub fn proto_verifier_to_verifier(input: &schema::VerifierPolicies) -> Result<VerifierPolicies, error::Format> {
+pub fn proto_verifier_to_verifier(
+    input: &schema::VerifierPolicies,
+) -> Result<VerifierPolicies, error::Format> {
     let version = input.version.unwrap_or(0);
     if version == 0 || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
@@ -343,17 +345,26 @@ pub mod v0 {
             }
             Kind::Date => {
                 if let Some(ref i) = input.date {
-                    return proto_date_constraint_to_token_date_expression(ID::Variable(input.id), i);
+                    return proto_date_constraint_to_token_date_expression(
+                        ID::Variable(input.id),
+                        i,
+                    );
                 }
             }
             Kind::Symbol => {
                 if let Some(ref i) = input.symbol {
-                    return proto_symbol_constraint_to_token_symbol_expression(ID::Variable(input.id), i);
+                    return proto_symbol_constraint_to_token_symbol_expression(
+                        ID::Variable(input.id),
+                        i,
+                    );
                 }
             }
             Kind::Bytes => {
                 if let Some(ref i) = input.bytes {
-                    return proto_bytes_constraint_to_token_bytes_expression(ID::Variable(input.id), i);
+                    return proto_bytes_constraint_to_token_bytes_expression(
+                        ID::Variable(input.id),
+                        i,
+                    );
                 }
             }
         }
@@ -380,46 +391,84 @@ pub mod v0 {
         match kind {
             Kind::Lower => {
                 if let Some(i) = input.lower {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::LessThan)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Integer(i)),
+                            Op::Binary(Binary::LessThan),
+                        ],
+                    });
                 }
             }
             Kind::Larger => {
                 if let Some(i) = input.larger {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::GreaterThan)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Integer(i)),
+                            Op::Binary(Binary::GreaterThan),
+                        ],
+                    });
                 }
             }
             Kind::LowerOrEqual => {
                 if let Some(i) = input.lower_or_equal {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::LessOrEqual)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Integer(i)),
+                            Op::Binary(Binary::LessOrEqual),
+                        ],
+                    });
                 }
             }
             Kind::LargerOrEqual => {
                 if let Some(i) = input.larger_or_equal {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::GreaterOrEqual)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Integer(i)),
+                            Op::Binary(Binary::GreaterOrEqual),
+                        ],
+                    });
                 }
             }
             Kind::Equal => {
                 if let Some(i) = input.equal {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Integer(i)), Op::Binary(Binary::Equal)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Integer(i)),
+                            Op::Binary(Binary::Equal),
+                        ],
+                    });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains)
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|i| ID::Integer(*i)).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                        ],
+                    });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|i| ID::Integer(*i)).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains),
-                        Op::Unary(Unary::Negate),
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|i| ID::Integer(*i)).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                            Op::Unary(Unary::Negate),
+                        ],
+                    });
                 }
             }
         }
@@ -446,41 +495,73 @@ pub mod v0 {
         match kind {
             Kind::Prefix => {
                 if let Some(ref s) = input.prefix {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Prefix)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Str(s.clone())),
+                            Op::Binary(Binary::Prefix),
+                        ],
+                    });
                 }
             }
             Kind::Suffix => {
                 if let Some(ref s) = input.suffix {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Suffix)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Str(s.clone())),
+                            Op::Binary(Binary::Suffix),
+                        ],
+                    });
                 }
             }
             Kind::Equal => {
                 if let Some(ref s) = input.equal {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(s.clone())), Op::Binary(Binary::Equal)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Str(s.clone())),
+                            Op::Binary(Binary::Equal),
+                        ],
+                    });
                 }
             }
             Kind::Regex => {
                 if let Some(ref r) = input.regex {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Str(r.clone())), Op::Binary(Binary::Regex)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Str(r.clone())),
+                            Op::Binary(Binary::Regex),
+                        ],
+                    });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains)
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|s| ID::Str(s.clone())).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                        ],
+                    });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Str(s.clone())).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains),
-                        Op::Unary(Unary::Negate),
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|s| ID::Str(s.clone())).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                            Op::Unary(Unary::Negate),
+                        ],
+                    });
                 }
             }
         }
@@ -507,12 +588,24 @@ pub mod v0 {
         match kind {
             Kind::Before => {
                 if let Some(i) = input.before {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Date(i)), Op::Binary(Binary::LessOrEqual)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Date(i)),
+                            Op::Binary(Binary::LessOrEqual),
+                        ],
+                    });
                 }
             }
             Kind::After => {
                 if let Some(i) = input.after {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Date(i)), Op::Binary(Binary::GreaterOrEqual)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Date(i)),
+                            Op::Binary(Binary::GreaterOrEqual),
+                        ],
+                    });
                 }
             }
         }
@@ -539,21 +632,29 @@ pub mod v0 {
         match kind {
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains)
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|s| ID::Symbol(*s)).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                        ],
+                    });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|s| ID::Symbol(*s)).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains),
-                        Op::Unary(Unary::Negate),
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|s| ID::Symbol(*s)).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                            Op::Unary(Unary::Negate),
+                        ],
+                    });
                 }
             }
         }
@@ -580,26 +681,40 @@ pub mod v0 {
         match kind {
             Kind::Equal => {
                 if let Some(ref s) = input.equal {
-                    return Ok(Expression { ops: vec![Op::Value(id), Op::Value(ID::Bytes(s.clone())), Op::Binary(Binary::Equal)] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(id),
+                            Op::Value(ID::Bytes(s.clone())),
+                            Op::Binary(Binary::Equal),
+                        ],
+                    });
                 }
             }
             Kind::In => {
                 if !input.in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains),
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                        ],
+                    });
                 }
             }
             Kind::NotIn => {
                 if !input.not_in_set.is_empty() {
-                    return Ok(Expression { ops: vec![
-                        Op::Value(ID::Set(input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect())),
-                        Op::Value(id),
-                        Op::Binary(Binary::Contains),
-                        Op::Unary(Unary::Negate),
-                    ] });
+                    return Ok(Expression {
+                        ops: vec![
+                            Op::Value(ID::Set(
+                                input.in_set.iter().map(|b| ID::Bytes(b.clone())).collect(),
+                            )),
+                            Op::Value(id),
+                            Op::Binary(Binary::Contains),
+                            Op::Unary(Unary::Negate),
+                        ],
+                    });
                 }
             }
         }
@@ -644,9 +759,14 @@ pub mod v1 {
         Ok(Check { queries })
     }
 
-    pub fn policy_to_proto_policy(input: &crate::token::builder::Policy, symbols: &mut SymbolTable) -> schema::Policy {
+    pub fn policy_to_proto_policy(
+        input: &crate::token::builder::Policy,
+        symbols: &mut SymbolTable,
+    ) -> schema::Policy {
         schema::Policy {
-            queries: input.queries.iter()
+            queries: input
+                .queries
+                .iter()
                 .map(|q| q.convert(symbols))
                 .map(|r| token_rule_to_proto_rule(&r))
                 .collect(),
@@ -657,7 +777,10 @@ pub mod v1 {
         }
     }
 
-    pub fn proto_policy_to_policy(input: &schema::Policy, symbols: &SymbolTable) -> Result<crate::token::builder::Policy, error::Format> {
+    pub fn proto_policy_to_policy(
+        input: &schema::Policy,
+        symbols: &SymbolTable,
+    ) -> Result<crate::token::builder::Policy, error::Format> {
         use schema::policy::Kind;
         let mut queries = vec![];
 
@@ -680,10 +803,7 @@ pub mod v1 {
             Kind::Deny => crate::token::builder::PolicyKind::Deny,
         };
 
-        Ok(crate::token::builder::Policy {
-          queries,
-          kind,
-        })
+        Ok(crate::token::builder::Policy { queries, kind })
     }
 
     pub fn token_rule_to_proto_rule(input: &Rule) -> schema::RuleV1 {
@@ -771,8 +891,8 @@ pub mod v1 {
             },
             ID::Set(s) => schema::Idv1 {
                 content: Some(Content::Set(schema::IdSet {
-                    set: s.iter().map(token_id_to_proto_id).collect()
-                }))
+                    set: s.iter().map(token_id_to_proto_id).collect(),
+                })),
             },
         }
     }
@@ -802,7 +922,7 @@ pub mod v1 {
                             return Err(error::Format::DeserializationError(
                                 "deserialization error: sets cannot contain variables".to_string(),
                             ));
-                        },
+                        }
                         Some(Content::Integer(_)) => 2,
                         Some(Content::String(_)) => 3,
                         Some(Content::Date(_)) => 4,
@@ -812,16 +932,19 @@ pub mod v1 {
                             return Err(error::Format::DeserializationError(
                                 "deserialization error: sets cannot contain other sets".to_string(),
                             ));
-                        },
-                        None => return Err(error::Format::DeserializationError(
-                            "deserialization error: ID content enum is empty".to_string(),
-                        )),
+                        }
+                        None => {
+                            return Err(error::Format::DeserializationError(
+                                "deserialization error: ID content enum is empty".to_string(),
+                            ))
+                        }
                     };
 
                     if let Some(k) = kind.as_ref() {
                         if *k != index {
                             return Err(error::Format::DeserializationError(
-                                "deserialization error: sets elements must have the same type".to_string(),
+                                "deserialization error: sets elements must have the same type"
+                                    .to_string(),
                             ));
                         }
                     } else {
@@ -838,56 +961,62 @@ pub mod v1 {
 
     pub fn token_expression_to_proto_expression(input: &Expression) -> schema::ExpressionV1 {
         schema::ExpressionV1 {
-            ops: input.ops.iter().map(|op| {
-                let content = match op {
-                    Op::Value(i) => schema::op::Content::Value(token_id_to_proto_id(i)),
-                    Op::Unary(u) => {
-                        use schema::op_unary::Kind;
+            ops: input
+                .ops
+                .iter()
+                .map(|op| {
+                    let content = match op {
+                        Op::Value(i) => schema::op::Content::Value(token_id_to_proto_id(i)),
+                        Op::Unary(u) => {
+                            use schema::op_unary::Kind;
 
-                        schema::op::Content::Unary(schema::OpUnary {
-                            kind: match u {
-                                Unary::Negate => Kind::Negate,
-                                Unary::Parens => Kind::Parens,
-                                Unary::Length => Kind::Length,
-                            } as i32,
-                        })
-                    },
-                    Op::Binary(b) => {
-                        use schema::op_binary::Kind;
+                            schema::op::Content::Unary(schema::OpUnary {
+                                kind: match u {
+                                    Unary::Negate => Kind::Negate,
+                                    Unary::Parens => Kind::Parens,
+                                    Unary::Length => Kind::Length,
+                                } as i32,
+                            })
+                        }
+                        Op::Binary(b) => {
+                            use schema::op_binary::Kind;
 
-                        schema::op::Content::Binary(schema::OpBinary {
-                            kind: match b {
-                                Binary::LessThan => Kind::LessThan,
-                                Binary::GreaterThan => Kind::GreaterThan,
-                                Binary::LessOrEqual => Kind::LessOrEqual,
-                                Binary::GreaterOrEqual => Kind::GreaterOrEqual,
-                                Binary::Equal => Kind::Equal,
-                                Binary::Contains => Kind::Contains,
-                                Binary::Prefix => Kind::Prefix,
-                                Binary::Suffix => Kind::Suffix,
-                                Binary::Regex => Kind::Regex,
-                                Binary::Add => Kind::Add,
-                                Binary::Sub => Kind::Sub,
-                                Binary::Mul => Kind::Mul,
-                                Binary::Div => Kind::Div,
-                                Binary::And => Kind::And,
-                                Binary::Or => Kind::Or,
-                                Binary::Intersection => Kind::Intersection,
-                                Binary::Union => Kind::Union,
-                            } as i32,
-                        })
-                    },
-                };
+                            schema::op::Content::Binary(schema::OpBinary {
+                                kind: match b {
+                                    Binary::LessThan => Kind::LessThan,
+                                    Binary::GreaterThan => Kind::GreaterThan,
+                                    Binary::LessOrEqual => Kind::LessOrEqual,
+                                    Binary::GreaterOrEqual => Kind::GreaterOrEqual,
+                                    Binary::Equal => Kind::Equal,
+                                    Binary::Contains => Kind::Contains,
+                                    Binary::Prefix => Kind::Prefix,
+                                    Binary::Suffix => Kind::Suffix,
+                                    Binary::Regex => Kind::Regex,
+                                    Binary::Add => Kind::Add,
+                                    Binary::Sub => Kind::Sub,
+                                    Binary::Mul => Kind::Mul,
+                                    Binary::Div => Kind::Div,
+                                    Binary::And => Kind::And,
+                                    Binary::Or => Kind::Or,
+                                    Binary::Intersection => Kind::Intersection,
+                                    Binary::Union => Kind::Union,
+                                } as i32,
+                            })
+                        }
+                    };
 
-                schema::Op { content: Some(content) }
-            }).collect(),
+                    schema::Op {
+                        content: Some(content),
+                    }
+                })
+                .collect(),
         }
     }
 
     pub fn proto_expression_to_token_expression(
         input: &schema::ExpressionV1,
     ) -> Result<Expression, error::Format> {
-        use schema::{op, op_unary, op_binary};
+        use schema::{op, op_binary, op_unary};
         let mut ops = Vec::new();
 
         for op in input.ops.iter() {
@@ -897,10 +1026,12 @@ pub mod v1 {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
                     Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
                     Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
-                    None => return Err(error::Format::DeserializationError(
-                        "deserialization error: unary operation is empty".to_string(),
-                    )),
-                }
+                    None => {
+                        return Err(error::Format::DeserializationError(
+                            "deserialization error: unary operation is empty".to_string(),
+                        ))
+                    }
+                },
                 Some(op::Content::Binary(b)) => match op_binary::Kind::from_i32(b.kind) {
                     Some(op_binary::Kind::LessThan) => Op::Binary(Binary::LessThan),
                     Some(op_binary::Kind::GreaterThan) => Op::Binary(Binary::GreaterThan),
@@ -919,13 +1050,17 @@ pub mod v1 {
                     Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
                     Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
                     Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
-                    None => return Err(error::Format::DeserializationError(
-                        "deserialization error: binary operation is empty".to_string(),
-                    )),
+                    None => {
+                        return Err(error::Format::DeserializationError(
+                            "deserialization error: binary operation is empty".to_string(),
+                        ))
+                    }
+                },
+                None => {
+                    return Err(error::Format::DeserializationError(
+                        "deserialization error: operation is empty".to_string(),
+                    ))
                 }
-                None => return Err(error::Format::DeserializationError(
-                    "deserialization error: operation is empty".to_string(),
-                    )),
             };
             ops.push(translated);
         }

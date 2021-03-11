@@ -1,8 +1,8 @@
 //! error types
 //!
 
-use thiserror::Error;
 use std::convert::{From, Infallible};
+use thiserror::Error;
 
 /// the global error type for Biscuit
 #[derive(Error, Clone, Debug, PartialEq)]
@@ -30,7 +30,6 @@ pub enum Token {
     #[error("Cannot convert from Term: %s")]
     ConversionError(String),
 }
-
 
 impl From<Infallible> for Token {
     fn from(_: Infallible) -> Self {

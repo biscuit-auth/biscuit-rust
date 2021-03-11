@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use super::ID;
 use super::SymbolTable;
+use super::ID;
 use regex::Regex;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
@@ -30,10 +30,10 @@ impl Unary {
             (Unary::Length, ID::Str(s)) => Some(ID::Integer(s.len() as i64)),
             (Unary::Length, ID::Bytes(s)) => Some(ID::Integer(s.len() as i64)),
             (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
-             _ => {
-                 //println!("unexpected value type on the stack");
-                 None
-             }
+            _ => {
+                //println!("unexpected value type on the stack");
+                None
+            }
         }
     }
 
@@ -82,11 +82,15 @@ impl Binary {
             (Binary::Div, ID::Integer(i), ID::Integer(j)) => i.checked_div(j).map(ID::Integer),
 
             // string
-            (Binary::Prefix, ID::Str(s), ID::Str(pref)) => Some(ID::Bool(s.as_str().starts_with(pref.as_str()))),
-            (Binary::Suffix, ID::Str(s), ID::Str(suff)) => Some(ID::Bool(s.as_str().ends_with(suff.as_str()))),
-            (Binary::Regex, ID::Str(s), ID::Str(r)) => {
-                Some(ID::Bool(Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false)))
-            },
+            (Binary::Prefix, ID::Str(s), ID::Str(pref)) => {
+                Some(ID::Bool(s.as_str().starts_with(pref.as_str())))
+            }
+            (Binary::Suffix, ID::Str(s), ID::Str(suff)) => {
+                Some(ID::Bool(s.as_str().ends_with(suff.as_str())))
+            }
+            (Binary::Regex, ID::Str(s), ID::Str(r)) => Some(ID::Bool(
+                Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false),
+            )),
             (Binary::Equal, ID::Str(i), ID::Str(j)) => Some(ID::Bool(i == j)),
 
             // date
@@ -104,15 +108,31 @@ impl Binary {
 
             // set
             (Binary::Equal, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set == s)),
-            (Binary::Intersection, ID::Set(set), ID::Set(s)) => Some(ID::Set(set.intersection(&s).cloned().collect())),
-            (Binary::Union, ID::Set(set), ID::Set(s)) => Some(ID::Set(set.union(&s).cloned().collect())),
+            (Binary::Intersection, ID::Set(set), ID::Set(s)) => {
+                Some(ID::Set(set.intersection(&s).cloned().collect()))
+            }
+            (Binary::Union, ID::Set(set), ID::Set(s)) => {
+                Some(ID::Set(set.union(&s).cloned().collect()))
+            }
             (Binary::Contains, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set.is_superset(&s))),
-            (Binary::Contains, ID::Set(set), ID::Integer(i)) => Some(ID::Bool(set.contains(&ID::Integer(i)))),
-            (Binary::Contains, ID::Set(set), ID::Date(i)) => Some(ID::Bool(set.contains(&ID::Date(i)))),
-            (Binary::Contains, ID::Set(set), ID::Bool(i)) => Some(ID::Bool(set.contains(&ID::Bool(i)))),
-            (Binary::Contains, ID::Set(set), ID::Str(i)) => Some(ID::Bool(set.contains(&ID::Str(i)))),
-            (Binary::Contains, ID::Set(set), ID::Bytes(i)) => Some(ID::Bool(set.contains(&ID::Bytes(i)))),
-            (Binary::Contains, ID::Set(set), ID::Symbol(i)) => Some(ID::Bool(set.contains(&ID::Symbol(i)))),
+            (Binary::Contains, ID::Set(set), ID::Integer(i)) => {
+                Some(ID::Bool(set.contains(&ID::Integer(i))))
+            }
+            (Binary::Contains, ID::Set(set), ID::Date(i)) => {
+                Some(ID::Bool(set.contains(&ID::Date(i))))
+            }
+            (Binary::Contains, ID::Set(set), ID::Bool(i)) => {
+                Some(ID::Bool(set.contains(&ID::Bool(i))))
+            }
+            (Binary::Contains, ID::Set(set), ID::Str(i)) => {
+                Some(ID::Bool(set.contains(&ID::Str(i))))
+            }
+            (Binary::Contains, ID::Set(set), ID::Bytes(i)) => {
+                Some(ID::Bool(set.contains(&ID::Bytes(i))))
+            }
+            (Binary::Contains, ID::Set(set), ID::Symbol(i)) => {
+                Some(ID::Bool(set.contains(&ID::Symbol(i))))
+            }
 
             // boolean
             (Binary::And, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i & j)),
@@ -160,7 +180,7 @@ impl Expression {
                         //println!("unknown variable {}", i);
                         return None;
                     }
-                }
+                },
                 Op::Value(id) => stack.push(id.clone()),
                 Op::Unary(unary) => match stack.pop() {
                     None => {
@@ -170,7 +190,7 @@ impl Expression {
                     Some(id) => match unary.evaluate(id) {
                         Some(res) => stack.push(res),
                         None => return None,
-                    }
+                    },
                 },
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
                     (Some(right_id), Some(left_id)) => match binary.evaluate(left_id, right_id) {
@@ -181,7 +201,7 @@ impl Expression {
                         //println!("expected two values on the stack");
                         return None;
                     }
-                }
+                },
             }
         }
 
@@ -206,7 +226,7 @@ impl Expression {
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
                     (Some(right), Some(left)) => stack.push(binary.print(left, right, symbols)),
                     _ => return None,
-                }
+                },
             }
         }
 
@@ -218,7 +238,6 @@ impl Expression {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,11 +246,7 @@ mod tests {
     #[test]
     fn negate() {
         let symbols = SymbolTable {
-            symbols: vec![
-                "test1".to_string(),
-                "test2".to_string(),
-                "var1".to_string(),
-            ],
+            symbols: vec!["test1".to_string(), "test2".to_string(), "var1".to_string()],
         };
 
         let ops = vec![
@@ -242,8 +257,7 @@ mod tests {
             Op::Unary(Unary::Negate),
         ];
 
-        let values: HashMap<u32, ID> = [(2, ID::Integer(0))]
-            .iter().cloned().collect();
+        let values: HashMap<u32, ID> = [(2, ID::Integer(0))].iter().cloned().collect();
 
         println!("ops: {:?}", ops);
 
@@ -304,11 +318,7 @@ mod tests {
     #[test]
     fn printer() {
         let symbols = SymbolTable {
-            symbols: vec![
-                "test1".to_string(),
-                "test2".to_string(),
-                "var1".to_string(),
-            ],
+            symbols: vec!["test1".to_string(), "test2".to_string(), "var1".to_string()],
         };
 
         let ops1 = vec![
@@ -347,5 +357,4 @@ mod tests {
         assert_eq!(e3.print(&symbols).unwrap(), "1 + 2 < 3");
         //panic!();
     }
-
 }

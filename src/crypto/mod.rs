@@ -15,10 +15,13 @@ use curve25519_dalek::{
     scalar::Scalar,
     traits::Identity,
 };
-use zeroize::Zeroize;
-use rand_core::{RngCore, CryptoRng};
+use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha512};
-use std::{ops::{Deref, Drop}, convert::TryInto};
+use std::{
+    convert::TryInto,
+    ops::{Deref, Drop},
+};
+use zeroize::Zeroize;
 
 pub struct KeyPair {
     pub(crate) private: Scalar,
@@ -186,7 +189,12 @@ impl TokenSignature {
         }
     }
 
-    pub fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
+    pub fn sign<T: RngCore + CryptoRng>(
+        &self,
+        rng: &mut T,
+        keypair: &KeyPair,
+        message: &[u8],
+    ) -> Self {
         let mut r = Scalar::random(rng);
         let A = r * RISTRETTO_BASEPOINT_POINT;
         let d = hash_points(&[A]);
@@ -270,8 +278,8 @@ fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::SeedableRng;
     use rand::prelude::*;
+    use rand_core::SeedableRng;
 
     #[test]
     fn basic_signature() {
