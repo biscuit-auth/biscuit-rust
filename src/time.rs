@@ -5,6 +5,8 @@
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 use std::ops::{Add, Sub, AddAssign, SubAssign};
+#[cfg(feature = "wasm")]
+use std::convert::TryInto;
 
 pub use std::time::*;
 
