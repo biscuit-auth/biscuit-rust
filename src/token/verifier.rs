@@ -7,6 +7,7 @@ use super::Biscuit;
 use crate::datalog;
 use crate::error;
 use crate::time::Instant;
+use crate::crypto::PublicKey;
 use prost::Message;
 use std::{
     convert::{TryFrom, TryInto},
@@ -134,9 +135,11 @@ impl Verifier {
     }
 
     /// Loads a token's facts, rules and checks in a verifier
-    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Logic> {
+    pub fn add_token(&mut self, token: &Biscuit, root: PublicKey) -> Result<(), error::Token> {
+        token.check_root_key(root)?;
+
         if self.has_token {
-            return Err(error::Logic::VerifierNotEmpty);
+            return Err(error::Logic::VerifierNotEmpty.into());
         } else {
             self.has_token = true;
         }
@@ -148,7 +151,7 @@ impl Verifier {
             if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
                 return Err(error::Logic::InvalidAuthorityFact(
                     token.symbols.print_fact(&fact),
-                ));
+                ).into());
             }
 
             let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
@@ -178,7 +181,7 @@ impl Verifier {
                     return Err(error::Logic::InvalidBlockFact(
                         i as u32,
                         token.symbols.print_fact(&fact),
-                    ));
+                    ).into());
                 }
 
                 let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
@@ -193,7 +196,7 @@ impl Verifier {
                     return Err(error::Logic::InvalidBlockRule(
                         i as u32,
                         token.symbols.print_rule(&rule),
-                    ));
+                    ).into());
                 }
 
                 let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);

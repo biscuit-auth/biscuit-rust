@@ -43,6 +43,12 @@ impl From<Format> for Token {
     }
 }
 
+impl From<Logic> for Token {
+    fn from(e: Logic) -> Self {
+        Token::FailedLogic(e)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidBlockIndex {
     pub expected: u32,
