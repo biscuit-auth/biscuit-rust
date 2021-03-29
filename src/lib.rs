@@ -144,8 +144,8 @@
 //!
 //! ## blocks
 //!
-//! A Biscuit token is made with a list of blocks defining data and caveats that
-//! must be validated upon reception with a request. Any failed caveat will invalidate
+//! A Biscuit token is made with a list of blocks defining data and checks that
+//! must be validated upon reception with a request. Any failed check will invalidate
 //! the entire token.
 //!
 //! If you hold a valid token, it is possible to add a new block to restrict further
@@ -164,21 +164,21 @@
 //! - offline delegation like macaroons
 //! - based on public key cryptography like JWT, so any application holding the root public key can verify a token (while macaroons are based on a root shared secret)
 //!
-//! ## A logic language for caveats: Datalog with constraints
+//! ## A logic language for authorization policies: Datalog with constraints
 //!
 //! We rely on a modified version of Datalog, that can represent complex behaviours
 //! in a compact form, and add flexible constraints on data.
 //!
-//! Here are examples of caveats that can be implemented with that language:
+//! Here are examples of checks that can be implemented with that language:
 //!
 //! - valid if the requested resource is "file.txt" and the operation is "read"
 //! - valid if current time is before January 1st 2030, 00h00mn00s UTC
 //! - source IP is in set [1.2.3.4, 5.6.7.8]
 //! - resource matches prefix "/home/biscuit/data/"
 //!
-//! But it can also combine into more complex patterns, like: right is read if
-//! user has read or user is member of organisation and organisation has read right
-//! or other user with read right has delegated to user.
+//! But it can also combine into more complex patterns, like: right is read *if*
+//! user has read *or* user is member of organisation and organisation has read right
+//! *or* other user with read right has delegated to user.
 //!
 //! Like Datalog, this language is based around facts and rules, but with some
 //! slight modifications:
@@ -190,15 +190,38 @@
 //! contain rules that use facts from the current block, or from the authority
 //! and ambient contexts. If all rules in a block succeed, the block is validated.
 //!
-//! A caveat rule requires the presence of one or more facts, and can have additional
+//! ### Checks
+//!
+//! A check requires the presence of one or more facts, and can have additional
 //! constraints on these facts (the constraints are implemented separately to simplify
 //! the language implementation: among other things, it avoids implementing negation).
 //! It is possible to create rules like these ones:
 //!
-//! - `caveat() <- resource("file1")`
-//! - `caveat() <- resource($0), owner("user1", $0)` the $0 represents a "hole" that must be filled with the correct value
-//! - `caveat() <- time($0), $0 < 2019-02-05T23:00:00Z` expiration date
-//! - `caveat() <- application($0), operation($1), user($2), right(#app, $0, $1), owner($2, $0), credit($2, $3), $3 > 0` verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
+//! - `check if resource("file1")`
+//! - `check if resource($0), owner("user1", $0)` the $0 represents a "hole" that must be filled with the correct value
+//! - `check if time($0), $0 < 2019-02-05T23:00:00Z` expiration date
+//! - `check if application($0), operation($1), user($2), right(#app, $0, $1), owner($2, $0), credit($2, $3), $3 > 0` verifies that the user owns the applications, the application has the right on the operation, there's a credit information for the operation, and the credit is larger than 0
+//!
+//! ### Allow/deny policies
+//!
+//! On the verification side, we can define *allow/deny policies*, which are tested
+//! after all checks passed, one by one in order until one of them matches.
+//!
+//! * if an *allow* matches, verification succeeds
+//! * if a *deny* matches, verification fails
+//! * if there's no *allow* or *deny*, verification fails
+//!
+//! They can be written as follows:
+//!
+//! ```
+//! // verify that we have the right for this request
+//! allow if
+//!   resource(#ambient, $res),
+//!   operation(#ambient, $op),
+//!   right(#authority, $res, $op);//!
+//!
+//! deny if true;
+//! ```
 //!
 //! ## Symbols and symbol tables
 //!
@@ -209,8 +232,8 @@
 //! matching.
 //!
 //! They can be used for pretty printing of a fact or rule. As an example, with a table
-//! containing `["resource", "operation", "read", "caveat1"]`, we could have the following rule:
-//! `#4 <- #0("file.txt"), #1(#2)` that would be printed as `caveat1() <- resource("file.txt"), !operation(#read)`
+//! containing `["resource", "operation", "read", "rule1"]`, we could have the following rule:
+//! `#4() <- #0("file.txt"), #1(#2)` that would be printed as `rule1() <- resource("file.txt"), operation(#read)`
 //!
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
