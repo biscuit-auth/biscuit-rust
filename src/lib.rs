@@ -213,7 +213,7 @@
 //!
 //! They can be written as follows:
 //!
-//! ```
+//! ```ignore
 //! // verify that we have the right for this request
 //! allow if
 //!   resource(#ambient, $res),
