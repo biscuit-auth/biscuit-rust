@@ -1585,4 +1585,16 @@ mod tests {
             expected_policies
         );
     }
+
+    #[test]
+    fn complete_check_rule() {
+        use std::convert::TryInto;
+        fn test(rule: &str) {
+            let check: builder::Check = rule.try_into().unwrap();
+            assert_eq!(check.to_string(), rule.to_string());
+        }
+        test("check if resource(#ambient, \"foobar\") && operation(#ambient, #write)) || operation(#ambient, #read)");
+        test("check if resource(#ambient, \"foobar\"), operation(#ambient, #write)) or operation(#ambient, #read)");
+        test("check if resource(#ambient, \"foobar\") and operation(#ambient, #write)) or operation(#ambient, #read)");
+    }
 }
