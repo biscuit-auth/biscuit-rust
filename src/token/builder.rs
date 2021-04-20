@@ -535,6 +535,31 @@ impl Rule {
                 .collect(),
         )
     }
+
+    pub fn validate_variables(&self) -> Result<(), String> {
+        let mut head_variables: std::collections::HashSet<String> = self.0.ids.iter().filter_map(|term| match term {
+            Term::Variable(s) => Some(s.to_string()),
+            _ => None,
+        }).collect();
+
+        for predicate in self.1.iter() {
+            for term in predicate.ids.iter() {
+                match term {
+                    Term::Variable(v) => {
+                        head_variables.remove(v);
+                        if head_variables.is_empty() {
+                            return Ok(());
+                        }
+                    },
+                    _ => {},
+                }
+            }
+        }
+
+        Err(format!("rule head contains variables that are not used in predicates of the rule's body: {}",
+                    head_variables.iter().map(|s| format!("${}", s)).collect::<Vec<_>>().join(", ")
+        ))
+    }
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {

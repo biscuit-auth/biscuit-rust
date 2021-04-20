@@ -168,7 +168,16 @@ impl Verifier {
         }
 
         for rule in token.authority.rules.iter().cloned() {
-            let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);
+            let r = Rule::convert_from(&rule, &token.symbols);
+            let rule = r.convert(&mut self.symbols);
+
+            if let Err(_message) = r.validate_variables() {
+                return Err(error::Logic::InvalidBlockRule(
+                    0,
+                    token.symbols.print_rule(&rule),
+                ).into());
+            }
+
             self.world.rules.push(rule);
         }
 
@@ -199,7 +208,16 @@ impl Verifier {
                     ).into());
                 }
 
-                let rule = Rule::convert_from(&rule, &token.symbols).convert(&mut self.symbols);
+                let r = Rule::convert_from(&rule, &token.symbols);
+
+                if let Err(_message) = r.validate_variables() {
+                    return Err(error::Logic::InvalidBlockRule(
+                        i as u32,
+                        token.symbols.print_rule(&rule),
+                    ).into());
+                }
+
+                let rule = r.convert(&mut self.symbols);
                 self.world.rules.push(rule);
             }
         }

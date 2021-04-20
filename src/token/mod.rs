@@ -353,6 +353,13 @@ impl Biscuit {
         }
 
         for rule in self.authority.rules.iter().cloned() {
+            if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables() {
+                return Err(error::Logic::InvalidBlockRule(
+                        0,
+                        symbols.print_rule(&rule),
+                ));
+            }
+
             world.rules.push(rule);
         }
 
@@ -381,6 +388,14 @@ impl Biscuit {
                         symbols.print_rule(&rule),
                     ));
                 }
+
+                if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables() {
+                    return Err(error::Logic::InvalidBlockRule(
+                        i as u32,
+                        symbols.print_rule(&rule),
+                    ));
+                }
+
                 world.rules.push(rule);
             }
         }

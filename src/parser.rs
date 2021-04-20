@@ -192,14 +192,24 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
 }
 
 pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
-    let (i, head) = rule_head(i)?;
+    let (i, (head_input, head)) = consumed(rule_head)(i)?;
     let (i, _) = space0(i)?;
 
     let (i, _) = tag("<-")(i)?;
 
     let (i, (predicates, expressions)) = cut(rule_body)(i)?;
 
-    Ok((i, builder::Rule(head, predicates, expressions)))
+    let rule = builder::Rule(head, predicates, expressions);
+
+    if let Err(message) = rule.validate_variables() {
+        return Err( nom::Err::Error(Error {
+                input: head_input,
+                code: ErrorKind::Satisfy,
+                message: Some(message),
+            }))
+    }
+
+    Ok((i, rule))
 }
 
 impl TryFrom<&str> for builder::Fact {
@@ -1315,6 +1325,18 @@ mod tests {
                     }],
                 )
             ))
+        );
+    }
+
+    #[test]
+    fn rule_with_unused_head_variables() {
+        assert_eq!(
+            super::rule("right(#authority, $0, $test) <- resource( #ambienu, $0), operation(#ambient, #read)"),
+            Err( nom::Err::Error(Error {
+                input: "right(#authority, $0, $test)",
+                code: ErrorKind::Satisfy,
+                message: Some("rule head contains variables that are not used in predicates of the rule's body: $test".to_string()),
+            }))
         );
     }
 
