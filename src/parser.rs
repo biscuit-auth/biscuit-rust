@@ -35,6 +35,18 @@ use std::{
 
 /// parse a Datalog fact
 pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
+    let (i, fact) = fact_inner(i)?;
+
+    let (i, _) = error(
+        preceded(space0, eof),
+        |input| format!("unexpected trailigng data after fact: '{}'", input),
+        " ,\n",
+    )(i)?;
+
+    Ok((i, fact))
+}
+
+pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
 
@@ -59,6 +71,23 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
 
 /// parse a Datalog check
 pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
+    let (i, check) = check_inner(i)?;
+
+    let (i, _) = error(
+        preceded(space0, eof),
+        |input| match input.chars().next() {
+            Some(')') => "unexpected parens".to_string(),
+            //Some('$') => "variables are not allowed in facts".to_string(),
+            _ => format!("expected either the next term after ',' or the next check variant after 'or', but got '{}'",
+                     input)
+        },
+        " ,\n",
+    )(i)?;
+
+    Ok((i, check))
+}
+
+fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, _) = space0(i)?;
 
     let (i, _) = tag_no_case("check if")(i)?;
@@ -67,8 +96,25 @@ pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
     Ok((i, builder::Check { queries }))
 }
 
-/// parse an allow rule
+/// parse an allow or deny rule
 pub fn policy(i: &str) -> IResult<&str, builder::Policy, Error> {
+    let(i, policy) = policy_inner(i)?;
+
+    let (i, _) = error(
+        preceded(space0, eof),
+        |input| match input.chars().next() {
+            Some(')') => "unexpected parens".to_string(),
+            //Some('$') => "variables are not allowed in facts".to_string(),
+            _ => format!("expected either the next term after ',' or the next policy variant after 'or', but got '{}'",
+                     input)
+        },
+        " ,\n",
+    )(i)?;
+
+    Ok((i, policy))
+}
+
+fn policy_inner(i: &str) -> IResult<&str, builder::Policy, Error> {
     alt((allow, deny))(i)
 }
 
@@ -88,7 +134,7 @@ pub fn allow(i: &str) -> IResult<&str, builder::Policy, Error> {
     ))
 }
 
-/// parse an allow rule
+/// parse a deny rule
 pub fn deny(i: &str) -> IResult<&str, builder::Policy, Error> {
     let (i, _) = space0(i)?;
 
@@ -129,6 +175,23 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
 
 /// parse a Datalog rule
 pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
+    let (i, rule) = rule_inner(i)?;
+
+    let (i, _) = error(
+        preceded(space0, eof),
+        |input| match input.chars().next() {
+            Some(')') => "unexpected parens".to_string(),
+            //Some('$') => "variables are not allowed in facts".to_string(),
+            _ => format!("expected the next term or expression after ',', but got '{}'",
+                     input)
+        },
+        " ,\n",
+    )(i)?;
+
+    Ok((i, rule))
+}
+
+pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
     let (i, head) = rule_head(i)?;
     let (i, _) = space0(i)?;
 
@@ -699,16 +762,16 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
 
         match terminated(
             alt((
-                map(terminated(consumed(rule), sep), |(i, r)| {
+                map(terminated(consumed(rule_inner), sep), |(i, r)| {
                     SourceElement::Rule(i, r)
                 }),
-                map(terminated(consumed(fact), sep), |(i, f)| {
+                map(terminated(consumed(fact_inner), sep), |(i, f)| {
                     SourceElement::Fact(i, f)
                 }),
-                map(terminated(consumed(check), sep), |(i, c)| {
+                map(terminated(consumed(check_inner), sep), |(i, c)| {
                     SourceElement::Check(i, c)
                 }),
-                map(terminated(consumed(policy), sep), |(i, p)| {
+                map(terminated(consumed(policy_inner), sep), |(i, p)| {
                     SourceElement::Policy(i, p)
                 }),
                 map(line_comment, |_| SourceElement::Comment),
@@ -806,23 +869,23 @@ where
         Ok(res) => Ok(res),
         Err(nom::Err::Incomplete(i)) => Err(nom::Err::Incomplete(i)),
         Err(nom::Err::Error(mut e)) => {
-            if e.message.is_none() {
-                e.message = Some(context(e.input));
-            }
-
             if let Some(index) = e.input.find(|c| reducer.contains(c)) {
                 e.input = &(e.input)[..index];
+            }
+
+            if e.message.is_none() {
+                e.message = Some(context(e.input));
             }
 
             Err(nom::Err::Error(e))
         }
         Err(nom::Err::Failure(mut e)) => {
-            if e.message.is_none() {
-                e.message = Some(context(e.input));
-            }
-
             if let Some(index) = e.input.find(|c| reducer.contains(c)) {
                 e.input = &(e.input)[..index];
+            }
+
+            if e.message.is_none() {
+                e.message = Some(context(e.input));
             }
 
             Err(nom::Err::Failure(e))
@@ -860,6 +923,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{datalog, token::builder};
+    use nom::error::ErrorKind;
+    use super::Error;
 
     #[test]
     fn name() {
@@ -1286,6 +1351,42 @@ mod tests {
                     ]
                 }
             ))
+        );
+    }
+
+    #[test]
+    fn invalid_check() {
+        assert_eq!(
+            super::check(
+                "check if resource(#ambient, $0) and operation(#ambient, #read) or admin(#authority)"
+            ),
+            Err( nom::Err::Error(Error {
+                input: "and",
+                code: ErrorKind::Eof,
+                message: Some("expected either the next term after ',' or the next check variant after 'or', but got 'and'".to_string()),
+            }))
+        );
+
+        assert_eq!(
+            super::check(
+                "check if resource(#ambient, \"{}\"), operation(#ambient, #write)) or operation(#ambient, #read)"
+            ),
+            Err( nom::Err::Error(Error {
+                input: ")",
+                code: ErrorKind::Eof,
+                message: Some("unexpected parens".to_string()),
+            }))
+        );
+
+        assert_eq!(
+            super::check(
+                "check if resource(#ambient, \"{}\") && operation(#ambient, #write)) || operation(#ambient, #read)"
+            ),
+            Err( nom::Err::Error(Error {
+                input: "&&",
+                code: ErrorKind::Eof,
+                message: Some("expected either the next term after ',' or the next check variant after 'or', but got '&&'".to_string()),
+            }))
         );
     }
 
