@@ -449,6 +449,9 @@ pub fn match_preds(pred1: &Predicate, pred2: &Predicate) -> bool {
                 (ID::Integer(i), ID::Integer(j)) => i == j,
                 (ID::Str(i), ID::Str(j)) => i == j,
                 (ID::Date(i), ID::Date(j)) => i == j,
+                (ID::Bytes(i), ID::Bytes(j)) => i == j,
+                (ID::Bool(i), ID::Bool(j)) => i == j,
+                (ID::Set(i), ID::Set(j)) => i == j,
                 _ => false,
             })
 }
@@ -527,6 +530,9 @@ impl World {
                             (ID::Integer(i), ID::Integer(ref j)) => i == j,
                             (ID::Str(i), ID::Str(ref j)) => i == j,
                             (ID::Date(i), ID::Date(ref j)) => i == j,
+                            (ID::Bytes(i), ID::Bytes(ref j)) => i == j,
+                            (ID::Bool(i), ID::Bool(ref j)) => i == j,
+                            (ID::Set(i), ID::Set(ref j)) => i == j,
                             _ => false,
                         })
             })
