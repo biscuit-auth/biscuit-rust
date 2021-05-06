@@ -95,6 +95,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     unbound_variables_in_rule(&mut rng, &target, &root, test);
+
+    println!("\n------------------------------\n");
+    generating_ambient_from_variables(&mut rng, &target, &root, test);
 }
 
 fn validate_token(
@@ -1276,3 +1279,57 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     );
 }
 
+fn generating_ambient_from_variables<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) {
+    println!("## invalid block rule generating an #authority or #ambient symbol with a variable: test19_generating_ambient_from_variables.bc");
+
+    let mut builder = Biscuit::builder(&root);
+    builder.add_authority_check(rule(
+        "check1",
+        &[s("test")],
+        &[pred("operation", &[s("ambient"), s("read")])],
+    ));
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+
+    let mut block2 = biscuit1.create_block();
+
+    block2
+    .add_rule(rule(
+        "operation",
+        &[var("ambient"), s("read")],
+        &[pred("operation", &[var("ambient"), var("any")])],
+    ))
+    .unwrap();
+
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+
+    let data = if test {
+        let v = load_testcase(target, "test19_generating_ambient_from_variables");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
+
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test19_generating_ambient_from_variables", &data[..]);
+        data
+    };
+
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![fact("operation", &[s("ambient"), s("write")]),],
+            vec![],
+            vec![]
+        )
+    );
+}
