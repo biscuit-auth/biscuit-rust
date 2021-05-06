@@ -92,6 +92,9 @@ fn main() {
 
     println!("\n------------------------------\n");
     expressions(&mut rng, &target, &root, test);
+
+    println!("\n------------------------------\n");
+    unbound_variables_in_rule(&mut rng, &target, &root, test);
 }
 
 fn validate_token(
@@ -1217,3 +1220,59 @@ fn expressions<T: Rng + CryptoRng>(rng: &mut T, target: &str, root: &KeyPair, te
         validate_token(root, &data[..], vec![], vec![], vec![],)
     );
 }
+
+fn unbound_variables_in_rule<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) {
+    println!("## invalid block rule with unbound_variables: test18_unbound_variables_in_rule.bc");
+
+    let mut builder = Biscuit::builder(&root);
+    builder.add_authority_check(rule(
+        "check1",
+        &[s("test")],
+        &[pred("operation", &[s("ambient"), s("read")])],
+    ));
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+
+    let mut block2 = biscuit1.create_block();
+
+    block2
+    .add_rule(rule(
+        "operation",
+        &[var("unbound"), s("read")],
+        &[pred("operation", &[var("any1"), var("any2")])],
+    ))
+    .unwrap();
+
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+
+    let data = if test {
+        let v = load_testcase(target, "test8_invalid_block_fact_ambient");
+        let expected = Biscuit::from(&v[..]).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        println!("biscuit2 (1 check):\n```\n{}\n```\n", biscuit2.print());
+
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test18_unbound_variables_in_rule", &data[..]);
+        data
+    };
+
+    println!(
+        "validation: `{:?}`",
+        validate_token(
+            root,
+            &data[..],
+            vec![fact("operation", &[s("ambient"), s("write")]),],
+            vec![],
+            vec![]
+        )
+    );
+}
+
