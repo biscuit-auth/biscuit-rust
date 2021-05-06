@@ -119,7 +119,7 @@ impl Rule {
         let variables = MatchedVariables::new(variables_set);
 
         new_facts.extend(
-            CombineIt::new(variables, &self.body, &self.expressions, facts).map(|h| {
+            CombineIt::new(variables, &self.body, &self.expressions, facts).filter_map(|h| {
                 let mut p = self.head.clone();
                 for index in 0..p.ids.len() {
                     let value = match &p.ids[index] {
@@ -127,7 +127,7 @@ impl Rule {
                           Some(val) => val,
                           None => {
                             println!("error: variables that appear in the head should appear in the body and constraints as well");
-                            continue;
+                            return None;
                           }
                         },
                         _ => continue,
@@ -136,7 +136,7 @@ impl Rule {
                     p.ids[index] = value.clone();
                 }
 
-                Fact { predicate: p }
+                Some(Fact { predicate: p })
             }),
         );
     }
@@ -156,7 +156,7 @@ impl Rule {
 
         let variables = MatchedVariables::new(variables_set);
 
-        let mut it = CombineIt::new(variables, &self.body, &self.expressions, facts).map(|h| {
+        let mut it = CombineIt::new(variables, &self.body, &self.expressions, facts).filter_map(|h| {
             let mut p = self.head.clone();
             for index in 0..p.ids.len() {
                 let value = match &p.ids[index] {
@@ -164,7 +164,7 @@ impl Rule {
                         Some(val) => val,
                         None => {
                             println!("error: variables that appear in the head should appear in the body and constraints as well");
-                            continue;
+                            return None;
                         }
                     },
                     _ => continue,
@@ -173,7 +173,7 @@ impl Rule {
                 p.ids[index] = value.clone();
             }
 
-            Fact { predicate: p }
+            Some(Fact { predicate: p })
         });
 
         let next = it.next();
@@ -1160,5 +1160,41 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
         //panic!();
+    }
+
+    #[test]
+    fn unbound_variables() {
+        let mut w = World::new();
+        let mut syms = SymbolTable::new();
+
+        let authority = syms.add("authority");
+        let ambient = syms.add("ambient");
+        let operation = syms.insert("operation");
+        let check = syms.insert("check");
+        let read = syms.add("read");
+        let write = syms.add("write");
+        let unbound = var(&mut syms, "unbound");
+        let any1 = var(&mut syms, "any1");
+        let any2 = var(&mut syms, "any2");
+
+        w.add_fact(fact(operation, &[&ambient, &write]));
+
+        let r1 = rule(
+            operation,
+            &[&unbound, &read],
+            &[
+              pred(operation, &[&any1, &any2])
+            ],
+        );
+        println!("world:\n{}\n", syms.print_world(&w));
+        println!("\ntesting r1: {}\n", syms.print_rule(&r1));
+        let res = w.query_rule(r1);
+
+        println!("generated facts:");
+        for fact in &res {
+            println!("\t{}", syms.print_fact(fact));
+        }
+
+        assert!(res.is_empty());
     }
 }
