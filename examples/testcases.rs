@@ -106,7 +106,7 @@ fn validate_token(
     ambient_facts: Vec<Fact>,
     ambient_rules: Vec<Rule>,
     checks: Vec<Vec<Rule>>,
-) -> Result<(), error::Token> {
+) -> Result<usize, error::Token> {
     let token = Biscuit::from(&data[..])?;
 
     let mut verifier = token.verify(root.public())?;
@@ -124,7 +124,7 @@ fn validate_token(
 
     let res = verifier.verify();
     println!("verifier world:\n{}", verifier.print_world());
-    res.map(|_| ())
+    res
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
