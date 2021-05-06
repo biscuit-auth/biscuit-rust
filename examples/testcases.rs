@@ -122,9 +122,9 @@ fn validate_token(
 
     verifier.allow()?;
 
+    let res = verifier.verify();
     println!("verifier world:\n{}", verifier.print_world());
-    verifier.verify()?;
-    Ok(())
+    res.map(|_| ())
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
