@@ -360,7 +360,7 @@ impl Biscuit {
                 ));
             }
 
-            world.rules.push(rule);
+            world.privileged_rules.push(rule);
         }
 
         for (i, block) in self.blocks.iter().enumerate() {
@@ -450,10 +450,14 @@ impl Biscuit {
         }
 
         for rule in ambient_rules.iter().cloned() {
-            world.rules.push(rule);
+            world.privileged_rules.push(rule);
         }
 
-        world.run().map_err(error::Token::RunLimit)?;
+        let authority_index = symbols.get("authority").unwrap();
+        let ambient_index = symbols.get("ambient").unwrap();
+
+
+        world.run(&[authority_index, ambient_index]).map_err(error::Token::RunLimit)?;
         //println!("world:\n{}", symbols.print_world(&world));
 
         // we only keep the verifier rules
@@ -1376,5 +1380,84 @@ mod tests {
             .unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
+    }
+
+    #[test]
+    fn block1_generates_authority_or_ambient() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(&mut rng);
+
+        let serialized1 = {
+            let mut builder = Biscuit::builder(&root);
+
+            builder
+                .add_authority_fact("right(#authority, \"/folder1/file1\", #read)")
+                .unwrap();
+            builder
+                .add_authority_fact("right(#authority, \"/folder1/file1\", #write)")
+                .unwrap();
+            builder
+                .add_authority_fact("right(#authority, \"/folder2/file1\", #read)")
+                .unwrap();
+            builder
+                .add_authority_check("check if operation(#ambient, #read)")
+                .unwrap();
+
+            let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
+
+            println!("biscuit1 (authority): {}", biscuit1.print());
+
+            biscuit1.to_vec().unwrap()
+        };
+
+        //println!("generated biscuit token: {} bytes:\n{}", serialized1.len(), serialized1.to_hex(16));
+        println!("generated biscuit token: {} bytes", serialized1.len());
+        //panic!();
+
+        let serialized2 = {
+            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
+
+            // new check: can only have read access1
+            let mut block2 = biscuit1_deser.create_block();
+
+            // Bypass `check if operation(#ambient, #read)` from authority block
+            block2.add_rule("operation($ambient, #read) <- operation($ambient, $any)")
+                .unwrap();
+
+            // Bypass `check if resource(#ambient, $file), $file.starts_with("/folder1/")` from block #1
+            block2.add_rule("resource($ambient, \"/folder1/\") <- resource($ambient, $any)")
+                .unwrap();
+
+            // Add missing rights
+            block2.add_rule("right($authority, $file, $right) <- right($authority, $any1, $any2), resource(#ambient, $file), operation(#ambient, $right)")
+                .unwrap();
+
+            let keypair2 = KeyPair::new_with_rng(&mut rng);
+            let biscuit2 = biscuit1_deser
+                .append_with_rng(&mut rng, &keypair2, block2)
+                .unwrap();
+
+            println!("biscuit2 (1 check): {}", biscuit2.print());
+
+            biscuit2.to_vec().unwrap()
+        };
+
+        //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
+        println!("generated biscuit token 2: {} bytes", serialized2.len());
+
+        let final_token = Biscuit::from(&serialized2).unwrap();
+        println!("final token:\n{}", final_token.print());
+
+        let mut verifier = final_token.verify(root.public()).unwrap();
+        verifier.add_resource("/folder2/file1");
+        verifier.add_operation("write");
+        verifier.add_policy("allow if resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)").unwrap();
+        verifier.deny().unwrap();
+
+        let res = verifier.verify_with_limits(crate::token::verifier::VerifierLimits { max_time: Duration::from_secs(1), ..Default::default() });
+        println!("res1: {:?}", res);
+        println!("verifier:\n{}", verifier.print_world());
+
+        assert!(res.is_err());
     }
 }

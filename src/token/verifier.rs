@@ -76,6 +76,7 @@ impl Verifier {
             symbols,
             mut facts,
             rules,
+            privileged_rules,
             mut checks,
             policies,
         } = crate::format::convert::proto_verifier_to_verifier(&data)?;
@@ -83,6 +84,7 @@ impl Verifier {
         let world = datalog::World {
             facts: facts.drain(..).collect(),
             rules,
+            privileged_rules,
         };
         let checks = checks
             .drain(..)
@@ -119,6 +121,7 @@ impl Verifier {
             symbols,
             facts: self.world.facts.iter().cloned().collect(),
             rules: self.world.rules.clone(),
+            privileged_rules: self.world.privileged_rules.clone(),
             checks,
             policies: self.policies.clone(),
         };
@@ -178,7 +181,7 @@ impl Verifier {
                 ).into());
             }
 
-            self.world.rules.push(rule);
+            self.world.privileged_rules.push(rule);
         }
 
         for (i, block) in token.blocks.iter().enumerate() {
@@ -254,7 +257,7 @@ impl Verifier {
     /// add a rule to the verifier
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.world.rules.push(rule.convert(&mut self.symbols));
+        self.world.privileged_rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
 
@@ -279,8 +282,11 @@ impl Verifier {
         limits: VerifierLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+        let authority_index = self.symbols.get("authority").unwrap();
+        let ambient_index = self.symbols.get("ambient").unwrap();
+
         self.world
-            .run_with_limits(limits.into())
+            .run_with_limits(limits.into(), &[authority_index, ambient_index])
             .map_err(error::Token::RunLimit)?;
         let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
@@ -366,8 +372,11 @@ impl Verifier {
             return Err(error::Token::MissingSymbols);
         }
 
+        let authority_index = self.symbols.get("authority").unwrap();
+        let ambient_index = self.symbols.get("ambient").unwrap();
+
         self.world
-            .run_with_limits(limits.clone().into())
+            .run_with_limits(limits.clone().into(), &[authority_index, ambient_index])
             .map_err(error::Token::RunLimit)?;
 
         let time_limit = start + limits.max_time;
@@ -473,6 +482,14 @@ impl Verifier {
             .collect::<Vec<_>>();
         rules.sort();
 
+        let mut privileged_rules = self
+            .world
+            .privileged_rules
+            .iter()
+            .map(|r| self.symbols.print_rule(r))
+            .collect::<Vec<_>>();
+        privileged_rules.sort();
+
         let mut checks = Vec::new();
         for (index, check) in self.checks.iter().enumerate() {
             checks.push(format!("Verifier[{}]: {}", index, check));
@@ -495,8 +512,8 @@ impl Verifier {
         }
 
         format!(
-            "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
-            facts, rules, checks, policies
+            "World {{\n  facts: {:#?}\n  privileged rules: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
+            facts, privileged_rules, rules, checks, policies
         )
     }
 
@@ -533,7 +550,9 @@ pub struct VerifierPolicies {
     pub symbols: datalog::SymbolTable,
     /// list of facts provided by this block
     pub facts: Vec<datalog::Fact>,
-    /// list of rules provided by this block
+    /// list of rules provided by the authority block or verifier
+    pub privileged_rules: Vec<datalog::Rule>,
+    /// list of rules provided by blocks
     pub rules: Vec<datalog::Rule>,
     /// checks that the token and ambient data must validate
     pub checks: Vec<datalog::Check>,

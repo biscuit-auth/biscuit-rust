@@ -103,7 +103,7 @@ impl fmt::Display for Fact {
 }
 
 impl Rule {
-    pub fn apply(&self, facts: &HashSet<Fact>, new_facts: &mut Vec<Fact>) {
+    pub fn apply<'a>(&'a self, facts: &'a HashSet<Fact>) -> impl Iterator<Item=Fact> +'a {
         // gather all of the variables used in that rule
         let variables_set = self
             .body
@@ -116,29 +116,27 @@ impl Rule {
             })
             .collect::<HashSet<_>>();
 
+        let head = self.head.clone();
         let variables = MatchedVariables::new(variables_set);
+        CombineIt::new(variables, &self.body, &self.expressions, facts).filter_map(move |h| {
+            let mut p = head.clone();
+            for index in 0..p.ids.len() {
+                let value = match &p.ids[index] {
+                    ID::Variable(i) => match h.get(i) {
+                      Some(val) => val,
+                      None => {
+                        println!("error: variables that appear in the head should appear in the body and constraints as well");
+                        return None;
+                      }
+                    },
+                    _ => continue,
+                };
 
-        new_facts.extend(
-            CombineIt::new(variables, &self.body, &self.expressions, facts).filter_map(|h| {
-                let mut p = self.head.clone();
-                for index in 0..p.ids.len() {
-                    let value = match &p.ids[index] {
-                        ID::Variable(i) => match h.get(i) {
-                          Some(val) => val,
-                          None => {
-                            println!("error: variables that appear in the head should appear in the body and constraints as well");
-                            return None;
-                          }
-                        },
-                        _ => continue,
-                    };
+                p.ids[index] = value.clone();
+            }
 
-                    p.ids[index] = value.clone();
-                }
-
-                Some(Fact { predicate: p })
-            }),
-        );
+            Some(Fact { predicate: p })
+        })
     }
 
     pub fn find_match(&self, facts: &HashSet<Fact>) -> bool {
@@ -461,6 +459,8 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
 pub struct World {
     pub facts: HashSet<Fact>,
     pub rules: Vec<Rule>,
+    /// special rules that can generate authority or ambient facts
+    pub privileged_rules: Vec<Rule>,
 }
 
 impl World {
@@ -476,19 +476,36 @@ impl World {
         self.rules.push(rule);
     }
 
-    pub fn run(&mut self) -> Result<(), crate::error::RunLimit> {
-        self.run_with_limits(RunLimits::default())
+    pub fn add_privileged_rule(&mut self, rule: Rule) {
+        self.privileged_rules.push(rule);
     }
 
-    pub fn run_with_limits(&mut self, limits: RunLimits) -> Result<(), crate::error::RunLimit> {
+    pub fn run(&mut self, restricted_symbols: &[u64]) -> Result<(), crate::error::RunLimit> {
+        self.run_with_limits(RunLimits::default(), restricted_symbols)
+    }
+
+    pub fn run_with_limits(&mut self, limits: RunLimits, restricted_symbols: &[u64]) -> Result<(), crate::error::RunLimit> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
 
         loop {
             let mut new_facts: Vec<Fact> = Vec::new();
+            for rule in self.privileged_rules.iter() {
+                new_facts.extend(rule.apply(&self.facts));
+                //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
+            }
+
             for rule in self.rules.iter() {
-                rule.apply(&self.facts, &mut new_facts);
+                new_facts.extend(rule.apply(&self.facts).filter_map(|fact| {
+                  match fact.predicate.ids.get(0) {
+                      Some(ID::Symbol(sym)) => if restricted_symbols.contains(&sym) {
+                          return None;
+                      },
+                      _ => {}
+                  };
+                  Some(fact)
+                }));
                 //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
             }
 
@@ -542,7 +559,7 @@ impl World {
 
     pub fn query_rule(&self, rule: Rule) -> Vec<Fact> {
         let mut new_facts: Vec<Fact> = Vec::new();
-        rule.apply(&self.facts, &mut new_facts);
+        new_facts.extend(rule.apply(&self.facts));
         new_facts
     }
 
@@ -632,7 +649,7 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(r2);
 
-        w.run().unwrap();
+        w.run(&[]).unwrap();
 
         println!("parents:");
         let res = w.query(pred(
@@ -655,7 +672,7 @@ mod tests {
             ))
         );
         w.add_fact(fact(parent, &[&c, &e]));
-        w.run().unwrap();
+        w.run(&[]).unwrap();
         let mut res = w.query(pred(
             grandparent,
             &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],

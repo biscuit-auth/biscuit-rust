@@ -228,7 +228,10 @@ impl TryFrom<&str> for builder::Rule {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         rule(value)
             .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+            .map_err(|e| {
+                println!("rule parsing error: {:?}", e);
+                error::Token::ParseError
+            })
     }
 }
 
