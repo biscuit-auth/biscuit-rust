@@ -205,7 +205,7 @@ impl<'a> CombineIt<'a> {
             Box::new(
                 facts
                     .iter()
-                    .filter(move |fact| match_preds(&fact.predicate, &p)),
+                    .filter(move |fact| match_preds(&p, &fact.predicate)),
             )
         };
 
@@ -435,15 +435,16 @@ pub fn var(syms: &mut SymbolTable, name: &str) -> ID {
     ID::Variable(id as u32)
 }
 
-pub fn match_preds(pred1: &Predicate, pred2: &Predicate) -> bool {
-    pred1.name == pred2.name
-        && pred1.ids.len() == pred2.ids.len()
-        && pred1
+pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
+    rule_pred.name == fact_pred.name
+        && rule_pred.ids.len() == fact_pred.ids.len()
+        && rule_pred
             .ids
             .iter()
-            .zip(&pred2.ids)
+            .zip(&fact_pred.ids)
             .all(|(fid, pid)| match (fid, pid) {
-                (_, ID::Variable(_)) => true,
+                // the fact should not contain variables
+                (_, ID::Variable(_)) => false,
                 (ID::Variable(_), _) => true,
                 (ID::Symbol(i), ID::Symbol(ref j)) => i == j,
                 (ID::Integer(i), ID::Integer(j)) => i == j,
@@ -1167,7 +1168,6 @@ mod tests {
         let mut w = World::new();
         let mut syms = SymbolTable::new();
 
-        let authority = syms.add("authority");
         let ambient = syms.add("ambient");
         let operation = syms.insert("operation");
         let check = syms.insert("check");
@@ -1195,6 +1195,27 @@ mod tests {
             println!("\t{}", syms.print_fact(fact));
         }
 
+        assert!(res.is_empty());
+
+        // operation($unbound, #read) should not have been generated
+        // in case it is generated though, verify that rule application
+        // will not match it
+        w.add_fact(fact(operation, &[&unbound, &read]));
+        let r2 = rule(
+            check,
+            &[&read],
+            &[
+              pred(operation, &[&ambient, &read])
+            ],
+        );
+        println!("world:\n{}\n", syms.print_world(&w));
+        println!("\ntesting r2: {}\n", syms.print_rule(&r2));
+        let res = w.query_rule(r2);
+
+        println!("generated facts:");
+        for fact in &res {
+            println!("\t{}", syms.print_fact(fact));
+        }
         assert!(res.is_empty());
     }
 }
