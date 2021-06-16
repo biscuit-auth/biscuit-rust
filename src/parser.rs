@@ -39,7 +39,7 @@ pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
 
     let (i, _) = error(
         preceded(space0, eof),
-        |input| format!("unexpected trailigng data after fact: '{}'", input),
+        |input| format!("unexpected trailing data after fact: '{}'", input),
         " ,\n",
     )(i)?;
 
