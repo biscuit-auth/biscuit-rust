@@ -837,6 +837,80 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
     }
 }
 
+pub fn parse_block_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
+    let mut result = SourceResult::default();
+    let mut errors = Vec::new();
+
+    loop {
+        if i.is_empty() {
+            if errors.is_empty() {
+                return Ok((i, result));
+            } else {
+                return Err(errors);
+            }
+        }
+
+        match terminated(
+            alt((
+                map(terminated(consumed(rule_inner), sep), |(i, r)| {
+                    SourceElement::Rule(i, r)
+                }),
+                map(terminated(consumed(fact_inner), sep), |(i, f)| {
+                    SourceElement::Fact(i, f)
+                }),
+                map(terminated(consumed(check_inner), sep), |(i, c)| {
+                    SourceElement::Check(i, c)
+                }),
+                map(line_comment, |_| SourceElement::Comment),
+                map(multiline_comment, |_| SourceElement::Comment),
+            )),
+            space0,
+        )(i)
+        {
+            Ok((i2, o)) => {
+                match o {
+                    SourceElement::Fact(i, f) => result.facts.push((i, f)),
+                    SourceElement::Rule(i, r) => result.rules.push((i, r)),
+                    SourceElement::Check(i, c) => result.checks.push((i, c)),
+                    SourceElement::Policy(_, _) => {},
+                    SourceElement::Comment => {}
+                }
+
+                i = i2;
+            }
+            Err(nom::Err::Incomplete(_)) => panic!(),
+            Err(nom::Err::Error(mut e)) => {
+                if let Some(index) = e.input.find(|c| c == ';') {
+                    e.input = &(e.input)[..index];
+                }
+
+                let offset = i.offset(e.input);
+                if let Some(index) = &i[offset..].find(|c| c == ';') {
+                    i = &i[offset + index + 1..];
+                } else {
+                    i = &i[i.len()..];
+                }
+
+                errors.push(e);
+            }
+            Err(nom::Err::Failure(mut e)) => {
+                if let Some(index) = e.input.find(|c| c == ';') {
+                    e.input = &(e.input)[..index];
+                }
+
+                let offset = i.offset(e.input);
+                if let Some(index) = &i[offset..].find(|c| c == ';') {
+                    i = &i[offset + index + 1..];
+                } else {
+                    i = &i[i.len()..];
+                }
+
+                errors.push(e);
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Error<'a> {
     pub input: &'a str,
