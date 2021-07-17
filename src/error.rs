@@ -29,6 +29,8 @@ pub enum Token {
     RunLimit(RunLimit),
     #[error("Cannot convert from Term: %s")]
     ConversionError(String),
+    #[error("Cannot decode base64 token: %s")]
+    Base64(base64::DecodeError),
 }
 
 impl From<Infallible> for Token {
@@ -46,6 +48,12 @@ impl From<Format> for Token {
 impl From<Logic> for Token {
     fn from(e: Logic) -> Self {
         Token::FailedLogic(e)
+    }
+}
+
+impl From<base64::DecodeError> for Token {
+    fn from(e: base64::DecodeError) -> Self {
+        Token::Base64(e)
     }
 }
 

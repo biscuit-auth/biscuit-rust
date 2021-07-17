@@ -194,6 +194,20 @@ impl Biscuit {
         })
     }
 
+    /// deserializes a token and validates the signature using the root public key
+    pub fn from_base64<T: AsRef<[u8]>>(slice: T) -> Result<Self, error::Token> {
+        Biscuit::from_base64_with_symbols(slice, default_symbol_table())
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_base64_with_symbols<T: AsRef<[u8]>>(
+        slice: T,
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token> {
+        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        Biscuit::from_with_symbols(&decoded, symbols)
+    }
+
     /// deserializes a sealed token and checks its signature with the secret, using a custom symbol table
     pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, error::Token> {
         Biscuit::from_sealed_with_symbols(slice, secret, default_symbol_table())
@@ -270,6 +284,16 @@ impl Biscuit {
         match self.container.as_ref() {
             None => Err(error::Token::InternalError),
             Some(c) => c.to_vec().map_err(error::Token::Format),
+        }
+    }
+
+    pub fn to_base64(&self) -> Result<String, error::Token> {
+        match self.container.as_ref() {
+            None => Err(error::Token::InternalError),
+            Some(c) => c
+                .to_vec()
+                .map_err(error::Token::Format)
+                .map(|v| base64::encode_config(v, base64::URL_SAFE)),
         }
     }
 
