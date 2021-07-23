@@ -605,7 +605,7 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(
-            take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']'),
+            take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']' && c != ';'),
             |s| chrono::DateTime::parse_from_rfc3339(s),
         ),
         |t| t.timestamp().try_into(),
@@ -1659,6 +1659,7 @@ mod tests {
             boolean, constrained_rule, fact, int, pred, rule, s, string, var, Binary, Check,
             Expression, Op, Policy, PolicyKind,
         };
+        use std::time::{Duration, SystemTime};
 
         let input = r#"
           fact("string", #symbol);
@@ -1678,6 +1679,8 @@ mod tests {
           check if
               fact(5678)
               or fact(1234), "test".starts_with("abc");
+
+          check if 2021-01-01T00:00:00Z <= 2021-01-01T00:00:00Z;
 
           deny if true
         "#;
@@ -1737,6 +1740,24 @@ mod tests {
                         }],
                     ),
                 ],
+            },
+            Check {
+                queries: vec![constrained_rule(
+                    "query",
+                    empty_terms,
+                    empty_preds,
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(builder::date(
+                                &(SystemTime::UNIX_EPOCH + Duration::from_secs(1609459200)),
+                            )),
+                            Op::Value(builder::date(
+                                &(SystemTime::UNIX_EPOCH + Duration::from_secs(1609459200)),
+                            )),
+                            Op::Binary(Binary::LessOrEqual),
+                        ],
+                    }],
+                )],
             },
         ];
 
