@@ -109,6 +109,7 @@ World {
     "revocation_id(1, hex:4639618cf1a4a6c4210dad868b14a9869299e7f997c36fa353c8052d6517d438)",
     "right(#authority, \"file1\", #read)",
 ]
+  privileged rules: []
   rules: []
   checks: [
     "Verifier[0]: check if right(#efgh)",
