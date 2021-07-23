@@ -142,6 +142,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
                     Token::ConversionError(_) => ErrorKind::ConversionError,
+                    Token::Base64(_) => ErrorKind::FormatDeserializationError,
                 }
             }
         },
