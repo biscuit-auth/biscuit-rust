@@ -32,6 +32,7 @@ use std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
 };
+use thiserror::Error;
 
 /// parse a Datalog fact
 pub fn fact(i: &str) -> IResult<&str, builder::Fact, Error> {
@@ -911,7 +912,8 @@ pub fn parse_block_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
+#[error("Parse error on input: {input}. Message: {message:?}")]
 pub struct Error<'a> {
     pub input: &'a str,
     pub code: ErrorKind,
