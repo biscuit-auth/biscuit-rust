@@ -1806,4 +1806,123 @@ mod tests {
             expected_policies
         );
     }
+
+    #[test]
+    fn block_source_file() {
+        use builder::{
+            constrained_rule, fact, int, pred, rule, s, string, var, Binary, Check, Expression, Op,
+        };
+        use std::time::{Duration, SystemTime};
+
+        let input = r#"
+          fact("string", #symbol);
+          fact2(1234);
+
+          rule_head($var0) <- fact($var0, $var1), 1 < 2;
+
+          // line comment
+          check if 1 == 2;
+
+          /*
+           other comment
+          */
+
+          check if
+              fact(5678)
+              or fact(1234), "test".starts_with("abc");
+
+          check if 2021-01-01T00:00:00Z <= 2021-01-01T00:00:00Z;
+        "#;
+
+        let res = super::parse_block_source(input);
+        println!("parse_block_source res:\n{:#?}", res);
+
+        let empty_terms: &[builder::Term] = &[];
+        let empty_preds: &[builder::Predicate] = &[];
+
+        let expected_facts = vec![
+            fact("fact", &[string("string"), s("symbol")]),
+            fact("fact2", &[int(1234)]),
+        ];
+
+        let expected_rules = vec![constrained_rule(
+            "rule_head",
+            &[var("var0")],
+            &[pred("fact", &[var("var0"), var("var1")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            }],
+        )];
+
+        let expected_checks = vec![
+            Check {
+                queries: vec![constrained_rule(
+                    "query",
+                    empty_terms,
+                    empty_preds,
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(int(1)),
+                            Op::Value(int(2)),
+                            Op::Binary(Binary::Equal),
+                        ],
+                    }],
+                )],
+            },
+            Check {
+                queries: vec![
+                    rule("query", empty_terms, &[pred("fact", &[int(5678)])]),
+                    constrained_rule(
+                        "query",
+                        empty_terms,
+                        &[pred("fact", &[int(1234)])],
+                        &[Expression {
+                            ops: vec![
+                                Op::Value(string("test")),
+                                Op::Value(string("abc")),
+                                Op::Binary(Binary::Prefix),
+                            ],
+                        }],
+                    ),
+                ],
+            },
+            Check {
+                queries: vec![constrained_rule(
+                    "query",
+                    empty_terms,
+                    empty_preds,
+                    &[Expression {
+                        ops: vec![
+                            Op::Value(builder::date(
+                                &(SystemTime::UNIX_EPOCH + Duration::from_secs(1609459200)),
+                            )),
+                            Op::Value(builder::date(
+                                &(SystemTime::UNIX_EPOCH + Duration::from_secs(1609459200)),
+                            )),
+                            Op::Binary(Binary::LessOrEqual),
+                        ],
+                    }],
+                )],
+            },
+        ];
+
+        let (_remaining, mut result) = res.unwrap();
+        //assert_eq!(remaining, "\n");
+        assert_eq!(
+            result.facts.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_facts
+        );
+        assert_eq!(
+            result.rules.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_rules
+        );
+        assert_eq!(
+            result.checks.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
+            expected_checks
+        );
+    }
 }
