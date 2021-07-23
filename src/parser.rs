@@ -1682,7 +1682,7 @@ mod tests {
 
           check if 2021-01-01T00:00:00Z <= 2021-01-01T00:00:00Z;
 
-          deny if true
+          deny if true;
         "#;
 
         let res = super::parse_source(input);
