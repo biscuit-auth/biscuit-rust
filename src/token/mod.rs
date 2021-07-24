@@ -782,6 +782,11 @@ impl Biscuit {
 
         Some(res)
     }
+
+    /// returns the number of blocks (at least 1)
+    pub fn block_count(&self) -> usize {
+        1 + self.blocks.len()
+    }
 }
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
