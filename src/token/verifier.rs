@@ -30,8 +30,8 @@ pub struct Verifier {
 
 impl Verifier {
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Logic> {
-        let world = token.generate_world(&token.symbols)?;
-        let symbols = token.symbols.clone();
+        let mut symbols = token.symbols.clone();
+        let world = token.generate_world(&mut symbols)?;
 
         Ok(Verifier {
             world,
@@ -166,6 +166,15 @@ impl Verifier {
         for (i, id) in revocation_ids.drain(..).enumerate() {
             self.world.facts.insert(datalog::Fact::new(
                 revocation_id_sym,
+                &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
+            ));
+        }
+
+        let mut unique_revocation_ids = token.unique_revocation_identifiers();
+        let unique_revocation_id_sym = self.symbols.insert("unique_revocation_id");
+        for (i, id) in unique_revocation_ids.drain(..).enumerate() {
+            self.world.facts.insert(datalog::Fact::new(
+                unique_revocation_id_sym,
                 &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
             ));
         }

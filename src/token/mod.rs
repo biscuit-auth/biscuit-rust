@@ -351,7 +351,7 @@ impl Biscuit {
         }
     }
 
-    pub(crate) fn generate_world(&self, symbols: &SymbolTable) -> Result<World, error::Logic> {
+    pub(crate) fn generate_world(&self, symbols: &mut SymbolTable) -> Result<World, error::Logic> {
         let mut world = World::new();
 
         let authority_index = symbols.get("authority").unwrap();
@@ -372,6 +372,15 @@ impl Biscuit {
         for (i, id) in revocation_ids.drain(..).enumerate() {
             world.facts.insert(Fact::new(
                 revocation_id_sym,
+                &[ID::Integer(i as i64), ID::Bytes(id)],
+            ));
+        }
+
+        let mut unique_revocation_ids = self.unique_revocation_identifiers();
+        let unique_revocation_id_sym = symbols.insert("unique_revocation_id");
+        for (i, id) in unique_revocation_ids.drain(..).enumerate() {
+            world.facts.insert(Fact::new(
+                unique_revocation_id_sym,
                 &[ID::Integer(i as i64), ID::Bytes(id)],
             ));
         }
@@ -465,8 +474,9 @@ impl Biscuit {
         verifier_checks: Vec<Check>,
         queries: HashMap<String, Rule>,
     ) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
+        let mut symbols = symbols.clone();
         let mut world = self
-            .generate_world(symbols)
+            .generate_world(&mut symbols)
             .map_err(error::Token::FailedLogic)?;
 
         for fact in ambient_facts.drain(..) {
@@ -664,7 +674,10 @@ impl Biscuit {
         res
     }
 
-    /// returns a list of revocation Ids for each block, in order
+    /// returns a list of revocation identifiers for each block, in order
+    ///
+    /// if a token is generated with the same keys and the same content,
+    /// those identifiers will stay the same
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         use sha2::{Digest, Sha256};
 
@@ -681,6 +694,37 @@ impl Biscuit {
             for (i, block) in token.blocks.iter().enumerate() {
                 h.update(&block);
                 h.update(&token.keys[1 + i].to_bytes());
+
+                let h2 = h.clone();
+                res.push(h2.finalize().as_slice().into());
+            }
+        }
+
+        res
+    }
+
+    /// returns a list of unique revocation identifiers for each block, in order
+    ///
+    /// those identifiers will be different for every token even if they have the
+    /// same content and use the same keys
+    pub fn unique_revocation_identifiers(&self) -> Vec<Vec<u8>> {
+        use sha2::{Digest, Sha256};
+
+        let mut res = Vec::new();
+        let mut h = Sha256::new();
+
+        if let Some(token) = self.container.as_ref() {
+            h.update(&token.authority);
+            h.update(&token.keys[0].to_bytes());
+            h.update(&token.signature.parameters[0].compress().to_bytes());
+
+            let h2 = h.clone();
+            res.push(h2.finalize().as_slice().into());
+
+            for (i, block) in token.blocks.iter().enumerate() {
+                h.update(&block);
+                h.update(&token.keys[1 + i].to_bytes());
+                h.update(&token.signature.parameters[1 + i].compress().to_bytes());
 
                 let h2 = h.clone();
                 res.push(h2.finalize().as_slice().into());
