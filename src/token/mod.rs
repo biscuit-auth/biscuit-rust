@@ -706,6 +706,38 @@ impl Biscuit {
             blocks.join(",\n\t")
         )
     }
+
+    /// prints the content of a block as Datalog source code
+    pub fn print_block_source(&self, index: usize) -> Option<String> {
+        let block = if index == 0 {
+            &self.authority
+        } else {
+            match self.blocks.get(index) {
+                None => return None,
+                Some(block) => block,
+            }
+        };
+
+        let facts: Vec<_> = block.facts.iter().map(|f| self.symbols.print_fact(f)).collect();
+        let rules: Vec<_> = block.rules.iter().map(|r| self.symbols.print_rule(r)).collect();
+        let checks: Vec<_> = block
+            .checks
+            .iter()
+            .map(|r| self.symbols.print_check(r))
+            .collect();
+
+        let mut res = facts.join(";\n");
+        if !facts.is_empty() {
+            res.push_str("\n");
+        }
+        res.push_str(&rules.join(";\n"));
+        if !rules.is_empty() {
+            res.push_str("\n");
+        }
+        res.push_str(&checks.join(";\n"));
+
+        Some(res)
+    }
 }
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
