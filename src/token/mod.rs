@@ -779,6 +779,9 @@ impl Biscuit {
             res.push_str("\n");
         }
         res.push_str(&checks.join(";\n"));
+        if !checks.is_empty() {
+            res.push_str("\n");
+        }
 
         Some(res)
     }
