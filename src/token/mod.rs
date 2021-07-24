@@ -756,7 +756,7 @@ impl Biscuit {
         let block = if index == 0 {
             &self.authority
         } else {
-            match self.blocks.get(index) {
+            match self.blocks.get(index - 1) {
                 None => return None,
                 Some(block) => block,
             }
