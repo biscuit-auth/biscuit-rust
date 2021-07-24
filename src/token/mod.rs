@@ -772,15 +772,15 @@ impl Biscuit {
 
         let mut res = facts.join(";\n");
         if !facts.is_empty() {
-            res.push_str("\n");
+            res.push_str(";\n");
         }
         res.push_str(&rules.join(";\n"));
         if !rules.is_empty() {
-            res.push_str("\n");
+            res.push_str(";\n");
         }
         res.push_str(&checks.join(";\n"));
         if !checks.is_empty() {
-            res.push_str("\n");
+            res.push_str(";\n");
         }
 
         Some(res)
