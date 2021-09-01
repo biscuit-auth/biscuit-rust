@@ -527,7 +527,7 @@ impl Verifier {
     }
 
     /// returns all of the data loaded in the verifier
-    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.checks.clone();
         checks.extend(
             self.token_checks
@@ -547,7 +547,13 @@ impl Verifier {
                 .iter()
                 .map(|r| Rule::convert_from(r, &self.symbols))
                 .collect(),
+            self.world
+                .privileged_rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &self.symbols))
+                .collect(),
             checks,
+            self.policies.clone(),
         )
     }
 }
