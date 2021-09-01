@@ -386,11 +386,9 @@ impl Biscuit {
         }
 
         for rule in self.authority.rules.iter().cloned() {
-            if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables() {
-                return Err(error::Logic::InvalidBlockRule(
-                        0,
-                        symbols.print_rule(&rule),
-                ));
+            if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables()
+            {
+                return Err(error::Logic::InvalidBlockRule(0, symbols.print_rule(&rule)));
             }
 
             world.privileged_rules.push(rule);
@@ -422,7 +420,9 @@ impl Biscuit {
                     ));
                 }
 
-                if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables() {
+                if let Err(_message) =
+                    builder::Rule::convert_from(&rule, symbols).validate_variables()
+                {
                     return Err(error::Logic::InvalidBlockRule(
                         i as u32,
                         symbols.print_rule(&rule),
@@ -490,8 +490,9 @@ impl Biscuit {
         let authority_index = symbols.get("authority").unwrap();
         let ambient_index = symbols.get("ambient").unwrap();
 
-
-        world.run(&[authority_index, ambient_index]).map_err(error::Token::RunLimit)?;
+        world
+            .run(&[authority_index, ambient_index])
+            .map_err(error::Token::RunLimit)?;
         //println!("world:\n{}", symbols.print_world(&world));
 
         // we only keep the verifier rules
@@ -762,8 +763,16 @@ impl Biscuit {
             }
         };
 
-        let facts: Vec<_> = block.facts.iter().map(|f| self.symbols.print_fact(f)).collect();
-        let rules: Vec<_> = block.rules.iter().map(|r| self.symbols.print_rule(r)).collect();
+        let facts: Vec<_> = block
+            .facts
+            .iter()
+            .map(|f| self.symbols.print_fact(f))
+            .collect();
+        let rules: Vec<_> = block
+            .rules
+            .iter()
+            .map(|r| self.symbols.print_rule(r))
+            .collect();
         let checks: Vec<_> = block
             .checks
             .iter()
@@ -1529,11 +1538,13 @@ mod tests {
             let mut block2 = biscuit1_deser.create_block();
 
             // Bypass `check if operation(#ambient, #read)` from authority block
-            block2.add_rule("operation($ambient, #read) <- operation($ambient, $any)")
+            block2
+                .add_rule("operation($ambient, #read) <- operation($ambient, $any)")
                 .unwrap();
 
             // Bypass `check if resource(#ambient, $file), $file.starts_with("/folder1/")` from block #1
-            block2.add_rule("resource($ambient, \"/folder1/\") <- resource($ambient, $any)")
+            block2
+                .add_rule("resource($ambient, \"/folder1/\") <- resource($ambient, $any)")
                 .unwrap();
 
             // Add missing rights
@@ -1562,7 +1573,10 @@ mod tests {
         verifier.add_policy("allow if resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)").unwrap();
         verifier.deny().unwrap();
 
-        let res = verifier.verify_with_limits(crate::token::verifier::VerifierLimits { max_time: Duration::from_secs(1), ..Default::default() });
+        let res = verifier.verify_with_limits(crate::token::verifier::VerifierLimits {
+            max_time: Duration::from_secs(1),
+            ..Default::default()
+        });
         println!("res1: {:?}", res);
         println!("verifier:\n{}", verifier.print_world());
 

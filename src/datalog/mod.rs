@@ -103,7 +103,7 @@ impl fmt::Display for Fact {
 }
 
 impl Rule {
-    pub fn apply<'a>(&'a self, facts: &'a HashSet<Fact>) -> impl Iterator<Item=Fact> +'a {
+    pub fn apply<'a>(&'a self, facts: &'a HashSet<Fact>) -> impl Iterator<Item = Fact> + 'a {
         // gather all of the variables used in that rule
         let variables_set = self
             .body
@@ -484,7 +484,11 @@ impl World {
         self.run_with_limits(RunLimits::default(), restricted_symbols)
     }
 
-    pub fn run_with_limits(&mut self, limits: RunLimits, restricted_symbols: &[u64]) -> Result<(), crate::error::RunLimit> {
+    pub fn run_with_limits(
+        &mut self,
+        limits: RunLimits,
+        restricted_symbols: &[u64],
+    ) -> Result<(), crate::error::RunLimit> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
@@ -498,13 +502,15 @@ impl World {
 
             for rule in self.rules.iter() {
                 new_facts.extend(rule.apply(&self.facts).filter_map(|fact| {
-                  match fact.predicate.ids.get(0) {
-                      Some(ID::Symbol(sym)) => if restricted_symbols.contains(&sym) {
-                          return None;
-                      },
-                      _ => {}
-                  };
-                  Some(fact)
+                    match fact.predicate.ids.get(0) {
+                        Some(ID::Symbol(sym)) => {
+                            if restricted_symbols.contains(&sym) {
+                                return None;
+                            }
+                        }
+                        _ => {}
+                    };
+                    Some(fact)
                 }));
                 //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
             }
@@ -1199,9 +1205,7 @@ mod tests {
         let r1 = rule(
             operation,
             &[&unbound, &read],
-            &[
-              pred(operation, &[&any1, &any2])
-            ],
+            &[pred(operation, &[&any1, &any2])],
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
@@ -1218,13 +1222,7 @@ mod tests {
         // in case it is generated though, verify that rule application
         // will not match it
         w.add_fact(fact(operation, &[&unbound, &read]));
-        let r2 = rule(
-            check,
-            &[&read],
-            &[
-              pred(operation, &[&ambient, &read])
-            ],
-        );
+        let r2 = rule(check, &[&read], &[pred(operation, &[&ambient, &read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
         let res = w.query_rule(r2);

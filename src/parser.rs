@@ -76,11 +76,13 @@ pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
 
     let (i, _) = error(
         preceded(space0, eof),
-        |input| match input.chars().next() {
+        |input| {
+            match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
             //Some('$') => "variables are not allowed in facts".to_string(),
             _ => format!("expected either the next term after ',' or the next check variant after 'or', but got '{}'",
                      input)
+        }
         },
         " ,\n",
     )(i)?;
@@ -99,15 +101,17 @@ fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
 
 /// parse an allow or deny rule
 pub fn policy(i: &str) -> IResult<&str, builder::Policy, Error> {
-    let(i, policy) = policy_inner(i)?;
+    let (i, policy) = policy_inner(i)?;
 
     let (i, _) = error(
         preceded(space0, eof),
-        |input| match input.chars().next() {
+        |input| {
+            match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
             //Some('$') => "variables are not allowed in facts".to_string(),
             _ => format!("expected either the next term after ',' or the next policy variant after 'or', but got '{}'",
                      input)
+        }
         },
         " ,\n",
     )(i)?;
@@ -183,8 +187,10 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
         |input| match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
             //Some('$') => "variables are not allowed in facts".to_string(),
-            _ => format!("expected the next term or expression after ',', but got '{}'",
-                     input)
+            _ => format!(
+                "expected the next term or expression after ',', but got '{}'",
+                input
+            ),
         },
         " ,\n",
     )(i)?;
@@ -203,11 +209,11 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
     let rule = builder::Rule(head, predicates, expressions);
 
     if let Err(message) = rule.validate_variables() {
-        return Err( nom::Err::Error(Error {
-                input: head_input,
-                code: ErrorKind::Satisfy,
-                message: Some(message),
-            }))
+        return Err(nom::Err::Error(Error {
+            input: head_input,
+            code: ErrorKind::Satisfy,
+            message: Some(message),
+        }));
     }
 
     Ok((i, rule))
@@ -227,12 +233,10 @@ impl TryFrom<&str> for builder::Rule {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        rule(value)
-            .map(|(_, o)| o)
-            .map_err(|e| {
-                println!("rule parsing error: {:?}", e);
-                error::Token::ParseError
-            })
+        rule(value).map(|(_, o)| o).map_err(|e| {
+            println!("rule parsing error: {:?}", e);
+            error::Token::ParseError
+        })
     }
 }
 
@@ -873,7 +877,7 @@ pub fn parse_block_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error
                     SourceElement::Fact(i, f) => result.facts.push((i, f)),
                     SourceElement::Rule(i, r) => result.rules.push((i, r)),
                     SourceElement::Check(i, c) => result.checks.push((i, c)),
-                    SourceElement::Policy(_, _) => {},
+                    SourceElement::Policy(_, _) => {}
                     SourceElement::Comment => {}
                 }
 
@@ -1011,9 +1015,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::Error;
     use crate::{datalog, token::builder};
     use nom::error::ErrorKind;
-    use super::Error;
 
     #[test]
     fn name() {

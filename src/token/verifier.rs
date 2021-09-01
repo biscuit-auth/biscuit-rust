@@ -4,10 +4,10 @@ use super::builder::{
     Policy, PolicyKind, Rule, Term, Unary,
 };
 use super::Biscuit;
+use crate::crypto::PublicKey;
 use crate::datalog;
 use crate::error;
 use crate::time::Instant;
-use crate::crypto::PublicKey;
 use prost::Message;
 use std::{
     convert::{TryFrom, TryInto},
@@ -152,9 +152,9 @@ impl Verifier {
 
         for fact in token.authority.facts.iter().cloned() {
             if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
-                return Err(error::Logic::InvalidAuthorityFact(
-                    token.symbols.print_fact(&fact),
-                ).into());
+                return Err(
+                    error::Logic::InvalidAuthorityFact(token.symbols.print_fact(&fact)).into(),
+                );
             }
 
             let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
@@ -184,10 +184,9 @@ impl Verifier {
             let rule = r.convert(&mut self.symbols);
 
             if let Err(_message) = r.validate_variables() {
-                return Err(error::Logic::InvalidBlockRule(
-                    0,
-                    token.symbols.print_rule(&rule),
-                ).into());
+                return Err(
+                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                );
             }
 
             self.world.privileged_rules.push(rule);
@@ -202,7 +201,8 @@ impl Verifier {
                     return Err(error::Logic::InvalidBlockFact(
                         i as u32,
                         token.symbols.print_fact(&fact),
-                    ).into());
+                    )
+                    .into());
                 }
 
                 let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
@@ -217,7 +217,8 @@ impl Verifier {
                     return Err(error::Logic::InvalidBlockRule(
                         i as u32,
                         token.symbols.print_rule(&rule),
-                    ).into());
+                    )
+                    .into());
                 }
 
                 let r = Rule::convert_from(&rule, &token.symbols);
@@ -226,7 +227,8 @@ impl Verifier {
                     return Err(error::Logic::InvalidBlockRule(
                         i as u32,
                         token.symbols.print_rule(&rule),
-                    ).into());
+                    )
+                    .into());
                 }
 
                 let rule = r.convert(&mut self.symbols);
@@ -266,7 +268,9 @@ impl Verifier {
     /// add a rule to the verifier
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.world.privileged_rules.push(rule.convert(&mut self.symbols));
+        self.world
+            .privileged_rules
+            .push(rule.convert(&mut self.symbols));
         Ok(())
     }
 

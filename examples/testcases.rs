@@ -101,7 +101,8 @@ fn main() {
             root_private_key: hex::encode(root.private().to_bytes()),
             root_public_key: hex::encode(root.public().to_bytes()),
             testcases: results,
-        }).unwrap();
+        })
+        .unwrap();
 
         println!("{}", s);
     } else {
@@ -109,7 +110,7 @@ fn main() {
         println!(
             "root secret key: {}",
             hex::encode(root.private().to_bytes())
-            );
+        );
         println!("root public key: {}", hex::encode(root.public().to_bytes()));
 
         for result in results {

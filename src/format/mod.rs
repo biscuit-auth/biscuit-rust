@@ -14,9 +14,9 @@ use super::error;
 use super::token::Block;
 
 /// Structures generated from the Protobuf schema
-pub mod schema;/* {
-    include!(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs"));
-}*/
+pub mod schema; /* {
+                    include!(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs"));
+                }*/
 
 pub mod convert;
 
