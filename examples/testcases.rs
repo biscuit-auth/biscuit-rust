@@ -30,23 +30,30 @@ fn main() {
         }
     };
 
-    let test = match args.next().as_deref() {
-        Some("--test") => true,
+    let mut test = false;
+    let mut json = false;
+    match args.next().as_deref() {
+        Some("--test") => test = true,
+        Some("--json") => json = true,
         Some(arg) => {
             println!("unknown argument: {}", arg);
             return;
         }
-        None => false,
+        None => {}
+    };
+
+    match args.next().as_deref() {
+        Some("--test") => test = true,
+        Some("--json") => json = true,
+        Some(arg) => {
+            println!("unknown argument: {}", arg);
+            return;
+        }
+        None => {}
     };
 
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let root = KeyPair::new_with_rng(&mut rng);
-    println!("# Biscuit samples and expected results\n");
-    println!(
-        "root secret key: {}",
-        hex::encode(root.private().to_bytes())
-    );
-    println!("root public key: {}", hex::encode(root.public().to_bytes()));
 
     let mut results = Vec::new();
     results.push(basic_token(&mut rng, &target, &root, test));
@@ -89,18 +96,41 @@ fn main() {
         &mut rng, &target, &root, test,
     ));
 
-    for result in results {
-        println!("\n------------------------------\n");
-        println!("{}", result.print());
+    if json {
+        let s = serde_json::to_string_pretty(&TestCases {
+            root_private_key: hex::encode(root.private().to_bytes()),
+            root_public_key: hex::encode(root.public().to_bytes()),
+            testcases: results,
+        }).unwrap();
+
+        println!("{}", s);
+    } else {
+        println!("# Biscuit samples and expected results\n");
+        println!(
+            "root secret key: {}",
+            hex::encode(root.private().to_bytes())
+            );
+        println!("root public key: {}", hex::encode(root.public().to_bytes()));
+
+        for result in results {
+            println!("\n------------------------------\n");
+            println!("{}", result.print());
+        }
     }
 }
 
+#[derive(Debug, Serialize)]
+struct TestCases {
+    pub root_private_key: String,
+    pub root_public_key: String,
+    pub testcases: Vec<TestResult>,
+}
 #[derive(Debug, Serialize)]
 struct TestResult {
     pub title: String,
     pub filename: String,
     pub print_token: BTreeMap<String, String>,
-    pub validations: BTreeMap<Option<String>, (Option<VerifierWorld>, VerifierResult)>,
+    pub validations: BTreeMap<String, (Option<VerifierWorld>, VerifierResult)>,
 }
 
 impl TestResult {
@@ -115,9 +145,10 @@ impl TestResult {
         }
 
         for (name, (verifier_world, verifier_result)) in &self.validations {
-            match name {
-                None => writeln!(&mut s, "validation:"),
-                Some(n) => writeln!(&mut s, "validation for \"{}\":", n),
+            if name.is_empty() {
+                writeln!(&mut s, "validation:")
+            } else {
+                writeln!(&mut s, "validation for \"{}\":", name)
             };
 
             if let Some(world) = verifier_world {
@@ -273,7 +304,7 @@ fn basic_token<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -336,7 +367,7 @@ fn different_root_key<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -406,7 +437,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -479,7 +510,7 @@ fn random_block<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -550,7 +581,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -641,7 +672,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -707,7 +738,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -769,7 +800,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -833,7 +864,7 @@ fn expired_token<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -933,7 +964,7 @@ fn authority_rules<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -986,7 +1017,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1050,7 +1081,7 @@ fn authority_checks<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        Some("file1".to_string()),
+        "file1".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1064,7 +1095,7 @@ fn authority_checks<T: Rng + CryptoRng>(
     );
 
     validations.insert(
-        Some("file2".to_string()),
+        "file2".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1184,7 +1215,7 @@ fn block_rules<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        Some("file1".to_string()),
+        "file1".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1208,7 +1239,7 @@ fn block_rules<T: Rng + CryptoRng>(
     );
 
     validations.insert(
-        Some("file2".to_string()),
+        "file2".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1281,7 +1312,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        Some("file1".to_string()),
+        "file1".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1292,7 +1323,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
     );
 
     validations.insert(
-        Some("file123".to_string()),
+        "file123".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1345,7 +1376,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1415,7 +1446,7 @@ fn check_head_name<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(root, &data[..], vec![], vec![], vec![]),
     );
     TestResult {
@@ -1516,7 +1547,7 @@ fn expressions<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(root, &data[..], vec![], vec![], vec![]),
     );
 
@@ -1575,7 +1606,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1644,7 +1675,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        None,
+        "".to_string(),
         validate_token(
             root,
             &data[..],
