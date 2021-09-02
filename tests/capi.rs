@@ -108,6 +108,8 @@ World {
     "revocation_id(0, hex:f5e7f4c5af9f057b414535b94c02a82e185cd21054220f10935b403ec15f54f9)",
     "revocation_id(1, hex:4639618cf1a4a6c4210dad868b14a9869299e7f997c36fa353c8052d6517d438)",
     "right(#authority, \"file1\", #read)",
+    "unique_revocation_id(0, hex:14136f1a8ec36e80b9fa4e08f8bbb113a721b8cbac1abc07a18243200220328a)",
+    "unique_revocation_id(1, hex:f2789ea34973c4178a003fd796ebd91d3fd711e0e798556fa7ecaecd9efcfb2f)",
 ]
   privileged rules: []
   rules: []
