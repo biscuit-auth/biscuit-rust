@@ -180,6 +180,7 @@ impl BlockBuilder {
 
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
+    root_key_id: Option<u32>,
     root: &'a KeyPair,
     pub symbols_start: usize,
     pub symbols: SymbolTable,
@@ -192,6 +193,7 @@ pub struct BiscuitBuilder<'a> {
 impl<'a> BiscuitBuilder<'a> {
     pub fn new(root: &'a KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a> {
         BiscuitBuilder {
+            root_key_id: None,
             root,
             symbols_start: base_symbols.symbols.len(),
             symbols: base_symbols,
@@ -202,6 +204,9 @@ impl<'a> BiscuitBuilder<'a> {
         }
     }
 
+    pub fn set_root_key_id(&mut self, id: u32) {
+        self.root_key_id = Some(id);
+    }
     pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
 
@@ -256,7 +261,13 @@ impl<'a> BiscuitBuilder<'a> {
             version: super::MAX_SCHEMA_VERSION,
         };
 
-        Biscuit::new_with_rng(rng, self.root, self.symbols, authority_block)
+        Biscuit::new_with_rng(
+            rng,
+            self.root_key_id,
+            self.root,
+            self.symbols,
+            authority_block,
+        )
     }
 }
 

@@ -1,62 +1,9 @@
 //! helper functions for conversion between internal structures and Protobuf
-use crate::crypto::TokenSignature;
-use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
 use super::schema;
 use crate::datalog::*;
 use crate::error;
 use crate::token::{verifier::VerifierPolicies, Block};
-
-pub fn token_sig_to_proto_sig(input: &TokenSignature) -> schema::Signature {
-    schema::Signature {
-        parameters: input
-            .parameters
-            .iter()
-            .map(|g| Vec::from(&g.compress().to_bytes()[..]))
-            .collect(),
-        z: Vec::from(&input.z.as_bytes()[..]),
-    }
-}
-
-pub fn proto_sig_to_token_sig(input: schema::Signature) -> Result<TokenSignature, error::Format> {
-    let mut parameters = vec![];
-
-    for data in input.parameters {
-        if data.len() == 32 {
-            if let Some(d) = CompressedRistretto::from_slice(&data[..]).decompress() {
-                parameters.push(d);
-            } else {
-                return Err(error::Format::DeserializationError(
-                    "deserialization error: cannot decompress parameters point".to_string(),
-                ));
-            }
-        } else {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: invalid size for parameters = {}",
-                data.len()
-            )));
-        }
-    }
-
-    let z = if input.z.len() == 32 {
-        let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(&input.z[..]);
-        if let Some(d) = Scalar::from_canonical_bytes(bytes) {
-            d
-        } else {
-            return Err(error::Format::DeserializationError(
-                "deserialization error: non canonical z scalar".to_string(),
-            ));
-        }
-    } else {
-        return Err(error::Format::DeserializationError(format!(
-            "deserialization error: invalid size for z = {} bytes",
-            input.z.len()
-        )));
-    };
-
-    Ok(TokenSignature { parameters, z })
-}
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {

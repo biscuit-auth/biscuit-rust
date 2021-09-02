@@ -55,14 +55,14 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this token is only 244 bytes, holding the authority data and the signature
-//!   assert_eq!(token1.len(), 244);
+//!   // this token is only 279 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 279);
 //!
 //!   // now let's add some restrictions to this token
 //!   // we want to limit access to `/a/file1.txt` and to read operations
 //!   let token2 = {
 //!     // the token is deserialized, the signature is verified
-//!     let deser = Biscuit::from(&token1)?;
+//!     let deser = Biscuit::from(&token1,  |_| root.public())?;
 //!
 //!     let mut builder = deser.create_block();
 //!
@@ -93,20 +93,20 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 373 bytes
-//!   assert_eq!(token2.len(), 373);
+//!   // this new token fits in 443 bytes
+//!   assert_eq!(token2.len(), 443);
 //!
 //!   /************** VERIFICATION ****************/
 //!
 //!   // let's deserialize the token:
-//!   let biscuit2 = Biscuit::from(&token2)?;
+//!   let biscuit2 = Biscuit::from(&token2,  |_| root.public())?;
 //!
 //!   // let's define 3 verifiers (corresponding to 3 different requests):
 //!   // - one for /a/file1.txt and a read operation
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let mut v1 = biscuit2.verify(public_key)?;
+//!   let mut v1 = biscuit2.verify()?;
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
@@ -120,7 +120,7 @@
 //!   // the token restricts to read operations:
 //!   assert!(v1.verify().is_ok());
 //!
-//!   let mut v2 = biscuit2.verify(public_key)?;
+//!   let mut v2 = biscuit2.verify()?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
 //!   v2.add_check("check if right(#authority, \"/a/file1.txt\", #write)");
@@ -128,7 +128,7 @@
 //!   // the second verifier requested a read operation
 //!   assert!(v2.verify().is_err());
 //!
-//!   let mut v3 = biscuit2.verify(public_key)?;
+//!   let mut v3 = biscuit2.verify()?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
 //!   v3.add_check("check if right(#authority, \"/a/file2.txt\", #read)");

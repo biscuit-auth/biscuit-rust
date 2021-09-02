@@ -4,7 +4,6 @@ use super::builder::{
     Policy, PolicyKind, Rule, Term, Unary,
 };
 use super::Biscuit;
-use crate::crypto::PublicKey;
 use crate::datalog;
 use crate::error;
 use crate::time::Instant;
@@ -138,9 +137,7 @@ impl Verifier {
     }
 
     /// Loads a token's facts, rules and checks in a verifier
-    pub fn add_token(&mut self, token: &Biscuit, root: PublicKey) -> Result<(), error::Token> {
-        token.check_root_key(root)?;
-
+    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Token> {
         if self.has_token {
             return Err(error::Logic::VerifierNotEmpty.into());
         } else {

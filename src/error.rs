@@ -85,6 +85,12 @@ pub enum Format {
     BlockSerializationError(String),
     #[error("Block format version is higher than supported")]
     Version { maximum: u32, actual: u32 },
+    #[error("invalid key size")]
+    InvalidKeySize(usize),
+    #[error("invalid signature size")]
+    InvalidSignatureSize(usize),
+    #[error("invalid key")]
+    InvalidKey(String),
 }
 
 /// Signature errors
@@ -93,7 +99,9 @@ pub enum Signature {
     #[error("could not parse the signature elements")]
     InvalidFormat,
     #[error("the signature did not match")]
-    InvalidSignature,
+    InvalidSignature(String),
+    #[error("could not sign")]
+    InvalidSignatureGeneration(String),
 }
 
 /// errors in the Datalog evaluation

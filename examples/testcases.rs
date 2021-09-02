@@ -186,12 +186,12 @@ fn validate_token(
     ambient_rules: Vec<Rule>,
     checks: Vec<Vec<Rule>>,
 ) -> (Option<VerifierWorld>, VerifierResult) {
-    let token = match Biscuit::from(&data[..]) {
+    let token = match Biscuit::from(&data[..], |_| root.public()) {
         Ok(t) => t,
         Err(e) => return (None, VerifierResult::Err(vec![format!("{:?}", e)])),
     };
 
-    let mut verifier = match token.verify(root.public()) {
+    let mut verifier = match token.verify() {
         Ok(v) => v,
         Err(e) => return (None, VerifierResult::Err(vec![format!("{:?}", e)])),
     };
@@ -289,7 +289,7 @@ fn basic_token<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test1_basic");
-        let token = Biscuit::from(&v[..]).unwrap();
+        let token = Biscuit::from(&v[..], |_| root.public()).unwrap();
 
         let actual = biscuit2.print();
         let expected = token.print();
@@ -429,7 +429,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
 
         let serialized = biscuit2.container().unwrap();
         let mut proto = serialized.to_proto();
-        proto.signature.z.truncate(16);
+        proto.authority.signature.truncate(16);
         let mut data = Vec::new();
         proto.encode(&mut data).unwrap();
         write_testcase(target, "test3_invalid_signature_format", &data[..]);
@@ -501,7 +501,7 @@ fn random_block<T: Rng + CryptoRng>(
         let serialized = biscuit2.container().unwrap();
         let mut proto = serialized.to_proto();
         let arr: [u8; 32] = rng.gen();
-        proto.blocks[0] = Vec::from(&arr[..]);
+        proto.blocks[0].block = Vec::from(&arr[..]);
         let mut data = Vec::new();
         proto.encode(&mut data).unwrap();
 
@@ -571,10 +571,12 @@ fn invalid_signature<T: Rng + CryptoRng>(
     } else {
         print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
 
-        let mut serialized = biscuit2.container().unwrap().clone();
-        serialized.signature.z = serialized.signature.z + Scalar::one();
+        let serialized = biscuit2.container().unwrap();
+        let mut proto = serialized.to_proto();
+        proto.authority.signature[0] = proto.authority.signature[0] + 1;
+        let mut data = Vec::new();
+        proto.encode(&mut data).unwrap();
 
-        let data = serialized.to_vec().unwrap();
         write_testcase(target, "test5_invalid_signature", &data[..]);
 
         data
@@ -656,12 +658,6 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     blocks.push(serialized.blocks[0].clone());
     serialized.blocks = blocks;
 
-    let mut keys = vec![];
-    keys.push(serialized.keys[0].clone());
-    keys.push(serialized.keys[2].clone());
-    keys.push(serialized.keys[1].clone());
-    serialized.keys = keys;
-
     let data = if test {
         let v = load_testcase(target, "test6_reordered_blocks");
         v
@@ -725,7 +721,7 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test7_invalid_block_fact_authority");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -788,7 +784,7 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test8_invalid_block_fact_ambient");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -851,7 +847,7 @@ fn expired_token<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test9_expired_token");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -952,7 +948,7 @@ fn authority_rules<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test10_authority_rules");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -1005,7 +1001,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test11_verifier_authority_caveats");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
@@ -1069,7 +1065,7 @@ fn authority_checks<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test12_authority_caveats");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
@@ -1202,7 +1198,7 @@ fn block_rules<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test13_block_rules");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -1300,7 +1296,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test14_regex_constraint");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
@@ -1363,7 +1359,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test15_multi_queries_caveats");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
@@ -1435,7 +1431,7 @@ fn check_head_name<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test16_caveat_head_name");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -1536,7 +1532,7 @@ fn expressions<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test17_expressions");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit.print(), &expected.print());
         v
     } else {
@@ -1594,7 +1590,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test8_invalid_block_fact_ambient");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
@@ -1659,7 +1655,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
 
     let data = if test {
         let v = load_testcase(target, "test19_generating_ambient_from_variables");
-        let expected = Biscuit::from(&v[..]).unwrap();
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {

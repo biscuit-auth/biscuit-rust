@@ -14,7 +14,6 @@ use crate::format::{convert::proto_block_to_token_block, schema};
 use verifier::Verifier;
 
 pub mod builder;
-pub mod sealed;
 pub mod verifier;
 
 /// maximum supported version of the serialization format
@@ -69,6 +68,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// ```
 #[derive(Clone, Debug)]
 pub struct Biscuit {
+    pub(crate) root_key_id: Option<u32>,
     pub(crate) authority: Block,
     pub(crate) blocks: Vec<Block>,
     pub(crate) symbols: SymbolTable,
@@ -82,11 +82,18 @@ impl Biscuit {
     ///
     /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
     pub fn new(
+        root_key_id: Option<u32>,
         root: &KeyPair,
         symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
-        Self::new_with_rng(&mut rand::rngs::OsRng, root, symbols, authority)
+        Self::new_with_rng(
+            &mut rand::rngs::OsRng,
+            root_key_id,
+            root,
+            symbols,
+            authority,
+        )
     }
 
     /// creates a new token, using a provided CSPRNG
@@ -96,6 +103,7 @@ impl Biscuit {
     /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
     pub fn new_with_rng<T: RngCore + CryptoRng>(
         rng: &mut T,
+        root_key_id: Option<u32>,
         root: &KeyPair,
         mut symbols: SymbolTable,
         authority: Block,
@@ -117,10 +125,11 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let container =
-            SerializedBiscuit::new(rng, root, &authority).map_err(error::Token::Format)?;
+        let next_keypair = KeyPair::new_with_rng(rng);
+        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
 
         Ok(Biscuit {
+            root_key_id,
             authority,
             blocks,
             symbols,
@@ -129,15 +138,19 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
-        Biscuit::from_with_symbols(slice, default_symbol_table())
+    pub fn from<F: Fn(Option<u32>) -> PublicKey>(slice: &[u8], f: F) -> Result<Self, error::Token> {
+        Biscuit::from_with_symbols(slice, f, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
-        let container = SerializedBiscuit::from_slice(slice).map_err(error::Token::Format)?;
+    pub fn from_with_symbols<F: Fn(Option<u32>) -> PublicKey>(
+        slice: &[u8],
+        f: F,
+        mut symbols: SymbolTable,
+    ) -> Result<Self, error::Token> {
+        let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
 
-        let authority: Block = schema::Block::decode(&container.authority[..])
+        let authority: Block = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
                     "error deserializing authority block: {:?}",
@@ -154,7 +167,7 @@ impl Biscuit {
 
         let mut index = 1;
         for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block[..])
+            let deser: Block = schema::Block::decode(&block.data[..])
                 .map_err(|e| {
                     error::Token::Format(error::Format::BlockDeserializationError(format!(
                         "error deserializing block: {:?}",
@@ -184,9 +197,11 @@ impl Biscuit {
                 .extend(block.symbols.symbols.iter().cloned());
         }
 
+        let root_key_id = container.root_key_id;
         let container = Some(container);
 
         Ok(Biscuit {
+            root_key_id,
             authority,
             blocks,
             symbols,
@@ -195,88 +210,21 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T: AsRef<[u8]>>(slice: T) -> Result<Self, error::Token> {
-        Biscuit::from_base64_with_symbols(slice, default_symbol_table())
+    pub fn from_base64<T: AsRef<[u8]>, F: Fn(Option<u32>) -> PublicKey>(
+        slice: T,
+        f: F,
+    ) -> Result<Self, error::Token> {
+        Biscuit::from_base64_with_symbols(slice, f, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_base64_with_symbols<T: AsRef<[u8]>>(
+    pub fn from_base64_with_symbols<T: AsRef<[u8]>, F: Fn(Option<u32>) -> PublicKey>(
         slice: T,
+        f: F,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
         let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
-        Biscuit::from_with_symbols(&decoded, symbols)
-    }
-
-    /// deserializes a sealed token and checks its signature with the secret, using a custom symbol table
-    pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, error::Token> {
-        Biscuit::from_sealed_with_symbols(slice, secret, default_symbol_table())
-    }
-
-    /// deserializes a sealed token and checks its signature with the secret
-    pub fn from_sealed_with_symbols(
-        slice: &[u8],
-        secret: &[u8],
-        mut symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
-        let container =
-            sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
-
-        let authority: Block = schema::Block::decode(&container.authority[..])
-            .map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing authority block: {:?}",
-                    e
-                )))
-            })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-        if authority.index != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
-        let mut blocks = vec![];
-
-        let mut index = 1;
-        for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block[..])
-                .map_err(|e| {
-                    error::Token::Format(error::Format::BlockDeserializationError(format!(
-                        "error deserializing block: {:?}",
-                        e
-                    )))
-                })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-            if deser.index != index {
-                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                    expected: index,
-                    found: deser.index,
-                }));
-            }
-            blocks.push(deser);
-
-            index += 1;
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
-        }
-
-        let container = None;
-
-        Ok(Biscuit {
-            authority,
-            blocks,
-            symbols,
-            container,
-        })
+        Biscuit::from_with_symbols(&decoded, f, symbols)
     }
 
     /// serializes the token
@@ -305,19 +253,16 @@ impl Biscuit {
         }
     }
 
-    /// serializes the token
-    pub fn sealed_size(&self) -> Result<usize, error::Token> {
-        // FIXME: not ideal to serialize a sealed token just for this
-        let sealed =
-            sealed::SealedBiscuit::from_token(self, &b"ABCD"[..]).map_err(error::Token::Format)?;
-        Ok(sealed.serialized_size())
-    }
-
     /// serializes a sealed version of the token
-    pub fn seal(&self, secret: &[u8]) -> Result<Vec<u8>, error::Token> {
-        let sealed =
-            sealed::SealedBiscuit::from_token(self, secret).map_err(error::Token::Format)?;
-        sealed.to_vec().map_err(error::Token::Format)
+    pub fn seal(&self) -> Result<Vec<u8>, error::Token> {
+        match &self.container {
+            None => Err(error::Token::InternalError),
+            Some(c) => {
+                let token = c.seal();
+
+                token.and_then(|t| t.to_vec().map_err(error::Token::Format))
+            }
+        }
     }
 
     /// returns the internal representation of the token
@@ -325,30 +270,9 @@ impl Biscuit {
         self.container.as_ref()
     }
 
-    /// tests that the token uses this public key as root
-    pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Token> {
-        self.container
-            .as_ref()
-            .map(|c| c.check_root_key(root).map_err(error::Token::Format))
-            .unwrap_or(Err(error::Token::Sealed))?;
-        Ok(())
-    }
-
     /// creates a verifier from this token
-    ///
-    /// this will also call [`Biscuit::check_root_key`]
-    pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
-        self.check_root_key(root)?;
+    pub fn verify(&self) -> Result<Verifier, error::Token> {
         Verifier::from_token(self).map_err(error::Token::FailedLogic)
-    }
-
-    /// creates a verifier from this token
-    pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
-        if self.container.is_some() {
-            Err(error::Token::InternalError)
-        } else {
-            Verifier::from_token(self).map_err(error::Token::FailedLogic)
-        }
     }
 
     pub(crate) fn generate_world(&self, symbols: &mut SymbolTable) -> Result<World, error::Logic> {
@@ -643,9 +567,7 @@ impl Biscuit {
 
         let container = match self.container.as_ref() {
             None => return Err(error::Token::Sealed),
-            Some(c) => c
-                .append(rng, keypair, &block)
-                .map_err(error::Token::Format)?,
+            Some(c) => c.append(keypair, &block)?,
         };
 
         symbols
@@ -654,6 +576,7 @@ impl Biscuit {
         blocks.push(block);
 
         Ok(Biscuit {
+            root_key_id: self.root_key_id,
             authority,
             blocks,
             symbols,
@@ -686,15 +609,15 @@ impl Biscuit {
         let mut h = Sha256::new();
 
         if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority);
-            h.update(&token.keys[0].to_bytes());
+            h.update(&token.authority.data);
+            h.update(token.authority.next_key.to_bytes());
 
             let h2 = h.clone();
             res.push(h2.finalize().as_slice().into());
 
-            for (i, block) in token.blocks.iter().enumerate() {
-                h.update(&block);
-                h.update(&token.keys[1 + i].to_bytes());
+            for block in token.blocks.iter() {
+                h.update(&block.data);
+                h.update(block.next_key.to_bytes());
 
                 let h2 = h.clone();
                 res.push(h2.finalize().as_slice().into());
@@ -715,17 +638,15 @@ impl Biscuit {
         let mut h = Sha256::new();
 
         if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority);
-            h.update(&token.keys[0].to_bytes());
-            h.update(&token.signature.parameters[0].compress().to_bytes());
+            h.update(&token.authority.data);
+            h.update(&token.authority.next_key.to_bytes());
 
             let h2 = h.clone();
             res.push(h2.finalize().as_slice().into());
 
-            for (i, block) in token.blocks.iter().enumerate() {
-                h.update(&block);
-                h.update(&token.keys[1 + i].to_bytes());
-                h.update(&token.signature.parameters[1 + i].compress().to_bytes());
+            for block in token.blocks.iter() {
+                h.update(&block.data);
+                h.update(&block.next_key.to_bytes());
 
                 let h2 = h.clone();
                 res.push(h2.finalize().as_slice().into());
@@ -960,7 +881,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
@@ -991,7 +912,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2, |_| root.public()).unwrap();
 
             // new check: can only access file1
             let mut block3 = biscuit2_deser.create_block();
@@ -1016,8 +937,7 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3).unwrap();
-        final_token.check_root_key(root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
         {
             let mut symbols = final_token.symbols.clone();
@@ -1090,7 +1010,7 @@ mod tests {
             .unwrap();
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
             verifier.allow().unwrap();
@@ -1102,7 +1022,7 @@ mod tests {
         }
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("/folder2/file3");
             verifier.add_operation("read");
             verifier.allow().unwrap();
@@ -1124,7 +1044,7 @@ mod tests {
         }
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("/folder2/file1");
             verifier.add_operation("write");
 
@@ -1163,7 +1083,7 @@ mod tests {
             .unwrap();
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
@@ -1176,7 +1096,7 @@ mod tests {
 
         {
             println!("biscuit2: {}", biscuit2.print());
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
@@ -1221,7 +1141,7 @@ mod tests {
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
             verifier.allow().unwrap();
@@ -1235,13 +1155,13 @@ mod tests {
         //println!("biscuit2 serialized ({} bytes):\n{}", serialized.len(), serialized.to_hex(16));
 
         let secret = b"secret key";
-        let sealed = biscuit2.seal(&secret[..]).unwrap();
+        let sealed = biscuit2.seal().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
-        let biscuit3 = Biscuit::from_sealed(&sealed, &secret[..]).unwrap();
+        let biscuit3 = Biscuit::from(&sealed, |_| root.public()).unwrap();
 
         {
-            let mut verifier = biscuit3.verify_sealed().unwrap();
+            let mut verifier = biscuit3.verify().unwrap();
             verifier.add_resource("/folder1/file1");
             verifier.add_operation("read");
             verifier.allow().unwrap();
@@ -1277,7 +1197,7 @@ mod tests {
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
         println!("{}", biscuit1.print());
 
-        let mut v = biscuit1.verify(root.public()).expect("omg verifier");
+        let mut v = biscuit1.verify().expect("omg verifier");
 
         v.add_check(rule(
             "right",
@@ -1337,7 +1257,7 @@ mod tests {
             .append_with_rng(&mut rng, &keypair3, block3)
             .unwrap();
         {
-            let mut verifier = biscuit3.verify(root.public()).unwrap();
+            let mut verifier = biscuit3.verify().unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
@@ -1394,7 +1314,7 @@ mod tests {
 
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
+            let mut verifier = biscuit2.verify().unwrap();
             verifier.add_resource("file1");
             verifier.add_operation("read");
             verifier.set_time();
@@ -1430,7 +1350,7 @@ mod tests {
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
-        let mut verifier1 = biscuit1.verify(root.public()).unwrap();
+        let mut verifier1 = biscuit1.verify().unwrap();
         verifier1.allow().unwrap();
         let res1 = verifier1.verify();
         println!("res1: {:?}", res1);
@@ -1454,7 +1374,7 @@ mod tests {
             .unwrap();
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
-        let mut verifier2 = biscuit2.verify(root.public()).unwrap();
+        let mut verifier2 = biscuit2.verify().unwrap();
         verifier2.allow().unwrap();
         let res2 = verifier2.verify();
         assert_eq!(res2, Ok(0));
@@ -1484,7 +1404,7 @@ mod tests {
             .append_with_rng(&mut rng, &keypair2, block2)
             .unwrap();
 
-        let mut verifier = biscuit2.verify(root.public()).unwrap();
+        let mut verifier = biscuit2.verify().unwrap();
         verifier.add_check("check if has_bytes($0)").unwrap();
         verifier.allow().unwrap();
 
@@ -1532,7 +1452,7 @@ mod tests {
         //panic!();
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
@@ -1564,10 +1484,10 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
-        let final_token = Biscuit::from(&serialized2).unwrap();
+        let final_token = Biscuit::from(&serialized2, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
 
-        let mut verifier = final_token.verify(root.public()).unwrap();
+        let mut verifier = final_token.verify().unwrap();
         verifier.add_resource("/folder2/file1");
         verifier.add_operation("write");
         verifier.add_policy("allow if resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)").unwrap();

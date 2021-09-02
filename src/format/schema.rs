@@ -1,29 +1,37 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Biscuit {
-    #[prost(bytes="vec", required, tag="1")]
-    pub authority: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes="vec", repeated, tag="2")]
-    pub blocks: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-    #[prost(bytes="vec", repeated, tag="3")]
-    pub keys: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    #[prost(uint32, optional, tag="1")]
+    pub root_key_id: ::core::option::Option<u32>,
+    #[prost(message, required, tag="2")]
+    pub authority: SignedBlock,
+    #[prost(message, repeated, tag="3")]
+    pub blocks: ::prost::alloc::vec::Vec<SignedBlock>,
     #[prost(message, required, tag="4")]
-    pub signature: Signature,
+    pub proof: Proof,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SealedBiscuit {
+pub struct SignedBlock {
     #[prost(bytes="vec", required, tag="1")]
-    pub authority: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes="vec", repeated, tag="2")]
-    pub blocks: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    pub block: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", required, tag="2")]
+    pub next_key: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", required, tag="3")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Signature {
-    #[prost(bytes="vec", repeated, tag="1")]
-    pub parameters: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-    #[prost(bytes="vec", required, tag="2")]
-    pub z: ::prost::alloc::vec::Vec<u8>,
+pub struct Proof {
+    #[prost(oneof="proof::Content", tags="1, 2")]
+    pub content: ::core::option::Option<proof::Content>,
+}
+/// Nested message and enum types in `Proof`.
+pub mod proof {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(bytes, tag="1")]
+        NextSecret(::prost::alloc::vec::Vec<u8>),
+        #[prost(bytes, tag="2")]
+        FinalSignature(::prost::alloc::vec::Vec<u8>),
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Block {

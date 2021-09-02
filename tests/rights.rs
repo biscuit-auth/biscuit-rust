@@ -22,7 +22,7 @@ fn main() {
     let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
     println!("{}", biscuit1.print());
 
-    let mut v = biscuit1.verify(root.public()).expect("omg verifier");
+    let mut v = biscuit1.verify().expect("omg verifier");
     //v.add_resource("file2");
     //v.add_operation("read");
     //v.add_operation("write");
