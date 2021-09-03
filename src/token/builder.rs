@@ -16,7 +16,6 @@ pub use crate::datalog::{Binary, Unary};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
-    pub index: u32,
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
@@ -24,9 +23,8 @@ pub struct BlockBuilder {
 }
 
 impl BlockBuilder {
-    pub fn new(index: u32) -> BlockBuilder {
+    pub fn new() -> BlockBuilder {
         BlockBuilder {
-            index,
             facts: vec![],
             rules: vec![],
             checks: vec![],
@@ -78,7 +76,6 @@ impl BlockBuilder {
         };
 
         Block {
-            index: self.index,
             symbols: new_syms,
             facts,
             rules,
@@ -252,7 +249,6 @@ impl<'a> BiscuitBuilder<'a> {
         };
 
         let authority_block = Block {
-            index: 0,
             symbols: new_syms,
             facts: self.facts,
             rules: self.rules,

@@ -17,7 +17,7 @@ pub mod builder;
 pub mod verifier;
 
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 1;
+pub const MAX_SCHEMA_VERSION: u32 = 2;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
@@ -115,10 +115,6 @@ impl Biscuit {
             return Err(error::Token::SymbolTableOverlap);
         }
 
-        if authority.index as usize != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
         symbols
             .symbols
             .extend(authority.symbols.symbols.iter().cloned());
@@ -159,13 +155,8 @@ impl Biscuit {
             })
             .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
 
-        if authority.index != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
         let mut blocks = vec![];
 
-        let mut index = 1;
         for block in container.blocks.iter() {
             let deser: Block = schema::Block::decode(&block.data[..])
                 .map_err(|e| {
@@ -176,15 +167,7 @@ impl Biscuit {
                 })
                 .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
 
-            if deser.index != index {
-                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                    expected: index,
-                    found: deser.index,
-                }));
-            }
             blocks.push(deser);
-
-            index += 1;
         }
 
         symbols
@@ -516,7 +499,7 @@ impl Biscuit {
 
     /// creates a new block builder
     pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new((1 + self.blocks.len()) as u32)
+        BlockBuilder::new()
     }
 
     /// adds a new block to the token
@@ -552,13 +535,6 @@ impl Biscuit {
 
         if !h1.is_disjoint(&h2) {
             return Err(error::Token::SymbolTableOverlap);
-        }
-
-        if block.index as usize != 1 + self.blocks.len() {
-            return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                expected: 1 + self.blocks.len() as u32,
-                found: block.index,
-            }));
         }
 
         let authority = self.authority.clone();
@@ -757,8 +733,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block[{}] {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
-        block.index,
+        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
         block.symbols.symbols,
         block.version,
         block.context.as_deref().unwrap_or(""),
@@ -771,8 +746,6 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
 /// a block contained in a token
 #[derive(Clone, Debug)]
 pub struct Block {
-    /// position of the block
-    pub index: u32,
     /// list of symbols introduced by this block
     pub symbols: SymbolTable,
     /// list of facts provided by this block
@@ -792,9 +765,8 @@ impl Block {
     /// creates a new block
     ///
     /// blocks should be created through the BlockBuilder interface instead, to avoid mistakes
-    pub fn new(index: u32, base_symbols: SymbolTable) -> Block {
+    pub fn new(base_symbols: SymbolTable) -> Block {
         Block {
-            index,
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
