@@ -284,24 +284,6 @@ impl Biscuit {
             ));
         }
 
-        let mut unique_revocation_ids = self.unique_revocation_identifiers();
-        let unique_revocation_id_sym = symbols.insert("unique_revocation_id");
-        for (i, id) in unique_revocation_ids.drain(..).enumerate() {
-            world.facts.insert(Fact::new(
-                unique_revocation_id_sym,
-                &[ID::Integer(i as i64), ID::Bytes(id)],
-            ));
-        }
-
-        for rule in self.authority.rules.iter().cloned() {
-            if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables()
-            {
-                return Err(error::Logic::InvalidBlockRule(0, symbols.print_rule(&rule)));
-            }
-
-            world.privileged_rules.push(rule);
-        }
-
         for (i, block) in self.blocks.iter().enumerate() {
             // blocks cannot provide authority or ambient facts
             for fact in block.facts.iter().cloned() {
@@ -596,35 +578,6 @@ impl Biscuit {
             for block in token.blocks.iter() {
                 h.update(&block.data);
                 h.update(block.next_key.to_bytes());
-
-                let h2 = h.clone();
-                res.push(h2.finalize().as_slice().into());
-            }
-        }
-
-        res
-    }
-
-    /// returns a list of unique revocation identifiers for each block, in order
-    ///
-    /// those identifiers will be different for every token even if they have the
-    /// same content and use the same keys
-    pub fn unique_revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-
-        let mut res = Vec::new();
-        let mut h = Sha256::new();
-
-        if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority.data);
-            h.update(&token.authority.next_key.to_bytes());
-
-            let h2 = h.clone();
-            res.push(h2.finalize().as_slice().into());
-
-            for block in token.blocks.iter() {
-                h.update(&block.data);
-                h.update(&block.next_key.to_bytes());
 
                 let h2 = h.clone();
                 res.push(h2.finalize().as_slice().into());

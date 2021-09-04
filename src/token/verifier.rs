@@ -160,15 +160,6 @@ impl Verifier {
             ));
         }
 
-        let mut unique_revocation_ids = token.unique_revocation_identifiers();
-        let unique_revocation_id_sym = self.symbols.insert("unique_revocation_id");
-        for (i, id) in unique_revocation_ids.drain(..).enumerate() {
-            self.world.facts.insert(datalog::Fact::new(
-                unique_revocation_id_sym,
-                &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
-            ));
-        }
-
         for rule in token.authority.rules.iter().cloned() {
             let r = Rule::convert_from(&rule, &token.symbols);
             let rule = r.convert(&mut self.symbols);
