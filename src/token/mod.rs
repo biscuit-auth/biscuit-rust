@@ -255,9 +255,10 @@ impl Biscuit {
 
     /// creates a verifier from this token
     pub fn verify(&self) -> Result<Verifier, error::Token> {
-        Verifier::from_token(self).map_err(error::Token::FailedLogic)
+        Verifier::from_token(self)
     }
 
+    #[cfg(test)]
     pub(crate) fn generate_world(&self, symbols: &mut SymbolTable) -> Result<World, error::Logic> {
         let mut world = World::new();
 
@@ -343,6 +344,7 @@ impl Biscuit {
         Ok(world)
     }
 
+    #[cfg(test)]
     pub(crate) fn checks(&self) -> Vec<Vec<Check>> {
         let mut result = Vec::new();
         let v = self.authority.checks.to_vec();

@@ -28,18 +28,11 @@ pub struct Verifier {
 }
 
 impl Verifier {
-    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Logic> {
-        let mut symbols = token.symbols.clone();
-        let world = token.generate_world(&mut symbols)?;
+    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
+        let mut v = Verifier::new()?;
+        v.add_token(&token)?;
 
-        Ok(Verifier {
-            world,
-            symbols,
-            checks: vec![],
-            token_checks: token.checks(),
-            policies: vec![],
-            has_token: true,
-        })
+        Ok(v)
     }
 
     /// creates a new empty verifier
