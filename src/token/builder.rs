@@ -90,9 +90,9 @@ impl BlockBuilder {
             "check_right",
             &[s(right)],
             &[
-                pred("resource", &[s("ambient"), var("resource_name")]),
-                pred("operation", &[s("ambient"), s(right)]),
-                pred("right", &[s("authority"), var("resource_name"), s(right)]),
+                pred("resource", &[var("resource_name")]),
+                pred("operation", &[s(right)]),
+                pred("right", &[var("resource_name"), s(right)]),
             ],
         );
 
@@ -103,7 +103,7 @@ impl BlockBuilder {
         let check = rule(
             "resource_check",
             &[s("resource_check")],
-            &[pred("resource", &[s("ambient"), string(resource)])],
+            &[pred("resource", &[string(resource)])],
         );
 
         let _ = self.add_check(check);
@@ -113,7 +113,7 @@ impl BlockBuilder {
         let check = rule(
             "operation_check",
             &[s("operation_check")],
-            &[pred("operation", &[s("ambient"), s(operation)])],
+            &[pred("operation", &[s(operation)])],
         );
 
         let _ = self.add_check(check);
@@ -123,7 +123,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "prefix",
             &[var("resource")],
-            &[pred("resource", &[s("ambient"), var("resource")])],
+            &[pred("resource", &[var("resource")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("resource")),
@@ -140,7 +140,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "suffix",
             &[var("resource")],
-            &[pred("resource", &[s("ambient"), var("resource")])],
+            &[pred("resource", &[var("resource")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("resource")),
@@ -157,7 +157,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "expiration",
             &[var("date")],
-            &[pred("time", &[s("ambient"), var("date")])],
+            &[pred("time", &[var("date")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("date")),
@@ -228,8 +228,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_right(&mut self, resource: &str, right: &str) {
-        let _ =
-            self.add_authority_fact(fact("right", &[s("authority"), string(resource), s(right)]));
+        let _ = self.add_authority_fact(fact("right", &[string(resource), s(right)]));
     }
 
     pub fn set_context(&mut self, context: String) {
@@ -920,6 +919,21 @@ macro_rules! tuple_try_from(
         tuple_try_from_impl!($($ty),+, $ty1);
         );
     );
+
+impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
+    type Error = error::Token;
+    fn try_from(fact: Fact) -> Result<Self, Self::Error> {
+        let mut terms = fact.0.ids;
+        let mut it = terms.drain(..);
+
+        Ok((it
+            .next()
+            .ok_or(error::Token::ConversionError(
+                "not enough terms in fact".to_string(),
+            ))
+            .and_then(A::try_from)?,))
+    }
+}
 
 macro_rules! tuple_try_from_impl(
     ($($ty: ident),+) => (

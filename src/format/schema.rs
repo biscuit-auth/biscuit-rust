@@ -340,6 +340,4 @@ pub struct VerifierPolicies {
     pub checks: ::prost::alloc::vec::Vec<CheckV2>,
     #[prost(message, repeated, tag="6")]
     pub policies: ::prost::alloc::vec::Vec<Policy>,
-    #[prost(message, repeated, tag="7")]
-    pub privileged_rules: ::prost::alloc::vec::Vec<RuleV2>,
 }

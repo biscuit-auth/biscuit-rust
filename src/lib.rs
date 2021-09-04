@@ -43,10 +43,10 @@
 //!
 //!     // let's define some access rights
 //!     // every fact added to the authority block must have the authority fact
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #write)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file2.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file2.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -55,8 +55,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this token is only 277 bytes, holding the authority data and the signature
-//!   assert_eq!(token1.len(), 277);
+//!   // this token is only 260 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 260);
 //!
 //!   // now let's add some restrictions to this token
 //!   // we want to limit access to `/a/file1.txt` and to read operations
@@ -76,9 +76,9 @@
 //!       // here we require the presence of a "resource" fact with the "ambient" tag
 //!       // (meaning it is provided by the verifier)
 //!       &[
-//!         pred("resource", &[s("ambient"), string("/a/file1.txt")]),
+//!         pred("resource", &[string("/a/file1.txt")]),
 //!         // we restrict to read operations
-//!         pred("operation", &[s("ambient"), s("read")]),
+//!         pred("operation", &[s("read")]),
 //!       ],
 //!     ));
 //!
@@ -93,8 +93,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 439 bytes
-//!   assert_eq!(token2.len(), 439);
+//!   // this new token fits in 414 bytes
+//!   assert_eq!(token2.len(), 414);
 //!
 //!   /************** VERIFICATION ****************/
 //!
@@ -110,7 +110,7 @@
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_check("check if right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_check("check if right(\"/a/file1.txt\", #read)");
 //!
 //!   // we choose if we want to allow or deny access
 //!   // we can define a serie of allow/deny policies in the same
@@ -123,7 +123,7 @@
 //!   let mut v2 = biscuit2.verify()?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_check("check if right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_check("check if right(\"/a/file1.txt\", #write)");
 //!
 //!   // the second verifier requested a read operation
 //!   assert!(v2.verify().is_err());
@@ -131,7 +131,7 @@
 //!   let mut v3 = biscuit2.verify()?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_check("check if right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_check("check if right(\"/a/file2.txt\", #read)");
 //!
 //!   // the third verifier requests /a/file2.txt
 //!   assert!(v3.verify().is_err());

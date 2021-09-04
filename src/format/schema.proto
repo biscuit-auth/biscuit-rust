@@ -203,5 +203,4 @@ message VerifierPolicies {
   repeated RuleV2 rules = 4;
   repeated CheckV2 checks = 5;
   repeated Policy policies = 6;
-  repeated RuleV2 privileged_rules = 7;
 }

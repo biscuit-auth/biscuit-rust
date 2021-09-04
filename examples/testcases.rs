@@ -8,7 +8,6 @@ extern crate rand;
 use biscuit::crypto::KeyPair;
 use biscuit::error;
 use biscuit::token::{builder::*, Biscuit};
-use curve25519_dalek::scalar::Scalar;
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
@@ -68,13 +67,13 @@ fn main() {
 
     results.push(reordered_blocks(&mut rng, &target, &root, test));
 
-    results.push(invalid_block_fact_authority(&mut rng, &target, &root, test));
+    results.push(scoped_rules(&mut rng, &target, &root, test));
 
-    results.push(invalid_block_fact_ambient(&mut rng, &target, &root, test));
+    results.push(scoped_checks(&mut rng, &target, &root, test));
 
     results.push(expired_token(&mut rng, &target, &root, test));
 
-    results.push(authority_rules(&mut rng, &target, &root, test));
+    results.push(verifier_scope(&mut rng, &target, &root, test));
 
     results.push(verifier_authority_checks(&mut rng, &target, &root, test));
 
@@ -153,8 +152,8 @@ impl TestResult {
             };
 
             if let Some(world) = verifier_world {
-                writeln!(&mut s, "verifier world:\nWorld {{\n  facts: {:#?}\n  privileged rules: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n",
-                         world.facts, world.privileged_rules, world.rules, world.checks, world.policies);
+                writeln!(&mut s, "verifier world:\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n",
+                         world.facts, world.rules, world.checks, world.policies);
             }
 
             writeln!(&mut s, "{:?}", verifier_result);
@@ -168,7 +167,6 @@ impl TestResult {
 struct VerifierWorld {
     pub facts: BTreeSet<String>,
     pub rules: BTreeSet<String>,
-    pub privileged_rules: BTreeSet<String>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
 }
@@ -210,12 +208,11 @@ fn validate_token(
 
     let res = verifier.verify();
     //println!("verifier world:\n{}", verifier.print_world());
-    let (mut facts, mut rules, mut privileged_rules, mut checks, mut policies) = verifier.dump();
+    let (mut facts, mut rules, mut checks, mut policies) = verifier.dump();
     (
         Some(VerifierWorld {
             facts: facts.drain(..).map(|f| f.to_string()).collect(),
             rules: rules.drain(..).map(|r| r.to_string()).collect(),
-            privileged_rules: privileged_rules.drain(..).map(|r| r.to_string()).collect(),
             checks: checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
@@ -263,12 +260,9 @@ fn basic_token<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("write")],
-    ));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -278,9 +272,9 @@ fn basic_token<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -309,7 +303,7 @@ fn basic_token<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -336,7 +330,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     let root2 = KeyPair::new_with_rng(rng);
     let mut builder = Biscuit::builder(&root2);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -346,9 +340,9 @@ fn different_root_key<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -372,7 +366,7 @@ fn different_root_key<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -397,12 +391,9 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("write")],
-    ));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -412,9 +403,9 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -442,7 +433,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -468,12 +459,9 @@ fn random_block<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("write")],
-    ));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -483,9 +471,9 @@ fn random_block<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -515,7 +503,7 @@ fn random_block<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -541,12 +529,9 @@ fn invalid_signature<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("write")],
-    ));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -556,9 +541,9 @@ fn invalid_signature<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -588,7 +573,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -614,12 +599,9 @@ fn reordered_blocks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
-    builder.add_authority_fact(fact(
-        "right",
-        &[s("authority"), string("file1"), s("write")],
-    ));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -629,9 +611,9 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         "check1",
         &[var("0")],
         &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), s("read")]),
-            pred("right", &[s("authority"), var("0"), s("read")]),
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
         ],
     ));
 
@@ -645,7 +627,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     block3.add_check(rule(
         "check2",
         &[var("0")],
-        &[pred("resource", &[s("ambient"), string("file1")])],
+        &[pred("resource", &[string("file1")])],
     ));
 
     let keypair3 = KeyPair::new_with_rng(rng);
@@ -673,7 +655,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -687,48 +669,67 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     }
 }
 
-fn invalid_block_fact_authority<T: Rng + CryptoRng>(
+fn scoped_rules<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
     root: &KeyPair,
     test: bool,
 ) -> TestResult {
-    let title = "invalid block fact with authority tag".to_string();
-    let filename = "test7_invalid_block_fact_authority.bc".to_string();
+    let title = "scoped rules".to_string();
+    let filename = "test7_scoped_rules.bc".to_string();
     let mut print_token = BTreeMap::new();
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
+    builder.add_authority_fact(fact("user_id", &[string("alice")]));
+    builder.add_authority_fact(fact("owner", &[string("alice"), string("file1")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[pred("operation", &[s("ambient"), s("read")])],
-    ));
-
-    block2.add_fact(fact(
+    block2.add_rule(rule(
         "right",
-        &[s("authority"), string("file1"), s("write")],
+        &[var("0"), s("read")],
+        &[
+            pred("resource", &[var("0")]),
+            pred("user_id", &[var("1")]),
+            pred("owner", &[var("1"), var("0")]),
+        ],
+    ));
+    block2.add_check(rule(
+        "check1",
+        &[var("0")],
+        &[
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
+        ],
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
+    print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
+
+    let mut block3 = biscuit2.create_block();
+
+    block3.add_fact(fact("owner", &[string("alice"), string("file2")]));
+
+    let keypair3 = KeyPair::new_with_rng(rng);
+    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
+    print_token.insert("biscuit3 (2 checks)".to_string(), biscuit3.print());
+
     let data = if test {
-        let v = load_testcase(target, "test7_invalid_block_fact_authority");
+        let v = load_testcase(target, "test7_scoped_rules");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
+        print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
-        print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
+        print_token.insert("biscuit3 (2 check)".to_string(), biscuit2.print());
 
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test7_invalid_block_fact_authority", &data[..]);
+        let data = biscuit3.to_vec().unwrap();
+        write_testcase(target, "test7_scoped_rules", &data[..]);
 
         data
     };
@@ -739,7 +740,10 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![
+                fact("resource", &[string("file2")]),
+                fact("operation", &[s("read")]),
+            ],
             vec![],
             vec![],
         ),
@@ -753,19 +757,19 @@ fn invalid_block_fact_authority<T: Rng + CryptoRng>(
     }
 }
 
-fn invalid_block_fact_ambient<T: Rng + CryptoRng>(
+fn scoped_checks<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
     root: &KeyPair,
     test: bool,
 ) -> TestResult {
-    let title = "invalid block fact with ambient tag".to_string();
-    let filename = "test8_invalid_block_fact_ambient.bc".to_string();
+    let title = "scoped checks".to_string();
+    let filename = "test8_scoped_checks.bc".to_string();
     let mut print_token = BTreeMap::new();
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -774,24 +778,37 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(
     block2.add_check(rule(
         "check1",
         &[var("0")],
-        &[pred("operation", &[s("ambient"), s("read")])],
+        &[
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
+        ],
     ));
-
-    block2.add_fact(fact("right", &[s("ambient"), string("file1"), s("write")]));
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
+    print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
+
+    let mut block3 = biscuit2.create_block();
+
+    block3.add_fact(fact("right", &[string("file2"), s("read")]));
+
+    let keypair3 = KeyPair::new_with_rng(rng);
+    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
+    print_token.insert("biscuit3 (2 checks)".to_string(), biscuit3.print());
+
     let data = if test {
-        let v = load_testcase(target, "test8_invalid_block_fact_ambient");
+        let v = load_testcase(target, "test8_scoped_checks");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
+        print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
-        print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
+        print_token.insert("biscuit3 (2 check)".to_string(), biscuit2.print());
 
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test8_invalid_block_fact_ambient", &data[..]);
+        let data = biscuit3.to_vec().unwrap();
+        write_testcase(target, "test8_scoped_checks", &data[..]);
+
         data
     };
 
@@ -801,7 +818,10 @@ fn invalid_block_fact_ambient<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![
+                fact("resource", &[string("file2")]),
+                fact("operation", &[s("read")]),
+            ],
             vec![],
             vec![],
         ),
@@ -833,7 +853,7 @@ fn expired_token<T: Rng + CryptoRng>(
     block2.add_check(rule(
         "check1",
         &[string("file1")],
-        &[pred("resource", &[s("ambient"), string("file1")])],
+        &[pred("resource", &[string("file1")])],
     ));
     // January 1 2019
     block2.expiration_date(
@@ -866,18 +886,15 @@ fn expired_token<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file1")]),
-                fact("operation", &[s("ambient"), s("read")]),
+                fact("resource", &[string("file1")]),
+                fact("operation", &[s("read")]),
                 fact(
                     "time",
-                    &[
-                        s("ambient"),
-                        date(
-                            &UNIX_EPOCH
-                                .checked_add(Duration::from_secs(1608542592))
-                                .unwrap(),
-                        ),
-                    ],
+                    &[date(
+                        &UNIX_EPOCH
+                            .checked_add(Duration::from_secs(1608542592))
+                            .unwrap(),
+                    )],
                 ),
             ],
             vec![],
@@ -893,69 +910,40 @@ fn expired_token<T: Rng + CryptoRng>(
     }
 }
 
-fn authority_rules<T: Rng + CryptoRng>(
+fn verifier_scope<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
     root: &KeyPair,
     test: bool,
 ) -> TestResult {
-    let title = "authority rules".to_string();
-    let filename = "test10_authority_rules.bc".to_string();
+    let title = "verifier scope".to_string();
+    let filename = "test10_verifier_scope.bc".to_string();
     let mut print_token = BTreeMap::new();
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_rule(rule(
-        "right",
-        &[symbol("authority"), variable("1"), symbol("read")],
-        &[
-            pred("resource", &[s("ambient"), variable("1")]),
-            pred("owner", &[s("ambient"), variable("0"), variable("1")]),
-        ],
-    ));
-    builder.add_authority_rule(rule(
-        "right",
-        &[symbol("authority"), variable("1"), symbol("write")],
-        &[
-            pred("resource", &[s("ambient"), variable("1")]),
-            pred("owner", &[s("ambient"), variable("0"), variable("1")]),
-        ],
-    ));
+
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[variable("0"), variable("1")],
-        &[
-            pred("right", &[s("authority"), var("0"), var("1")]),
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("operation", &[s("ambient"), var("1")]),
-        ],
-    ));
-    block2.add_check(rule(
-        "check2",
-        &[variable("0")],
-        &[
-            pred("resource", &[s("ambient"), var("0")]),
-            pred("owner", &[s("ambient"), symbol("alice"), var("0")]),
-        ],
-    ));
+    block2.add_fact(fact("right", &[string("file2"), s("read")]));
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
 
     let data = if test {
-        let v = load_testcase(target, "test10_authority_rules");
+        let v = load_testcase(target, "test10_verifier_scope");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
-        print_token.insert("biscuit2 (1 check)".to_string(), biscuit2.print());
+        print_token.insert("biscuit3 (2 check)".to_string(), biscuit2.print());
 
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test10_authority_rules", &data[..]);
+        write_testcase(target, "test10_verifier_scope", &data[..]);
+
         data
     };
 
@@ -966,12 +954,19 @@ fn authority_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file1")]),
-                fact("operation", &[s("ambient"), s("read")]),
-                fact("owner", &[s("ambient"), s("alice"), string("file1")]),
+                fact("resource", &[string("file2")]),
+                fact("operation", &[s("read")]),
             ],
             vec![],
-            vec![],
+            vec![vec![rule(
+                "check1",
+                &[variable("0"), variable("1")],
+                &[
+                    pred("right", &[var("0"), var("1")]),
+                    pred("resource", &[var("0")]),
+                    pred("operation", &[var("1")]),
+                ],
+            )]],
         ),
     );
 
@@ -982,7 +977,6 @@ fn authority_rules<T: Rng + CryptoRng>(
         validations,
     }
 }
-
 fn verifier_authority_checks<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
@@ -995,7 +989,7 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1019,17 +1013,17 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file2")]),
-                fact("operation", &[s("ambient"), s("read")]),
+                fact("resource", &[string("file2")]),
+                fact("operation", &[s("read")]),
             ],
             vec![],
             vec![vec![rule(
                 "check1",
                 &[variable("0"), variable("1")],
                 &[
-                    pred("right", &[s("authority"), var("0"), var("1")]),
-                    pred("resource", &[s("ambient"), var("0")]),
-                    pred("operation", &[s("ambient"), var("1")]),
+                    pred("right", &[var("0"), var("1")]),
+                    pred("resource", &[var("0")]),
+                    pred("operation", &[var("1")]),
                 ],
             )]],
         ),
@@ -1058,7 +1052,7 @@ fn authority_checks<T: Rng + CryptoRng>(
     builder.add_authority_check(rule(
         "check1",
         &[string("file1")],
-        &[pred("resource", &[s("ambient"), string("file1")])],
+        &[pred("resource", &[string("file1")])],
     ));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1083,8 +1077,8 @@ fn authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file1")]),
-                fact("operation", &[s("ambient"), s("read")]),
+                fact("resource", &[string("file1")]),
+                fact("operation", &[s("read")]),
             ],
             vec![],
             vec![],
@@ -1097,8 +1091,8 @@ fn authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file2")]),
-                fact("operation", &[s("ambient"), s("read")]),
+                fact("resource", &[string("file2")]),
+                fact("operation", &[s("read")]),
             ],
             vec![],
             vec![],
@@ -1124,8 +1118,8 @@ fn block_rules<T: Rng + CryptoRng>(
     let mut print_token = BTreeMap::new();
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1139,8 +1133,8 @@ fn block_rules<T: Rng + CryptoRng>(
         "valid_date",
         &[string("file1")],
         &[
-            pred("time", &[s("ambient"), variable("0")]),
-            pred("resource", &[s("ambient"), string("file1")]),
+            pred("time", &[variable("0")]),
+            pred("resource", &[string("file1")]),
         ],
         &[Expression {
             ops: vec![
@@ -1162,8 +1156,8 @@ fn block_rules<T: Rng + CryptoRng>(
         "valid_date",
         &[variable("1")],
         &[
-            pred("time", &[s("ambient"), variable("0")]),
-            pred("resource", &[s("ambient"), variable("1")]),
+            pred("time", &[variable("0")]),
+            pred("resource", &[variable("1")]),
         ],
         &[
             Expression {
@@ -1189,7 +1183,7 @@ fn block_rules<T: Rng + CryptoRng>(
         &[variable("0")],
         &[
             pred("valid_date", &[variable("0")]),
-            pred("resource", &[s("ambient"), var("0")]),
+            pred("resource", &[var("0")]),
         ],
     ));
 
@@ -1217,17 +1211,14 @@ fn block_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file1")]),
+                fact("resource", &[string("file1")]),
                 fact(
                     "time",
-                    &[
-                        s("ambient"),
-                        date(
-                            &UNIX_EPOCH
-                                .checked_add(Duration::from_secs(1608542592))
-                                .unwrap(),
-                        ),
-                    ],
+                    &[date(
+                        &UNIX_EPOCH
+                            .checked_add(Duration::from_secs(1608542592))
+                            .unwrap(),
+                    )],
                 ),
             ],
             vec![],
@@ -1241,17 +1232,14 @@ fn block_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[s("ambient"), string("file2")]),
+                fact("resource", &[string("file2")]),
                 fact(
                     "time",
-                    &[
-                        s("ambient"),
-                        date(
-                            &UNIX_EPOCH
-                                .checked_add(Duration::from_secs(1608542592))
-                                .unwrap(),
-                        ),
-                    ],
+                    &[date(
+                        &UNIX_EPOCH
+                            .checked_add(Duration::from_secs(1608542592))
+                            .unwrap(),
+                    )],
                 ),
             ],
             vec![],
@@ -1282,7 +1270,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
     builder.add_authority_check(constrained_rule(
         "resource_match",
         &[variable("0")],
-        &[pred("resource", &[s("ambient"), variable("0")])],
+        &[pred("resource", &[variable("0")])],
         &[Expression {
             ops: vec![
                 Op::Value(var("0")),
@@ -1313,7 +1301,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file1")])],
+            vec![fact("resource", &[string("file1")])],
             vec![],
             vec![],
         ),
@@ -1324,7 +1312,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[s("ambient"), string("file123.txt")])],
+            vec![fact("resource", &[string("file123.txt")])],
             vec![],
             vec![],
         ),
@@ -1351,7 +1339,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
 
     builder.add_authority_fact(fact(
         "must_be_present",
-        &[s("authority"), string("hello")],
+        &[string("hello")],
         //&[string("hello")],
     ));
 
@@ -1383,7 +1371,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
                 rule(
                     "test_must_be_present_authority",
                     &[variable("0")],
-                    &[pred("must_be_present", &[s("authority"), var("0")])],
+                    &[pred("must_be_present", &[var("0")])],
                 ),
                 rule(
                     "test_must_be_present",
@@ -1416,7 +1404,7 @@ fn check_head_name<T: Rng + CryptoRng>(
     builder.add_authority_check(rule(
         "check1",
         &[s("test")],
-        &[pred("resource", &[s("ambient"), s("hello")])],
+        &[pred("resource", &[s("hello")])],
     ));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1570,7 +1558,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     builder.add_authority_check(rule(
         "check1",
         &[s("test")],
-        &[pred("operation", &[s("ambient"), s("read")])],
+        &[pred("operation", &[s("read")])],
     ));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1607,7 +1595,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[s("ambient"), s("write")])],
+            vec![fact("operation", &[s("write")])],
             vec![],
             vec![],
         ),
@@ -1635,7 +1623,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     builder.add_authority_check(rule(
         "check1",
         &[s("test")],
-        &[pred("operation", &[s("ambient"), s("read")])],
+        &[pred("operation", &[s("read")])],
     ));
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1645,8 +1633,8 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     block2
         .add_rule(rule(
             "operation",
-            &[var("ambient"), s("read")],
-            &[pred("operation", &[var("ambient"), var("any")])],
+            &[s("read")],
+            &[pred("operation", &[var("any")])],
         ))
         .unwrap();
 
@@ -1676,7 +1664,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[s("ambient"), s("write")])],
+            vec![fact("operation", &[s("write")])],
             vec![],
             vec![],
         ),

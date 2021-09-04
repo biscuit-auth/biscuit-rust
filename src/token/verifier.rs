@@ -68,7 +68,6 @@ impl<'t> Verifier<'t> {
             symbols,
             mut facts,
             rules,
-            privileged_rules,
             mut checks,
             policies,
         } = crate::format::convert::proto_verifier_to_verifier(&data)?;
@@ -76,7 +75,6 @@ impl<'t> Verifier<'t> {
         let world = datalog::World {
             facts: facts.drain(..).collect(),
             rules,
-            privileged_rules,
         };
         let checks = checks
             .drain(..)
@@ -113,7 +111,6 @@ impl<'t> Verifier<'t> {
             symbols,
             facts: self.world.facts.iter().cloned().collect(),
             rules: self.world.rules.clone(),
-            privileged_rules: self.world.privileged_rules.clone(),
             checks,
             policies: self.policies.clone(),
         };
@@ -139,9 +136,7 @@ impl<'t> Verifier<'t> {
     /// add a rule to the verifier
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        self.world
-            .privileged_rules
-            .push(rule.convert(&mut self.symbols));
+        self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
 
@@ -166,11 +161,9 @@ impl<'t> Verifier<'t> {
         limits: VerifierLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
-        let authority_index = self.symbols.get("authority").unwrap();
-        let ambient_index = self.symbols.get("ambient").unwrap();
 
         self.world
-            .run_with_limits(limits.into(), &[authority_index, ambient_index])
+            .run_with_limits(limits.into())
             .map_err(error::Token::RunLimit)?;
         let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
 
@@ -188,18 +181,18 @@ impl<'t> Verifier<'t> {
     }
 
     pub fn add_resource(&mut self, resource: &str) {
-        let fact = fact("resource", &[s("ambient"), string(resource)]);
+        let fact = fact("resource", &[string(resource)]);
         self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
     pub fn add_operation(&mut self, operation: &str) {
-        let fact = fact("operation", &[s("ambient"), s(operation)]);
+        let fact = fact("operation", &[s(operation)]);
         self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
-        let fact = fact("time", &[s("ambient"), date(&SystemTime::now())]);
+        let fact = fact("time", &[date(&SystemTime::now())]);
         self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
@@ -264,13 +257,6 @@ impl<'t> Verifier<'t> {
 
         if let Some(token) = self.token.take() {
             for fact in token.authority.facts.iter().cloned() {
-                if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
-                    return Err(error::Logic::InvalidAuthorityFact(
-                        token.symbols.print_fact(&fact),
-                    )
-                    .into());
-                }
-
                 let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
                 self.world.facts.insert(fact);
             }
@@ -293,17 +279,14 @@ impl<'t> Verifier<'t> {
                         error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
                     );
                 }
-
-                self.world.privileged_rules.push(rule);
             }
 
             //FIXME: the verifier should be generated with run limits
             // that are "consumed" after each use
             self.world
-                .run_with_limits(RunLimits::default(), &[authority_index, ambient_index])
+                .run_with_limits(RunLimits::default())
                 .map_err(error::Token::RunLimit)?;
             self.world.rules.clear();
-            self.world.privileged_rules.clear();
 
             for (i, check) in self.checks.iter().enumerate() {
                 let c = check.convert(&mut self.symbols);
@@ -381,32 +364,11 @@ impl<'t> Verifier<'t> {
             for (i, block) in token.blocks.iter().enumerate() {
                 // blocks cannot provide authority or ambient facts
                 for fact in block.facts.iter().cloned() {
-                    if fact.predicate.ids[0] == datalog::ID::Symbol(authority_index)
-                        || fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index)
-                    {
-                        return Err(error::Logic::InvalidBlockFact(
-                            i as u32,
-                            token.symbols.print_fact(&fact),
-                        )
-                        .into());
-                    }
-
                     let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
                     self.world.facts.insert(fact);
                 }
 
                 for rule in block.rules.iter().cloned() {
-                    // block rules cannot generate authority or ambient facts
-                    if rule.head.ids[0] == datalog::ID::Symbol(authority_index)
-                        || rule.head.ids[0] == datalog::ID::Symbol(ambient_index)
-                    {
-                        return Err(error::Logic::InvalidBlockRule(
-                            i as u32,
-                            token.symbols.print_rule(&rule),
-                        )
-                        .into());
-                    }
-
                     let r = Rule::convert_from(&rule, &token.symbols);
 
                     if let Err(_message) = r.validate_variables() {
@@ -422,7 +384,7 @@ impl<'t> Verifier<'t> {
                 }
 
                 self.world
-                    .run_with_limits(RunLimits::default(), &[authority_index, ambient_index])
+                    .run_with_limits(RunLimits::default())
                     .map_err(error::Token::RunLimit)?;
                 self.world.rules.clear();
 
@@ -487,14 +449,6 @@ impl<'t> Verifier<'t> {
             .collect::<Vec<_>>();
         rules.sort();
 
-        let mut privileged_rules = self
-            .world
-            .privileged_rules
-            .iter()
-            .map(|r| self.symbols.print_rule(r))
-            .collect::<Vec<_>>();
-        privileged_rules.sort();
-
         let mut checks = Vec::new();
         for (index, check) in self.checks.iter().enumerate() {
             checks.push(format!("Verifier[{}]: {}", index, check));
@@ -517,13 +471,13 @@ impl<'t> Verifier<'t> {
         }
 
         format!(
-            "World {{\n  facts: {:#?}\n  privileged rules: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
-            facts, privileged_rules, rules, checks, policies
+            "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
+            facts, rules, checks, policies
         )
     }
 
     /// returns all of the data loaded in the verifier
-    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.checks.clone();
         checks.extend(
             self.token_checks
@@ -543,11 +497,6 @@ impl<'t> Verifier<'t> {
                 .iter()
                 .map(|r| Rule::convert_from(r, &self.symbols))
                 .collect(),
-            self.world
-                .privileged_rules
-                .iter()
-                .map(|r| Rule::convert_from(r, &self.symbols))
-                .collect(),
             checks,
             self.policies.clone(),
         )
@@ -561,8 +510,6 @@ pub struct VerifierPolicies {
     pub symbols: datalog::SymbolTable,
     /// list of facts provided by this block
     pub facts: Vec<datalog::Fact>,
-    /// list of rules provided by the authority block or verifier
-    pub privileged_rules: Vec<datalog::Rule>,
     /// list of rules provided by blocks
     pub rules: Vec<datalog::Rule>,
     /// checks that the token and ambient data must validate

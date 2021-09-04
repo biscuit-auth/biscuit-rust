@@ -89,11 +89,6 @@ pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierP
             .iter()
             .map(v2::token_rule_to_proto_rule)
             .collect(),
-        privileged_rules: input
-            .privileged_rules
-            .iter()
-            .map(v2::token_rule_to_proto_rule)
-            .collect(),
         checks: input
             .checks
             .iter()
@@ -120,7 +115,6 @@ pub fn proto_verifier_to_verifier(
 
     let mut facts = vec![];
     let mut rules = vec![];
-    let mut privileged_rules = vec![];
     let mut checks = vec![];
     let mut policies = vec![];
 
@@ -130,10 +124,6 @@ pub fn proto_verifier_to_verifier(
 
     for rule in input.rules.iter() {
         rules.push(v2::proto_rule_to_token_rule(rule)?);
-    }
-
-    for rule in input.privileged_rules.iter() {
-        privileged_rules.push(v2::proto_rule_to_token_rule(rule)?);
     }
 
     for check in input.checks.iter() {
@@ -149,7 +139,6 @@ pub fn proto_verifier_to_verifier(
         symbols,
         facts,
         rules,
-        privileged_rules,
         checks,
         policies,
     })

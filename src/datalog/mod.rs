@@ -459,8 +459,6 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
 pub struct World {
     pub facts: HashSet<Fact>,
     pub rules: Vec<Rule>,
-    /// special rules that can generate authority or ambient facts
-    pub privileged_rules: Vec<Rule>,
 }
 
 impl World {
@@ -476,42 +474,20 @@ impl World {
         self.rules.push(rule);
     }
 
-    pub fn add_privileged_rule(&mut self, rule: Rule) {
-        self.privileged_rules.push(rule);
+    pub fn run(&mut self) -> Result<(), crate::error::RunLimit> {
+        self.run_with_limits(RunLimits::default())
     }
 
-    pub fn run(&mut self, restricted_symbols: &[u64]) -> Result<(), crate::error::RunLimit> {
-        self.run_with_limits(RunLimits::default(), restricted_symbols)
-    }
-
-    pub fn run_with_limits(
-        &mut self,
-        limits: RunLimits,
-        restricted_symbols: &[u64],
-    ) -> Result<(), crate::error::RunLimit> {
+    pub fn run_with_limits(&mut self, limits: RunLimits) -> Result<(), crate::error::RunLimit> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
 
         loop {
             let mut new_facts: Vec<Fact> = Vec::new();
-            for rule in self.privileged_rules.iter() {
-                new_facts.extend(rule.apply(&self.facts));
-                //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
-            }
 
             for rule in self.rules.iter() {
-                new_facts.extend(rule.apply(&self.facts).filter_map(|fact| {
-                    match fact.predicate.ids.get(0) {
-                        Some(ID::Symbol(sym)) => {
-                            if restricted_symbols.contains(&sym) {
-                                return None;
-                            }
-                        }
-                        _ => {}
-                    };
-                    Some(fact)
-                }));
+                new_facts.extend(rule.apply(&self.facts));
                 //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
             }
 
@@ -655,7 +631,7 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(r2);
 
-        w.run(&[]).unwrap();
+        w.run().unwrap();
 
         println!("parents:");
         let res = w.query(pred(
@@ -678,7 +654,7 @@ mod tests {
             ))
         );
         w.add_fact(fact(parent, &[&c, &e]));
-        w.run(&[]).unwrap();
+        w.run().unwrap();
         let mut res = w.query(pred(
             grandparent,
             &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
@@ -1105,17 +1081,13 @@ mod tests {
         let check1 = syms.insert("check1");
         let check2 = syms.insert("check2");
 
-        w.add_fact(fact(resource, &[&ambient, &file2]));
-        w.add_fact(fact(operation, &[&ambient, &write]));
-        w.add_fact(fact(right, &[&authority, &file1, &read]));
-        w.add_fact(fact(right, &[&authority, &file2, &read]));
-        w.add_fact(fact(right, &[&authority, &file1, &write]));
+        w.add_fact(fact(resource, &[&file2]));
+        w.add_fact(fact(operation, &[&write]));
+        w.add_fact(fact(right, &[&file1, &read]));
+        w.add_fact(fact(right, &[&file2, &read]));
+        w.add_fact(fact(right, &[&file1, &write]));
 
-        let res = w.query_rule(rule(
-            check1,
-            &[&file1],
-            &[pred(resource, &[&ambient, &file1])],
-        ));
+        let res = w.query_rule(rule(check1, &[&file1], &[pred(resource, &[&file1])]));
 
         for fact in &res {
             println!("\t{}", syms.print_fact(fact));
@@ -1127,9 +1099,9 @@ mod tests {
             check2,
             &[ID::Variable(0)],
             &[
-                pred(resource, &[&ambient, &ID::Variable(0)]),
-                pred(operation, &[&ambient, &read]),
-                pred(right, &[&authority, &ID::Variable(0), &read]),
+                pred(resource, &[&ID::Variable(0)]),
+                pred(operation, &[&read]),
+                pred(right, &[&ID::Variable(0), &read]),
             ],
         ));
 
@@ -1200,7 +1172,7 @@ mod tests {
         let any1 = var(&mut syms, "any1");
         let any2 = var(&mut syms, "any2");
 
-        w.add_fact(fact(operation, &[&ambient, &write]));
+        w.add_fact(fact(operation, &[&write]));
 
         let r1 = rule(
             operation,
@@ -1222,7 +1194,7 @@ mod tests {
         // in case it is generated though, verify that rule application
         // will not match it
         w.add_fact(fact(operation, &[&unbound, &read]));
-        let r2 = rule(check, &[&read], &[pred(operation, &[&ambient, &read])]);
+        let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
         let res = w.query_rule(r2);
