@@ -1263,6 +1263,7 @@ mod tests {
         }
     }
 
+    /*
     #[test]
     fn check_requires_fact_in_future_block() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -1305,7 +1306,7 @@ mod tests {
         verifier2.allow().unwrap();
         let res2 = verifier2.verify();
         assert_eq!(res2, Ok(0));
-    }
+    }*/
 
     #[test]
     fn bytes_constraints() {
@@ -1332,7 +1333,9 @@ mod tests {
             .unwrap();
 
         let mut verifier = biscuit2.verify().unwrap();
-        verifier.add_check("check if has_bytes($0)").unwrap();
+        verifier
+            .add_check("check if bytes(#authority, $0), [ hex:00000000, hex:0102AB ].contains($0)")
+            .unwrap();
         verifier.allow().unwrap();
 
         let res = verifier.verify();

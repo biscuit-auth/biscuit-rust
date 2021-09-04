@@ -4,7 +4,7 @@ use super::builder::{
     Policy, PolicyKind, Rule, Term, Unary,
 };
 use super::Biscuit;
-use crate::datalog;
+use crate::datalog::{self, RunLimits};
 use crate::error;
 use crate::time::Instant;
 use prost::Message;
@@ -18,19 +18,19 @@ use std::{
 ///
 /// can be created from [`Biscuit::verify`](`crate::token::Biscuit::verify`) or [`Verifier::new`]
 #[derive(Clone)]
-pub struct Verifier {
+pub struct Verifier<'t> {
     world: datalog::World,
-    symbols: datalog::SymbolTable,
+    pub symbols: datalog::SymbolTable,
     checks: Vec<Check>,
     token_checks: Vec<Vec<datalog::Check>>,
     policies: Vec<Policy>,
-    has_token: bool,
+    token: Option<&'t Biscuit>,
 }
 
-impl Verifier {
-    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
+impl<'t> Verifier<'t> {
+    pub(crate) fn from_token(token: &'t Biscuit) -> Result<Self, error::Token> {
         let mut v = Verifier::new()?;
-        v.add_token(&token)?;
+        v.token = Some(token);
 
         Ok(v)
     }
@@ -54,7 +54,7 @@ impl Verifier {
             checks: vec![],
             token_checks: vec![],
             policies: vec![],
-            has_token: false,
+            token: None,
         })
     }
 
@@ -89,7 +89,7 @@ impl Verifier {
             checks,
             token_checks: vec![],
             policies,
-            has_token: false,
+            token: None,
         })
     }
 
@@ -127,116 +127,6 @@ impl Verifier {
             .map(|_| v)
             .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
             .map_err(error::Token::Format)
-    }
-
-    /// Loads a token's facts, rules and checks in a verifier
-    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Token> {
-        if self.has_token {
-            return Err(error::Logic::VerifierNotEmpty.into());
-        } else {
-            self.has_token = true;
-        }
-
-        let authority_index = self.symbols.get("authority").unwrap();
-        let ambient_index = self.symbols.get("ambient").unwrap();
-
-        for fact in token.authority.facts.iter().cloned() {
-            if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
-                return Err(
-                    error::Logic::InvalidAuthorityFact(token.symbols.print_fact(&fact)).into(),
-                );
-            }
-
-            let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-            self.world.facts.insert(fact);
-        }
-
-        let mut revocation_ids = token.revocation_identifiers();
-        let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
-        for (i, id) in revocation_ids.drain(..).enumerate() {
-            self.world.facts.insert(datalog::Fact::new(
-                revocation_id_sym,
-                &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
-            ));
-        }
-
-        for rule in token.authority.rules.iter().cloned() {
-            let r = Rule::convert_from(&rule, &token.symbols);
-            let rule = r.convert(&mut self.symbols);
-
-            if let Err(_message) = r.validate_variables() {
-                return Err(
-                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
-                );
-            }
-
-            self.world.privileged_rules.push(rule);
-        }
-
-        for (i, block) in token.blocks.iter().enumerate() {
-            // blocks cannot provide authority or ambient facts
-            for fact in block.facts.iter().cloned() {
-                if fact.predicate.ids[0] == datalog::ID::Symbol(authority_index)
-                    || fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index)
-                {
-                    return Err(error::Logic::InvalidBlockFact(
-                        i as u32,
-                        token.symbols.print_fact(&fact),
-                    )
-                    .into());
-                }
-
-                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-                self.world.facts.insert(fact);
-            }
-
-            for rule in block.rules.iter().cloned() {
-                // block rules cannot generate authority or ambient facts
-                if rule.head.ids[0] == datalog::ID::Symbol(authority_index)
-                    || rule.head.ids[0] == datalog::ID::Symbol(ambient_index)
-                {
-                    return Err(error::Logic::InvalidBlockRule(
-                        i as u32,
-                        token.symbols.print_rule(&rule),
-                    )
-                    .into());
-                }
-
-                let r = Rule::convert_from(&rule, &token.symbols);
-
-                if let Err(_message) = r.validate_variables() {
-                    return Err(error::Logic::InvalidBlockRule(
-                        i as u32,
-                        token.symbols.print_rule(&rule),
-                    )
-                    .into());
-                }
-
-                let rule = r.convert(&mut self.symbols);
-                self.world.rules.push(rule);
-            }
-        }
-
-        let mut token_checks: Vec<Vec<datalog::Check>> = Vec::new();
-        let checks = token
-            .authority
-            .checks
-            .iter()
-            .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
-            .collect();
-        token_checks.push(checks);
-
-        for block in token.blocks.iter() {
-            let checks = block
-                .checks
-                .iter()
-                .map(|c| Check::convert_from(&c, &token.symbols).convert(&mut self.symbols))
-                .collect();
-            token_checks.push(checks);
-        }
-
-        self.token_checks = token_checks;
-        Ok(())
     }
 
     /// add a fact to the verifier
@@ -360,6 +250,9 @@ impl Verifier {
     /// this method can specify custom runtime limits
     pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<usize, error::Token> {
         let start = Instant::now();
+        let time_limit = start + limits.max_time;
+        let mut errors = vec![];
+        let mut policy_result: Option<Result<usize, usize>> = None;
 
         //FIXME: should check for the presence of any other symbol in the token
         if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
@@ -369,42 +262,80 @@ impl Verifier {
         let authority_index = self.symbols.get("authority").unwrap();
         let ambient_index = self.symbols.get("ambient").unwrap();
 
-        self.world
-            .run_with_limits(limits.clone().into(), &[authority_index, ambient_index])
-            .map_err(error::Token::RunLimit)?;
-
-        let time_limit = start + limits.max_time;
-
-        let mut errors = vec![];
-        for (i, check) in self.checks.iter().enumerate() {
-            let c = check.convert(&mut self.symbols);
-            let mut successful = false;
-
-            for query in check.queries.iter() {
-                let res = self.world.query_match(query.convert(&mut self.symbols));
-
-                let now = Instant::now();
-                if now >= time_limit {
-                    return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        if let Some(token) = self.token.take() {
+            for fact in token.authority.facts.iter().cloned() {
+                if fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index) {
+                    return Err(error::Logic::InvalidAuthorityFact(
+                        token.symbols.print_fact(&fact),
+                    )
+                    .into());
                 }
 
-                if res {
-                    successful = true;
-                    break;
+                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+                self.world.facts.insert(fact);
+            }
+
+            let mut revocation_ids = token.revocation_identifiers();
+            let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
+            for (i, id) in revocation_ids.drain(..).enumerate() {
+                self.world.facts.insert(datalog::Fact::new(
+                    revocation_id_sym,
+                    &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
+                ));
+            }
+
+            for rule in token.authority.rules.iter().cloned() {
+                let r = Rule::convert_from(&rule, &token.symbols);
+                let rule = r.convert(&mut self.symbols);
+
+                if let Err(_message) = r.validate_variables() {
+                    return Err(
+                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                    );
                 }
+
+                self.world.privileged_rules.push(rule);
             }
 
-            if !successful {
-                errors.push(error::FailedCheck::Verifier(error::FailedVerifierCheck {
-                    check_id: i as u32,
-                    rule: self.symbols.print_check(&c),
-                }));
-            }
-        }
+            //FIXME: the verifier should be generated with run limits
+            // that are "consumed" after each use
+            self.world
+                .run_with_limits(RunLimits::default(), &[authority_index, ambient_index])
+                .map_err(error::Token::RunLimit)?;
+            self.world.rules.clear();
+            self.world.privileged_rules.clear();
 
-        for (i, block_checks) in self.token_checks.iter().enumerate() {
-            for (j, check) in block_checks.iter().enumerate() {
+            for (i, check) in self.checks.iter().enumerate() {
+                let c = check.convert(&mut self.symbols);
                 let mut successful = false;
+
+                for query in check.queries.iter() {
+                    let res = self.world.query_match(query.convert(&mut self.symbols));
+
+                    let now = Instant::now();
+                    if now >= time_limit {
+                        return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                    }
+
+                    if res {
+                        successful = true;
+                        break;
+                    }
+                }
+
+                if !successful {
+                    errors.push(error::FailedCheck::Verifier(error::FailedVerifierCheck {
+                        check_id: i as u32,
+                        rule: self.symbols.print_check(&c),
+                    }));
+                }
+            }
+
+            for (j, check) in token.authority.checks.iter().enumerate() {
+                let mut successful = false;
+
+                let c = Check::convert_from(&check, &token.symbols);
+                let check = c.convert(&mut self.symbols);
 
                 for query in check.queries.iter() {
                     let res = self.world.query_match(query.clone());
@@ -422,19 +353,13 @@ impl Verifier {
 
                 if !successful {
                     errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
-                        block_id: i as u32,
+                        block_id: 0u32,
                         check_id: j as u32,
-                        rule: self.symbols.print_check(check),
+                        rule: self.symbols.print_check(&check),
                     }));
                 }
             }
-        }
 
-        if !errors.is_empty() {
-            Err(error::Token::FailedLogic(error::Logic::FailedChecks(
-                errors,
-            )))
-        } else {
             for (i, policy) in self.policies.iter().enumerate() {
                 for query in policy.queries.iter() {
                     let res = self.world.query_match(query.convert(&mut self.symbols));
@@ -445,16 +370,102 @@ impl Verifier {
                     }
 
                     if res {
-                        return match policy.kind {
-                            PolicyKind::Allow => Ok(i),
-                            PolicyKind::Deny => {
-                                Err(error::Token::FailedLogic(error::Logic::Deny(i)))
-                            }
+                        match policy.kind {
+                            PolicyKind::Allow => policy_result = Some(Ok(i)),
+                            PolicyKind::Deny => policy_result = Some(Err(i)),
                         };
                     }
                 }
             }
-            Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy))
+
+            for (i, block) in token.blocks.iter().enumerate() {
+                // blocks cannot provide authority or ambient facts
+                for fact in block.facts.iter().cloned() {
+                    if fact.predicate.ids[0] == datalog::ID::Symbol(authority_index)
+                        || fact.predicate.ids[0] == datalog::ID::Symbol(ambient_index)
+                    {
+                        return Err(error::Logic::InvalidBlockFact(
+                            i as u32,
+                            token.symbols.print_fact(&fact),
+                        )
+                        .into());
+                    }
+
+                    let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+                    self.world.facts.insert(fact);
+                }
+
+                for rule in block.rules.iter().cloned() {
+                    // block rules cannot generate authority or ambient facts
+                    if rule.head.ids[0] == datalog::ID::Symbol(authority_index)
+                        || rule.head.ids[0] == datalog::ID::Symbol(ambient_index)
+                    {
+                        return Err(error::Logic::InvalidBlockRule(
+                            i as u32,
+                            token.symbols.print_rule(&rule),
+                        )
+                        .into());
+                    }
+
+                    let r = Rule::convert_from(&rule, &token.symbols);
+
+                    if let Err(_message) = r.validate_variables() {
+                        return Err(error::Logic::InvalidBlockRule(
+                            i as u32,
+                            token.symbols.print_rule(&rule),
+                        )
+                        .into());
+                    }
+
+                    let rule = r.convert(&mut self.symbols);
+                    self.world.rules.push(rule);
+                }
+
+                self.world
+                    .run_with_limits(RunLimits::default(), &[authority_index, ambient_index])
+                    .map_err(error::Token::RunLimit)?;
+                self.world.rules.clear();
+
+                for (j, check) in block.checks.iter().enumerate() {
+                    let mut successful = false;
+                    let c = Check::convert_from(&check, &token.symbols);
+                    let check = c.convert(&mut self.symbols);
+
+                    for query in check.queries.iter() {
+                        let res = self.world.query_match(query.clone());
+
+                        let now = Instant::now();
+                        if now >= time_limit {
+                            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                        }
+
+                        if res {
+                            successful = true;
+                            break;
+                        }
+                    }
+
+                    if !successful {
+                        errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
+                            block_id: (i + 1) as u32,
+                            check_id: j as u32,
+                            rule: self.symbols.print_check(&check),
+                        }));
+                    }
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            Err(error::Token::FailedLogic(error::Logic::FailedChecks(
+                errors,
+            )))
+        } else {
+            match policy_result {
+                Some(Ok(i)) => Ok(i),
+                Some(Err(i)) => Err(error::Token::FailedLogic(error::Logic::Deny(i))),
+                None => Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy)),
+            }
         }
     }
 
