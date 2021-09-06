@@ -76,28 +76,26 @@ pub struct PredicateV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Idv2 {
-    #[prost(oneof="idv2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8")]
+    #[prost(oneof="idv2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
     pub content: ::core::option::Option<idv2::Content>,
 }
 /// Nested message and enum types in `IDV2`.
 pub mod idv2 {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Content {
-        #[prost(uint64, tag="1")]
-        Symbol(u64),
-        #[prost(uint32, tag="2")]
+        #[prost(uint32, tag="1")]
         Variable(u32),
-        #[prost(int64, tag="3")]
+        #[prost(int64, tag="2")]
         Integer(i64),
-        #[prost(string, tag="4")]
-        String(::prost::alloc::string::String),
-        #[prost(uint64, tag="5")]
+        #[prost(uint64, tag="3")]
+        String(u64),
+        #[prost(uint64, tag="4")]
         Date(u64),
-        #[prost(bytes, tag="6")]
+        #[prost(bytes, tag="5")]
         Bytes(::prost::alloc::vec::Vec<u8>),
-        #[prost(bool, tag="7")]
+        #[prost(bool, tag="6")]
         Bool(bool),
-        #[prost(message, tag="8")]
+        #[prost(message, tag="7")]
         Set(super::IdSet),
     }
 }
@@ -110,7 +108,7 @@ pub struct IdSet {
 pub struct ConstraintV2 {
     #[prost(uint32, required, tag="1")]
     pub id: u32,
-    #[prost(oneof="constraint_v2::Constraint", tags="2, 3, 4, 5, 6")]
+    #[prost(oneof="constraint_v2::Constraint", tags="2, 3, 4, 5")]
     pub constraint: ::core::option::Option<constraint_v2::Constraint>,
 }
 /// Nested message and enum types in `ConstraintV2`.
@@ -124,8 +122,6 @@ pub mod constraint_v2 {
         #[prost(message, tag="4")]
         Date(super::DateConstraintV2),
         #[prost(message, tag="5")]
-        Symbol(super::SymbolConstraintV2),
-        #[prost(message, tag="6")]
         Bytes(super::BytesConstraintV2),
     }
 }
@@ -184,8 +180,8 @@ pub mod string_constraint_v2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringSet {
-    #[prost(string, repeated, tag="1")]
-    pub set: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint64, repeated, tag="1")]
+    pub set: ::prost::alloc::vec::Vec<u64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DateConstraintV2 {
@@ -201,26 +197,6 @@ pub mod date_constraint_v2 {
         #[prost(uint64, tag="2")]
         After(u64),
     }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SymbolConstraintV2 {
-    #[prost(oneof="symbol_constraint_v2::Constraint", tags="1, 2")]
-    pub constraint: ::core::option::Option<symbol_constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `SymbolConstraintV2`.
-pub mod symbol_constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(message, tag="1")]
-        InSet(super::SymbolSet),
-        #[prost(message, tag="2")]
-        NotInSet(super::SymbolSet),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SymbolSet {
-    #[prost(uint64, repeated, tag="1")]
-    pub set: ::prost::alloc::vec::Vec<u64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BytesConstraintV2 {

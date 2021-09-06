@@ -163,9 +163,11 @@ impl<'t> Verifier<'t> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
 
         self.world
-            .run_with_limits(limits.into())
+            .run_with_limits(&self.symbols, limits.into())
             .map_err(error::Token::RunLimit)?;
-        let mut res = self.world.query_rule(rule.convert(&mut self.symbols));
+        let mut res = self
+            .world
+            .query_rule(rule.convert(&mut self.symbols), &self.symbols);
 
         res.drain(..)
             .map(|f| Fact::convert_from(&f, &self.symbols))
@@ -284,7 +286,7 @@ impl<'t> Verifier<'t> {
             //FIXME: the verifier should be generated with run limits
             // that are "consumed" after each use
             self.world
-                .run_with_limits(RunLimits::default())
+                .run_with_limits(&self.symbols, RunLimits::default())
                 .map_err(error::Token::RunLimit)?;
             self.world.rules.clear();
 
@@ -293,7 +295,9 @@ impl<'t> Verifier<'t> {
                 let mut successful = false;
 
                 for query in check.queries.iter() {
-                    let res = self.world.query_match(query.convert(&mut self.symbols));
+                    let res = self
+                        .world
+                        .query_match(query.convert(&mut self.symbols), &self.symbols);
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -321,7 +325,7 @@ impl<'t> Verifier<'t> {
                 let check = c.convert(&mut self.symbols);
 
                 for query in check.queries.iter() {
-                    let res = self.world.query_match(query.clone());
+                    let res = self.world.query_match(query.clone(), &self.symbols);
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -345,7 +349,9 @@ impl<'t> Verifier<'t> {
 
             for (i, policy) in self.policies.iter().enumerate() {
                 for query in policy.queries.iter() {
-                    let res = self.world.query_match(query.convert(&mut self.symbols));
+                    let res = self
+                        .world
+                        .query_match(query.convert(&mut self.symbols), &self.symbols);
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -384,7 +390,7 @@ impl<'t> Verifier<'t> {
                 }
 
                 self.world
-                    .run_with_limits(RunLimits::default())
+                    .run_with_limits(&self.symbols, RunLimits::default())
                     .map_err(error::Token::RunLimit)?;
                 self.world.rules.clear();
 
@@ -394,7 +400,7 @@ impl<'t> Verifier<'t> {
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
-                        let res = self.world.query_match(query.clone());
+                        let res = self.world.query_match(query.clone(), &self.symbols);
 
                         let now = Instant::now();
                         if now >= time_limit {

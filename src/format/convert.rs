@@ -287,9 +287,6 @@ pub mod v2 {
         use schema::idv2::Content;
 
         match input {
-            ID::Symbol(s) => schema::Idv2 {
-                content: Some(Content::Symbol(*s)),
-            },
             ID::Variable(v) => schema::Idv2 {
                 content: Some(Content::Variable(*v)),
             },
@@ -297,7 +294,7 @@ pub mod v2 {
                 content: Some(Content::Integer(*i)),
             },
             ID::Str(s) => schema::Idv2 {
-                content: Some(Content::String(s.clone())),
+                content: Some(Content::String(*s)),
             },
             ID::Date(d) => schema::Idv2 {
                 content: Some(Content::Date(*d)),
@@ -323,10 +320,9 @@ pub mod v2 {
             None => Err(error::Format::DeserializationError(
                 "deserialization error: ID content enum is empty".to_string(),
             )),
-            Some(Content::Symbol(i)) => Ok(ID::Symbol(*i)),
             Some(Content::Variable(i)) => Ok(ID::Variable(*i)),
             Some(Content::Integer(i)) => Ok(ID::Integer(*i)),
-            Some(Content::String(s)) => Ok(ID::Str(s.clone())),
+            Some(Content::String(s)) => Ok(ID::Str(*s)),
             Some(Content::Date(i)) => Ok(ID::Date(*i)),
             Some(Content::Bytes(s)) => Ok(ID::Bytes(s.clone())),
             Some(Content::Bool(b)) => Ok(ID::Bool(*b)),
@@ -336,7 +332,6 @@ pub mod v2 {
 
                 for i in s.set.iter() {
                     let index = match i.content {
-                        Some(Content::Symbol(_)) => 0,
                         Some(Content::Variable(_)) => {
                             return Err(error::Format::DeserializationError(
                                 "deserialization error: sets cannot contain variables".to_string(),

@@ -26,7 +26,7 @@ impl SymbolTable {
 
     pub fn add(&mut self, s: &str) -> ID {
         let id = self.insert(s);
-        ID::Symbol(id)
+        ID::Str(id)
     }
 
     pub fn get(&self, s: &str) -> Option<Symbol> {
@@ -34,6 +34,10 @@ impl SymbolTable {
             .iter()
             .position(|sym| sym.as_str() == s)
             .map(|i| i as u64)
+    }
+
+    pub fn get_s(&self, s: Symbol) -> Option<&str> {
+        self.symbols.get(s as usize).map(|s| s.as_str())
     }
 
     pub fn print_symbol(&self, s: Symbol) -> String {
@@ -61,8 +65,7 @@ impl SymbolTable {
         match id {
             ID::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
             ID::Integer(i) => i.to_string(),
-            ID::Str(s) => format!("\"{}\"", s),
-            ID::Symbol(index) => format!("#{}", self.print_symbol(*index as u64)),
+            ID::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
             ID::Date(d) => {
                 let date =
                     DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);

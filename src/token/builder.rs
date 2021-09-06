@@ -3,8 +3,8 @@ use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable, ID};
 use crate::error;
-use rand_core::{CryptoRng, RngCore};
 use chrono::{DateTime, NaiveDateTime, Utc};
+use rand_core::{CryptoRng, RngCore};
 use std::{
     collections::BTreeSet,
     convert::{TryFrom, TryInto},
@@ -269,7 +269,6 @@ impl<'a> BiscuitBuilder<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
-    Symbol(String),
     Variable(String),
     Integer(i64),
     Str(String),
@@ -282,10 +281,9 @@ pub enum Term {
 impl Term {
     pub fn convert(&self, symbols: &mut SymbolTable) -> ID {
         match self {
-            Term::Symbol(s) => ID::Symbol(symbols.insert(s)),
             Term::Variable(s) => ID::Variable(symbols.insert(s) as u32),
             Term::Integer(i) => ID::Integer(*i),
-            Term::Str(s) => ID::Str(s.clone()),
+            Term::Str(s) => ID::Str(symbols.insert(s)),
             Term::Date(d) => ID::Date(*d),
             Term::Bytes(s) => ID::Bytes(s.clone()),
             Term::Bool(b) => ID::Bool(*b),
@@ -295,10 +293,9 @@ impl Term {
 
     pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
         match f {
-            ID::Symbol(s) => Term::Symbol(symbols.print_symbol(*s)),
             ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
             ID::Integer(i) => Term::Integer(*i),
-            ID::Str(s) => Term::Str(s.clone()),
+            ID::Str(s) => Term::Str(symbols.print_symbol(*s)),
             ID::Date(d) => Term::Date(*d),
             ID::Bytes(s) => Term::Bytes(s.clone()),
             ID::Bool(b) => Term::Bool(*b),
@@ -310,7 +307,6 @@ impl Term {
 impl From<&Term> for Term {
     fn from(i: &Term) -> Self {
         match i {
-            Term::Symbol(ref s) => Term::Symbol(s.clone()),
             Term::Variable(ref v) => Term::Variable(v.clone()),
             Term::Integer(ref i) => Term::Integer(*i),
             Term::Str(ref s) => Term::Str(s.clone()),
@@ -334,11 +330,10 @@ impl fmt::Display for Term {
             Term::Variable(i) => write!(f, "${}", i),
             Term::Integer(i) => write!(f, "{}", i),
             Term::Str(s) => write!(f, "\"{}\"", s),
-            Term::Symbol(s) => write!(f, "#{}", s),
             Term::Date(d) => {
                 let date =
                     DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
-                write!(f,  "{}", date.to_rfc3339())
+                write!(f, "{}", date.to_rfc3339())
             }
             Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
             Term::Bool(b) => {
@@ -782,18 +777,9 @@ pub fn string(s: &str) -> Term {
     Term::Str(s.to_string())
 }
 
-/// creates a symbol
-///
-/// once the block is generated, this symbol will be added to the symbol table if needed
+/// creates a string
 pub fn s(s: &str) -> Term {
-    Term::Symbol(s.to_string())
-}
-
-/// creates a symbol
-///
-/// once the block is generated, this symbol will be added to the symbol table if needed
-pub fn symbol(s: &str) -> Term {
-    Term::Symbol(s.to_string())
+    Term::Str(s.to_string())
 }
 
 /// creates a date
@@ -860,7 +846,7 @@ impl TryFrom<Term> for String {
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         println!("converting string from {:?}", value);
         match value {
-            Term::Symbol(s) | Term::Str(s) => Ok(s),
+            Term::Str(s) => Ok(s),
             _ => Err(error::Token::ConversionError(format!(
                 "expected string or symbol, got {:?}",
                 value

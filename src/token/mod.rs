@@ -51,10 +51,10 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
 ///   let mut builder = Biscuit::builder(&root);
-///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///   builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -560,9 +560,15 @@ mod tests {
         let serialized1 = {
             let mut builder = Biscuit::builder(&root);
 
-            builder.add_authority_fact("right(#file1, #read)").unwrap();
-            builder.add_authority_fact("right(#file2, #read)").unwrap();
-            builder.add_authority_fact("right(#file1, #write)").unwrap();
+            builder
+                .add_authority_fact("right(\"file1\", \"read\")")
+                .unwrap();
+            builder
+                .add_authority_fact("right(\"file2\", \"read\")")
+                .unwrap();
+            builder
+                .add_authority_fact("right(\"file1\", \"write\")")
+                .unwrap();
 
             let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
@@ -701,8 +707,8 @@ mod tests {
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), operation(#read), right($resource, #read)") }),
-                FailedCheck::Block(FailedBlockCheck { block_id: 2, check_id: 0, rule: String::from("check if resource(#file1)") })
+                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), operation(\"read\"), right($resource, \"read\")") }),
+                FailedCheck::Block(FailedBlockCheck { block_id: 2, check_id: 0, rule: String::from("check if resource(\"file1\")") })
               ]))));
         }
     }
@@ -778,7 +784,7 @@ mod tests {
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
                 FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), $resource.starts_with(\"/folder1/\")") }),
-                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 1, rule: String::from("check if resource($resource_name), operation(#read), right($resource_name, #read)") }),
+                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 1, rule: String::from("check if resource($resource_name), operation(\"read\"), right($resource_name, \"read\")") }),
               ]))));
         }
     }
@@ -935,7 +941,7 @@ mod tests {
             Err(Token::FailedLogic(Logic::FailedChecks(vec![
                 FailedCheck::Verifier(FailedVerifierCheck {
                     check_id: 0,
-                    rule: String::from("check if right(\"file2\", #write)")
+                    rule: String::from("check if right(\"file2\", \"write\")")
                 }),
             ])))
         );
@@ -1050,7 +1056,7 @@ mod tests {
                     FailedCheck::Block(FailedBlockCheck {
                         block_id: 0,
                         check_id: 0,
-                        rule: String::from("check if resource(#hello)"),
+                        rule: String::from("check if resource(\"hello\")"),
                     }),
                 ])))
             );
@@ -1146,16 +1152,16 @@ mod tests {
             let mut builder = Biscuit::builder(&root);
 
             builder
-                .add_authority_fact("right(\"/folder1/file1\", #read)")
+                .add_authority_fact("right(\"/folder1/file1\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(\"/folder1/file1\", #write)")
+                .add_authority_fact("right(\"/folder1/file1\", \"write\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(\"/folder2/file1\", #read)")
+                .add_authority_fact("right(\"/folder2/file1\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_check("check if operation(#read)")
+                .add_authority_check("check if operation(\"read\")")
                 .unwrap();
 
             let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -1175,9 +1181,9 @@ mod tests {
             // new check: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
 
-            // Bypass `check if operation(#read)` from authority block
+            // Bypass `check if operation("read")` from authority block
             block2
-                .add_rule("operation(#read) <- operation($any)")
+                .add_rule("operation(\"read\") <- operation($any)")
                 .unwrap();
 
             // Bypass `check if resource($file), $file.starts_with("/folder1/")` from block #1

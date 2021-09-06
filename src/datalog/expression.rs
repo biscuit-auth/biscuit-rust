@@ -23,11 +23,11 @@ pub enum Unary {
 }
 
 impl Unary {
-    fn evaluate(&self, value: ID) -> Option<ID> {
+    fn evaluate(&self, value: ID, symbols: &SymbolTable) -> Option<ID> {
         match (self, value) {
             (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
             (Unary::Parens, i) => Some(i),
-            (Unary::Length, ID::Str(s)) => Some(ID::Integer(s.len() as i64)),
+            (Unary::Length, ID::Str(i)) => symbols.get_s(i).map(|s| ID::Integer(s.len() as i64)),
             (Unary::Length, ID::Bytes(s)) => Some(ID::Integer(s.len() as i64)),
             (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
             _ => {
@@ -68,7 +68,7 @@ pub enum Binary {
 }
 
 impl Binary {
-    fn evaluate(&self, left: ID, right: ID) -> Option<ID> {
+    fn evaluate(&self, left: ID, right: ID, symbols: &SymbolTable) -> Option<ID> {
         match (self, left, right) {
             // integer
             (Binary::LessThan, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i < j)),
@@ -83,14 +83,23 @@ impl Binary {
 
             // string
             (Binary::Prefix, ID::Str(s), ID::Str(pref)) => {
-                Some(ID::Bool(s.as_str().starts_with(pref.as_str())))
+                match (symbols.get_s(s), symbols.get_s(pref)) {
+                    (Some(s), Some(pref)) => Some(ID::Bool(s.starts_with(pref))),
+                    _ => None,
+                }
             }
             (Binary::Suffix, ID::Str(s), ID::Str(suff)) => {
-                Some(ID::Bool(s.as_str().ends_with(suff.as_str())))
+                match (symbols.get_s(s), symbols.get_s(suff)) {
+                    (Some(s), Some(suff)) => Some(ID::Bool(s.ends_with(suff))),
+                    _ => None,
+                }
             }
-            (Binary::Regex, ID::Str(s), ID::Str(r)) => Some(ID::Bool(
-                Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false),
-            )),
+            (Binary::Regex, ID::Str(s), ID::Str(r)) => match (symbols.get_s(s), symbols.get_s(r)) {
+                (Some(s), Some(r)) => Some(ID::Bool(
+                    Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false),
+                )),
+                _ => None,
+            },
             (Binary::Equal, ID::Str(i), ID::Str(j)) => Some(ID::Bool(i == j)),
 
             // date
@@ -101,7 +110,6 @@ impl Binary {
             (Binary::Equal, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i == j)),
 
             // symbol
-            (Binary::Equal, ID::Symbol(i), ID::Symbol(j)) => Some(ID::Bool(i == j)),
 
             // byte array
             (Binary::Equal, ID::Bytes(i), ID::Bytes(j)) => Some(ID::Bool(i == j)),
@@ -129,9 +137,6 @@ impl Binary {
             }
             (Binary::Contains, ID::Set(set), ID::Bytes(i)) => {
                 Some(ID::Bool(set.contains(&ID::Bytes(i))))
-            }
-            (Binary::Contains, ID::Set(set), ID::Symbol(i)) => {
-                Some(ID::Bool(set.contains(&ID::Symbol(i))))
             }
 
             // boolean
@@ -168,7 +173,7 @@ impl Binary {
 }
 
 impl Expression {
-    pub fn evaluate(&self, values: &HashMap<u32, ID>) -> Option<ID> {
+    pub fn evaluate(&self, values: &HashMap<u32, ID>, symbols: &SymbolTable) -> Option<ID> {
         let mut stack: Vec<ID> = Vec::new();
 
         for op in self.ops.iter() {
@@ -187,16 +192,18 @@ impl Expression {
                         //println!("expected a value on the stack");
                         return None;
                     }
-                    Some(id) => match unary.evaluate(id) {
+                    Some(id) => match unary.evaluate(id, symbols) {
                         Some(res) => stack.push(res),
                         None => return None,
                     },
                 },
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
-                    (Some(right_id), Some(left_id)) => match binary.evaluate(left_id, right_id) {
-                        Some(res) => stack.push(res),
-                        None => return None,
-                    },
+                    (Some(right_id), Some(left_id)) => {
+                        match binary.evaluate(left_id, right_id, symbols) {
+                            Some(res) => stack.push(res),
+                            None => return None,
+                        }
+                    }
                     _ => {
                         //println!("expected two values on the stack");
                         return None;
@@ -264,12 +271,13 @@ mod tests {
         let e = Expression { ops };
         println!("print: {}", e.print(&symbols).unwrap());
 
-        let res = e.evaluate(&values);
+        let res = e.evaluate(&values, &symbols);
         assert_eq!(res, Some(ID::Bool(true)));
     }
 
     #[test]
     fn checked() {
+        let symbols = SymbolTable::new();
         let ops = vec![
             Op::Value(ID::Integer(1)),
             Op::Value(ID::Integer(0)),
@@ -278,7 +286,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values);
+        let res = e.evaluate(&values, &symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -289,7 +297,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values);
+        let res = e.evaluate(&values, &symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -300,7 +308,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values);
+        let res = e.evaluate(&values, &symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -311,7 +319,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values);
+        let res = e.evaluate(&values, &symbols);
         assert_eq!(res, None);
     }
 

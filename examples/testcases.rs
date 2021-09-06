@@ -1541,9 +1541,6 @@ fn expressions<T: Rng + CryptoRng>(
     //date equal
     builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00");
 
-    //symbol equal
-    builder.add_authority_check("check if #abc == #abc");
-
     //bytes equal
     builder.add_authority_check("check if hex:12ab == hex:12ab");
 
@@ -1553,7 +1550,6 @@ fn expressions<T: Rng + CryptoRng>(
     builder.add_authority_check("check if [true, false, true].contains(true)");
     builder.add_authority_check("check if [\"abc\", \"def\"].contains(\"abc\")");
     builder.add_authority_check("check if [hex:12ab, hex:34de].contains(hex:34de)");
-    builder.add_authority_check("check if [#hello, #world].contains(#hello)");
 
     let biscuit = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit);

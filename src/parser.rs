@@ -663,7 +663,6 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     let mut kind: Option<u8> = None;
     for term in list.drain(..) {
         let index = match term {
-            builder::Term::Symbol(_) => 0,
             builder::Term::Variable(_) => panic!("variables are not permitted in sets"),
             builder::Term::Integer(_) => 2,
             builder::Term::Str(_) => 3,
@@ -1061,7 +1060,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{date, int, set, string, symbol, var, Binary, Op, Unary};
+        use builder::{date, int, set, string, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
         use std::time::{Duration, SystemTime};
 
@@ -1256,12 +1255,12 @@ mod tests {
             ))
         );
 
-        let h = [symbol("abc"), symbol("def")]
+        let h = [string("abc"), string("def")]
             .iter()
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1273,7 +1272,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1614,7 +1613,7 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h).unwrap();
+        let result = e.evaluate(&h, &syms).unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(
@@ -1641,7 +1640,7 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h).unwrap();
+        let result = e.evaluate(&h, &syms).unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(
