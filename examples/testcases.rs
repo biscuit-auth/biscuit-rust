@@ -13,6 +13,7 @@ use rand::prelude::*;
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    convert::TryInto,
     fs::File,
     io::Write,
     time::*,
@@ -131,13 +132,20 @@ struct TestResult {
     pub title: String,
     pub filename: String,
     pub token: Vec<BlockContent>,
-    pub validations: BTreeMap<String, (Option<VerifierWorld>, VerifierResult)>,
+    pub validations: BTreeMap<String, Validation>,
 }
 
 #[derive(Debug, Serialize)]
 struct BlockContent {
     pub symbols: Vec<String>,
     pub code: String,
+}
+
+#[derive(Debug, Serialize)]
+struct Validation {
+    world: Option<VerifierWorld>,
+    result: VerifierResult,
+    verifier_code: String,
 }
 
 impl TestResult {
@@ -160,19 +168,24 @@ impl TestResult {
         }
         writeln!(&mut s, "```\n");
 
-        for (name, (verifier_world, verifier_result)) in &self.validations {
+        for (name, validation) in &self.validations {
             if name.is_empty() {
                 writeln!(&mut s, "### validation\n")
             } else {
                 writeln!(&mut s, "### validation for \"{}\"\n", name)
             };
 
-            if let Some(world) = verifier_world {
+            if let Some(world) = &validation.world {
+                writeln!(
+                    &mut s,
+                    "verifier code:\n```\n{}```\n",
+                    validation.verifier_code
+                );
                 writeln!(&mut s, "verifier world:\n```\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n```\n",
                          world.facts, world.rules, world.checks, world.policies);
             }
 
-            writeln!(&mut s, "result: `{:?}`", verifier_result);
+            writeln!(&mut s, "result: `{:?}`", validation.result);
         }
 
         s
@@ -199,25 +212,52 @@ fn validate_token(
     ambient_facts: Vec<Fact>,
     ambient_rules: Vec<Rule>,
     checks: Vec<Vec<Rule>>,
-) -> (Option<VerifierWorld>, VerifierResult) {
+) -> Validation {
     let token = match Biscuit::from(&data[..], |_| root.public()) {
         Ok(t) => t,
-        Err(e) => return (None, VerifierResult::Err(vec![format!("{:?}", e)])),
+        Err(e) => {
+            return Validation {
+                world: None,
+                verifier_code: String::new(),
+                result: VerifierResult::Err(vec![format!("{:?}", e)]),
+            }
+        }
     };
 
     let mut verifier = match token.verify() {
         Ok(v) => v,
-        Err(e) => return (None, VerifierResult::Err(vec![format!("{:?}", e)])),
+        Err(e) => {
+            return Validation {
+                world: None,
+                verifier_code: String::new(),
+                result: VerifierResult::Err(vec![format!("{:?}", e)]),
+            }
+        }
     };
 
+    let mut verifier_code = String::new();
     for fact in ambient_facts {
+        verifier_code += &format!("{};\n", fact);
         verifier.add_fact(fact);
     }
+
+    if !ambient_rules.is_empty() {
+        verifier_code += "\n";
+    }
+
     for rule in ambient_rules {
+        verifier_code += &format!("{};\n", rule);
         verifier.add_rule(rule);
     }
+
+    if !checks.is_empty() {
+        verifier_code += "\n";
+    }
+
     for check in checks {
         verifier.add_check(&check[..]);
+        let c: Check = (&check[..]).try_into().unwrap();
+        verifier_code += &format!("{};\n", c);
     }
 
     verifier.allow().unwrap();
@@ -225,14 +265,15 @@ fn validate_token(
     let res = verifier.verify();
     //println!("verifier world:\n{}", verifier.print_world());
     let (mut facts, mut rules, mut checks, mut policies) = verifier.dump();
-    (
-        Some(VerifierWorld {
+
+    Validation {
+        world: Some(VerifierWorld {
             facts: facts.drain(..).map(|f| f.to_string()).collect(),
             rules: rules.drain(..).map(|r| r.to_string()).collect(),
             checks: checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
-        match res {
+        result: match res {
             Ok(i) => VerifierResult::Ok(i),
             Err(e) => {
                 if let error::Token::FailedLogic(error::Logic::FailedChecks(mut v)) = e {
@@ -243,7 +284,8 @@ fn validate_token(
                 }
             }
         },
-    )
+        verifier_code,
+    }
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {
