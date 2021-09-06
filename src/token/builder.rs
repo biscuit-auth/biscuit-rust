@@ -4,6 +4,7 @@ use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable, ID};
 use crate::error;
 use rand_core::{CryptoRng, RngCore};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use std::{
     collections::BTreeSet,
     convert::{TryFrom, TryInto},
@@ -335,8 +336,9 @@ impl fmt::Display for Term {
             Term::Str(s) => write!(f, "\"{}\"", s),
             Term::Symbol(s) => write!(f, "#{}", s),
             Term::Date(d) => {
-                let t = UNIX_EPOCH + Duration::from_secs(*d);
-                write!(f, "{:?}", t)
+                let date =
+                    DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
+                write!(f,  "{}", date.to_rfc3339())
             }
             Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
             Term::Bool(b) => {
