@@ -436,6 +436,20 @@ impl Biscuit {
         Some(res)
     }
 
+    /// gets the list opf symbols from a block
+    pub fn block_symbols(&self, index: usize) -> Option<Vec<String>> {
+        let block = if index == 0 {
+            &self.authority
+        } else {
+            match self.blocks.get(index - 1) {
+                None => return None,
+                Some(block) => block,
+            }
+        };
+
+        Some(block.symbols.symbols.clone())
+    }
+
     /// returns the number of blocks (at least 1)
     pub fn block_count(&self) -> usize {
         1 + self.blocks.len()
