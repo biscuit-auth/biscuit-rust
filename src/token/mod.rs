@@ -352,24 +352,14 @@ impl Biscuit {
     /// if a token is generated with the same keys and the same content,
     /// those identifiers will stay the same
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-
         let mut res = Vec::new();
-        let mut h = Sha256::new();
 
         if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority.data);
-            h.update(token.authority.next_key.to_bytes());
+            res.push(token.authority.signature.to_bytes().to_vec());
 
-            let h2 = h.clone();
-            res.push(h2.finalize().as_slice().into());
 
             for block in token.blocks.iter() {
-                h.update(&block.data);
-                h.update(block.next_key.to_bytes());
-
-                let h2 = h.clone();
-                res.push(h2.finalize().as_slice().into());
+                res.push(block.signature.to_bytes().to_vec());
             }
         }
 
