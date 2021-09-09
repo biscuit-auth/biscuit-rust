@@ -196,7 +196,7 @@ impl SerializedBiscuit {
         Ok(SerializedBiscuit {
             root_key_id: self.root_key_id,
             authority: self.authority.clone(),
-            blocks: blocks.clone(),
+            blocks,
             proof: TokenNext::Secret(next_keypair.private()),
         })
     }
