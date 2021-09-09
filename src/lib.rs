@@ -236,14 +236,6 @@
 //!
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
-extern crate bytes;
-extern crate curve25519_dalek;
-extern crate hmac;
-extern crate prost;
-extern crate prost_types;
-extern crate rand_core;
-extern crate regex;
-extern crate sha2;
 
 pub mod crypto;
 pub mod datalog;

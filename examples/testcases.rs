@@ -1,9 +1,5 @@
 #![allow(unused_must_use)]
 extern crate biscuit_auth as biscuit;
-extern crate curve25519_dalek;
-extern crate hex;
-extern crate prost;
-extern crate rand;
 
 use biscuit::crypto::KeyPair;
 use biscuit::error;
