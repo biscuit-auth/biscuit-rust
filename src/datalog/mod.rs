@@ -5,7 +5,6 @@ use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub type Symbol = u64;
 mod expression;
 mod symbol;
 pub use expression::*;
@@ -15,7 +14,7 @@ pub use symbol::*;
 pub enum ID {
     Variable(u32),
     Integer(i64),
-    Str(Symbol),
+    Str(SymbolIndex),
     Date(u64),
     Bytes(Vec<u8>),
     Bool(bool),
@@ -44,12 +43,12 @@ impl AsRef<ID> for ID {
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
-    pub name: Symbol,
+    pub name: SymbolIndex,
     pub ids: Vec<ID>,
 }
 
 impl Predicate {
-    pub fn new(name: Symbol, ids: &[ID]) -> Predicate {
+    pub fn new(name: SymbolIndex, ids: &[ID]) -> Predicate {
         Predicate {
             name,
             ids: ids.to_vec(),
@@ -69,7 +68,7 @@ pub struct Fact {
 }
 
 impl Fact {
-    pub fn new(name: Symbol, ids: &[ID]) -> Fact {
+    pub fn new(name: SymbolIndex, ids: &[ID]) -> Fact {
         Fact {
             predicate: Predicate::new(name, ids),
         }
@@ -101,14 +100,9 @@ impl fmt::Display for Fact {
 }
 
 impl Rule {
-    pub fn apply<'a>(
-        &'a self,
-        facts: &'a HashSet<Fact>,
-        symbols: &'a SymbolTable,
-    ) -> impl Iterator<Item = Fact> + 'a {
-        // gather all of the variables used in that rule
-        let variables_set = self
-            .body
+    /// gather all of the variables used in that rule
+    fn variables_set(&self) -> HashSet<u32> {
+        self.body
             .iter()
             .flat_map(|pred| {
                 pred.ids.iter().filter_map(|id| match id {
@@ -116,16 +110,23 @@ impl Rule {
                     _ => None,
                 })
             })
-            .collect::<HashSet<_>>();
+            .collect::<HashSet<_>>()
+    }
 
+    pub fn apply<'a>(
+        &'a self,
+        facts: &'a HashSet<Fact>,
+        symbols: &'a SymbolTable,
+    ) -> impl Iterator<Item = Fact> + 'a {
         let head = self.head.clone();
-        let variables = MatchedVariables::new(variables_set);
+        let variables = MatchedVariables::new(self.variables_set());
+
         CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(move |h| {
             let mut p = head.clone();
             for index in 0..p.ids.len() {
-                let value = match &p.ids[index] {
+                match &p.ids[index] {
                     ID::Variable(i) => match h.get(i) {
-                      Some(val) => val,
+                      Some(val) => p.ids[index] = val.clone(),
                       None => {
                         println!("error: variables that appear in the head should appear in the body and constraints as well");
                         return None;
@@ -133,8 +134,6 @@ impl Rule {
                     },
                     _ => continue,
                 };
-
-                p.ids[index] = value.clone();
             }
 
             Some(Fact { predicate: p })
@@ -142,39 +141,7 @@ impl Rule {
     }
 
     pub fn find_match(&self, facts: &HashSet<Fact>, symbols: &SymbolTable) -> bool {
-        // gather all of the variables used in that rule
-        let variables_set = self
-            .body
-            .iter()
-            .flat_map(|pred| {
-                pred.ids.iter().filter_map(|id| match id {
-                    ID::Variable(i) => Some(*i),
-                    _ => None,
-                })
-            })
-            .collect::<HashSet<_>>();
-
-        let variables = MatchedVariables::new(variables_set);
-
-        let mut it = CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(|h| {
-            let mut p = self.head.clone();
-            for index in 0..p.ids.len() {
-                let value = match &p.ids[index] {
-                    ID::Variable(i) => match h.get(i) {
-                        Some(val) => val,
-                        None => {
-                            println!("error: variables that appear in the head should appear in the body and constraints as well");
-                            return None;
-                        }
-                    },
-                    _ => continue,
-                };
-
-                p.ids[index] = value.clone();
-            }
-
-            Some(Fact { predicate: p })
-        });
+        let mut it = self.apply(facts, symbols);
 
         let next = it.next();
         next.is_some()
@@ -380,7 +347,7 @@ impl MatchedVariables {
     }
 }
 
-pub fn fact<I: AsRef<ID>>(name: Symbol, ids: &[I]) -> Fact {
+pub fn fact<I: AsRef<ID>>(name: SymbolIndex, ids: &[I]) -> Fact {
     Fact {
         predicate: Predicate {
             name,
@@ -389,7 +356,7 @@ pub fn fact<I: AsRef<ID>>(name: Symbol, ids: &[I]) -> Fact {
     }
 }
 
-pub fn pred<I: AsRef<ID>>(name: Symbol, ids: &[I]) -> Predicate {
+pub fn pred<I: AsRef<ID>>(name: SymbolIndex, ids: &[I]) -> Predicate {
     Predicate {
         name,
         ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
@@ -397,7 +364,7 @@ pub fn pred<I: AsRef<ID>>(name: Symbol, ids: &[I]) -> Predicate {
 }
 
 pub fn rule<I: AsRef<ID>, P: AsRef<Predicate>>(
-    head_name: Symbol,
+    head_name: SymbolIndex,
     head_ids: &[I],
     predicates: &[P],
 ) -> Rule {
@@ -409,7 +376,7 @@ pub fn rule<I: AsRef<ID>, P: AsRef<Predicate>>(
 }
 
 pub fn expressed_rule<I: AsRef<ID>, P: AsRef<Predicate>, C: AsRef<Expression>>(
-    head_name: Symbol,
+    head_name: SymbolIndex,
     head_ids: &[I],
     predicates: &[P],
     expressions: &[C],
@@ -806,8 +773,8 @@ mod tests {
         fn test_suffix(
             w: &World,
             syms: &mut SymbolTable,
-            suff: Symbol,
-            route: Symbol,
+            suff: SymbolIndex,
+            route: SymbolIndex,
             suffix: &str,
         ) -> Vec<Fact> {
             let id_suff = syms.add(suffix);

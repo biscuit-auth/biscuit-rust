@@ -1,7 +1,7 @@
 //! Symbol table implementation
 use chrono::{DateTime, NaiveDateTime, Utc};
 
-pub type Symbol = u64;
+pub type SymbolIndex = u64;
 use super::{Check, Fact, Predicate, Rule, World, ID};
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -14,7 +14,7 @@ impl SymbolTable {
         SymbolTable::default()
     }
 
-    pub fn insert(&mut self, s: &str) -> Symbol {
+    pub fn insert(&mut self, s: &str) -> SymbolIndex {
         match self.symbols.iter().position(|sym| sym.as_str() == s) {
             Some(index) => index as u64,
             None => {
@@ -29,22 +29,22 @@ impl SymbolTable {
         ID::Str(id)
     }
 
-    pub fn get(&self, s: &str) -> Option<Symbol> {
+    pub fn get(&self, s: &str) -> Option<SymbolIndex> {
         self.symbols
             .iter()
             .position(|sym| sym.as_str() == s)
-            .map(|i| i as u64)
+            .map(|i| i as SymbolIndex)
     }
 
-    pub fn get_s(&self, s: Symbol) -> Option<&str> {
-        self.symbols.get(s as usize).map(|s| s.as_str())
+    pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
+        self.symbols.get(i as usize).map(|s| s.as_str())
     }
 
-    pub fn print_symbol(&self, s: Symbol) -> String {
+    pub fn print_symbol(&self, i: SymbolIndex) -> String {
         self.symbols
-            .get(s as usize)
+            .get(i as usize)
             .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("<{}?>", s))
+            .unwrap_or_else(|| format!("<{}?>", i))
     }
 
     pub fn print_world(&self, w: &World) -> String {
