@@ -27,7 +27,9 @@ impl Unary {
         match (self, value) {
             (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
             (Unary::Parens, i) => Some(i),
-            (Unary::Length, ID::Str(i)) => symbols.get_symbol(i).map(|s| ID::Integer(s.len() as i64)),
+            (Unary::Length, ID::Str(i)) => {
+                symbols.get_symbol(i).map(|s| ID::Integer(s.len() as i64))
+            }
             (Unary::Length, ID::Bytes(s)) => Some(ID::Integer(s.len() as i64)),
             (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
             _ => {
@@ -94,12 +96,14 @@ impl Binary {
                     _ => None,
                 }
             }
-            (Binary::Regex, ID::Str(s), ID::Str(r)) => match (symbols.get_symbol(s), symbols.get_symbol(r)) {
-                (Some(s), Some(r)) => Some(ID::Bool(
-                    Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
-                )),
-                _ => None,
-            },
+            (Binary::Regex, ID::Str(s), ID::Str(r)) => {
+                match (symbols.get_symbol(s), symbols.get_symbol(r)) {
+                    (Some(s), Some(r)) => Some(ID::Bool(
+                        Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
+                    )),
+                    _ => None,
+                }
+            }
             (Binary::Equal, ID::Str(i), ID::Str(j)) => Some(ID::Bool(i == j)),
 
             // date

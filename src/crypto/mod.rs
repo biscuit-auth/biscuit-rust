@@ -153,10 +153,7 @@ pub fn sign(
     Ok(signature)
 }
 
-pub fn verify_block_signature(
-    block: &Block,
-    public_key: &PublicKey,
-) -> Result<(), error::Format> {
+pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
     to_verify.extend(&block.next_key.to_bytes());
@@ -178,7 +175,7 @@ impl Token {
         next_key: &KeyPair,
         message: &[u8],
     ) -> Result<Self, error::Token> {
-        let signature = sign(&keypair, &next_key, &message)?;
+        let signature = sign(keypair, next_key, message)?;
 
         let block = Block {
             data: message.to_vec(),
@@ -200,7 +197,7 @@ impl Token {
     ) -> Result<Self, error::Token> {
         let keypair = self.next.keypair()?;
 
-        let signature = sign(&keypair, &next_key, &message)?;
+        let signature = sign(&keypair, next_key, message)?;
 
         let block = Block {
             data: message.to_vec(),
@@ -224,7 +221,7 @@ impl Token {
         let mut current_pub = root;
 
         for block in &self.blocks {
-            verify_block_signature(&block, &current_pub)?;
+            verify_block_signature(block, &current_pub)?;
             current_pub = block.next_key;
         }
 
@@ -247,7 +244,7 @@ impl Token {
 
                 current_pub
                     .0
-                    .verify_strict(&to_verify, &signature)
+                    .verify_strict(&to_verify, signature)
                     .map_err(|s| s.to_string())
                     .map_err(error::Signature::InvalidSignature)
                     .map_err(error::Format::Signature)?;
@@ -259,14 +256,12 @@ impl Token {
 }
 
 impl TokenNext {
-
     pub fn keypair(&self) -> Result<KeyPair, error::Token> {
         match &self {
             TokenNext::Seal(_) => Err(error::Token::Sealed),
             TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
         }
     }
-
 }
 
 #[cfg(test)]

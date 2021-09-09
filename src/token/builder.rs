@@ -176,6 +176,12 @@ impl BlockBuilder {
     }
 }
 
+impl std::default::Default for BlockBuilder {
+    fn default() -> Self {
+        BlockBuilder::new()
+    }
+}
+
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
     root_key_id: Option<u32>,

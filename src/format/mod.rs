@@ -206,11 +206,11 @@ impl SerializedBiscuit {
         //FIXME: try batched signature verification
         let mut current_pub = root;
 
-        crypto::verify_block_signature(&self.authority, &current_pub)?;
+        crypto::verify_block_signature(&self.authority, current_pub)?;
         current_pub = &self.authority.next_key;
 
         for block in &self.blocks {
-            crypto::verify_block_signature(&block, &current_pub)?;
+            crypto::verify_block_signature(block, current_pub)?;
             current_pub = &block.next_key;
         }
 
@@ -239,7 +239,7 @@ impl SerializedBiscuit {
 
                 current_pub
                     .0
-                    .verify_strict(&to_verify, &signature)
+                    .verify_strict(&to_verify, signature)
                     .map_err(|s| s.to_string())
                     .map_err(error::Signature::InvalidSignature)
                     .map_err(error::Format::Signature)?;
