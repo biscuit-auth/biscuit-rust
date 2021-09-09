@@ -117,12 +117,10 @@ impl SymbolTable {
 
         let e = if expressions.is_empty() {
             String::new()
+        } else if preds.is_empty() {
+            expressions.join(", ")
         } else {
-            if preds.is_empty() {
-                expressions.join(", ")
-            } else {
-                format!(", {}", expressions.join(", "))
-            }
+            format!(", {}", expressions.join(", "))
         };
 
         format!("{}{}", preds.join(", "), e)

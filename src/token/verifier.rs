@@ -313,7 +313,7 @@ impl<'t> Verifier<'t> {
             for (j, check) in token.authority.checks.iter().enumerate() {
                 let mut successful = false;
 
-                let c = Check::convert_from(&check, &token.symbols);
+                let c = Check::convert_from(check, &token.symbols);
                 let check = c.convert(&mut self.symbols);
 
                 for query in check.queries.iter() {
@@ -388,7 +388,7 @@ impl<'t> Verifier<'t> {
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
-                    let c = Check::convert_from(&check, &token.symbols);
+                    let c = Check::convert_from(check, &token.symbols);
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {

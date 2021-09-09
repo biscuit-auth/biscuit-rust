@@ -611,7 +611,7 @@ fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(
             take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']' && c != ';'),
-            |s| chrono::DateTime::parse_from_rfc3339(s),
+            chrono::DateTime::parse_from_rfc3339,
         ),
         |t| t.timestamp().try_into(),
     )(i)

@@ -96,7 +96,7 @@ impl Binary {
             }
             (Binary::Regex, ID::Str(s), ID::Str(r)) => match (symbols.get_s(s), symbols.get_s(r)) {
                 (Some(s), Some(r)) => Some(ID::Bool(
-                    Regex::new(&r).map(|re| re.is_match(&s)).unwrap_or(false),
+                    Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
                 )),
                 _ => None,
             },
@@ -179,7 +179,7 @@ impl Expression {
         for op in self.ops.iter() {
             //println!("op: {:?}\t| stack: {:?}", op, stack);
             match op {
-                Op::Value(ID::Variable(i)) => match values.get(&i) {
+                Op::Value(ID::Variable(i)) => match values.get(i) {
                     Some(id) => stack.push(id.clone()),
                     None => {
                         //println!("unknown variable {}", i);
@@ -225,7 +225,7 @@ impl Expression {
         for op in self.ops.iter() {
             //println!("op: {:?}\t| stack: {:?}", op, stack);
             match op {
-                Op::Value(i) => stack.push(symbols.print_id(&i)),
+                Op::Value(i) => stack.push(symbols.print_id(i)),
                 Op::Unary(unary) => match stack.pop() {
                     None => return None,
                     Some(s) => stack.push(unary.print(s, symbols)),

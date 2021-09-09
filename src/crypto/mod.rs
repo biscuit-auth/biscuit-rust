@@ -51,6 +51,12 @@ impl KeyPair {
     }
 }
 
+impl std::default::Default for KeyPair {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for KeyPair {
     fn drop(&mut self) {
         self.kp.secret.zeroize();

@@ -270,7 +270,7 @@ impl<'a> Iterator for CombineIt<'a> {
                         let mut match_ids = true;
                         for (key, id) in pred.ids.iter().zip(&current_fact.predicate.ids) {
                             if let (ID::Variable(k), id) = (key, id) {
-                                if !vars.insert(*k, &id) {
+                                if !vars.insert(*k, id) {
                                     match_ids = false;
                                 }
 
@@ -321,8 +321,8 @@ impl<'a> Iterator for CombineIt<'a> {
                                 vars,
                                 &self.predicates[1..],
                                 self.expressions,
-                                &self.all_facts,
-                                &self.symbols,
+                                self.all_facts,
+                                self.symbols,
                             )));
                         }
                         break;

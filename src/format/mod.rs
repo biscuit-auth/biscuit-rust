@@ -66,9 +66,9 @@ impl SerializedBiscuit {
 
         let proof = match data.proof.content {
             None => {
-                return Err(
-                    error::Format::DeserializationError("could not find proof".to_string()).into(),
-                )
+                return Err(error::Format::DeserializationError(
+                    "could not find proof".to_string(),
+                ))
             }
             Some(schema::proof::Content::NextSecret(v)) => {
                 TokenNext::Secret(PrivateKey::from_bytes(&v)?)
@@ -165,7 +165,7 @@ impl SerializedBiscuit {
             authority: crypto::Block {
                 data: v,
                 next_key: next_keypair.public(),
-                signature: signature,
+                signature,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -201,7 +201,7 @@ impl SerializedBiscuit {
         t.blocks.push(crypto::Block {
             data: v,
             next_key: next_keypair.public(),
-            signature: signature,
+            signature,
         });
 
         Ok(t)
@@ -240,10 +240,11 @@ impl SerializedBiscuit {
         match &self.proof {
             TokenNext::Secret(private) => {
                 if current_pub != &private.public() {
-                    return Err(error::Format::Signature(error::Signature::InvalidSignature(
-                        "the last public key does not match the private key".to_string(),
-                    ))
-                    .into());
+                    return Err(error::Format::Signature(
+                        error::Signature::InvalidSignature(
+                            "the last public key does not match the private key".to_string(),
+                        ),
+                    ));
                 }
             }
             TokenNext::Seal(signature) => {

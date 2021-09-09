@@ -435,7 +435,7 @@ pub mod v2 {
 
         for op in input.ops.iter() {
             let translated = match op.content.as_ref() {
-                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_id(&id)?),
+                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_id(id)?),
                 Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
                     Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),

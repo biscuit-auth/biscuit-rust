@@ -375,7 +375,7 @@ impl Predicate {
             ids: p
                 .ids
                 .iter()
-                .map(|id| Term::convert_from(&id, symbols))
+                .map(|id| Term::convert_from(id, symbols))
                 .collect(),
         }
     }
@@ -398,7 +398,7 @@ impl fmt::Display for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", self.name)?;
 
-        if self.ids.len() > 0 {
+        if !self.ids.is_empty() {
             write!(f, "{}", self.ids[0])?;
 
             if self.ids.len() > 1 {
@@ -552,14 +552,11 @@ impl Rule {
 
         for predicate in self.1.iter() {
             for term in predicate.ids.iter() {
-                match term {
-                    Term::Variable(v) => {
-                        head_variables.remove(v);
-                        if head_variables.is_empty() {
-                            return Ok(());
-                        }
+                if let Term::Variable(v) = term {
+                    head_variables.remove(v);
+                    if head_variables.is_empty() {
+                        return Ok(());
                     }
-                    _ => {}
                 }
             }
         }
@@ -576,7 +573,7 @@ impl Rule {
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if r.1.len() > 0 {
+    if !r.1.is_empty() {
         write!(f, "{}", r.1[0])?;
 
         if r.1.len() > 1 {
@@ -586,8 +583,8 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         }
     }
 
-    if r.2.len() > 0 {
-        if r.1.len() > 0 {
+    if !r.2.is_empty() {
+        if !r.1.is_empty() {
             write!(f, ", ")?;
         }
 
@@ -660,7 +657,7 @@ impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "check if ")?;
 
-        if self.queries.len() > 0 {
+        if !self.queries.is_empty() {
             display_rule_body(&self.queries[0], f)?;
 
             if self.queries.len() > 1 {
@@ -688,13 +685,13 @@ pub struct Policy {
 
 impl fmt::Display for Policy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.queries.len() > 0 {
+        if !self.queries.is_empty() {
             match self.kind {
                 PolicyKind::Allow => write!(f, "allow if ")?,
                 PolicyKind::Deny => write!(f, "deny if ")?,
             }
 
-            if self.queries.len() > 0 {
+            if !self.queries.is_empty() {
                 display_rule_body(&self.queries[0], f)?;
 
                 if self.queries.len() > 1 {
@@ -916,9 +913,7 @@ impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
 
         Ok((it
             .next()
-            .ok_or(error::Token::ConversionError(
-                "not enough terms in fact".to_string(),
-            ))
+            .ok_or_else(|| error::Token::ConversionError("not enough terms in fact".to_string()))
             .and_then(A::try_from)?,))
     }
 }
