@@ -174,10 +174,7 @@ impl SerializedBiscuit {
 
     /// adds a new block, serializes it and sign a new token
     pub fn append(&self, next_keypair: &KeyPair, block: &Block) -> Result<Self, error::Token> {
-        let keypair = match &self.proof {
-            TokenNext::Seal(_) => return Err(error::Token::Sealed),
-            TokenNext::Secret(private) => KeyPair::from(private.clone()),
-        };
+        let keypair = self.proof.keypair()?;
 
         let mut v = Vec::new();
         token_block_to_proto_block(block)
@@ -252,10 +249,7 @@ impl SerializedBiscuit {
     }
 
     pub fn seal(&self) -> Result<Self, error::Token> {
-        let keypair = match &self.proof {
-            TokenNext::Seal(_) => return Err(error::Token::Sealed),
-            TokenNext::Secret(private) => KeyPair::from(private.clone()),
-        };
+        let keypair = self.proof.keypair()?;
 
         //FIXME: replace with SHA512 hashing
         let mut to_sign = Vec::new();
