@@ -59,7 +59,7 @@ pub enum ErrorKind {
     FormatSignatureInvalidSignature,
     FormatSealedSignature,
     FormatEmptyKeys,
-    FormatUnknownPublickKey,
+    FormatUnknownPublicKey,
     FormatDeserializationError,
     FormatSerializationError,
     FormatBlockDeserializationError,
@@ -83,6 +83,10 @@ pub enum ErrorKind {
     TooManyIterations,
     Timeout,
     ConversionError,
+    FormatInvalidKeySize,
+    FormatInvalidSignatureSize,
+    FormatInvalidKey,
+    FormatSignatureInvalidSignatureGeneration,
 }
 
 #[no_mangle]
@@ -97,12 +101,15 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::Format(Format::Signature(Signature::InvalidFormat)) => {
                         ErrorKind::FormatSignatureInvalidFormat
                     }
-                    Token::Format(Format::Signature(Signature::InvalidSignature)) => {
+                    Token::Format(Format::Signature(Signature::InvalidSignature(_))) => {
                         ErrorKind::FormatSignatureInvalidSignature
+                    }
+                    Token::Format(Format::Signature(Signature::InvalidSignatureGeneration(_))) => {
+                        ErrorKind::FormatSignatureInvalidSignatureGeneration
                     }
                     Token::Format(Format::SealedSignature) => ErrorKind::FormatSealedSignature,
                     Token::Format(Format::EmptyKeys) => ErrorKind::FormatEmptyKeys,
-                    Token::Format(Format::UnknownPublicKey) => ErrorKind::FormatUnknownPublickKey,
+                    Token::Format(Format::UnknownPublicKey) => ErrorKind::FormatUnknownPublicKey,
                     Token::Format(Format::DeserializationError(_)) => {
                         ErrorKind::FormatDeserializationError
                     }
@@ -116,6 +123,11 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::FormatBlockSerializationError
                     }
                     Token::Format(Format::Version { .. }) => ErrorKind::FormatVersion,
+                    Token::Format(Format::InvalidKeySize(_)) => ErrorKind::FormatInvalidKeySize,
+                    Token::Format(Format::InvalidSignatureSize(_)) => {
+                        ErrorKind::FormatInvalidSignatureSize
+                    }
+                    Token::Format(Format::InvalidKey(_)) => ErrorKind::FormatInvalidKey,
                     Token::InvalidAuthorityIndex(_) => ErrorKind::InvalidAuthorityIndex,
                     Token::InvalidBlockIndex(_) => ErrorKind::InvalidBlockIndex,
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
@@ -250,7 +262,7 @@ pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
 pub struct BiscuitBuilder<'a>(crate::token::builder::BiscuitBuilder<'a>);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Verifier(crate::token::verifier::Verifier);
+pub struct Verifier<'t>(crate::token::verifier::Verifier<'t>);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -303,7 +315,7 @@ pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *m
 pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PrivateKey::from_bytes(input_slice) {
+    match crate::crypto::PrivateKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -338,7 +350,7 @@ pub unsafe extern "C" fn public_key_serialize(
 pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PublicKey::from_bytes(input_slice) {
+    match crate::crypto::PublicKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -503,29 +515,18 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
 pub unsafe extern "C" fn biscuit_builder_free<'a>(_builder: Option<Box<BiscuitBuilder<'a>>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_from(
+pub unsafe extern "C" fn biscuit_from<'a>(
     biscuit_ptr: *const u8,
     biscuit_len: usize,
+    root: Option<&'a PublicKey>,
 ) -> Option<Box<Biscuit>> {
     let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
+    if root.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let root = root?;
 
-    crate::token::Biscuit::from(biscuit)
-        .map(Biscuit)
-        .map(Box::new)
-        .ok()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_from_sealed(
-    biscuit_ptr: *const u8,
-    biscuit_len: usize,
-    secret_ptr: *const u8,
-    secret_len: usize,
-) -> Option<Box<Biscuit>> {
-    let biscuit = std::slice::from_raw_parts(biscuit_ptr, biscuit_len);
-    let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
-
-    crate::token::Biscuit::from_sealed(biscuit, secret)
+    crate::token::Biscuit::from(biscuit, |_| root.0)
         .map(Biscuit)
         .map(Box::new)
         .ok()
@@ -558,7 +559,7 @@ pub unsafe extern "C" fn biscuit_sealed_size(biscuit: Option<&Biscuit>) -> usize
 
     let biscuit = biscuit.unwrap();
 
-    match biscuit.0.sealed_size() {
+    match biscuit.0.serialized_size() {
         Ok(sz) => sz,
         Err(e) => {
             update_last_error(Error::Biscuit(e));
@@ -604,8 +605,6 @@ pub unsafe extern "C" fn biscuit_serialize(
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_serialize_sealed(
     biscuit: Option<&Biscuit>,
-    secret_ptr: *const u8,
-    secret_len: usize,
     buffer_ptr: *mut u8,
 ) -> usize {
     if biscuit.is_none() {
@@ -614,9 +613,8 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
     }
 
     let biscuit = biscuit.unwrap();
-    let secret = std::slice::from_raw_parts(secret_ptr, secret_len);
 
-    match (*biscuit).0.seal(secret) {
+    match (*biscuit).0.seal() {
         Ok(v) => {
             let size = match biscuit.0.serialized_size() {
                 Ok(sz) => sz,
@@ -900,8 +898,6 @@ pub unsafe extern "C" fn biscuit_append_block(
     biscuit: Option<&Biscuit>,
     block_builder: Option<&BlockBuilder>,
     key_pair: Option<&KeyPair>,
-    seed_ptr: *const u8,
-    seed_len: usize,
 ) -> Option<Box<Biscuit>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -918,20 +914,9 @@ pub unsafe extern "C" fn biscuit_append_block(
     }
     let key_pair = key_pair?;
 
-    let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
-    if slice.len() != 32 {
-        update_last_error(Error::InvalidArgument);
-        return None;
-    }
-
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(slice);
-
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
-
     match biscuit
         .0
-        .append_with_rng(&mut rng, &key_pair.0, builder.0.clone())
+        .append_with_keypair(&key_pair.0, builder.0.clone())
     {
         Ok(token) => Some(Box::new(Biscuit(token))),
         Err(e) => {
@@ -944,23 +929,13 @@ pub unsafe extern "C" fn biscuit_append_block(
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
     biscuit: Option<&'a Biscuit>,
-    root: Option<&'b PublicKey>,
-) -> Option<Box<Verifier>> {
+) -> Option<Box<Verifier<'a>>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
     }
     let biscuit = biscuit?;
-    if root.is_none() {
-        update_last_error(Error::InvalidArgument);
-    }
-    let root = root?;
 
-    (*biscuit)
-        .0
-        .verify((*root).0)
-        .map(Verifier)
-        .map(Box::new)
-        .ok()
+    (*biscuit).0.verify().map(Verifier).map(Box::new).ok()
 }
 
 #[no_mangle]

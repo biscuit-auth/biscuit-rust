@@ -19,7 +19,7 @@ mod capi {
 
                 BiscuitBuilder* b = biscuit_builder(root_kp);
                 printf("builder creation error? %s\n", error_message());
-                biscuit_builder_add_authority_fact(b, "right(#authority, \"file1\", #read)");
+                biscuit_builder_add_authority_fact(b, "right(\"file1\", \"read\")");
 
                 printf("builder add authority error? %s\n", error_message());
 
@@ -28,25 +28,21 @@ mod capi {
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
                 printf("block builder creation error? %s\n", error_message());
-                block_builder_add_check(bb, "check if operation(#ambient, #read)");
+                block_builder_add_check(bb, "check if operation(\"read\")");
                 block_builder_add_fact(bb, "hello(\"world\")");
                 printf("builder add check error? %s\n", error_message());
 
                 char *seed2 = "ijklmnopijklmnopijklmnopijklmnop";
-                char *seed3 = "ABCDEFGHABCDEFGHABCDEFGHABCDEFGH";
 
                 KeyPair * kp2 = key_pair_new((const uint8_t *) seed2, strlen(seed2));
 
-                Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2, (const uint8_t*) seed3, strlen(seed3));
+                Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
 
-                Verifier * verifier = biscuit_verify(b2, root);
+                Verifier * verifier = biscuit_verify(b2);
                 printf("verifier creation error? %s\n", error_message());
-                verifier_add_check(verifier, "check if right(#efgh)");
+                verifier_add_check(verifier, "check if right(\"efgh\")");
                 printf("verifier add check error? %s\n", error_message());
-                char* world_print = verifier_print(verifier);
-                printf("verifier world:\n%s\n", world_print);
-                string_free(world_print);
                 if(!verifier_verify(verifier)) {
                     printf("verifier error(code = %d): %s\n", error_kind(), error_message());
 
@@ -72,6 +68,9 @@ mod capi {
                 } else {
                     printf("verifier succeeded\n");
                 }
+                char* world_print = verifier_print(verifier);
+                printf("verifier world:\n%s\n", world_print);
+                string_free(world_print);
 
                 uint64_t sz = biscuit_serialized_size(b2);
                 printf("serialized size: %ld\n", sz);
@@ -92,7 +91,8 @@ mod capi {
             }
         })
         .success()
-        .stdout(r#"key_pair creation error? (null)
+        .stdout(
+            r#"key_pair creation error? (null)
 builder creation error? (null)
 builder add authority error? (null)
 biscuit creation error? (null)
@@ -101,30 +101,26 @@ builder add check error? (null)
 biscuit append error? (null)
 verifier creation error? (null)
 verifier add check error? (null)
+verifier error(code = 22): check validation failed
+failed checks (2):
+  Verifier check 0: check if right("efgh")
+  Block 1, check 0: check if operation("read")
 verifier world:
 World {
   facts: [
     "hello(\"world\")",
-    "revocation_id(0, hex:f5e7f4c5af9f057b414535b94c02a82e185cd21054220f10935b403ec15f54f9)",
-    "revocation_id(1, hex:4639618cf1a4a6c4210dad868b14a9869299e7f997c36fa353c8052d6517d438)",
-    "right(#authority, \"file1\", #read)",
-    "unique_revocation_id(0, hex:14136f1a8ec36e80b9fa4e08f8bbb113a721b8cbac1abc07a18243200220328a)",
-    "unique_revocation_id(1, hex:f2789ea34973c4178a003fd796ebd91d3fd711e0e798556fa7ecaecd9efcfb2f)",
+    "revocation_id(0, hex:f13c06740255270868b79892ad4555bff5f4ab138806656e6c7ba3c6ca287c5c55622b45a39f78ca070bfd9fe16518ef650b46c5e570de3d22e4819bec9d2d0c)",
+    "revocation_id(1, hex:856fdb6cf2755decb1304b29315842d5598f058a6289eacfbe4d01a1788a7e0201d568a1024b2ed19ce3cc96653c4ce574c361ec9f380104bdbdce486d279b0b)",
+    "right(\"file1\", \"read\")",
 ]
-  privileged rules: []
   rules: []
   checks: [
-    "Verifier[0]: check if right(#efgh)",
-    "Block[1][0]: check if operation(#ambient, #read)",
+    "Verifier[0]: check if right(\"efgh\")",
 ]
   policies: []
 }
-verifier error(code = 22): check validation failed
-failed checks (2):
-  Verifier check 0: check if right(#efgh)
-  Block 1, check 0: check if operation(#ambient, #read)
-serialized size: 262
-wrote 262 bytes
+serialized size: 324
+wrote 324 bytes
 "#);
     }
 
