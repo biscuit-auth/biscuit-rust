@@ -156,15 +156,7 @@ impl Token {
         next_key: &KeyPair,
         message: &[u8],
     ) -> Result<Self, error::Token> {
-        //FIXME: replace with SHA512 hashing
-        let mut to_sign = message.to_vec();
-        to_sign.extend(&next_key.public().to_bytes());
-        let signature = keypair
-            .kp
-            .try_sign(&to_sign)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = sign(&keypair, &next_key, &message)?;
 
         let block = Block {
             data: message.to_vec(),
@@ -189,15 +181,7 @@ impl Token {
             TokenNext::Secret(private) => KeyPair::from(private.clone()),
         };
 
-        //FIXME: replace with SHA512 hashing
-        let mut to_sign = message.to_vec();
-        to_sign.extend(&next_key.public().to_bytes());
-        let signature = keypair
-            .kp
-            .try_sign(&to_sign)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = sign(&keypair, &next_key, &message)?;
 
         let block = Block {
             data: message.to_vec(),
