@@ -209,28 +209,11 @@ impl SerializedBiscuit {
         //FIXME: try batched signature verification
         let mut current_pub = root;
 
-        //FIXME: replace with SHA512 hashing
-        let mut to_verify = self.authority.data.to_vec();
-        to_verify.extend(&self.authority.next_key.to_bytes());
-        current_pub
-            .0
-            .verify_strict(&to_verify, &self.authority.signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
-
+        crypto::verify_block_signature(&self.authority, &current_pub)?;
         current_pub = &self.authority.next_key;
 
         for block in &self.blocks {
-            //FIXME: replace with SHA512 hashing
-            let mut to_verify = block.data.to_vec();
-            to_verify.extend(&block.next_key.to_bytes());
-
-            let res = current_pub.0.verify_strict(&to_verify, &block.signature);
-            res.map_err(|s| s.to_string())
-                .map_err(error::Signature::InvalidSignature)
-                .map_err(error::Format::Signature)?;
-
+            crypto::verify_block_signature(&block, &current_pub)?;
             current_pub = &block.next_key;
         }
 

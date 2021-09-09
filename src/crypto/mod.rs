@@ -149,6 +149,24 @@ pub fn sign(
     Ok(signature)
 }
 
+pub fn verify_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+) -> Result<(), error::Format> {
+    //FIXME: replace with SHA512 hashing
+    let mut to_verify = block.data.to_vec();
+    to_verify.extend(&block.next_key.to_bytes());
+
+    public_key
+        .0
+        .verify_strict(&to_verify, &block.signature)
+        .map_err(|s| s.to_string())
+        .map_err(error::Signature::InvalidSignature)
+        .map_err(error::Format::Signature)?;
+
+    Ok(())
+}
+
 impl Token {
     #[allow(dead_code)]
     pub fn new<T: RngCore + CryptoRng>(
@@ -205,16 +223,7 @@ impl Token {
         let mut current_pub = root;
 
         for block in &self.blocks {
-            //FIXME: replace with SHA512 hashing
-            let mut to_verify = block.data.to_vec();
-            to_verify.extend(&block.next_key.to_bytes());
-            current_pub
-                .0
-                .verify_strict(&to_verify, &block.signature)
-                .map_err(|s| s.to_string())
-                .map_err(error::Signature::InvalidSignature)
-                .map_err(error::Format::Signature)?;
-
+            verify_block_signature(&block, &current_pub)?;
             current_pub = block.next_key;
         }
 
