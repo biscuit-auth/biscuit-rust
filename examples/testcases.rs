@@ -337,7 +337,7 @@ fn basic_token<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     token = print_blocks(&biscuit2);
 
@@ -405,7 +405,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     token = print_blocks(&biscuit2);
 
@@ -468,7 +468,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -535,7 +535,7 @@ fn random_block<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     token = print_blocks(&biscuit2);
 
@@ -605,7 +605,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -674,7 +674,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
@@ -685,7 +685,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     ));
 
     let keypair3 = KeyPair::new_with_rng(rng);
-    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
+    let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
     let mut serialized = biscuit3.container().unwrap().clone();
@@ -762,14 +762,14 @@ fn scoped_rules<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
     block3.add_fact(fact("owner", &[string("alice"), string("file2")]));
 
     let keypair3 = KeyPair::new_with_rng(rng);
-    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
+    let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
     let data = if test {
@@ -836,14 +836,14 @@ fn scoped_checks<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
     block3.add_fact(fact("right", &[string("file2"), s("read")]));
 
     let keypair3 = KeyPair::new_with_rng(rng);
-    let biscuit3 = biscuit2.append_with_rng(rng, &keypair3, block3).unwrap();
+    let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
     let data = if test {
@@ -909,7 +909,7 @@ fn expired_token<T: Rng + CryptoRng>(
     );
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -976,7 +976,7 @@ fn verifier_scope<T: Rng + CryptoRng>(
     block2.add_fact(fact("right", &[string("file2"), s("read")]));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -1230,7 +1230,7 @@ fn block_rules<T: Rng + CryptoRng>(
     ));
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -1454,7 +1454,7 @@ fn check_head_name<T: Rng + CryptoRng>(
     block2.add_fact(fact("check1", &[s("test")])).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -1609,7 +1609,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {
@@ -1673,7 +1673,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
-    let biscuit2 = biscuit1.append_with_rng(rng, &keypair2, block2).unwrap();
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
     let data = if test {

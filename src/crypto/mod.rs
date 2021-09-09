@@ -11,9 +11,7 @@ use crate::error::Format;
 
 use super::error;
 use ed25519_dalek::*;
-use nom::HexDisplay;
 use rand_core::{CryptoRng, RngCore};
-use sha2::{Digest, Sha512};
 use std::{convert::TryInto, ops::Drop};
 use zeroize::Zeroize;
 

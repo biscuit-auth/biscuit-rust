@@ -85,9 +85,8 @@
 //!     // the previous check could also be written like this
 //!     // builder.add_check("check if resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
 //!
-//!     let keypair = KeyPair::new();
 //!     // we can now create a new token
-//!     let biscuit = deser.append(&keypair, builder)?;
+//!     let biscuit = deser.append(builder)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?

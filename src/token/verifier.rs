@@ -249,14 +249,6 @@ impl<'t> Verifier<'t> {
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
-        //FIXME: should check for the presence of any other symbol in the token
-        if self.symbols.get("authority").is_none() || self.symbols.get("ambient").is_none() {
-            return Err(error::Token::MissingSymbols);
-        }
-
-        let authority_index = self.symbols.get("authority").unwrap();
-        let ambient_index = self.symbols.get("ambient").unwrap();
-
         if let Some(token) = self.token.take() {
             for fact in token.authority.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);

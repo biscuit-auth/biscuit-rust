@@ -1,13 +1,11 @@
 //! main structures to interact with Biscuit tokens
 use super::crypto::{KeyPair, PublicKey};
-use super::datalog::{Check, Fact, Rule, SymbolTable, World, ID};
+use super::datalog::{Check, Fact, Rule, SymbolTable, ID};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
-#[cfg(test)]
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
@@ -62,8 +60,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   let mut builder2 = token1.create_block();
 ///   builder2.check_operation("read");
 ///
-///   let keypair2 = KeyPair::new();
-///   let token2 = token1.append(&keypair2, builder2).unwrap();
+///   let token2 = token1.append(builder2).unwrap();
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -279,21 +276,17 @@ impl Biscuit {
     ///
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
-    pub fn append(
-        &self,
-        keypair: &KeyPair,
-        block_builder: BlockBuilder,
-    ) -> Result<Self, error::Token> {
-        self.append_with_rng(&mut rand::rngs::OsRng, keypair, block_builder)
+    pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
+        let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        self.append_with_keypair(&keypair, block_builder)
     }
 
     /// adds a new block to the token, using the provided CSPRNG
     ///
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
-    pub fn append_with_rng<T: RngCore + CryptoRng>(
+    pub fn append_with_keypair(
         &self,
-        rng: &mut T,
         keypair: &KeyPair,
         block_builder: BlockBuilder,
     ) -> Result<Self, error::Token> {
@@ -356,7 +349,6 @@ impl Biscuit {
 
         if let Some(token) = self.container.as_ref() {
             res.push(token.authority.signature.to_bytes().to_vec());
-
 
             for block in token.blocks.iter() {
                 res.push(block.signature.to_bytes().to_vec());
@@ -620,7 +612,7 @@ mod tests {
 
             let keypair2 = KeyPair::new_with_rng(&mut rng);
             let biscuit2 = biscuit1_deser
-                .append_with_rng(&mut rng, &keypair2, block2)
+                .append_with_keypair(&keypair2, block2)
                 .unwrap();
 
             println!("biscuit2 (1 check): {}", biscuit2.print());
@@ -647,7 +639,7 @@ mod tests {
 
             let keypair3 = KeyPair::new_with_rng(&mut rng);
             let biscuit3 = biscuit2_deser
-                .append_with_rng(&mut rng, &keypair3, block3)
+                .append_with_keypair(&keypair3, block3)
                 .unwrap();
 
             biscuit3.to_vec().unwrap()
@@ -726,9 +718,7 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
             let mut verifier = biscuit2.verify().unwrap();
@@ -799,9 +789,7 @@ mod tests {
         block2.revocation_id(1234);
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
             let mut verifier = biscuit2.verify().unwrap();
@@ -855,9 +843,7 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
@@ -957,9 +943,7 @@ mod tests {
         block2.revocation_id(1234);
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut block3 = biscuit2.create_block();
 
@@ -967,9 +951,7 @@ mod tests {
         block3.revocation_id(5678);
 
         let keypair3 = KeyPair::new_with_rng(&mut rng);
-        let biscuit3 = biscuit2
-            .append_with_rng(&mut rng, &keypair3, block3)
-            .unwrap();
+        let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
             let mut verifier = biscuit3.verify().unwrap();
             verifier.add_resource("file1");
@@ -1020,9 +1002,7 @@ mod tests {
         block2.add_fact(fact("check1", &[s("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         println!("biscuit2: {}", biscuit2.print());
 
@@ -1088,7 +1068,7 @@ mod tests {
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
+            .append_with_keypair(&keypair2, block2)
             .unwrap();
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
@@ -1114,9 +1094,7 @@ mod tests {
             .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut verifier = biscuit2.verify().unwrap();
         verifier
@@ -1187,7 +1165,7 @@ mod tests {
 
             let keypair2 = KeyPair::new_with_rng(&mut rng);
             let biscuit2 = biscuit1_deser
-                .append_with_rng(&mut rng, &keypair2, block2)
+                .append_with_keypair(&keypair2, block2)
                 .unwrap();
 
             println!("biscuit2 (1 check): {}", biscuit2.print());

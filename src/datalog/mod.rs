@@ -1090,8 +1090,6 @@ mod tests {
         let mut w = World::new();
         let mut syms = SymbolTable::new();
 
-        let authority = syms.add("authority");
-        let ambient = syms.add("ambient");
         let resource = syms.insert("resource");
         let operation = syms.insert("operation");
         let right = syms.insert("right");
@@ -1187,7 +1185,6 @@ mod tests {
         let mut w = World::new();
         let mut syms = SymbolTable::new();
 
-        let ambient = syms.add("ambient");
         let operation = syms.insert("operation");
         let check = syms.insert("check");
         let read = syms.add("read");
