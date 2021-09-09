@@ -186,25 +186,22 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let mut blocks = vec![];
-        blocks.extend(self.blocks.iter().cloned());
-
         let signature = crypto::sign(&keypair, next_keypair, &v)?;
 
-        let mut t = SerializedBiscuit {
-            root_key_id: self.root_key_id,
-            authority: self.authority.clone(),
-            blocks: self.blocks.clone(),
-            proof: TokenNext::Secret(next_keypair.private()),
-        };
-
-        t.blocks.push(crypto::Block {
+        // Add new block
+        let mut blocks = self.blocks.clone();
+        blocks.push(crypto::Block {
             data: v,
             next_key: next_keypair.public(),
             signature: signature,
         });
 
-        Ok(t)
+        Ok(SerializedBiscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks: blocks.clone(),
+            proof: TokenNext::Secret(next_keypair.private()),
+        })
     }
 
     /// checks the signature on a deserialized token
