@@ -310,6 +310,22 @@ impl FromStr for builder::Predicate {
     }
 }
 
+impl TryFrom<&str> for builder::BlockBuilder {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match parse_block_source(value) {
+            Ok((_, mut result)) => Ok(builder::BlockBuilder {
+                facts: result.facts.drain(..).map(|(_, fact)| fact).collect(),
+                rules: result.rules.drain(..).map(|(_, rule)| rule).collect(),
+                checks: result.checks.drain(..).map(|(_, check)| check).collect(),
+                context: None,
+            }),
+            Err(_) => Err(error::Token::ParseError),
+        }
+    }
+}
+
 fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
