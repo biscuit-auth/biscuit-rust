@@ -164,13 +164,15 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
 
     let queries = queries
         .drain(..)
-        .map(|rule_body| builder::Rule {
-            head: builder::Predicate {
-                name: "query".to_string(),
-                terms: Vec::new(),
-            },
-            body: rule_body.0,
-            expressions: rule_body.1,
+        .map(|rule_body| {
+            builder::Rule::new(
+                builder::Predicate {
+                    name: "query".to_string(),
+                    terms: Vec::new(),
+                },
+                rule_body.0,
+                rule_body.1,
+            )
         })
         .collect();
     Ok((i, queries))
@@ -204,11 +206,7 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
 
     let (i, (body, expressions)) = cut(rule_body)(i)?;
 
-    let rule = builder::Rule {
-        head,
-        body,
-        expressions,
-    };
+    let rule = builder::Rule::new(head, body, expressions);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Error(Error {

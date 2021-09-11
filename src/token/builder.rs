@@ -6,7 +6,7 @@ use crate::error;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rand_core::{CryptoRng, RngCore};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashMap},
     convert::{TryFrom, TryInto},
     fmt,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -211,6 +211,7 @@ impl<'a> BiscuitBuilder<'a> {
     pub fn set_root_key_id(&mut self, id: u32) {
         self.root_key_id = Some(id);
     }
+
     pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
 
@@ -514,19 +515,55 @@ pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
+    pub variables: HashMap<String, Option<Term>>,
 }
 
 impl Rule {
+    pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
+        let mut variables = HashMap::new();
+        for term in &head.terms {
+            if let Term::Variable(name) = &term {
+                variables.insert(name.to_string(), None);
+            }
+        }
+
+        for predicate in &body {
+            for term in &predicate.terms {
+                if let Term::Variable(name) = &term {
+                    variables.insert(name.to_string(), None);
+                }
+            }
+        }
+
+        for expression in &expressions {
+            for op in &expression.ops {
+                if let Op::Value(Term::Variable(name)) = &op {
+                    variables.insert(name.to_string(), None);
+                }
+            }
+        }
+
+        Rule {
+            head,
+            body,
+            expressions,
+            variables,
+        }
+    }
+
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
-        let head = self.head.convert(symbols);
+        let mut r = self.clone();
+        r.apply_variables();
+
+        let head = r.head.convert(symbols);
         let mut body = vec![];
         let mut expressions = vec![];
 
-        for p in self.body.iter() {
+        for p in r.body.iter() {
             body.push(p.convert(symbols));
         }
 
-        for c in self.expressions.iter() {
+        for c in r.expressions.iter() {
             expressions.push(c.convert(symbols));
         }
 
@@ -538,19 +575,17 @@ impl Rule {
     }
 
     pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule {
-            head: Predicate::convert_from(&r.head, symbols),
-            body: r
-                .body
+        Rule::new(
+            Predicate::convert_from(&r.head, symbols),
+            r.body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
                 .collect(),
-            expressions: r
-                .expressions
+            r.expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
-        }
+        )
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
@@ -584,6 +619,65 @@ impl Rule {
                 .join(", ")
         ))
     }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        match self.variables.get_mut(name) {
+            None => Err(format!("unknown variable name: {}", name)),
+            Some(v) => {
+                *v = Some(term.into());
+                Ok(())
+            }
+        }
+    }
+
+    fn apply_variables(&mut self) {
+        let variables = self.variables.clone();
+
+        self.head.terms = self
+            .head
+            .terms
+            .drain(..)
+            .map(|t| {
+                if let Term::Variable(name) = &t {
+                    if let Some(Some(term)) = variables.get(name) {
+                        return term.clone();
+                    }
+                }
+                t
+            })
+            .collect();
+
+        for predicate in &mut self.body {
+            predicate.terms = predicate
+                .terms
+                .drain(..)
+                .map(|t| {
+                    if let Term::Variable(name) = &t {
+                        if let Some(Some(term)) = variables.get(name) {
+                            return term.clone();
+                        }
+                    }
+                    t
+                })
+                .collect();
+        }
+
+        for expression in &mut self.expressions {
+            expression.ops = expression
+                .ops
+                .drain(..)
+                .map(|op| {
+                    if let Op::Value(Term::Variable(name)) = &op {
+                        if let Some(Some(term)) = variables.get(name) {
+                            return Op::Value(term.clone());
+                        }
+                    }
+                    op
+                })
+                .collect();
+        }
+    }
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -616,9 +710,12 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} <- ", self.head)?;
+        let mut r = self.clone();
+        r.apply_variables();
 
-        display_rule_body(self, f)
+        write!(f, "{} <- ", r.head)?;
+
+        display_rule_body(&r, f)
     }
 }
 
@@ -644,6 +741,27 @@ impl Check {
         }
 
         Check { queries }
+    }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
     }
 }
 
@@ -697,6 +815,29 @@ pub struct Policy {
     pub kind: PolicyKind,
 }
 
+impl Policy {
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    pub fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
+    }
+}
+
 impl fmt::Display for Policy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.queries.is_empty() {
@@ -745,11 +886,11 @@ pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
     head_terms: &[T],
     predicates: &[P],
 ) -> Rule {
-    Rule {
-        head: pred(head_name, head_terms),
-        body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        expressions: Vec::new(),
-    }
+    Rule::new(
+        pred(head_name, head_terms),
+        predicates.iter().map(|p| p.as_ref().clone()).collect(),
+        Vec::new(),
+    )
 }
 
 /// creates a rule with constraints
@@ -759,22 +900,22 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
     predicates: &[P],
     expressions: &[E],
 ) -> Rule {
-    Rule {
-        head: pred(head_name, head_terms),
-        body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
-    }
+    Rule::new(
+        pred(head_name, head_terms),
+        predicates.iter().map(|p| p.as_ref().clone()).collect(),
+        expressions.iter().map(|c| c.as_ref().clone()).collect(),
+    )
 }
 
 /// creates a check
 pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
-        queries: vec![Rule {
-            head: pred("query", empty_terms),
-            body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
-            expressions: Vec::new(),
-        }],
+        queries: vec![Rule::new(
+            pred("query", empty_terms),
+            predicates.iter().map(|p| p.as_ref().clone()).collect(),
+            Vec::new(),
+        )],
     }
 }
 
@@ -995,3 +1136,19 @@ macro_rules! tuple_try_from_impl(
     );
 
 tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_rule_variables() {
+        let mut rule = Rule::try_from("fact($var1, $var2) <- f1($var1, $var3), f2($var2, $var3, $var4), $var3.starts_with($var2)").unwrap();
+        rule.set("var2", "hello").unwrap();
+        rule.set("var4", 0i64).unwrap();
+        rule.set("var4", 1i64).unwrap();
+
+        let s = rule.to_string();
+        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+    }
+}
