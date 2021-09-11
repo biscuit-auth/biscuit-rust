@@ -826,6 +826,12 @@ pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
 }
 
+impl From<i64> for Term {
+    fn from(i: i64) -> Self {
+        Term::Integer(i)
+    }
+}
+
 impl TryFrom<Term> for i64 {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -839,6 +845,12 @@ impl TryFrom<Term> for i64 {
     }
 }
 
+impl From<bool> for Term {
+    fn from(b: bool) -> Self {
+        Term::Bool(b)
+    }
+}
+
 impl TryFrom<Term> for bool {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -849,6 +861,18 @@ impl TryFrom<Term> for bool {
                 value
             ))),
         }
+    }
+}
+
+impl From<String> for Term {
+    fn from(s: String) -> Self {
+        Term::Str(s)
+    }
+}
+
+impl From<&str> for Term {
+    fn from(s: &str) -> Self {
+        Term::Str(s.into())
     }
 }
 
@@ -866,6 +890,18 @@ impl TryFrom<Term> for String {
     }
 }
 
+impl From<Vec<u8>> for Term {
+    fn from(v: Vec<u8>) -> Self {
+        Term::Bytes(v)
+    }
+}
+
+impl From<&[u8]> for Term {
+    fn from(v: &[u8]) -> Self {
+        Term::Bytes(v.into())
+    }
+}
+
 impl TryFrom<Term> for Vec<u8> {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -876,6 +912,13 @@ impl TryFrom<Term> for Vec<u8> {
                 value
             ))),
         }
+    }
+}
+
+impl From<SystemTime> for Term {
+    fn from(t: SystemTime) -> Self {
+        let dur = t.duration_since(UNIX_EPOCH).unwrap();
+        Term::Date(dur.as_secs())
     }
 }
 
