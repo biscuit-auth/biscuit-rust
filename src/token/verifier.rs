@@ -260,7 +260,7 @@ impl<'t> Verifier<'t> {
             for (i, id) in revocation_ids.drain(..).enumerate() {
                 self.world.facts.insert(datalog::Fact::new(
                     revocation_id_sym,
-                    &[datalog::ID::Integer(i as i64), datalog::ID::Bytes(id)],
+                    &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
                 ));
             }
 

@@ -11,32 +11,32 @@ pub use expression::*;
 pub use symbol::*;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
-pub enum ID {
+pub enum Term {
     Variable(u32),
     Integer(i64),
     Str(SymbolIndex),
     Date(u64),
     Bytes(Vec<u8>),
     Bool(bool),
-    Set(BTreeSet<ID>),
+    Set(BTreeSet<Term>),
 }
 
-impl From<&ID> for ID {
-    fn from(i: &ID) -> Self {
+impl From<&Term> for Term {
+    fn from(i: &Term) -> Self {
         match i {
-            ID::Variable(ref v) => ID::Variable(*v),
-            ID::Integer(ref i) => ID::Integer(*i),
-            ID::Str(ref s) => ID::Str(*s),
-            ID::Date(ref d) => ID::Date(*d),
-            ID::Bytes(ref b) => ID::Bytes(b.clone()),
-            ID::Bool(ref b) => ID::Bool(*b),
-            ID::Set(ref s) => ID::Set(s.clone()),
+            Term::Variable(ref v) => Term::Variable(*v),
+            Term::Integer(ref i) => Term::Integer(*i),
+            Term::Str(ref s) => Term::Str(*s),
+            Term::Date(ref d) => Term::Date(*d),
+            Term::Bytes(ref b) => Term::Bytes(b.clone()),
+            Term::Bool(ref b) => Term::Bool(*b),
+            Term::Set(ref s) => Term::Set(s.clone()),
         }
     }
 }
 
-impl AsRef<ID> for ID {
-    fn as_ref(&self) -> &ID {
+impl AsRef<Term> for Term {
+    fn as_ref(&self) -> &Term {
         self
     }
 }
@@ -44,14 +44,14 @@ impl AsRef<ID> for ID {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: SymbolIndex,
-    pub ids: Vec<ID>,
+    pub terms: Vec<Term>,
 }
 
 impl Predicate {
-    pub fn new(name: SymbolIndex, ids: &[ID]) -> Predicate {
+    pub fn new(name: SymbolIndex, terms: &[Term]) -> Predicate {
         Predicate {
             name,
-            ids: ids.to_vec(),
+            terms: terms.to_vec(),
         }
     }
 }
@@ -68,9 +68,9 @@ pub struct Fact {
 }
 
 impl Fact {
-    pub fn new(name: SymbolIndex, ids: &[ID]) -> Fact {
+    pub fn new(name: SymbolIndex, terms: &[Term]) -> Fact {
         Fact {
-            predicate: Predicate::new(name, ids),
+            predicate: Predicate::new(name, terms),
         }
     }
 }
@@ -95,7 +95,7 @@ pub struct Check {
 
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}({:?})", self.predicate.name, self.predicate.ids)
+        write!(f, "{}({:?})", self.predicate.name, self.predicate.terms)
     }
 }
 
@@ -105,8 +105,8 @@ impl Rule {
         self.body
             .iter()
             .flat_map(|pred| {
-                pred.ids.iter().filter_map(|id| match id {
-                    ID::Variable(i) => Some(*i),
+                pred.terms.iter().filter_map(|id| match id {
+                    Term::Variable(i) => Some(*i),
                     _ => None,
                 })
             })
@@ -123,10 +123,10 @@ impl Rule {
 
         CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(move |h| {
             let mut p = head.clone();
-            for index in 0..p.ids.len() {
-                match &p.ids[index] {
-                    ID::Variable(i) => match h.get(i) {
-                      Some(val) => p.ids[index] = val.clone(),
+            for index in 0..p.terms.len() {
+                match &p.terms[index] {
+                    Term::Variable(i) => match h.get(i) {
+                      Some(val) => p.terms[index] = val.clone(),
                       None => {
                         println!("error: variables that appear in the head should appear in the body and constraints as well");
                         return None;
@@ -191,9 +191,9 @@ impl<'a> CombineIt<'a> {
 }
 
 impl<'a> Iterator for CombineIt<'a> {
-    type Item = HashMap<u32, ID>;
+    type Item = HashMap<u32, Term>;
 
-    fn next(&mut self) -> Option<HashMap<u32, ID>> {
+    fn next(&mut self) -> Option<HashMap<u32, Term>> {
         // if we're the last iterator in the recursive chain, stop here
         if self.predicates.is_empty() {
             //return None;
@@ -206,7 +206,7 @@ impl<'a> Iterator for CombineIt<'a> {
                     let mut valid = true;
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, self.symbols) {
-                            Some(ID::Bool(true)) => {}
+                            Some(Term::Bool(true)) => {}
                             _res => {
                                 //println!("expr returned {:?}", res);
                                 valid = false;
@@ -234,20 +234,20 @@ impl<'a> Iterator for CombineIt<'a> {
                         // create a new MatchedVariables in which we fix variables we could unify
                         // from our first predicate and the current fact
                         let mut vars = self.variables.clone();
-                        let mut match_ids = true;
-                        for (key, id) in pred.ids.iter().zip(&current_fact.predicate.ids) {
-                            if let (ID::Variable(k), id) = (key, id) {
+                        let mut match_terms = true;
+                        for (key, id) in pred.terms.iter().zip(&current_fact.predicate.terms) {
+                            if let (Term::Variable(k), id) = (key, id) {
                                 if !vars.insert(*k, id) {
-                                    match_ids = false;
+                                    match_terms = false;
                                 }
 
-                                if !match_ids {
+                                if !match_terms {
                                     break;
                                 }
                             }
                         }
 
-                        if !match_ids {
+                        if !match_terms {
                             continue;
                         }
 
@@ -263,7 +263,7 @@ impl<'a> Iterator for CombineIt<'a> {
                                     let mut valid = true;
                                     for e in self.expressions.iter() {
                                         match e.evaluate(&variables, self.symbols) {
-                                            Some(ID::Bool(true)) => {
+                                            Some(Term::Bool(true)) => {
                                                 //println!("expression returned true");
                                             }
                                             _e => {
@@ -313,14 +313,14 @@ impl<'a> Iterator for CombineIt<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MatchedVariables(pub HashMap<u32, Option<ID>>);
+pub struct MatchedVariables(pub HashMap<u32, Option<Term>>);
 
 impl MatchedVariables {
     pub fn new(import: HashSet<u32>) -> Self {
         MatchedVariables(import.iter().map(|key| (*key, None)).collect())
     }
 
-    pub fn insert(&mut self, key: u32, value: &ID) -> bool {
+    pub fn insert(&mut self, key: u32, value: &Term) -> bool {
         match self.0.get(&key) {
             Some(None) => {
                 self.0.insert(key, Some(value.clone()));
@@ -335,7 +335,7 @@ impl MatchedVariables {
         self.0.values().all(|v| v.is_some())
     }
 
-    pub fn complete(&self) -> Option<HashMap<u32, ID>> {
+    pub fn complete(&self) -> Option<HashMap<u32, Term>> {
         let mut result = HashMap::new();
         for (k, v) in self.0.iter() {
             match v {
@@ -347,82 +347,82 @@ impl MatchedVariables {
     }
 }
 
-pub fn fact<I: AsRef<ID>>(name: SymbolIndex, ids: &[I]) -> Fact {
+pub fn fact<I: AsRef<Term>>(name: SymbolIndex, terms: &[I]) -> Fact {
     Fact {
         predicate: Predicate {
             name,
-            ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
+            terms: terms.iter().map(|id| id.as_ref().clone()).collect(),
         },
     }
 }
 
-pub fn pred<I: AsRef<ID>>(name: SymbolIndex, ids: &[I]) -> Predicate {
+pub fn pred<I: AsRef<Term>>(name: SymbolIndex, terms: &[I]) -> Predicate {
     Predicate {
         name,
-        ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
+        terms: terms.iter().map(|id| id.as_ref().clone()).collect(),
     }
 }
 
-pub fn rule<I: AsRef<ID>, P: AsRef<Predicate>>(
+pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
     head_name: SymbolIndex,
-    head_ids: &[I],
+    head_terms: &[I],
     predicates: &[P],
 ) -> Rule {
     Rule {
-        head: pred(head_name, head_ids),
+        head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: Vec::new(),
     }
 }
 
-pub fn expressed_rule<I: AsRef<ID>, P: AsRef<Predicate>, C: AsRef<Expression>>(
+pub fn expressed_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Expression>>(
     head_name: SymbolIndex,
-    head_ids: &[I],
+    head_terms: &[I],
     predicates: &[P],
     expressions: &[C],
 ) -> Rule {
     Rule {
-        head: pred(head_name, head_ids),
+        head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
     }
 }
 
-pub fn int(i: i64) -> ID {
-    ID::Integer(i)
+pub fn int(i: i64) -> Term {
+    Term::Integer(i)
 }
 
-/*pub fn string(s: &str) -> ID {
-    ID::Str(s.to_string())
+/*pub fn string(s: &str) -> Term {
+    Term::Str(s.to_string())
 }*/
 
-pub fn date(t: &SystemTime) -> ID {
+pub fn date(t: &SystemTime) -> Term {
     let dur = t.duration_since(UNIX_EPOCH).unwrap();
-    ID::Date(dur.as_secs())
+    Term::Date(dur.as_secs())
 }
 
-pub fn var(syms: &mut SymbolTable, name: &str) -> ID {
+pub fn var(syms: &mut SymbolTable, name: &str) -> Term {
     let id = syms.insert(name);
-    ID::Variable(id as u32)
+    Term::Variable(id as u32)
 }
 
 pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
     rule_pred.name == fact_pred.name
-        && rule_pred.ids.len() == fact_pred.ids.len()
+        && rule_pred.terms.len() == fact_pred.terms.len()
         && rule_pred
-            .ids
+            .terms
             .iter()
-            .zip(&fact_pred.ids)
+            .zip(&fact_pred.terms)
             .all(|(fid, pid)| match (fid, pid) {
                 // the fact should not contain variables
-                (_, ID::Variable(_)) => false,
-                (ID::Variable(_), _) => true,
-                (ID::Integer(i), ID::Integer(j)) => i == j,
-                (ID::Str(i), ID::Str(j)) => i == j,
-                (ID::Date(i), ID::Date(j)) => i == j,
-                (ID::Bytes(i), ID::Bytes(j)) => i == j,
-                (ID::Bool(i), ID::Bool(j)) => i == j,
-                (ID::Set(i), ID::Set(j)) => i == j,
+                (_, Term::Variable(_)) => false,
+                (Term::Variable(_), _) => true,
+                (Term::Integer(i), Term::Integer(j)) => i == j,
+                (Term::Str(i), Term::Str(j)) => i == j,
+                (Term::Date(i), Term::Date(j)) => i == j,
+                (Term::Bytes(i), Term::Bytes(j)) => i == j,
+                (Term::Bool(i), Term::Bool(j)) => i == j,
+                (Term::Set(i), Term::Set(j)) => i == j,
                 _ => false,
             })
 }
@@ -496,17 +496,17 @@ impl World {
             .iter()
             .filter(|f| {
                 f.predicate.name == pred.name
-                    && f.predicate.ids.iter().zip(&pred.ids).all(|(fid, pid)| {
+                    && f.predicate.terms.iter().zip(&pred.terms).all(|(fid, pid)| {
                         let res = match (fid, pid) {
-                            //(ID::Symbol(_), ID::Variable(_)) => true,
-                            //(ID::Symbol(i), ID::Symbol(ref j)) => i == j,
-                            (_, ID::Variable(_)) => true,
-                            (ID::Integer(i), ID::Integer(ref j)) => i == j,
-                            (ID::Str(i), ID::Str(ref j)) => i == j,
-                            (ID::Date(i), ID::Date(ref j)) => i == j,
-                            (ID::Bytes(i), ID::Bytes(ref j)) => i == j,
-                            (ID::Bool(i), ID::Bool(ref j)) => i == j,
-                            (ID::Set(i), ID::Set(ref j)) => i == j,
+                            //(Term::Symbol(_), Term::Variable(_)) => true,
+                            //(Term::Symbol(i), Term::Symbol(ref j)) => i == j,
+                            (_, Term::Variable(_)) => true,
+                            (Term::Integer(i), Term::Integer(ref j)) => i == j,
+                            (Term::Str(i), Term::Str(ref j)) => i == j,
+                            (Term::Date(i), Term::Date(ref j)) => i == j,
+                            (Term::Bytes(i), Term::Bytes(ref j)) => i == j,
+                            (Term::Bool(i), Term::Bool(ref j)) => i == j,
+                            (Term::Set(i), Term::Set(ref j)) => i == j,
                             _ => false,
                         };
                         res
@@ -730,7 +730,7 @@ mod tests {
                 &[Expression {
                     ops: vec![
                         Op::Value(var(&mut syms, "id")),
-                        Op::Value(ID::Integer(1)),
+                        Op::Value(Term::Integer(1)),
                         Op::Binary(Binary::LessThan),
                     ],
                 }],
@@ -860,14 +860,14 @@ mod tests {
                 Expression {
                     ops: vec![
                         Op::Value(var(&mut syms, "date")),
-                        Op::Value(ID::Date(t2_timestamp)),
+                        Op::Value(Term::Date(t2_timestamp)),
                         Op::Binary(Binary::LessOrEqual),
                     ],
                 },
                 Expression {
                     ops: vec![
                         Op::Value(var(&mut syms, "date")),
-                        Op::Value(ID::Date(0)),
+                        Op::Value(Term::Date(0)),
                         Op::Binary(Binary::GreaterOrEqual),
                     ],
                 },
@@ -894,14 +894,14 @@ mod tests {
                 Expression {
                     ops: vec![
                         Op::Value(var(&mut syms, "date")),
-                        Op::Value(ID::Date(t2_timestamp)),
+                        Op::Value(Term::Date(t2_timestamp)),
                         Op::Binary(Binary::GreaterOrEqual),
                     ],
                 },
                 Expression {
                     ops: vec![
                         Op::Value(var(&mut syms, "date")),
-                        Op::Value(ID::Date(0)),
+                        Op::Value(Term::Date(0)),
                         Op::Binary(Binary::GreaterOrEqual),
                     ],
                 },
@@ -953,8 +953,11 @@ mod tests {
                 )],
                 &[Expression {
                     ops: vec![
-                        Op::Value(ID::Set(
-                            [ID::Integer(0), ID::Integer(1)].iter().cloned().collect(),
+                        Op::Value(Term::Set(
+                            [Term::Integer(0), Term::Integer(1)]
+                                .iter()
+                                .cloned()
+                                .collect(),
                         )),
                         Op::Value(var(&mut syms, "int")),
                         Op::Binary(Binary::Contains),
@@ -995,7 +998,9 @@ mod tests {
                 )],
                 &[Expression {
                     ops: vec![
-                        Op::Value(ID::Set([abc_sym_id, ghi_sym_id].iter().cloned().collect())),
+                        Op::Value(Term::Set(
+                            [abc_sym_id, ghi_sym_id].iter().cloned().collect(),
+                        )),
                         Op::Value(var(&mut syms, "symbol")),
                         Op::Binary(Binary::Contains),
                         Op::Unary(Unary::Negate),
@@ -1033,7 +1038,7 @@ mod tests {
                 )],
                 &[Expression {
                     ops: vec![
-                        Op::Value(ID::Set([test.clone(), aaa].iter().cloned().collect())),
+                        Op::Value(Term::Set([test.clone(), aaa].iter().cloned().collect())),
                         Op::Value(var(&mut syms, "str")),
                         Op::Binary(Binary::Contains),
                     ],
@@ -1084,11 +1089,11 @@ mod tests {
         let res = w.query_rule(
             rule(
                 check2,
-                &[ID::Variable(0)],
+                &[Term::Variable(0)],
                 &[
-                    pred(resource, &[&ID::Variable(0)]),
+                    pred(resource, &[&Term::Variable(0)]),
                     pred(operation, &[&read]),
-                    pred(right, &[&ID::Variable(0), &read]),
+                    pred(right, &[&Term::Variable(0), &read]),
                 ],
             ),
             &syms,
@@ -1120,10 +1125,10 @@ mod tests {
             &[pred(x, &[var(&mut syms, "nb"), var(&mut syms, "val")])],
             &[Expression {
                 ops: vec![
-                    Op::Value(ID::Integer(5)),
-                    Op::Value(ID::Integer(-4)),
+                    Op::Value(Term::Integer(5)),
+                    Op::Value(Term::Integer(-4)),
                     Op::Binary(Binary::Add),
-                    Op::Value(ID::Integer(-1)),
+                    Op::Value(Term::Integer(-1)),
                     Op::Binary(Binary::Mul),
                     Op::Value(var(&mut syms, "nb")),
                     Op::Binary(Binary::LessThan),

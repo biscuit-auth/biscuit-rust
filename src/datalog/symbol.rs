@@ -2,7 +2,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub type SymbolIndex = u64;
-use super::{Check, Fact, Predicate, Rule, World, ID};
+use super::{Check, Fact, Predicate, Rule, Term, World};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
@@ -24,9 +24,9 @@ impl SymbolTable {
         }
     }
 
-    pub fn add(&mut self, s: &str) -> ID {
-        let id = self.insert(s);
-        ID::Str(id)
+    pub fn add(&mut self, s: &str) -> Term {
+        let term = self.insert(s);
+        Term::Str(term)
     }
 
     pub fn get(&self, s: &str) -> Option<SymbolIndex> {
@@ -61,27 +61,30 @@ impl SymbolTable {
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
     }
 
-    pub fn print_id(&self, id: &ID) -> String {
-        match id {
-            ID::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
-            ID::Integer(i) => i.to_string(),
-            ID::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
-            ID::Date(d) => {
+    pub fn print_term(&self, term: &Term) -> String {
+        match term {
+            Term::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
+            Term::Integer(i) => i.to_string(),
+            Term::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
+            Term::Date(d) => {
                 let date =
                     DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
                 date.to_rfc3339()
             }
-            ID::Bytes(s) => format!("hex:{}", hex::encode(s)),
-            ID::Bool(b) => {
+            Term::Bytes(s) => format!("hex:{}", hex::encode(s)),
+            Term::Bool(b) => {
                 if *b {
                     "true".to_string()
                 } else {
                     "false".to_string()
                 }
             }
-            ID::Set(s) => {
-                let ids = s.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
-                format!("[{}]", ids.join(", "))
+            Term::Set(s) => {
+                let terms = s
+                    .iter()
+                    .map(|term| self.print_term(term))
+                    .collect::<Vec<_>>();
+                format!("[{}]", terms.join(", "))
             }
         }
     }
@@ -90,7 +93,11 @@ impl SymbolTable {
     }
 
     pub fn print_predicate(&self, p: &Predicate) -> String {
-        let strings = p.ids.iter().map(|id| self.print_id(id)).collect::<Vec<_>>();
+        let strings = p
+            .terms
+            .iter()
+            .map(|term| self.print_term(term))
+            .collect::<Vec<_>>();
         format!(
             "{}({})",
             self.symbols

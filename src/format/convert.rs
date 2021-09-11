@@ -264,68 +264,68 @@ pub mod v2 {
     pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV2 {
         schema::PredicateV2 {
             name: input.name,
-            ids: input.ids.iter().map(token_id_to_proto_id).collect(),
+            ids: input.terms.iter().map(token_term_to_proto_id).collect(),
         }
     }
 
     pub fn proto_predicate_to_token_predicate(
         input: &schema::PredicateV2,
     ) -> Result<Predicate, error::Format> {
-        let mut ids = vec![];
+        let mut terms = vec![];
 
         for id in input.ids.iter() {
-            ids.push(proto_id_to_token_id(id)?);
+            terms.push(proto_id_to_token_term(id)?);
         }
 
         Ok(Predicate {
             name: input.name,
-            ids,
+            terms,
         })
     }
 
-    pub fn token_id_to_proto_id(input: &ID) -> schema::Idv2 {
+    pub fn token_term_to_proto_id(input: &Term) -> schema::Idv2 {
         use schema::idv2::Content;
 
         match input {
-            ID::Variable(v) => schema::Idv2 {
+            Term::Variable(v) => schema::Idv2 {
                 content: Some(Content::Variable(*v)),
             },
-            ID::Integer(i) => schema::Idv2 {
+            Term::Integer(i) => schema::Idv2 {
                 content: Some(Content::Integer(*i)),
             },
-            ID::Str(s) => schema::Idv2 {
+            Term::Str(s) => schema::Idv2 {
                 content: Some(Content::String(*s)),
             },
-            ID::Date(d) => schema::Idv2 {
+            Term::Date(d) => schema::Idv2 {
                 content: Some(Content::Date(*d)),
             },
-            ID::Bytes(s) => schema::Idv2 {
+            Term::Bytes(s) => schema::Idv2 {
                 content: Some(Content::Bytes(s.clone())),
             },
-            ID::Bool(b) => schema::Idv2 {
+            Term::Bool(b) => schema::Idv2 {
                 content: Some(Content::Bool(*b)),
             },
-            ID::Set(s) => schema::Idv2 {
+            Term::Set(s) => schema::Idv2 {
                 content: Some(Content::Set(schema::IdSet {
-                    set: s.iter().map(token_id_to_proto_id).collect(),
+                    set: s.iter().map(token_term_to_proto_id).collect(),
                 })),
             },
         }
     }
 
-    pub fn proto_id_to_token_id(input: &schema::Idv2) -> Result<ID, error::Format> {
+    pub fn proto_id_to_token_term(input: &schema::Idv2) -> Result<Term, error::Format> {
         use schema::idv2::Content;
 
         match &input.content {
             None => Err(error::Format::DeserializationError(
                 "deserialization error: ID content enum is empty".to_string(),
             )),
-            Some(Content::Variable(i)) => Ok(ID::Variable(*i)),
-            Some(Content::Integer(i)) => Ok(ID::Integer(*i)),
-            Some(Content::String(s)) => Ok(ID::Str(*s)),
-            Some(Content::Date(i)) => Ok(ID::Date(*i)),
-            Some(Content::Bytes(s)) => Ok(ID::Bytes(s.clone())),
-            Some(Content::Bool(b)) => Ok(ID::Bool(*b)),
+            Some(Content::Variable(i)) => Ok(Term::Variable(*i)),
+            Some(Content::Integer(i)) => Ok(Term::Integer(*i)),
+            Some(Content::String(s)) => Ok(Term::Str(*s)),
+            Some(Content::Date(i)) => Ok(Term::Date(*i)),
+            Some(Content::Bytes(s)) => Ok(Term::Bytes(s.clone())),
+            Some(Content::Bool(b)) => Ok(Term::Bool(*b)),
             Some(Content::Set(s)) => {
                 let mut kind: Option<u8> = None;
                 let mut set = BTreeSet::new();
@@ -365,10 +365,10 @@ pub mod v2 {
                         kind = Some(index);
                     }
 
-                    set.insert(proto_id_to_token_id(i)?);
+                    set.insert(proto_id_to_token_term(i)?);
                 }
 
-                Ok(ID::Set(set))
+                Ok(Term::Set(set))
             }
         }
     }
@@ -380,7 +380,7 @@ pub mod v2 {
                 .iter()
                 .map(|op| {
                     let content = match op {
-                        Op::Value(i) => schema::op::Content::Value(token_id_to_proto_id(i)),
+                        Op::Value(i) => schema::op::Content::Value(token_term_to_proto_id(i)),
                         Op::Unary(u) => {
                             use schema::op_unary::Kind;
 
@@ -435,7 +435,7 @@ pub mod v2 {
 
         for op in input.ops.iter() {
             let translated = match op.content.as_ref() {
-                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_id(id)?),
+                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_term(id)?),
                 Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
                     Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),

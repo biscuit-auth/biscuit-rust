@@ -1,6 +1,6 @@
 //! main structures to interact with Biscuit tokens
 use super::crypto::{KeyPair, PublicKey};
-use super::datalog::{Check, Fact, Rule, SymbolTable, ID};
+use super::datalog::{Check, Fact, Rule, SymbolTable, Term};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
@@ -516,7 +516,7 @@ impl Block {
         }
     }
 
-    pub fn symbol_add(&mut self, s: &str) -> ID {
+    pub fn symbol_add(&mut self, s: &str) -> Term {
         self.symbols.add(s)
     }
 

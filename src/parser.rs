@@ -52,7 +52,7 @@ pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list1(
             preceded(space0, char(',')),
@@ -65,7 +65,7 @@ pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
         i,
         builder::Fact(builder::Predicate {
             name: fact_name.to_string(),
-            ids,
+            terms,
         }),
     ))
 }
@@ -164,15 +164,13 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
 
     let queries = queries
         .drain(..)
-        .map(|rule_body| {
-            builder::Rule(
-                builder::Predicate {
-                    name: "query".to_string(),
-                    ids: Vec::new(),
-                },
-                rule_body.0,
-                rule_body.1,
-            )
+        .map(|rule_body| builder::Rule {
+            head: builder::Predicate {
+                name: "query".to_string(),
+                terms: Vec::new(),
+            },
+            body: rule_body.0,
+            expressions: rule_body.1,
         })
         .collect();
     Ok((i, queries))
@@ -204,9 +202,13 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, (predicates, expressions)) = cut(rule_body)(i)?;
+    let (i, (body, expressions)) = cut(rule_body)(i)?;
 
-    let rule = builder::Rule(head, predicates, expressions);
+    let rule = builder::Rule {
+        head,
+        body,
+        expressions,
+    };
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Error(Error {
@@ -315,7 +317,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list1(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
@@ -325,7 +327,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
         i,
         builder::Predicate {
             name: fact_name.to_string(),
-            ids,
+            terms,
         },
     ))
 }
@@ -335,7 +337,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list0(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
@@ -345,7 +347,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
         i,
         builder::Predicate {
             name: fact_name.to_string(),
-            ids,
+            terms,
         },
     ))
 }
@@ -1627,7 +1629,7 @@ mod tests {
             ]
         );
         assert_eq!(&printed, "1 + 2 * 3");
-        assert_eq!(result, datalog::ID::Integer(7));
+        assert_eq!(result, datalog::Term::Integer(7));
 
         let input = " (1 + 2) * 3 ";
         println!("parsing: {}", input);
@@ -1655,7 +1657,7 @@ mod tests {
             ]
         );
         assert_eq!(&printed, "(1 + 2) * 3");
-        assert_eq!(result, datalog::ID::Integer(9));
+        assert_eq!(result, datalog::Term::Integer(9));
     }
 
     #[test]

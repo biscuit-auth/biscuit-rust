@@ -1,5 +1,5 @@
 use super::SymbolTable;
-use super::ID;
+use super::Term;
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ pub struct Expression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
-    Value(ID),
+    Value(Term),
     Unary(Unary),
     Binary(Binary),
 }
@@ -23,15 +23,15 @@ pub enum Unary {
 }
 
 impl Unary {
-    fn evaluate(&self, value: ID, symbols: &SymbolTable) -> Option<ID> {
+    fn evaluate(&self, value: Term, symbols: &SymbolTable) -> Option<Term> {
         match (self, value) {
-            (Unary::Negate, ID::Bool(b)) => Some(ID::Bool(!b)),
+            (Unary::Negate, Term::Bool(b)) => Some(Term::Bool(!b)),
             (Unary::Parens, i) => Some(i),
-            (Unary::Length, ID::Str(i)) => {
-                symbols.get_symbol(i).map(|s| ID::Integer(s.len() as i64))
+            (Unary::Length, Term::Str(i)) => {
+                symbols.get_symbol(i).map(|s| Term::Integer(s.len() as i64))
             }
-            (Unary::Length, ID::Bytes(s)) => Some(ID::Integer(s.len() as i64)),
-            (Unary::Length, ID::Set(s)) => Some(ID::Integer(s.len() as i64)),
+            (Unary::Length, Term::Bytes(s)) => Some(Term::Integer(s.len() as i64)),
+            (Unary::Length, Term::Set(s)) => Some(Term::Integer(s.len() as i64)),
             _ => {
                 //println!("unexpected value type on the stack");
                 None
@@ -70,82 +70,94 @@ pub enum Binary {
 }
 
 impl Binary {
-    fn evaluate(&self, left: ID, right: ID, symbols: &SymbolTable) -> Option<ID> {
+    fn evaluate(&self, left: Term, right: Term, symbols: &SymbolTable) -> Option<Term> {
         match (self, left, right) {
             // integer
-            (Binary::LessThan, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i < j)),
-            (Binary::GreaterThan, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i > j)),
-            (Binary::LessOrEqual, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i <= j)),
-            (Binary::GreaterOrEqual, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i >= j)),
-            (Binary::Equal, ID::Integer(i), ID::Integer(j)) => Some(ID::Bool(i == j)),
-            (Binary::Add, ID::Integer(i), ID::Integer(j)) => i.checked_add(j).map(ID::Integer),
-            (Binary::Sub, ID::Integer(i), ID::Integer(j)) => i.checked_sub(j).map(ID::Integer),
-            (Binary::Mul, ID::Integer(i), ID::Integer(j)) => i.checked_mul(j).map(ID::Integer),
-            (Binary::Div, ID::Integer(i), ID::Integer(j)) => i.checked_div(j).map(ID::Integer),
+            (Binary::LessThan, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i < j)),
+            (Binary::GreaterThan, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i > j)),
+            (Binary::LessOrEqual, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i <= j)),
+            (Binary::GreaterOrEqual, Term::Integer(i), Term::Integer(j)) => {
+                Some(Term::Bool(i >= j))
+            }
+            (Binary::Equal, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i == j)),
+            (Binary::Add, Term::Integer(i), Term::Integer(j)) => {
+                i.checked_add(j).map(Term::Integer)
+            }
+            (Binary::Sub, Term::Integer(i), Term::Integer(j)) => {
+                i.checked_sub(j).map(Term::Integer)
+            }
+            (Binary::Mul, Term::Integer(i), Term::Integer(j)) => {
+                i.checked_mul(j).map(Term::Integer)
+            }
+            (Binary::Div, Term::Integer(i), Term::Integer(j)) => {
+                i.checked_div(j).map(Term::Integer)
+            }
 
             // string
-            (Binary::Prefix, ID::Str(s), ID::Str(pref)) => {
+            (Binary::Prefix, Term::Str(s), Term::Str(pref)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(pref)) {
-                    (Some(s), Some(pref)) => Some(ID::Bool(s.starts_with(pref))),
+                    (Some(s), Some(pref)) => Some(Term::Bool(s.starts_with(pref))),
                     _ => None,
                 }
             }
-            (Binary::Suffix, ID::Str(s), ID::Str(suff)) => {
+            (Binary::Suffix, Term::Str(s), Term::Str(suff)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(suff)) {
-                    (Some(s), Some(suff)) => Some(ID::Bool(s.ends_with(suff))),
+                    (Some(s), Some(suff)) => Some(Term::Bool(s.ends_with(suff))),
                     _ => None,
                 }
             }
-            (Binary::Regex, ID::Str(s), ID::Str(r)) => {
+            (Binary::Regex, Term::Str(s), Term::Str(r)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(r)) {
-                    (Some(s), Some(r)) => Some(ID::Bool(
+                    (Some(s), Some(r)) => Some(Term::Bool(
                         Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
                     )),
                     _ => None,
                 }
             }
-            (Binary::Equal, ID::Str(i), ID::Str(j)) => Some(ID::Bool(i == j)),
+            (Binary::Equal, Term::Str(i), Term::Str(j)) => Some(Term::Bool(i == j)),
 
             // date
-            (Binary::LessThan, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i < j)),
-            (Binary::GreaterThan, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i > j)),
-            (Binary::LessOrEqual, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i <= j)),
-            (Binary::GreaterOrEqual, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i >= j)),
-            (Binary::Equal, ID::Date(i), ID::Date(j)) => Some(ID::Bool(i == j)),
+            (Binary::LessThan, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i < j)),
+            (Binary::GreaterThan, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i > j)),
+            (Binary::LessOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i <= j)),
+            (Binary::GreaterOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i >= j)),
+            (Binary::Equal, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i == j)),
 
             // symbol
 
             // byte array
-            (Binary::Equal, ID::Bytes(i), ID::Bytes(j)) => Some(ID::Bool(i == j)),
+            (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Some(Term::Bool(i == j)),
 
             // set
-            (Binary::Equal, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set == s)),
-            (Binary::Intersection, ID::Set(set), ID::Set(s)) => {
-                Some(ID::Set(set.intersection(&s).cloned().collect()))
+            (Binary::Equal, Term::Set(set), Term::Set(s)) => Some(Term::Bool(set == s)),
+            (Binary::Intersection, Term::Set(set), Term::Set(s)) => {
+                Some(Term::Set(set.intersection(&s).cloned().collect()))
             }
-            (Binary::Union, ID::Set(set), ID::Set(s)) => {
-                Some(ID::Set(set.union(&s).cloned().collect()))
+            (Binary::Union, Term::Set(set), Term::Set(s)) => {
+                Some(Term::Set(set.union(&s).cloned().collect()))
             }
-            (Binary::Contains, ID::Set(set), ID::Set(s)) => Some(ID::Bool(set.is_superset(&s))),
-            (Binary::Contains, ID::Set(set), ID::Integer(i)) => {
-                Some(ID::Bool(set.contains(&ID::Integer(i))))
+            (Binary::Contains, Term::Set(set), Term::Set(s)) => {
+                Some(Term::Bool(set.is_superset(&s)))
             }
-            (Binary::Contains, ID::Set(set), ID::Date(i)) => {
-                Some(ID::Bool(set.contains(&ID::Date(i))))
+            (Binary::Contains, Term::Set(set), Term::Integer(i)) => {
+                Some(Term::Bool(set.contains(&Term::Integer(i))))
             }
-            (Binary::Contains, ID::Set(set), ID::Bool(i)) => {
-                Some(ID::Bool(set.contains(&ID::Bool(i))))
+            (Binary::Contains, Term::Set(set), Term::Date(i)) => {
+                Some(Term::Bool(set.contains(&Term::Date(i))))
             }
-            (Binary::Contains, ID::Set(set), ID::Str(i)) => {
-                Some(ID::Bool(set.contains(&ID::Str(i))))
+            (Binary::Contains, Term::Set(set), Term::Bool(i)) => {
+                Some(Term::Bool(set.contains(&Term::Bool(i))))
             }
-            (Binary::Contains, ID::Set(set), ID::Bytes(i)) => {
-                Some(ID::Bool(set.contains(&ID::Bytes(i))))
+            (Binary::Contains, Term::Set(set), Term::Str(i)) => {
+                Some(Term::Bool(set.contains(&Term::Str(i))))
+            }
+            (Binary::Contains, Term::Set(set), Term::Bytes(i)) => {
+                Some(Term::Bool(set.contains(&Term::Bytes(i))))
             }
 
             // boolean
-            (Binary::And, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i & j)),
-            (Binary::Or, ID::Bool(i), ID::Bool(j)) => Some(ID::Bool(i | j)),
+            (Binary::And, Term::Bool(i), Term::Bool(j)) => Some(Term::Bool(i & j)),
+            (Binary::Or, Term::Bool(i), Term::Bool(j)) => Some(Term::Bool(i | j)),
             _ => {
                 //println!("unexpected value type on the stack");
                 None
@@ -177,33 +189,33 @@ impl Binary {
 }
 
 impl Expression {
-    pub fn evaluate(&self, values: &HashMap<u32, ID>, symbols: &SymbolTable) -> Option<ID> {
-        let mut stack: Vec<ID> = Vec::new();
+    pub fn evaluate(&self, values: &HashMap<u32, Term>, symbols: &SymbolTable) -> Option<Term> {
+        let mut stack: Vec<Term> = Vec::new();
 
         for op in self.ops.iter() {
             //println!("op: {:?}\t| stack: {:?}", op, stack);
             match op {
-                Op::Value(ID::Variable(i)) => match values.get(i) {
-                    Some(id) => stack.push(id.clone()),
+                Op::Value(Term::Variable(i)) => match values.get(i) {
+                    Some(term) => stack.push(term.clone()),
                     None => {
                         //println!("unknown variable {}", i);
                         return None;
                     }
                 },
-                Op::Value(id) => stack.push(id.clone()),
+                Op::Value(term) => stack.push(term.clone()),
                 Op::Unary(unary) => match stack.pop() {
                     None => {
                         //println!("expected a value on the stack");
                         return None;
                     }
-                    Some(id) => match unary.evaluate(id, symbols) {
+                    Some(term) => match unary.evaluate(term, symbols) {
                         Some(res) => stack.push(res),
                         None => return None,
                     },
                 },
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
-                    (Some(right_id), Some(left_id)) => {
-                        match binary.evaluate(left_id, right_id, symbols) {
+                    (Some(right_term), Some(left_term)) => {
+                        match binary.evaluate(left_term, right_term, symbols) {
                             Some(res) => stack.push(res),
                             None => return None,
                         }
@@ -229,7 +241,7 @@ impl Expression {
         for op in self.ops.iter() {
             //println!("op: {:?}\t| stack: {:?}", op, stack);
             match op {
-                Op::Value(i) => stack.push(symbols.print_id(i)),
+                Op::Value(i) => stack.push(symbols.print_term(i)),
                 Op::Unary(unary) => match stack.pop() {
                     None => return None,
                     Some(s) => stack.push(unary.print(s, symbols)),
@@ -261,14 +273,14 @@ mod tests {
         };
 
         let ops = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Value(ID::Variable(2)),
+            Op::Value(Term::Integer(1)),
+            Op::Value(Term::Variable(2)),
             Op::Binary(Binary::LessThan),
             Op::Unary(Unary::Parens),
             Op::Unary(Unary::Negate),
         ];
 
-        let values: HashMap<u32, ID> = [(2, ID::Integer(0))].iter().cloned().collect();
+        let values: HashMap<u32, Term> = [(2, Term::Integer(0))].iter().cloned().collect();
 
         println!("ops: {:?}", ops);
 
@@ -276,15 +288,15 @@ mod tests {
         println!("print: {}", e.print(&symbols).unwrap());
 
         let res = e.evaluate(&values, &symbols);
-        assert_eq!(res, Some(ID::Bool(true)));
+        assert_eq!(res, Some(Term::Bool(true)));
     }
 
     #[test]
     fn checked() {
         let symbols = SymbolTable::new();
         let ops = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Value(ID::Integer(0)),
+            Op::Value(Term::Integer(1)),
+            Op::Value(Term::Integer(0)),
             Op::Binary(Binary::Div),
         ];
 
@@ -294,8 +306,8 @@ mod tests {
         assert_eq!(res, None);
 
         let ops = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Value(ID::Integer(i64::MAX)),
+            Op::Value(Term::Integer(1)),
+            Op::Value(Term::Integer(i64::MAX)),
             Op::Binary(Binary::Add),
         ];
 
@@ -305,8 +317,8 @@ mod tests {
         assert_eq!(res, None);
 
         let ops = vec![
-            Op::Value(ID::Integer(-10)),
-            Op::Value(ID::Integer(i64::MAX)),
+            Op::Value(Term::Integer(-10)),
+            Op::Value(Term::Integer(i64::MAX)),
             Op::Binary(Binary::Sub),
         ];
 
@@ -316,8 +328,8 @@ mod tests {
         assert_eq!(res, None);
 
         let ops = vec![
-            Op::Value(ID::Integer(2)),
-            Op::Value(ID::Integer(i64::MAX)),
+            Op::Value(Term::Integer(2)),
+            Op::Value(Term::Integer(i64::MAX)),
             Op::Binary(Binary::Mul),
         ];
 
@@ -334,24 +346,24 @@ mod tests {
         };
 
         let ops1 = vec![
-            Op::Value(ID::Integer(-1)),
-            Op::Value(ID::Variable(2)),
+            Op::Value(Term::Integer(-1)),
+            Op::Value(Term::Variable(2)),
             Op::Binary(Binary::LessThan),
         ];
 
         let ops2 = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Value(ID::Integer(2)),
-            Op::Value(ID::Integer(3)),
+            Op::Value(Term::Integer(1)),
+            Op::Value(Term::Integer(2)),
+            Op::Value(Term::Integer(3)),
             Op::Binary(Binary::Add),
             Op::Binary(Binary::LessThan),
         ];
 
         let ops3 = vec![
-            Op::Value(ID::Integer(1)),
-            Op::Value(ID::Integer(2)),
+            Op::Value(Term::Integer(1)),
+            Op::Value(Term::Integer(2)),
             Op::Binary(Binary::Add),
-            Op::Value(ID::Integer(3)),
+            Op::Value(Term::Integer(3)),
             Op::Binary(Binary::LessThan),
         ];
 

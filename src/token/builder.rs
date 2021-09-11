@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
-use crate::datalog::{self, SymbolTable, ID};
+use crate::datalog::{self, SymbolTable};
 use crate::error;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rand_core::{CryptoRng, RngCore};
@@ -285,27 +285,29 @@ pub enum Term {
 }
 
 impl Term {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> ID {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Term {
         match self {
-            Term::Variable(s) => ID::Variable(symbols.insert(s) as u32),
-            Term::Integer(i) => ID::Integer(*i),
-            Term::Str(s) => ID::Str(symbols.insert(s)),
-            Term::Date(d) => ID::Date(*d),
-            Term::Bytes(s) => ID::Bytes(s.clone()),
-            Term::Bool(b) => ID::Bool(*b),
-            Term::Set(s) => ID::Set(s.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Variable(s) => datalog::Term::Variable(symbols.insert(s) as u32),
+            Term::Integer(i) => datalog::Term::Integer(*i),
+            Term::Str(s) => datalog::Term::Str(symbols.insert(s)),
+            Term::Date(d) => datalog::Term::Date(*d),
+            Term::Bytes(s) => datalog::Term::Bytes(s.clone()),
+            Term::Bool(b) => datalog::Term::Bool(*b),
+            Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
         }
     }
 
-    pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
+    pub fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
         match f {
-            ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
-            ID::Integer(i) => Term::Integer(*i),
-            ID::Str(s) => Term::Str(symbols.print_symbol(*s)),
-            ID::Date(d) => Term::Date(*d),
-            ID::Bytes(s) => Term::Bytes(s.clone()),
-            ID::Bool(b) => Term::Bool(*b),
-            ID::Set(s) => Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect()),
+            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+            datalog::Term::Integer(i) => Term::Integer(*i),
+            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)),
+            datalog::Term::Date(d) => Term::Date(*d),
+            datalog::Term::Bytes(s) => Term::Bytes(s.clone()),
+            datalog::Term::Bool(b) => Term::Bool(*b),
+            datalog::Term::Set(s) => {
+                Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect())
+            }
         }
     }
 }
@@ -360,36 +362,36 @@ impl fmt::Display for Term {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
-    pub ids: Vec<Term>,
+    pub terms: Vec<Term>,
 }
 
 impl Predicate {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Predicate {
         let name = symbols.insert(&self.name);
-        let mut ids = vec![];
+        let mut terms = vec![];
 
-        for id in self.ids.iter() {
-            ids.push(id.convert(symbols));
+        for term in self.terms.iter() {
+            terms.push(term.convert(symbols));
         }
 
-        datalog::Predicate { name, ids }
+        datalog::Predicate { name, terms }
     }
 
     pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
         Predicate {
             name: symbols.print_symbol(p.name),
-            ids: p
-                .ids
+            terms: p
+                .terms
                 .iter()
-                .map(|id| Term::convert_from(id, symbols))
+                .map(|term| Term::convert_from(term, symbols))
                 .collect(),
         }
     }
 
-    pub fn new(name: String, ids: &[Term]) -> Predicate {
+    pub fn new(name: String, terms: &[Term]) -> Predicate {
         Predicate {
             name,
-            ids: ids.to_vec(),
+            terms: terms.to_vec(),
         }
     }
 }
@@ -404,12 +406,12 @@ impl fmt::Display for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", self.name)?;
 
-        if !self.ids.is_empty() {
-            write!(f, "{}", self.ids[0])?;
+        if !self.terms.is_empty() {
+            write!(f, "{}", self.terms[0])?;
 
-            if self.ids.len() > 1 {
-                for i in 1..self.ids.len() {
-                    write!(f, ", {}", self.ids[i])?;
+            if self.terms.len() > 1 {
+                for i in 1..self.terms.len() {
+                    write!(f, ", {}", self.terms[i])?;
                 }
             }
         }
@@ -421,8 +423,8 @@ impl fmt::Display for Predicate {
 pub struct Fact(pub Predicate);
 
 impl Fact {
-    pub fn new(name: String, ids: &[Term]) -> Fact {
-        Fact(Predicate::new(name, ids))
+    pub fn new(name: String, terms: &[Term]) -> Fact {
+        Fact(Predicate::new(name, terms))
     }
 }
 
@@ -508,19 +510,23 @@ impl Op {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Rule(pub Predicate, pub Vec<Predicate>, pub Vec<Expression>);
+pub struct Rule {
+    pub head: Predicate,
+    pub body: Vec<Predicate>,
+    pub expressions: Vec<Expression>,
+}
 
 impl Rule {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
-        let head = self.0.convert(symbols);
+        let head = self.head.convert(symbols);
         let mut body = vec![];
         let mut expressions = vec![];
 
-        for p in self.1.iter() {
+        for p in self.body.iter() {
             body.push(p.convert(symbols));
         }
 
-        for c in self.2.iter() {
+        for c in self.expressions.iter() {
             expressions.push(c.convert(symbols));
         }
 
@@ -532,23 +538,25 @@ impl Rule {
     }
 
     pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule(
-            Predicate::convert_from(&r.head, symbols),
-            r.body
+        Rule {
+            head: Predicate::convert_from(&r.head, symbols),
+            body: r
+                .body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
                 .collect(),
-            r.expressions
+            expressions: r
+                .expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
-        )
+        }
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
         let mut head_variables: std::collections::HashSet<String> = self
-            .0
-            .ids
+            .head
+            .terms
             .iter()
             .filter_map(|term| match term {
                 Term::Variable(s) => Some(s.to_string()),
@@ -556,8 +564,8 @@ impl Rule {
             })
             .collect();
 
-        for predicate in self.1.iter() {
-            for term in predicate.ids.iter() {
+        for predicate in self.body.iter() {
+            for term in predicate.terms.iter() {
                 if let Term::Variable(v) = term {
                     head_variables.remove(v);
                     if head_variables.is_empty() {
@@ -579,26 +587,26 @@ impl Rule {
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if !r.1.is_empty() {
-        write!(f, "{}", r.1[0])?;
+    if !r.body.is_empty() {
+        write!(f, "{}", r.body[0])?;
 
-        if r.1.len() > 1 {
-            for i in 1..r.1.len() {
-                write!(f, ", {}", r.1[i])?;
+        if r.body.len() > 1 {
+            for i in 1..r.body.len() {
+                write!(f, ", {}", r.body[i])?;
             }
         }
     }
 
-    if !r.2.is_empty() {
-        if !r.1.is_empty() {
+    if !r.expressions.is_empty() {
+        if !r.body.is_empty() {
             write!(f, ", ")?;
         }
 
-        write!(f, "{}", r.2[0])?;
+        write!(f, "{}", r.expressions[0])?;
 
-        if r.2.len() > 1 {
-            for i in 1..r.2.len() {
-                write!(f, ", {}", r.2[i])?;
+        if r.expressions.len() > 1 {
+            for i in 1..r.expressions.len() {
+                write!(f, ", {}", r.expressions[i])?;
             }
         }
     }
@@ -608,7 +616,7 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} <- ", self.0)?;
+        write!(f, "{} <- ", self.head)?;
 
         display_rule_body(self, f)
     }
@@ -719,54 +727,54 @@ impl fmt::Display for Policy {
 }
 
 /// creates a new fact
-pub fn fact<I: AsRef<Term>>(name: &str, ids: &[I]) -> Fact {
-    Fact(pred(name, ids))
+pub fn fact<I: AsRef<Term>>(name: &str, terms: &[I]) -> Fact {
+    Fact(pred(name, terms))
 }
 
 /// creates a predicate
-pub fn pred<I: AsRef<Term>>(name: &str, ids: &[I]) -> Predicate {
+pub fn pred<I: AsRef<Term>>(name: &str, terms: &[I]) -> Predicate {
     Predicate {
         name: name.to_string(),
-        ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
+        terms: terms.iter().map(|term| term.as_ref().clone()).collect(),
     }
 }
 
 /// creates a rule
-pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
+pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
     head_name: &str,
-    head_ids: &[I],
+    head_terms: &[T],
     predicates: &[P],
 ) -> Rule {
-    Rule(
-        pred(head_name, head_ids),
-        predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        Vec::new(),
-    )
+    Rule {
+        head: pred(head_name, head_terms),
+        body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
+        expressions: Vec::new(),
+    }
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
+pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
     head_name: &str,
-    head_ids: &[I],
+    head_terms: &[T],
     predicates: &[P],
     expressions: &[E],
 ) -> Rule {
-    Rule(
-        pred(head_name, head_ids),
-        predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        expressions.iter().map(|c| c.as_ref().clone()).collect(),
-    )
+    Rule {
+        head: pred(head_name, head_terms),
+        body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
+        expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
+    }
 }
 
 /// creates a check
 pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
-        queries: vec![Rule(
-            pred("query", empty_terms),
-            predicates.iter().map(|p| p.as_ref().clone()).collect(),
-            Vec::new(),
-        )],
+        queries: vec![Rule {
+            head: pred("query", empty_terms),
+            body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
+            expressions: Vec::new(),
+        }],
     }
 }
 
@@ -914,7 +922,7 @@ macro_rules! tuple_try_from(
 impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
     type Error = error::Token;
     fn try_from(fact: Fact) -> Result<Self, Self::Error> {
-        let mut terms = fact.0.ids;
+        let mut terms = fact.0.terms;
         let mut it = terms.drain(..);
 
         Ok((it
@@ -929,7 +937,7 @@ macro_rules! tuple_try_from_impl(
         impl<$($ty: TryFrom<Term, Error = error::Token>),+> TryFrom<Fact> for ($($ty),+) {
             type Error = error::Token;
             fn try_from(fact: Fact) -> Result<Self, Self::Error> {
-                let mut terms = fact.0.ids;
+                let mut terms = fact.0.terms;
                 let mut it = terms.drain(..);
 
                 Ok((
