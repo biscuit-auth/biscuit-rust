@@ -456,7 +456,7 @@ impl fmt::Display for Predicate {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fact {
     pub predicate: Predicate,
-    pub variables: HashMap<String, Option<Term>>,
+    pub variables: Option<HashMap<String, Option<Term>>>,
 }
 
 impl Fact {
@@ -471,7 +471,7 @@ impl Fact {
         }
         Fact {
             predicate: Predicate::new(name, terms),
-            variables,
+            variables: Some(variables),
         }
     }
 }
@@ -489,37 +489,41 @@ impl Fact {
     pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
         Fact {
             predicate: Predicate::convert_from(&f.predicate, symbols),
-            variables: HashMap::new(),
+            variables: None,
         }
     }
 
     /// replace a variable with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
-        match self.variables.get_mut(name) {
-            None => Err(format!("unknown variable name: {}", name)),
-            Some(v) => {
-                *v = Some(term.into());
-                Ok(())
+        if let Some(variables) = self.variables.as_mut() {
+            match variables.get_mut(name) {
+                None => Err(format!("unknown variable name: {}", name)),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
             }
+        } else {
+            Err("variables can only be set when building facts, not on facts obtained from a token or Datalog run".to_string())
         }
     }
 
     fn apply_variables(&mut self) {
-        let variables = self.variables.clone();
-
-        self.predicate.terms = self
-            .predicate
-            .terms
-            .drain(..)
-            .map(|t| {
-                if let Term::Variable(name) = &t {
-                    if let Some(Some(term)) = variables.get(name) {
-                        return term.clone();
+        if let Some(variables) = self.variables.clone() {
+            self.predicate.terms = self
+                .predicate
+                .terms
+                .drain(..)
+                .map(|t| {
+                    if let Term::Variable(name) = &t {
+                        if let Some(Some(term)) = variables.get(name) {
+                            return term.clone();
+                        }
                     }
-                }
-                t
-            })
-            .collect();
+                    t
+                })
+                .collect();
+        }
     }
 }
 
@@ -600,7 +604,7 @@ pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
-    pub variables: HashMap<String, Option<Term>>,
+    pub variables: Option<HashMap<String, Option<Term>>>,
 }
 
 impl Rule {
@@ -632,7 +636,7 @@ impl Rule {
             head,
             body,
             expressions,
-            variables,
+            variables: Some(variables),
         }
     }
 
@@ -660,17 +664,20 @@ impl Rule {
     }
 
     pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule::new(
-            Predicate::convert_from(&r.head, symbols),
-            r.body
+        Rule {
+            head: Predicate::convert_from(&r.head, symbols),
+            body: r
+                .body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
                 .collect(),
-            r.expressions
+            expressions: r
+                .expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
-        )
+            variables: None,
+        }
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
@@ -707,34 +714,23 @@ impl Rule {
 
     /// replace a variable with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
-        match self.variables.get_mut(name) {
-            None => Err(format!("unknown variable name: {}", name)),
-            Some(v) => {
-                *v = Some(term.into());
-                Ok(())
+        if let Some(variables) = self.variables.as_mut() {
+            match variables.get_mut(name) {
+                None => Err(format!("unknown variable name: {}", name)),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
             }
+        } else {
+            Err("variables can only be set when building queries, not on queries obtained from a token or Datalog run".to_string())
         }
     }
 
     fn apply_variables(&mut self) {
-        let variables = self.variables.clone();
-
-        self.head.terms = self
-            .head
-            .terms
-            .drain(..)
-            .map(|t| {
-                if let Term::Variable(name) = &t {
-                    if let Some(Some(term)) = variables.get(name) {
-                        return term.clone();
-                    }
-                }
-                t
-            })
-            .collect();
-
-        for predicate in &mut self.body {
-            predicate.terms = predicate
+        if let Some(variables) = self.variables.clone() {
+            self.head.terms = self
+                .head
                 .terms
                 .drain(..)
                 .map(|t| {
@@ -746,21 +742,36 @@ impl Rule {
                     t
                 })
                 .collect();
-        }
 
-        for expression in &mut self.expressions {
-            expression.ops = expression
-                .ops
-                .drain(..)
-                .map(|op| {
-                    if let Op::Value(Term::Variable(name)) = &op {
-                        if let Some(Some(term)) = variables.get(name) {
-                            return Op::Value(term.clone());
+            for predicate in &mut self.body {
+                predicate.terms = predicate
+                    .terms
+                    .drain(..)
+                    .map(|t| {
+                        if let Term::Variable(name) = &t {
+                            if let Some(Some(term)) = variables.get(name) {
+                                return term.clone();
+                            }
                         }
-                    }
-                    op
-                })
-                .collect();
+                        t
+                    })
+                    .collect();
+            }
+
+            for expression in &mut self.expressions {
+                expression.ops = expression
+                    .ops
+                    .drain(..)
+                    .map(|op| {
+                        if let Op::Value(Term::Variable(name)) = &op {
+                            if let Some(Some(term)) = variables.get(name) {
+                                return Op::Value(term.clone());
+                            }
+                        }
+                        op
+                    })
+                    .collect();
+            }
         }
     }
 }
@@ -954,10 +965,8 @@ impl fmt::Display for Policy {
 
 /// creates a new fact
 pub fn fact<I: AsRef<Term>>(name: &str, terms: &[I]) -> Fact {
-    Fact {
-        predicate: pred(name, terms),
-        variables: HashMap::new(),
-    }
+    let pred = pred(name, terms);
+    Fact::new(pred.name, pred.terms)
 }
 
 /// creates a predicate
