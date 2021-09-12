@@ -61,13 +61,7 @@ pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
         preceded(space0, char(')')),
     )(i)?;
 
-    Ok((
-        i,
-        builder::Fact(builder::Predicate {
-            name: fact_name.to_string(),
-            terms,
-        }),
-    ))
+    Ok((i, builder::Fact::new(fact_name.to_string(), terms)))
 }
 
 /// parse a Datalog check

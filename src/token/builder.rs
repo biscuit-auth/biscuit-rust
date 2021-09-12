@@ -55,6 +55,39 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+
+        for fact in &mut self.facts {
+            if fact.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        for rule in &mut self.rules {
+            if rule.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+        for check in &mut self.checks {
+            if check.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
+    }
+
     pub fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.symbols.len();
 
@@ -389,10 +422,10 @@ impl Predicate {
         }
     }
 
-    pub fn new(name: String, terms: &[Term]) -> Predicate {
+    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Predicate {
         Predicate {
             name,
-            terms: terms.to_vec(),
+            terms: terms.into(),
         }
     }
 }
@@ -420,30 +453,82 @@ impl fmt::Display for Predicate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct Fact(pub Predicate);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fact {
+    pub predicate: Predicate,
+    pub variables: HashMap<String, Option<Term>>,
+}
 
 impl Fact {
-    pub fn new(name: String, terms: &[Term]) -> Fact {
-        Fact(Predicate::new(name, terms))
+    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Fact {
+        let mut variables = HashMap::new();
+        let terms: Vec<Term> = terms.into();
+
+        for term in &terms {
+            if let Term::Variable(name) = &term {
+                variables.insert(name.to_string(), None);
+            }
+        }
+        Fact {
+            predicate: Predicate::new(name, terms),
+            variables,
+        }
     }
 }
 
 impl Fact {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
+        let mut fact = self.clone();
+        fact.apply_variables();
+
         datalog::Fact {
-            predicate: self.0.convert(symbols),
+            predicate: fact.predicate.convert(symbols),
         }
     }
 
     pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
-        Fact(Predicate::convert_from(&f.predicate, symbols))
+        Fact {
+            predicate: Predicate::convert_from(&f.predicate, symbols),
+            variables: HashMap::new(),
+        }
+    }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        match self.variables.get_mut(name) {
+            None => Err(format!("unknown variable name: {}", name)),
+            Some(v) => {
+                *v = Some(term.into());
+                Ok(())
+            }
+        }
+    }
+
+    fn apply_variables(&mut self) {
+        let variables = self.variables.clone();
+
+        self.predicate.terms = self
+            .predicate
+            .terms
+            .drain(..)
+            .map(|t| {
+                if let Term::Variable(name) = &t {
+                    if let Some(Some(term)) = variables.get(name) {
+                        return term.clone();
+                    }
+                }
+                t
+            })
+            .collect();
     }
 }
 
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        let mut fact = self.clone();
+        fact.apply_variables();
+
+        fact.predicate.fmt(f)
     }
 }
 
@@ -869,7 +954,10 @@ impl fmt::Display for Policy {
 
 /// creates a new fact
 pub fn fact<I: AsRef<Term>>(name: &str, terms: &[I]) -> Fact {
-    Fact(pred(name, terms))
+    Fact {
+        predicate: pred(name, terms),
+        variables: HashMap::new(),
+    }
 }
 
 /// creates a predicate
@@ -1106,7 +1194,7 @@ macro_rules! tuple_try_from(
 impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
     type Error = error::Token;
     fn try_from(fact: Fact) -> Result<Self, Self::Error> {
-        let mut terms = fact.0.terms;
+        let mut terms = fact.predicate.terms;
         let mut it = terms.drain(..);
 
         Ok((it
@@ -1121,7 +1209,7 @@ macro_rules! tuple_try_from_impl(
         impl<$($ty: TryFrom<Term, Error = error::Token>),+> TryFrom<Fact> for ($($ty),+) {
             type Error = error::Token;
             fn try_from(fact: Fact) -> Result<Self, Self::Error> {
-                let mut terms = fact.0.terms;
+                let mut terms = fact.predicate.terms;
                 let mut it = terms.drain(..);
 
                 Ok((

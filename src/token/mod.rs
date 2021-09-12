@@ -970,14 +970,16 @@ mod tests {
                 )],
             ));
             println!("res2: {:?}", res2);
+            let mut res2 = res2.unwrap();
+            res2.sort_by(|a, b| a.to_string().partial_cmp(&b.to_string()).unwrap());
             assert_eq!(
-                &res2.unwrap().iter().collect::<HashSet<_>>(),
+                &res2.iter().collect::<Vec<_>>(),
                 &[
                     fact("revocation_id_verif", &[int(1234)]),
                     fact("revocation_id_verif", &[int(5678)])
                 ]
                 .iter()
-                .collect::<HashSet<_>>()
+                .collect::<Vec<_>>()
             );
         }
     }
