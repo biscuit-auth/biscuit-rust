@@ -15,6 +15,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::{convert::TryInto, ops::Drop};
 use zeroize::Zeroize;
 
+/// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
 pub struct KeyPair {
     pub kp: ed25519_dalek::Keypair,
@@ -63,6 +64,7 @@ impl Drop for KeyPair {
     }
 }
 
+/// the private part of a [KeyPair]
 #[derive(Debug)]
 pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 
@@ -98,6 +100,7 @@ impl Drop for PrivateKey {
     }
 }
 
+/// the private part of a [KeyPair]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
 

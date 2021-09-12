@@ -1,6 +1,6 @@
 //! std::time::Instant compatibility for WebAssembly
 //!
-//! code from https://github.com/rust-lang/rust/issues/48564#issuecomment-698712971
+//! code from <https://github.com/rust-lang/rust/issues/48564#issuecomment-698712971>
 
 #[cfg(feature = "wasm")]
 use std::convert::TryInto;

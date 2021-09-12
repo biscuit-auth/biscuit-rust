@@ -27,7 +27,7 @@
 //! ```rust
 //! extern crate biscuit_auth as biscuit;
 //!
-//! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
+//! use biscuit::{KeyPair, Biscuit, Verifier, builder::*, error};
 //!
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
@@ -42,7 +42,6 @@
 //!     let mut builder = Biscuit::builder(&root);
 //!
 //!     // let's define some access rights
-//!     // every fact added to the authority block must have the authority fact
 //!     builder.add_authority_fact("right(\"/a/file1.txt\", #read)")?;
 //!     builder.add_authority_fact("right(\"/a/file1.txt\", #write)")?;
 //!     builder.add_authority_fact("right(\"/a/file2.txt\", #read)")?;
@@ -68,22 +67,7 @@
 //!
 //!     // checks are implemented as logic rules. If the rule produces something,
 //!     // the check is successful
-//!     builder.add_check(rule(
-//!       // the rule's name
-//!       "check",
-//!       // the "head" of the rule, defining the kind of result that is produced
-//!       &[s("resource")],
-//!       // here we require the presence of a "resource" fact with the "ambient" tag
-//!       // (meaning it is provided by the verifier)
-//!       &[
-//!         pred("resource", &[string("/a/file1.txt")]),
-//!         // we restrict to read operations
-//!         pred("operation", &[s("read")]),
-//!       ],
-//!     ));
-//!
-//!     // the previous check could also be written like this
-//!     // builder.add_check("check if resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
+//!     builder.add_check("check if resource(\"/a/file1.txt\"), operation(#read)")?;
 //!
 //!     // we can now create a new token
 //!     let biscuit = deser.append(builder)?;
@@ -92,8 +76,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 396 bytes
-//!   assert_eq!(token2.len(), 396);
+//!   // this new token fits in 392 bytes
+//!   assert_eq!(token2.len(), 392);
 //!
 //!   /************** VERIFICATION ****************/
 //!
@@ -180,14 +164,11 @@
 //! *or* other user with read right has delegated to user.
 //!
 //! Like Datalog, this language is based around facts and rules, but with some
-//! slight modifications:
-//!
-//! - an authority fact starts with the `#authority` symbol. It can only be added in the authority block (or generated from rules in the authority rules). It provides the basic authorization data, like which rights exist
-//! - an ambient fact starts with the `#ambient` symbol. It can only be provided by the verifier. It gives information on the current request, like which resource is accessed or the current time
-//!
-//! Blocks can provide facts but they cannot be authority or ambient facts. They
-//! contain rules that use facts from the current block, or from the authority
-//! and ambient contexts. If all rules in a block succeed, the block is validated.
+//! slight modifications: a block's rules and checks can only apply to facts
+//! from the current or previous blocks. The verifier executes its checks and
+//! policies in the context of the first block. This allows Biscuit to carry
+//! basic rights in the first block while preventing later blocks from
+//! inreasing the token's rights.
 //!
 //! ### Checks
 //!
@@ -215,9 +196,9 @@
 //! ```ignore
 //! // verify that we have the right for this request
 //! allow if
-//!   resource(#ambient, $res),
-//!   operation(#ambient, $op),
-//!   right(#authority, $res, $op);//!
+//!   resource($res),
+//!   operation($op),
+//!   right($res, $op);
 //!
 //! deny if true;
 //! ```
@@ -237,12 +218,17 @@
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
 
-pub mod crypto;
+mod crypto;
 pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod parser;
-pub mod token;
+mod token;
+
+pub use crypto::{KeyPair, PrivateKey, PublicKey};
+pub use token::builder;
+pub use token::verifier::Verifier;
+pub use token::Biscuit;
 
 #[cfg(cargo_c)]
 mod capi;

@@ -5,7 +5,7 @@
 //!
 //! ```rust
 //! use std::convert::TryInto;
-//! use biscuit_auth::token::builder::Fact;
+//! use biscuit_auth::builder::Fact;
 //!
 //! let f: Fact = "test(#data)".try_into().expect("parse error");
 //! ```

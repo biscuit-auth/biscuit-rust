@@ -91,10 +91,21 @@ impl<'t> Verifier<'t> {
         })
     }
 
-    // serializes a verifier's content
-    //
-    // you can use this to save a set of policies and load them quickly before
-    // verification, or to store a verification context to debug it later
+    /// add a token to an empty verifier
+    pub fn add_token(&mut self, token: &'t Biscuit) -> Result<(), error::Token> {
+        if self.token.is_some() {
+            return Err(error::Logic::VerifierNotEmpty.into());
+        }
+
+        self.token = Some(token);
+
+        Ok(())
+    }
+
+    /// serializes a verifier's content
+    ///
+    /// you can use this to save a set of policies and load them quickly before
+    /// verification, or to store a verification context to debug it later
     pub fn save(&self) -> Result<Vec<u8>, error::Token> {
         let mut symbols = self.symbols.clone();
         let mut checks: Vec<datalog::Check> = self

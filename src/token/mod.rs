@@ -40,7 +40,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// ```rust
 /// extern crate biscuit_auth as biscuit;
 ///
-/// use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
+/// use biscuit::{KeyPair, Biscuit, builder::*};
 ///
 /// fn main() {
 ///   let root = KeyPair::new();
@@ -73,12 +73,22 @@ pub struct Biscuit {
 }
 
 impl Biscuit {
+    /// create the first block's builder
+    ///
+    /// call [`builder::BiscuitBuilder::build`] to create the token
+    pub fn builder(root: &KeyPair) -> BiscuitBuilder {
+        Biscuit::builder_with_symbols(root, default_symbol_table())
+    }
+
+    /// create the first block's builder, sing a provided symbol table
+    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
+        BiscuitBuilder::new(root, symbols)
+    }
+
     /// creates a new token
     ///
     /// the public part of the root keypair must be used for verification
-    ///
-    /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
-    pub fn new(
+    pub(crate) fn new(
         root_key_id: Option<u32>,
         root: &KeyPair,
         symbols: SymbolTable,
@@ -96,9 +106,7 @@ impl Biscuit {
     /// creates a new token, using a provided CSPRNG
     ///
     /// the public part of the root keypair must be used for verification
-    ///
-    /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
-    pub fn new_with_rng<T: RngCore + CryptoRng>(
+    pub(crate) fn new_with_rng<T: RngCore + CryptoRng>(
         rng: &mut T,
         root_key_id: Option<u32>,
         root: &KeyPair,
@@ -131,18 +139,29 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from<F: Fn(Option<u32>) -> PublicKey>(slice: &[u8], f: F) -> Result<Self, error::Token> {
-        Biscuit::from_with_symbols(slice, f, default_symbol_table())
+    pub fn from<T, F>(slice: T, f: F) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
+        Biscuit::from_with_symbols(slice.as_ref(), f, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_with_symbols<F: Fn(Option<u32>) -> PublicKey>(
+    pub fn from_with_symbols<F>(
         slice: &[u8],
         f: F,
-        mut symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+    {
         let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
 
+        Biscuit::from_serialized_container(container, symbols)
+    }
+
+    fn from_serialized_container(container: SerializedBiscuit, mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let authority: Block = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
@@ -190,19 +209,24 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T: AsRef<[u8]>, F: Fn(Option<u32>) -> PublicKey>(
-        slice: T,
-        f: F,
-    ) -> Result<Self, error::Token> {
+    pub fn from_base64<T, F>(slice: T, f: F) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
         Biscuit::from_base64_with_symbols(slice, f, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_base64_with_symbols<T: AsRef<[u8]>, F: Fn(Option<u32>) -> PublicKey>(
+    pub fn from_base64_with_symbols<T, F>(
         slice: T,
         f: F,
         symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
         let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
         Biscuit::from_with_symbols(&decoded, f, symbols)
     }
@@ -215,6 +239,7 @@ impl Biscuit {
         }
     }
 
+    /// serializes the token and encode it to a (URL safe) base64 string
     pub fn to_base64(&self) -> Result<String, error::Token> {
         match self.container.as_ref() {
             None => Err(error::Token::InternalError),
@@ -234,6 +259,8 @@ impl Biscuit {
     }
 
     /// serializes a sealed version of the token
+    ///
+    /// sealed tokens cannot be attenuated
     pub fn seal(&self) -> Result<Vec<u8>, error::Token> {
         match &self.container {
             None => Err(error::Token::InternalError),
@@ -253,18 +280,6 @@ impl Biscuit {
     /// creates a verifier from this token
     pub fn verify(&self) -> Result<Verifier, error::Token> {
         Verifier::from_token(self)
-    }
-
-    /// create the first block's builder
-    ///
-    /// call [`builder::BiscuitBuilder::build`] to create the token
-    pub fn builder(root: &KeyPair) -> BiscuitBuilder {
-        Biscuit::builder_with_symbols(root, default_symbol_table())
-    }
-
-    /// create the first block's builder, sing a provided symbol table
-    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
-        BiscuitBuilder::new(root, symbols)
     }
 
     /// creates a new block builder

@@ -1,9 +1,9 @@
 #![allow(unused_must_use)]
 extern crate biscuit_auth as biscuit;
 
-use biscuit::crypto::KeyPair;
 use biscuit::error;
-use biscuit::token::{builder::*, Biscuit};
+use biscuit::KeyPair;
+use biscuit::{builder::*, Biscuit};
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;

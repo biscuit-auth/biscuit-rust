@@ -1,7 +1,7 @@
 #![allow(unused_must_use)]
-use biscuit::crypto::KeyPair;
-use biscuit::token::builder::*;
-use biscuit::token::*;
+use biscuit::builder::*;
+use biscuit::KeyPair;
+use biscuit::*;
 use biscuit_auth as biscuit;
 
 use rand::{prelude::StdRng, SeedableRng};
