@@ -264,7 +264,7 @@ pub mod v2 {
     pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV2 {
         schema::PredicateV2 {
             name: input.name,
-            ids: input.terms.iter().map(token_term_to_proto_id).collect(),
+            terms: input.terms.iter().map(token_term_to_proto_id).collect(),
         }
     }
 
@@ -273,8 +273,8 @@ pub mod v2 {
     ) -> Result<Predicate, error::Format> {
         let mut terms = vec![];
 
-        for id in input.ids.iter() {
-            terms.push(proto_id_to_token_term(id)?);
+        for term in input.terms.iter() {
+            terms.push(proto_id_to_token_term(term)?);
         }
 
         Ok(Predicate {
@@ -283,38 +283,38 @@ pub mod v2 {
         })
     }
 
-    pub fn token_term_to_proto_id(input: &Term) -> schema::Idv2 {
-        use schema::idv2::Content;
+    pub fn token_term_to_proto_id(input: &Term) -> schema::TermV2 {
+        use schema::term_v2::Content;
 
         match input {
-            Term::Variable(v) => schema::Idv2 {
+            Term::Variable(v) => schema::TermV2 {
                 content: Some(Content::Variable(*v)),
             },
-            Term::Integer(i) => schema::Idv2 {
+            Term::Integer(i) => schema::TermV2 {
                 content: Some(Content::Integer(*i)),
             },
-            Term::Str(s) => schema::Idv2 {
+            Term::Str(s) => schema::TermV2 {
                 content: Some(Content::String(*s)),
             },
-            Term::Date(d) => schema::Idv2 {
+            Term::Date(d) => schema::TermV2 {
                 content: Some(Content::Date(*d)),
             },
-            Term::Bytes(s) => schema::Idv2 {
+            Term::Bytes(s) => schema::TermV2 {
                 content: Some(Content::Bytes(s.clone())),
             },
-            Term::Bool(b) => schema::Idv2 {
+            Term::Bool(b) => schema::TermV2 {
                 content: Some(Content::Bool(*b)),
             },
-            Term::Set(s) => schema::Idv2 {
-                content: Some(Content::Set(schema::IdSet {
+            Term::Set(s) => schema::TermV2 {
+                content: Some(Content::Set(schema::TermSet {
                     set: s.iter().map(token_term_to_proto_id).collect(),
                 })),
             },
         }
     }
 
-    pub fn proto_id_to_token_term(input: &schema::Idv2) -> Result<Term, error::Format> {
-        use schema::idv2::Content;
+    pub fn proto_id_to_token_term(input: &schema::TermV2) -> Result<Term, error::Format> {
+        use schema::term_v2::Content;
 
         match &input.content {
             None => Err(error::Format::DeserializationError(

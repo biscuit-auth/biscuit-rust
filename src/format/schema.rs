@@ -72,15 +72,15 @@ pub struct PredicateV2 {
     #[prost(uint64, required, tag="1")]
     pub name: u64,
     #[prost(message, repeated, tag="2")]
-    pub ids: ::prost::alloc::vec::Vec<Idv2>,
+    pub terms: ::prost::alloc::vec::Vec<TermV2>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Idv2 {
-    #[prost(oneof="idv2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
-    pub content: ::core::option::Option<idv2::Content>,
+pub struct TermV2 {
+    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
+    pub content: ::core::option::Option<term_v2::Content>,
 }
-/// Nested message and enum types in `IDV2`.
-pub mod idv2 {
+/// Nested message and enum types in `TermV2`.
+pub mod term_v2 {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Content {
         #[prost(uint32, tag="1")]
@@ -96,18 +96,18 @@ pub mod idv2 {
         #[prost(bool, tag="6")]
         Bool(bool),
         #[prost(message, tag="7")]
-        Set(super::IdSet),
+        Set(super::TermSet),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct IdSet {
+pub struct TermSet {
     #[prost(message, repeated, tag="1")]
-    pub set: ::prost::alloc::vec::Vec<Idv2>,
+    pub set: ::prost::alloc::vec::Vec<TermV2>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConstraintV2 {
     #[prost(uint32, required, tag="1")]
-    pub id: u32,
+    pub term: u32,
     #[prost(oneof="constraint_v2::Constraint", tags="2, 3, 4, 5")]
     pub constraint: ::core::option::Option<constraint_v2::Constraint>,
 }
@@ -235,7 +235,7 @@ pub mod op {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Content {
         #[prost(message, tag="1")]
-        Value(super::Idv2),
+        Value(super::TermV2),
         #[prost(message, tag="2")]
         Unary(super::OpUnary),
         #[prost(message, tag="3")]
