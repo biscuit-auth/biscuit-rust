@@ -92,6 +92,8 @@ fn main() {
         &mut rng, &target, &root, test,
     ));
 
+    results.push(sealed_token(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1698,6 +1700,78 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
             vec![],
         ),
     );
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn sealed_token<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "sealed token".to_string();
+    let filename = "test20_sealed.bc".to_string();
+    let token;
+
+    let mut builder = Biscuit::builder(&root);
+
+    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+
+    let mut block2 = biscuit1.create_block();
+
+    block2.add_check(rule(
+        "check1",
+        &[var("0")],
+        &[
+            pred("resource", &[var("0")]),
+            pred("operation", &[s("read")]),
+            pred("right", &[var("0"), s("read")]),
+        ],
+    ));
+
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
+
+    token = print_blocks(&biscuit2);
+
+    let data = if test {
+        let v = load_testcase(target, "test20_sealed");
+        let t = Biscuit::from(&v[..], |_| root.public()).unwrap();
+
+        let actual = biscuit2.print();
+        let expected = t.print();
+        print_diff(&actual, &expected);
+        v
+    } else {
+        let data = biscuit2.seal().unwrap();
+        write_testcase(target, "test20_sealed", &data[..]);
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            vec![
+                fact("resource", &[string("file1")]),
+                fact("operation", &[string("read")]),
+            ],
+            vec![],
+            vec![],
+        ),
+    );
+
     TestResult {
         title,
         filename,
