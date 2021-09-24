@@ -109,7 +109,7 @@ fn main() -> Result<(), error::Token> {
   let mut v3 = biscuit2.verify(public_key)?;
   v3.add_resource("/a/file2.txt");
   v3.add_operation("read");
-  v3.add_rule("allow if right(#authority, \"/a/file2.txt\", #read)");
+  v3.add_policy("allow if right(#authority, \"/a/file2.txt\", #read)");
   v1.deny();
 
   // the token restricts to read operations:
