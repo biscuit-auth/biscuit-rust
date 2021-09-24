@@ -54,8 +54,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this token is only 254 bytes, holding the authority data and the signature
-//!   assert_eq!(token1.len(), 254);
+//!   // this token is only 258 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 258);
 //!
 //!   // now let's add some restrictions to this token
 //!   // we want to limit access to `/a/file1.txt` and to read operations
@@ -76,8 +76,8 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 392 bytes
-//!   assert_eq!(token2.len(), 392);
+//!   // this new token fits in 400 bytes
+//!   assert_eq!(token2.len(), 400);
 //!
 //!   /************** VERIFICATION ****************/
 //!

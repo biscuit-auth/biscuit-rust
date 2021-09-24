@@ -4,8 +4,8 @@ extern crate test;
 extern crate biscuit_auth as biscuit;
 
 use biscuit::{
-    KeyPair,
     token::{builder::*, Biscuit},
+    KeyPair,
 };
 use rand::rngs::OsRng;
 use test::Bencher;

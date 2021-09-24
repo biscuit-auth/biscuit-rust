@@ -13,10 +13,25 @@ pub struct Biscuit {
 pub struct SignedBlock {
     #[prost(bytes="vec", required, tag="1")]
     pub block: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes="vec", required, tag="2")]
-    pub next_key: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, required, tag="2")]
+    pub next_key: PublicKey,
     #[prost(bytes="vec", required, tag="3")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublicKey {
+    #[prost(enumeration="public_key::Algorithm", required, tag="1")]
+    pub algorithm: i32,
+    #[prost(bytes="vec", required, tag="2")]
+    pub key: ::prost::alloc::vec::Vec<u8>,
+}
+/// Nested message and enum types in `PublicKey`.
+pub mod public_key {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum Algorithm {
+        Ed25519 = 0,
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Proof {
