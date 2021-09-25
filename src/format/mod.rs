@@ -255,6 +255,9 @@ impl SerializedBiscuit {
                     &self.blocks[self.blocks.len() - 1]
                 };
                 to_verify.extend(&block.data);
+                to_verify.extend(
+                    &(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes(),
+                );
                 to_verify.extend(&block.next_key.to_bytes());
                 to_verify.extend(&block.signature.to_bytes());
 
@@ -281,6 +284,8 @@ impl SerializedBiscuit {
             &self.blocks[self.blocks.len() - 1]
         };
         to_sign.extend(&block.data);
+        to_sign
+            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_sign.extend(&block.next_key.to_bytes());
         to_sign.extend(&block.signature.to_bytes());
 
