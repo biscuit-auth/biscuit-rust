@@ -261,13 +261,16 @@ impl Biscuit {
     /// serializes a sealed version of the token
     ///
     /// sealed tokens cannot be attenuated
-    pub fn seal(&self) -> Result<Vec<u8>, error::Token> {
+    pub fn seal(&self) -> Result<Biscuit, error::Token> {
         match &self.container {
             None => Err(error::Token::InternalError),
             Some(c) => {
-                let token = c.seal();
+                let container = c.seal()?;
 
-                token.and_then(|t| t.to_vec().map_err(error::Token::Format))
+                let mut token = self.clone();
+                token.container = Some(container);
+
+                Ok(token)
             }
         }
     }
@@ -876,7 +879,7 @@ mod tests {
         let _serialized = biscuit2.to_vec().unwrap();
         //println!("biscuit2 serialized ({} bytes):\n{}", serialized.len(), serialized.to_hex(16));
 
-        let sealed = biscuit2.seal().unwrap();
+        let sealed = biscuit2.seal().unwrap().to_vec().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
         let biscuit3 = Biscuit::from(&sealed, |_| root.public()).unwrap();

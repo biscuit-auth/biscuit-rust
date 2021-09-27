@@ -1752,7 +1752,7 @@ fn sealed_token<T: Rng + CryptoRng>(
         print_diff(&actual, &expected);
         v
     } else {
-        let data = biscuit2.seal().unwrap();
+        let data = biscuit2.seal().unwrap().to_vec().unwrap();
         write_testcase(target, "test20_sealed", &data[..]);
         data
     };
