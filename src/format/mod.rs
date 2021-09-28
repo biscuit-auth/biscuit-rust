@@ -39,6 +39,15 @@ impl SerializedBiscuit {
         slice: &[u8],
         f: F,
     ) -> Result<Self, error::Format> {
+        let deser = SerializedBiscuit::deserialize(slice)?;
+
+        let root = f(deser.root_key_id);
+        deser.verify(&root)?;
+
+        Ok(deser)
+    }
+
+    pub(crate) fn deserialize(slice: &[u8]) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
@@ -103,8 +112,6 @@ impl SerializedBiscuit {
             proof,
         };
 
-        let root = f(deser.root_key_id);
-        deser.verify(&root)?;
         Ok(deser)
     }
 

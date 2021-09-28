@@ -12,6 +12,7 @@ use crate::format::{convert::proto_block_to_token_block, schema};
 use verifier::Verifier;
 
 pub mod builder;
+pub mod unverified;
 pub mod verifier;
 
 /// maximum supported version of the serialization format
@@ -161,7 +162,10 @@ impl Biscuit {
         Biscuit::from_serialized_container(container, symbols)
     }
 
-    fn from_serialized_container(container: SerializedBiscuit, mut symbols: SymbolTable) -> Result<Self, error::Token> {
+    fn from_serialized_container(
+        container: SerializedBiscuit,
+        mut symbols: SymbolTable,
+    ) -> Result<Self, error::Token> {
         let authority: Block = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
