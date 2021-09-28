@@ -4,7 +4,7 @@ extern crate test;
 extern crate biscuit_auth as biscuit;
 
 use biscuit::{
-    token::{builder::*, Biscuit},
+    builder::*, Biscuit,
     KeyPair,
 };
 use rand::rngs::OsRng;
@@ -24,7 +24,7 @@ fn create_block_1(b: &mut Bencher) {
     let data = token.to_vec().unwrap();
 
     b.bytes = data.len() as u64;
-    assert_eq!(b.bytes, 212);
+    assert_eq!(b.bytes, 216);
     b.iter(|| {
         let mut builder = Biscuit::builder(&root);
         builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
@@ -58,7 +58,7 @@ fn append_block_2(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 180);
+    assert_eq!(b.bytes, 184);
     b.iter(|| {
         let token = Biscuit::from(&base_data, |_| root.public()).unwrap();
         let mut block_builder = token.create_block();
@@ -95,7 +95,7 @@ fn append_block_5(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 180);
+    assert_eq!(b.bytes, 184);
     b.iter(|| {
         let token2 = Biscuit::from(&data, |_| root.public()).unwrap();
         let mut b = token2.create_block();
