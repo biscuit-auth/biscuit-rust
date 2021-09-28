@@ -229,6 +229,7 @@ pub use crypto::{KeyPair, PrivateKey, PublicKey};
 pub use token::builder;
 pub use token::verifier::Verifier;
 pub use token::Biscuit;
+pub use token::unverified::UnverifiedBiscuit;
 
 #[cfg(cargo_c)]
 mod capi;
