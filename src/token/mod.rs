@@ -81,64 +81,6 @@ impl Biscuit {
         Biscuit::builder_with_symbols(root, default_symbol_table())
     }
 
-    /// create the first block's builder, sing a provided symbol table
-    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
-        BiscuitBuilder::new(root, symbols)
-    }
-
-    /// creates a new token
-    ///
-    /// the public part of the root keypair must be used for verification
-    pub(crate) fn new(
-        root_key_id: Option<u32>,
-        root: &KeyPair,
-        symbols: SymbolTable,
-        authority: Block,
-    ) -> Result<Biscuit, error::Token> {
-        Self::new_with_rng(
-            &mut rand::rngs::OsRng,
-            root_key_id,
-            root,
-            symbols,
-            authority,
-        )
-    }
-
-    /// creates a new token, using a provided CSPRNG
-    ///
-    /// the public part of the root keypair must be used for verification
-    pub(crate) fn new_with_rng<T: RngCore + CryptoRng>(
-        rng: &mut T,
-        root_key_id: Option<u32>,
-        root: &KeyPair,
-        mut symbols: SymbolTable,
-        authority: Block,
-    ) -> Result<Biscuit, error::Token> {
-        let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
-            return Err(error::Token::SymbolTableOverlap);
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        let blocks = vec![];
-
-        let next_keypair = KeyPair::new_with_rng(rng);
-        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
-
-        Ok(Biscuit {
-            root_key_id,
-            authority,
-            blocks,
-            symbols,
-            container: Some(container),
-        })
-    }
-
     /// deserializes a token and validates the signature using the root public key
     pub fn from<T, F>(slice: T, f: F) -> Result<Self, error::Token>
     where
@@ -148,70 +90,6 @@ impl Biscuit {
         Biscuit::from_with_symbols(slice.as_ref(), f, default_symbol_table())
     }
 
-    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_with_symbols<F>(
-        slice: &[u8],
-        f: F,
-        symbols: SymbolTable,
-    ) -> Result<Self, error::Token>
-    where
-        F: Fn(Option<u32>) -> PublicKey,
-    {
-        let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
-
-        Biscuit::from_serialized_container(container, symbols)
-    }
-
-    fn from_serialized_container(
-        container: SerializedBiscuit,
-        mut symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
-        let authority: Block = schema::Block::decode(&container.authority.data[..])
-            .map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing authority block: {:?}",
-                    e
-                )))
-            })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-        let mut blocks = vec![];
-
-        for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block.data[..])
-                .map_err(|e| {
-                    error::Token::Format(error::Format::BlockDeserializationError(format!(
-                        "error deserializing block: {:?}",
-                        e
-                    )))
-                })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-            blocks.push(deser);
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
-        }
-
-        let root_key_id = container.root_key_id;
-        let container = Some(container);
-
-        Ok(Biscuit {
-            root_key_id,
-            authority,
-            blocks,
-            symbols,
-            container,
-        })
-    }
-
     /// deserializes a token and validates the signature using the root public key
     pub fn from_base64<T, F>(slice: T, f: F) -> Result<Self, error::Token>
     where
@@ -219,20 +97,6 @@ impl Biscuit {
         T: AsRef<[u8]>,
     {
         Biscuit::from_base64_with_symbols(slice, f, default_symbol_table())
-    }
-
-    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_base64_with_symbols<T, F>(
-        slice: T,
-        f: F,
-        symbols: SymbolTable,
-    ) -> Result<Self, error::Token>
-    where
-        F: Fn(Option<u32>) -> PublicKey,
-        T: AsRef<[u8]>,
-    {
-        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
-        Biscuit::from_with_symbols(&decoded, f, symbols)
     }
 
     /// serializes the token
@@ -279,11 +143,6 @@ impl Biscuit {
         }
     }
 
-    /// returns the internal representation of the token
-    pub fn container(&self) -> Option<&SerializedBiscuit> {
-        self.container.as_ref()
-    }
-
     /// creates a verifier from this token
     pub fn verify(&self) -> Result<Verifier, error::Token> {
         Verifier::from_token(self)
@@ -301,51 +160,6 @@ impl Biscuit {
     pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
         let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
         self.append_with_keypair(&keypair, block_builder)
-    }
-
-    /// adds a new block to the token, using the provided CSPRNG
-    ///
-    /// since the public key is integrated into the token, the keypair can be
-    /// discarded right after calling this function
-    pub fn append_with_keypair(
-        &self,
-        keypair: &KeyPair,
-        block_builder: BlockBuilder,
-    ) -> Result<Self, error::Token> {
-        if self.container.is_none() {
-            return Err(error::Token::Sealed);
-        }
-
-        let block = block_builder.build(self.symbols.clone());
-
-        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
-            return Err(error::Token::SymbolTableOverlap);
-        }
-
-        let authority = self.authority.clone();
-        let mut blocks = self.blocks.clone();
-        let mut symbols = self.symbols.clone();
-
-        let container = match self.container.as_ref() {
-            None => return Err(error::Token::Sealed),
-            Some(c) => c.append(keypair, &block)?,
-        };
-
-        symbols
-            .symbols
-            .extend(block.symbols.symbols.iter().cloned());
-        blocks.push(block);
-
-        Ok(Biscuit {
-            root_key_id: self.root_key_id,
-            authority,
-            blocks,
-            symbols,
-            container: Some(container),
-        })
     }
 
     /// returns the list of context elements of each block
@@ -440,7 +254,193 @@ impl Biscuit {
         Some(res)
     }
 
-    /// gets the list opf symbols from a block
+    /// create the first block's builder, sing a provided symbol table
+    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
+        BiscuitBuilder::new(root, symbols)
+    }
+
+    /// creates a new token
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new(
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        Self::new_with_rng(
+            &mut rand::rngs::OsRng,
+            root_key_id,
+            root,
+            symbols,
+            authority,
+        )
+    }
+
+    /// creates a new token, using a provided CSPRNG
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new_with_rng<T: RngCore + CryptoRng>(
+        rng: &mut T,
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        mut symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
+        let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Token::SymbolTableOverlap);
+        }
+
+        symbols
+            .symbols
+            .extend(authority.symbols.symbols.iter().cloned());
+
+        let blocks = vec![];
+
+        let next_keypair = KeyPair::new_with_rng(rng);
+        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
+
+        Ok(Biscuit {
+            root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container: Some(container),
+        })
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_with_symbols<F>(
+        slice: &[u8],
+        f: F,
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+    {
+        let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
+
+        Biscuit::from_serialized_container(container, symbols)
+    }
+
+    fn from_serialized_container(
+        container: SerializedBiscuit,
+        mut symbols: SymbolTable,
+    ) -> Result<Self, error::Token> {
+        let authority: Block = schema::Block::decode(&container.authority.data[..])
+            .map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing authority block: {:?}",
+                    e
+                )))
+            })
+            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+
+        let mut blocks = vec![];
+
+        for block in container.blocks.iter() {
+            let deser: Block = schema::Block::decode(&block.data[..])
+                .map_err(|e| {
+                    error::Token::Format(error::Format::BlockDeserializationError(format!(
+                        "error deserializing block: {:?}",
+                        e
+                    )))
+                })
+                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+
+            blocks.push(deser);
+        }
+
+        symbols
+            .symbols
+            .extend(authority.symbols.symbols.iter().cloned());
+
+        for block in blocks.iter() {
+            symbols
+                .symbols
+                .extend(block.symbols.symbols.iter().cloned());
+        }
+
+        let root_key_id = container.root_key_id;
+        let container = Some(container);
+
+        Ok(Biscuit {
+            root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container,
+        })
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_base64_with_symbols<T, F>(
+        slice: T,
+        f: F,
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
+        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        Biscuit::from_with_symbols(&decoded, f, symbols)
+    }
+
+    /// returns the internal representation of the token
+    pub fn container(&self) -> Option<&SerializedBiscuit> {
+        self.container.as_ref()
+    }
+
+    /// adds a new block to the token, using the provided CSPRNG
+    ///
+    /// since the public key is integrated into the token, the keypair can be
+    /// discarded right after calling this function
+    pub fn append_with_keypair(
+        &self,
+        keypair: &KeyPair,
+        block_builder: BlockBuilder,
+    ) -> Result<Self, error::Token> {
+        if self.container.is_none() {
+            return Err(error::Token::Sealed);
+        }
+
+        let block = block_builder.build(self.symbols.clone());
+
+        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
+        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Token::SymbolTableOverlap);
+        }
+
+        let authority = self.authority.clone();
+        let mut blocks = self.blocks.clone();
+        let mut symbols = self.symbols.clone();
+
+        let container = match self.container.as_ref() {
+            None => return Err(error::Token::Sealed),
+            Some(c) => c.append(keypair, &block)?,
+        };
+
+        symbols
+            .symbols
+            .extend(block.symbols.symbols.iter().cloned());
+        blocks.push(block);
+
+        Ok(Biscuit {
+            root_key_id: self.root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container: Some(container),
+        })
+    }
+
+    /// gets the list of symbols from a block
     pub fn block_symbols(&self, index: usize) -> Option<Vec<String>> {
         let block = if index == 0 {
             &self.authority
