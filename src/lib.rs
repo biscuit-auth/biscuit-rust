@@ -27,7 +27,7 @@
 //! ```rust
 //! extern crate biscuit_auth as biscuit;
 //!
-//! use biscuit::{KeyPair, Biscuit, Verifier, builder::*, error};
+//! use biscuit::{KeyPair, Biscuit, Authorizer, builder::*, error};
 //!
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
@@ -89,7 +89,7 @@
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let mut v1 = biscuit2.verify()?;
+//!   let mut v1 = biscuit2.authorizer()?;
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
@@ -101,23 +101,23 @@
 //!   v1.allow();
 //!
 //!   // the token restricts to read operations:
-//!   assert!(v1.verify().is_ok());
+//!   assert!(v1.authorize().is_ok());
 //!
-//!   let mut v2 = biscuit2.verify()?;
+//!   let mut v2 = biscuit2.authorizer()?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
 //!   v2.add_check("check if right(\"/a/file1.txt\", #write)");
 //!
 //!   // the second verifier requested a read operation
-//!   assert!(v2.verify().is_err());
+//!   assert!(v2.authorize().is_err());
 //!
-//!   let mut v3 = biscuit2.verify()?;
+//!   let mut v3 = biscuit2.authorizer()?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
 //!   v3.add_check("check if right(\"/a/file2.txt\", #read)");
 //!
 //!   // the third verifier requests /a/file2.txt
-//!   assert!(v3.verify().is_err());
+//!   assert!(v3.authorize().is_err());
 //!
 //!   Ok(())
 //! }
@@ -226,9 +226,9 @@ pub mod parser;
 mod token;
 
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
+pub use token::authorizer::Authorizer;
 pub use token::builder;
 pub use token::unverified::UnverifiedBiscuit;
-pub use token::verifier::Verifier;
 pub use token::Biscuit;
 
 #[cfg(cargo_c)]

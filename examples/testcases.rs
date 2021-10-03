@@ -222,7 +222,7 @@ fn validate_token(
         }
     };
 
-    let mut verifier = match token.verify() {
+    let mut authorizer = match token.authorizer() {
         Ok(v) => v,
         Err(e) => {
             return Validation {
@@ -236,7 +236,7 @@ fn validate_token(
     let mut verifier_code = String::new();
     for fact in ambient_facts {
         verifier_code += &format!("{};\n", fact);
-        verifier.add_fact(fact);
+        authorizer.add_fact(fact);
     }
 
     if !ambient_rules.is_empty() {
@@ -245,7 +245,7 @@ fn validate_token(
 
     for rule in ambient_rules {
         verifier_code += &format!("{};\n", rule);
-        verifier.add_rule(rule);
+        authorizer.add_rule(rule);
     }
 
     if !checks.is_empty() {
@@ -253,16 +253,16 @@ fn validate_token(
     }
 
     for check in checks {
-        verifier.add_check(&check[..]);
+        authorizer.add_check(&check[..]);
         let c: Check = (&check[..]).try_into().unwrap();
         verifier_code += &format!("{};\n", c);
     }
 
-    verifier.allow().unwrap();
+    authorizer.allow().unwrap();
 
-    let res = verifier.verify();
+    let res = authorizer.authorize();
     //println!("verifier world:\n{}", verifier.print_world());
-    let (mut facts, mut rules, mut checks, mut policies) = verifier.dump();
+    let (mut facts, mut rules, mut checks, mut policies) = authorizer.dump();
 
     Validation {
         world: Some(VerifierWorld {

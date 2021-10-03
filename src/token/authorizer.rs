@@ -18,7 +18,7 @@ use std::{
 ///
 /// can be created from [`Biscuit::verify`](`crate::token::Biscuit::verify`) or [`Verifier::new`]
 #[derive(Clone)]
-pub struct Verifier<'t> {
+pub struct Authorizer<'t> {
     world: datalog::World,
     pub symbols: datalog::SymbolTable,
     checks: Vec<Check>,
@@ -27,9 +27,9 @@ pub struct Verifier<'t> {
     token: Option<&'t Biscuit>,
 }
 
-impl<'t> Verifier<'t> {
+impl<'t> Authorizer<'t> {
     pub(crate) fn from_token(token: &'t Biscuit) -> Result<Self, error::Token> {
-        let mut v = Verifier::new()?;
+        let mut v = Authorizer::new()?;
         v.token = Some(token);
 
         Ok(v)
@@ -48,7 +48,7 @@ impl<'t> Verifier<'t> {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
 
-        Ok(Verifier {
+        Ok(Authorizer {
             world,
             symbols,
             checks: vec![],
@@ -81,7 +81,7 @@ impl<'t> Verifier<'t> {
             .map(|c| Check::convert_from(&c, &symbols))
             .collect();
 
-        Ok(Verifier {
+        Ok(Authorizer {
             world,
             symbols,
             checks,
@@ -94,7 +94,7 @@ impl<'t> Verifier<'t> {
     /// add a token to an empty verifier
     pub fn add_token(&mut self, token: &'t Biscuit) -> Result<(), error::Token> {
         if self.token.is_some() {
-            return Err(error::Logic::VerifierNotEmpty.into());
+            return Err(error::Logic::AuthorizerNotEmpty.into());
         }
 
         self.token = Some(token);
@@ -156,7 +156,7 @@ impl<'t> Verifier<'t> {
         &mut self,
         rule: R,
     ) -> Result<Vec<T>, error::Token> {
-        self.query_with_limits(rule, VerifierLimits::default())
+        self.query_with_limits(rule, AuthorizerLimits::default())
     }
 
     /// run a query over the verifier's Datalog engine to gather data
@@ -169,7 +169,7 @@ impl<'t> Verifier<'t> {
     >(
         &mut self,
         rule: R,
-        limits: VerifierLimits,
+        limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
 
@@ -245,8 +245,8 @@ impl<'t> Verifier<'t> {
     ///
     /// on error, this can return a list of all the failed checks
     /// on success, it returns the index of the policy that matched
-    pub fn verify(&mut self) -> Result<usize, error::Token> {
-        self.verify_with_limits(VerifierLimits::default())
+    pub fn authorize(&mut self) -> Result<usize, error::Token> {
+        self.authorize_with_limits(AuthorizerLimits::default())
     }
 
     /// checks all the checks
@@ -254,7 +254,10 @@ impl<'t> Verifier<'t> {
     /// on error, this can return a list of all the failed checks
     ///
     /// this method can specify custom runtime limits
-    pub fn verify_with_limits(&mut self, limits: VerifierLimits) -> Result<usize, error::Token> {
+    pub fn authorize_with_limits(
+        &mut self,
+        limits: AuthorizerLimits,
+    ) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut errors = vec![];
@@ -314,10 +317,12 @@ impl<'t> Verifier<'t> {
                 }
 
                 if !successful {
-                    errors.push(error::FailedCheck::Verifier(error::FailedVerifierCheck {
-                        check_id: i as u32,
-                        rule: self.symbols.print_check(&c),
-                    }));
+                    errors.push(error::FailedCheck::Authorizer(
+                        error::FailedAuthorizerCheck {
+                            check_id: i as u32,
+                            rule: self.symbols.print_check(&c),
+                        },
+                    ));
                 }
             }
 
@@ -528,7 +533,7 @@ pub struct VerifierPolicies {
 
 /// runtime limits for the Datalog engine
 #[derive(Debug, Clone)]
-pub struct VerifierLimits {
+pub struct AuthorizerLimits {
     /// maximum number of Datalog facts (memory usage)
     pub max_facts: u32,
     /// maximum number of iterations of the rules applications (prevents degenerate rules)
@@ -537,9 +542,9 @@ pub struct VerifierLimits {
     pub max_time: Duration,
 }
 
-impl Default for VerifierLimits {
+impl Default for AuthorizerLimits {
     fn default() -> Self {
-        VerifierLimits {
+        AuthorizerLimits {
             max_facts: 1000,
             max_iterations: 100,
             max_time: Duration::from_millis(1),
@@ -547,8 +552,8 @@ impl Default for VerifierLimits {
     }
 }
 
-impl std::convert::From<VerifierLimits> for crate::datalog::RunLimits {
-    fn from(limits: VerifierLimits) -> Self {
+impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
+    fn from(limits: AuthorizerLimits) -> Self {
         crate::datalog::RunLimits {
             max_facts: limits.max_facts,
             max_iterations: limits.max_iterations,

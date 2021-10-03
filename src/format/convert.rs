@@ -3,7 +3,7 @@
 use super::schema;
 use crate::datalog::*;
 use crate::error;
-use crate::token::{verifier::VerifierPolicies, Block};
+use crate::token::{authorizer::VerifierPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {

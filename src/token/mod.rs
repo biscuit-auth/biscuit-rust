@@ -9,11 +9,11 @@ use rand_core::{CryptoRng, RngCore};
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
-use verifier::Verifier;
+use authorizer::Authorizer;
 
+pub mod authorizer;
 pub mod builder;
 pub mod unverified;
-pub mod verifier;
 
 /// maximum supported version of the serialization format
 pub const MAX_SCHEMA_VERSION: u32 = 2;
@@ -143,9 +143,9 @@ impl Biscuit {
         }
     }
 
-    /// creates a verifier from this token
-    pub fn verify(&self) -> Result<Verifier, error::Token> {
-        Verifier::from_token(self)
+    /// creates a authorizer from this token
+    pub fn authorizer(&self) -> Result<Authorizer, error::Token> {
+        Authorizer::from_token(self)
     }
 
     /// creates a new block builder
@@ -674,7 +674,7 @@ mod tests {
         let final_token = Biscuit::from(&serialized3, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
         {
-            let mut verifier = final_token.verify().unwrap();
+            let mut authorizer = final_token.authorizer().unwrap();
 
             let mut facts = vec![
                 fact("resource", &[s("file1")]),
@@ -682,19 +682,19 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                verifier.add_fact(fact).unwrap();
+                authorizer.add_fact(fact).unwrap();
             }
 
             //println!("final token: {:#?}", final_token);
-            verifier.allow().unwrap();
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
-            let mut verifier = final_token.verify().unwrap();
+            let mut authorizer = final_token.authorizer().unwrap();
 
             let mut facts = vec![
                 fact("resource", &[s("file2")]),
@@ -702,12 +702,12 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                verifier.add_fact(fact).unwrap();
+                authorizer.add_fact(fact).unwrap();
             }
 
-            verifier.allow().unwrap();
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
@@ -743,24 +743,24 @@ mod tests {
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
-            println!("verifier:\n{}", verifier.print_world());
+            println!("authorizer:\n{}", authorizer.print_world());
             res.unwrap();
         }
 
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("/folder2/file3");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder2/file3");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
@@ -777,11 +777,11 @@ mod tests {
         }
 
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("/folder2/file1");
-            verifier.add_operation("write");
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder2/file1");
+            authorizer.add_operation("write");
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
@@ -814,31 +814,31 @@ mod tests {
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
             println!("biscuit2: {}", biscuit2.print());
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
-            verifier.revocation_check(&[0, 1, 2, 5, 1234]);
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
+            authorizer.revocation_check(&[0, 1, 2, 5, 1234]);
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res3: {:?}", res);
 
             // error message should be like this:
-            //"Verifier check 0 failed: check if revocation_id($0), $0 not in [2, 1234, 1, 5, 0]"
+            //"authorizer check 0 failed: check if revocation_id($0), $0 not in [2, 1234, 1, 5, 0]"
             assert!(res.is_err());
         }
     }
@@ -870,12 +870,12 @@ mod tests {
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -889,12 +889,12 @@ mod tests {
         let biscuit3 = Biscuit::from(&sealed, |_| root.public()).unwrap();
 
         {
-            let mut verifier = biscuit3.verify().unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit3.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -922,7 +922,7 @@ mod tests {
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
         println!("{}", biscuit1.print());
 
-        let mut v = biscuit1.verify().expect("omg verifier");
+        let mut v = biscuit1.authorizer().expect("omg authorizer");
 
         v.add_check(rule(
             "right",
@@ -932,12 +932,12 @@ mod tests {
         .unwrap();
 
         //assert!(v.verify().is_err());
-        let res = v.verify();
+        let res = v.authorize();
         println!("res: {:?}", res);
         assert_eq!(
             res,
             Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Verifier(FailedVerifierCheck {
+                FailedCheck::Authorizer(FailedAuthorizerCheck {
                     check_id: 0,
                     rule: String::from("check if right(\"file2\", \"write\")")
                 }),
@@ -946,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    fn verifier_queries() {
+    fn authorizer_queries() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(&mut rng);
 
@@ -975,15 +975,15 @@ mod tests {
         let keypair3 = KeyPair::new_with_rng(&mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
-            let mut verifier = biscuit3.verify().unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
+            let mut authorizer = biscuit3.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
 
-            let res2: Result<Vec<builder::Fact>, crate::error::Token> = verifier.query(rule(
+            let res2: Result<Vec<builder::Fact>, crate::error::Token> = authorizer.query(rule(
                 "revocation_id_verif",
                 &[builder::Term::Variable("id".to_string())],
                 &[pred(
@@ -1037,16 +1037,16 @@ mod tests {
 
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
-            let mut verifier = biscuit2.verify().unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            println!("symbols before time: {:?}", verifier.symbols);
-            verifier.set_time();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            println!("symbols before time: {:?}", authorizer.symbols);
+            authorizer.set_time();
 
-            println!("world:\n{}", verifier.print_world());
-            println!("symbols: {:?}", verifier.symbols);
+            println!("world:\n{}", authorizer.print_world());
+            println!("symbols: {:?}", authorizer.symbols);
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
 
             assert_eq!(
@@ -1077,9 +1077,9 @@ mod tests {
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
-        let mut verifier1 = biscuit1.verify().unwrap();
-        verifier1.allow().unwrap();
-        let res1 = verifier1.verify();
+        let mut authorizer1 = biscuit1.verify().unwrap();
+        authorizer1.allow().unwrap();
+        let res1 = authorizer1.verify();
         println!("res1: {:?}", res1);
         assert_eq!(
             res1,
@@ -1101,9 +1101,9 @@ mod tests {
             .unwrap();
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
-        let mut verifier2 = biscuit2.verify().unwrap();
-        verifier2.allow().unwrap();
-        let res2 = verifier2.verify();
+        let mut authorizer2 = biscuit2.verify().unwrap();
+        authorizer2.allow().unwrap();
+        let res2 = authorizer2.verify();
         assert_eq!(res2, Ok(0));
     }*/
 
@@ -1125,17 +1125,17 @@ mod tests {
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut verifier = biscuit2.verify().unwrap();
-        verifier
+        let mut authorizer = biscuit2.authorizer().unwrap();
+        authorizer
             .add_check("check if bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
-        verifier.allow().unwrap();
+        authorizer.allow().unwrap();
 
-        let res = verifier.verify();
+        let res = authorizer.authorize();
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res: Vec<(Vec<u8>,)> = verifier.query("data($0) <- bytes($0)").unwrap();
+        let res: Vec<(Vec<u8>,)> = authorizer.query("data($0) <- bytes($0)").unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
     }
@@ -1208,20 +1208,20 @@ mod tests {
         let final_token = Biscuit::from(&serialized2, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
 
-        let mut verifier = final_token.verify().unwrap();
-        verifier.add_resource("/folder2/file1");
-        verifier.add_operation("write");
-        verifier
+        let mut authorizer = final_token.authorizer().unwrap();
+        authorizer.add_resource("/folder2/file1");
+        authorizer.add_operation("write");
+        authorizer
             .add_policy("allow if resource($file), operation($op), right($file, $op)")
             .unwrap();
-        verifier.deny().unwrap();
+        authorizer.deny().unwrap();
 
-        let res = verifier.verify_with_limits(crate::token::verifier::VerifierLimits {
+        let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
             max_time: Duration::from_secs(1),
             ..Default::default()
         });
         println!("res1: {:?}", res);
-        println!("verifier:\n{}", verifier.print_world());
+        println!("authorizer:\n{}", authorizer.print_world());
 
         assert!(res.is_err());
     }

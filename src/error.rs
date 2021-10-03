@@ -117,8 +117,8 @@ pub enum Logic {
     InvalidBlockRule(u32, String),
     #[error("list of checks that failed validation")]
     FailedChecks(Vec<FailedCheck>),
-    #[error("the verifier already contains a token")]
-    VerifierNotEmpty,
+    #[error("the authorizer already contains a token")]
+    AuthorizerNotEmpty,
     #[error("denied by policy")]
     Deny(usize),
     #[error("no matching policy was found")]
@@ -130,8 +130,8 @@ pub enum Logic {
 pub enum FailedCheck {
     #[error("a check failed in a block")]
     Block(FailedBlockCheck),
-    #[error("a check provided by the verifier failed")]
-    Verifier(FailedVerifierCheck),
+    #[error("a check provided by the authorizer failed")]
+    Authorizer(FailedAuthorizerCheck),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -143,7 +143,7 @@ pub struct FailedBlockCheck {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FailedVerifierCheck {
+pub struct FailedAuthorizerCheck {
     pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
