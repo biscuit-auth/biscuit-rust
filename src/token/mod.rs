@@ -126,7 +126,7 @@ impl Biscuit {
         }
     }
 
-    /// serializes a sealed version of the token
+    /// creates a sealed version of the token
     ///
     /// sealed tokens cannot be attenuated
     pub fn seal(&self) -> Result<Biscuit, error::Token> {
