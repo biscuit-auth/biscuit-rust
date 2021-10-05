@@ -4,7 +4,7 @@
 //!
 //! * decentralized validation: any node could validate the token only with public information;
 //! * offline delegation: a new, valid token can be created from another one by attenuating its rights, by its holder, without communicating with anyone;
-//! * capabilities based: authorization in microservices should be tied to rights related to the request, instead of relying to an identity that might not make sense to the verifier;
+//! * capabilities based: authorization in microservices should be tied to rights related to the request, instead of relying to an identity that might not make sense to the authorizer;
 //! * flexible rights managements: the token uses a logic language to specify attenuation and add bounds on ambient data;
 //! * small enough to fit anywhere (cookies, etc).
 //!
@@ -17,7 +17,7 @@
 //!
 //! Most of the interaction with this library is done through the
 //! [Biscuit](`crate::token::Biscuit`) structure, that represents a valid
-//! token, and the [Verifier](`crate::token::verifier::Verifier`), used to
+//! token, and the [Authorizer](`crate::token::authorizer::Authorizer`), used to
 //! check authorization policies on a token.
 //!
 //! In this example we will see how we can create a token, add some checks,
@@ -84,7 +84,7 @@
 //!   // let's deserialize the token:
 //!   let biscuit2 = Biscuit::from(&token2,  |_| root.public())?;
 //!
-//!   // let's define 3 verifiers (corresponding to 3 different requests):
+//!   // let's define 3 authorizers (corresponding to 3 different requests):
 //!   // - one for /a/file1.txt and a read operation
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
@@ -108,7 +108,7 @@
 //!   v2.add_operation("write");
 //!   v2.add_check("check if right(\"/a/file1.txt\", #write)");
 //!
-//!   // the second verifier requested a read operation
+//!   // the second authorizer requested a read operation
 //!   assert!(v2.authorize().is_err());
 //!
 //!   let mut v3 = biscuit2.authorizer()?;
@@ -116,7 +116,7 @@
 //!   v3.add_operation("read");
 //!   v3.add_check("check if right(\"/a/file2.txt\", #read)");
 //!
-//!   // the third verifier requests /a/file2.txt
+//!   // the third authorizer requests /a/file2.txt
 //!   assert!(v3.authorize().is_err());
 //!
 //!   Ok(())
@@ -165,7 +165,7 @@
 //!
 //! Like Datalog, this language is based around facts and rules, but with some
 //! slight modifications: a block's rules and checks can only apply to facts
-//! from the current or previous blocks. The verifier executes its checks and
+//! from the current or previous blocks. The authorizer executes its checks and
 //! policies in the context of the first block. This allows Biscuit to carry
 //! basic rights in the first block while preventing later blocks from
 //! inreasing the token's rights.

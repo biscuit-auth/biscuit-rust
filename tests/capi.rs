@@ -39,23 +39,23 @@ mod capi {
                 Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
 
-                Verifier * verifier = biscuit_verify(b2);
-                printf("verifier creation error? %s\n", error_message());
-                verifier_add_check(verifier, "check if right(\"efgh\")");
-                printf("verifier add check error? %s\n", error_message());
-                if(!verifier_verify(verifier)) {
-                    printf("verifier error(code = %d): %s\n", error_kind(), error_message());
+                Authorizer * authorizer = biscuit_authorizer(b2);
+                printf("authorizer creation error? %s\n", error_message());
+                authorizer_add_check(authorizer, "check if right(\"efgh\")");
+                printf("authorizer add check error? %s\n", error_message());
+                if(!authorizer_authorize(authorizer)) {
+                    printf("authorizer error(code = %d): %s\n", error_kind(), error_message());
 
                     if(error_kind() == LogicFailedChecks) {
                         uint64_t error_count = error_check_count();
                         printf("failed checks (%ld):\n", error_count);
 
                         for(uint64_t i = 0; i < error_count; i++) {
-                            if(error_check_is_verifier(i)) {
+                            if(error_check_is_authorizer(i)) {
                                 uint64_t check_id = error_check_id(i);
                                 const char* rule = error_check_rule(i);
 
-                                printf("  Verifier check %ld: %s\n", check_id, rule);
+                                printf("  Authorizer check %ld: %s\n", check_id, rule);
                             } else {
                                 uint64_t check_id = error_check_id(i);
                                 uint64_t block_id = error_check_block_id(i);
@@ -66,10 +66,10 @@ mod capi {
                         }
                     }
                 } else {
-                    printf("verifier succeeded\n");
+                    printf("authorizer succeeded\n");
                 }
-                char* world_print = verifier_print(verifier);
-                printf("verifier world:\n%s\n", world_print);
+                char* world_print = authorizer_print(authorizer);
+                printf("authorizer world:\n%s\n", world_print);
                 string_free(world_print);
 
                 uint64_t sz = biscuit_serialized_size(b2);
@@ -79,7 +79,7 @@ mod capi {
                 printf("wrote %ld bytes\n", written);
 
                 free(buffer);
-                verifier_free(verifier);
+                authorizer_free(authorizer);
                 block_builder_free(bb);
                 biscuit_free(b2);
                 key_pair_free(kp2);
@@ -99,28 +99,28 @@ biscuit creation error? (null)
 block builder creation error? (null)
 builder add check error? (null)
 biscuit append error? (null)
-verifier creation error? (null)
-verifier add check error? (null)
-verifier error(code = 22): check validation failed
+authorizer creation error? (null)
+authorizer add check error? (null)
+authorizer error(code = 22): check validation failed
 failed checks (2):
-  Verifier check 0: check if right("efgh")
+  Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")
-verifier world:
+authorizer world:
 World {
   facts: [
     "hello(\"world\")",
-    "revocation_id(0, hex:f13c06740255270868b79892ad4555bff5f4ab138806656e6c7ba3c6ca287c5c55622b45a39f78ca070bfd9fe16518ef650b46c5e570de3d22e4819bec9d2d0c)",
-    "revocation_id(1, hex:856fdb6cf2755decb1304b29315842d5598f058a6289eacfbe4d01a1788a7e0201d568a1024b2ed19ce3cc96653c4ce574c361ec9f380104bdbdce486d279b0b)",
+    "revocation_id(0, hex:399f4cd638039d645f317b6401ef8308e56d4e4d983538386070e5cbb368198e63fded9e0a55e1e22e3c92f49e3e3de46f74c2fac45fb75bc546270be15ed80b)",
+    "revocation_id(1, hex:dbd504ed972e732df9d6f29103bea2dc6dbe2c86e47bdaeb13e3947c9136b33827f4c4bb24c6fbfd2c4b69acc8f5aaaaeb44e911406e892bcc8d76555629ba0e)",
     "right(\"file1\", \"read\")",
 ]
   rules: []
   checks: [
-    "Verifier[0]: check if right(\"efgh\")",
+    "Authorizer[0]: check if right(\"efgh\")",
 ]
   policies: []
 }
-serialized size: 324
-wrote 324 bytes
+serialized size: 332
+wrote 332 bytes
 "#);
     }
 

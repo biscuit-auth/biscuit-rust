@@ -1,4 +1,4 @@
-//! Verifier structure and associated functions
+//! Authorizer structure and associated functions
 use super::builder::{
     constrained_rule, date, fact, pred, s, string, var, Binary, Check, Expression, Fact, Op,
     Policy, PolicyKind, Rule, Term, Unary,
@@ -16,7 +16,7 @@ use std::{
 
 /// used to check authorization policies on a token
 ///
-/// can be created from [`Biscuit::verify`](`crate::token::Biscuit::verify`) or [`Verifier::new`]
+/// can be created from [`Biscuit::authorizer`](`crate::token::Biscuit::authorizer`) or [`authorizer::new`]
 #[derive(Clone)]
 pub struct Authorizer<'t> {
     world: datalog::World,
@@ -35,15 +35,15 @@ impl<'t> Authorizer<'t> {
         Ok(v)
     }
 
-    /// creates a new empty verifier
+    /// creates a new empty authorizer
     ///
     /// this can be used to check policies when:
     /// * there is no token (unauthenticated case)
-    /// * there is a lot of data to load in the verifier on each check
+    /// * there is a lot of data to load in the authorizer on each check
     ///
-    /// In the latter case, we can create an empty verifier, load it
+    /// In the latter case, we can create an empty authorizer, load it
     /// with the facts, rules and checks, and each time a token must be checked,
-    /// clone the verifier and load the token with [`Verifier::add_token`]
+    /// clone the authorizer and load the token with [`Authorizer::add_token`]
     pub fn new() -> Result<Self, error::Logic> {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
@@ -59,18 +59,18 @@ impl<'t> Authorizer<'t> {
     }
 
     pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
-        let data = crate::format::schema::VerifierPolicies::decode(slice).map_err(|e| {
+        let data = crate::format::schema::AuthorizerPolicies::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let VerifierPolicies {
+        let AuthorizerPolicies {
             version: _,
             symbols,
             mut facts,
             rules,
             mut checks,
             policies,
-        } = crate::format::convert::proto_verifier_to_verifier(&data)?;
+        } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
 
         let world = datalog::World {
             facts: facts.drain(..).collect(),
@@ -91,7 +91,7 @@ impl<'t> Authorizer<'t> {
         })
     }
 
-    /// add a token to an empty verifier
+    /// add a token to an empty authorizer
     pub fn add_token(&mut self, token: &'t Biscuit) -> Result<(), error::Token> {
         if self.token.is_some() {
             return Err(error::Logic::AuthorizerNotEmpty.into());
@@ -102,7 +102,7 @@ impl<'t> Authorizer<'t> {
         Ok(())
     }
 
-    /// serializes a verifier's content
+    /// serializes a authorizer's content
     ///
     /// you can use this to save a set of policies and load them quickly before
     /// verification, or to store a verification context to debug it later
@@ -117,7 +117,7 @@ impl<'t> Authorizer<'t> {
             checks.extend_from_slice(&block_checks[..]);
         }
 
-        let policies = VerifierPolicies {
+        let policies = AuthorizerPolicies {
             version: crate::token::MAX_SCHEMA_VERSION,
             symbols,
             facts: self.world.facts.iter().cloned().collect(),
@@ -126,7 +126,7 @@ impl<'t> Authorizer<'t> {
             policies: self.policies.clone(),
         };
 
-        let proto = crate::format::convert::verifier_to_proto_verifier(&policies);
+        let proto = crate::format::convert::authorizer_to_proto_authorizer(&policies);
 
         let mut v = Vec::new();
 
@@ -137,21 +137,21 @@ impl<'t> Authorizer<'t> {
             .map_err(error::Token::Format)
     }
 
-    /// add a fact to the verifier
+    /// add a fact to the authorizer
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
         let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.facts.insert(fact.convert(&mut self.symbols));
         Ok(())
     }
 
-    /// add a rule to the verifier
+    /// add a rule to the authorizer
     pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
         let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
         self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
 
-    /// run a query over the verifier's Datalog engine to gather data
+    /// run a query over the authorizer's Datalog engine to gather data
     pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
@@ -159,7 +159,7 @@ impl<'t> Authorizer<'t> {
         self.query_with_limits(rule, AuthorizerLimits::default())
     }
 
-    /// run a query over the verifier's Datalog engine to gather data
+    /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// this method can specify custom runtime limits
     pub fn query_with_limits<
@@ -186,7 +186,7 @@ impl<'t> Authorizer<'t> {
             .collect()
     }
 
-    /// add a check to the verifier
+    /// add a check to the authorizer
     pub fn add_check<R: TryInto<Check>>(&mut self, check: R) -> Result<(), error::Token> {
         let check = check.try_into().map_err(|_| error::Token::ParseError)?;
         self.checks.push(check);
@@ -226,7 +226,7 @@ impl<'t> Authorizer<'t> {
         let _ = self.add_check(check);
     }
 
-    /// add a policy to the verifier
+    /// add a policy to the authorizer
     pub fn add_policy<R: TryInto<Policy>>(&mut self, policy: R) -> Result<(), error::Token> {
         let policy = policy.try_into().map_err(|_| error::Token::ParseError)?;
         self.policies.push(policy);
@@ -289,7 +289,7 @@ impl<'t> Authorizer<'t> {
                 }
             }
 
-            //FIXME: the verifier should be generated with run limits
+            //FIXME: the authorizer should be generated with run limits
             // that are "consumed" after each use
             self.world
                 .run_with_limits(&self.symbols, RunLimits::default())
@@ -445,7 +445,7 @@ impl<'t> Authorizer<'t> {
         }
     }
 
-    /// prints the content of the verifier
+    /// prints the content of the authorizer
     pub fn print_world(&self) -> String {
         let mut facts = self
             .world
@@ -465,7 +465,7 @@ impl<'t> Authorizer<'t> {
 
         let mut checks = Vec::new();
         for (index, check) in self.checks.iter().enumerate() {
-            checks.push(format!("Verifier[{}]: {}", index, check));
+            checks.push(format!("Authorizer[{}]: {}", index, check));
         }
 
         for (i, block_checks) in self.token_checks.iter().enumerate() {
@@ -490,7 +490,7 @@ impl<'t> Authorizer<'t> {
         )
     }
 
-    /// returns all of the data loaded in the verifier
+    /// returns all of the data loaded in the authorizer
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.checks.clone();
         checks.extend(
@@ -518,7 +518,7 @@ impl<'t> Authorizer<'t> {
 }
 
 #[derive(Debug, Clone)]
-pub struct VerifierPolicies {
+pub struct AuthorizerPolicies {
     pub version: u32,
     /// list of symbols introduced by this block
     pub symbols: datalog::SymbolTable,

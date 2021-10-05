@@ -3,7 +3,7 @@
 use super::schema;
 use crate::datalog::*;
 use crate::error;
-use crate::token::{authorizer::VerifierPolicies, Block};
+use crate::token::{authorizer::AuthorizerPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {
@@ -68,7 +68,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
     })
 }
 
-pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierPolicies {
+pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::AuthorizerPolicies {
     let mut symbols = input.symbols.clone();
     let policies = input
         .policies
@@ -76,7 +76,7 @@ pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierP
         .map(|p| v2::policy_to_proto_policy(p, &mut symbols))
         .collect();
 
-    schema::VerifierPolicies {
+    schema::AuthorizerPolicies {
         symbols: symbols.symbols,
         version: Some(input.version),
         facts: input
@@ -98,9 +98,9 @@ pub fn verifier_to_proto_verifier(input: &VerifierPolicies) -> schema::VerifierP
     }
 }
 
-pub fn proto_verifier_to_verifier(
-    input: &schema::VerifierPolicies,
-) -> Result<VerifierPolicies, error::Format> {
+pub fn proto_authorizer_to_authorizer(
+    input: &schema::AuthorizerPolicies,
+) -> Result<AuthorizerPolicies, error::Format> {
     let version = input.version.unwrap_or(0);
     if version == 0 || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
@@ -134,7 +134,7 @@ pub fn proto_verifier_to_verifier(
         policies.push(v2::proto_policy_to_policy(policy, &symbols)?);
     }
 
-    Ok(VerifierPolicies {
+    Ok(AuthorizerPolicies {
         version,
         symbols,
         facts,

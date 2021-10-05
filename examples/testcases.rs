@@ -70,9 +70,9 @@ fn main() {
 
     results.push(expired_token(&mut rng, &target, &root, test));
 
-    results.push(verifier_scope(&mut rng, &target, &root, test));
+    results.push(authorizer_scope(&mut rng, &target, &root, test));
 
-    results.push(verifier_authority_checks(&mut rng, &target, &root, test));
+    results.push(authorizer_authority_checks(&mut rng, &target, &root, test));
 
     results.push(authority_checks(&mut rng, &target, &root, test));
 
@@ -141,9 +141,9 @@ struct BlockContent {
 
 #[derive(Debug, Serialize)]
 struct Validation {
-    world: Option<VerifierWorld>,
-    result: VerifierResult,
-    verifier_code: String,
+    world: Option<AuthorizerWorld>,
+    result: AuthorizerResult,
+    authorizer_code: String,
 }
 
 impl TestResult {
@@ -176,10 +176,10 @@ impl TestResult {
             if let Some(world) = &validation.world {
                 writeln!(
                     &mut s,
-                    "verifier code:\n```\n{}```\n",
-                    validation.verifier_code
+                    "authorizer code:\n```\n{}```\n",
+                    validation.authorizer_code
                 );
-                writeln!(&mut s, "verifier world:\n```\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n```\n",
+                writeln!(&mut s, "authorizer world:\n```\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n```\n",
                          world.facts, world.rules, world.checks, world.policies);
             }
 
@@ -191,7 +191,7 @@ impl TestResult {
 }
 
 #[derive(Debug, Serialize)]
-struct VerifierWorld {
+struct AuthorizerWorld {
     pub facts: BTreeSet<String>,
     pub rules: BTreeSet<String>,
     pub checks: BTreeSet<String>,
@@ -199,7 +199,7 @@ struct VerifierWorld {
 }
 
 #[derive(Debug, Serialize)]
-enum VerifierResult {
+enum AuthorizerResult {
     Ok(usize),
     Err(Vec<String>),
 }
@@ -216,8 +216,8 @@ fn validate_token(
         Err(e) => {
             return Validation {
                 world: None,
-                verifier_code: String::new(),
-                result: VerifierResult::Err(vec![format!("{:?}", e)]),
+                authorizer_code: String::new(),
+                result: AuthorizerResult::Err(vec![format!("{:?}", e)]),
             }
         }
     };
@@ -227,62 +227,62 @@ fn validate_token(
         Err(e) => {
             return Validation {
                 world: None,
-                verifier_code: String::new(),
-                result: VerifierResult::Err(vec![format!("{:?}", e)]),
+                authorizer_code: String::new(),
+                result: AuthorizerResult::Err(vec![format!("{:?}", e)]),
             }
         }
     };
 
-    let mut verifier_code = String::new();
+    let mut authorizer_code = String::new();
     for fact in ambient_facts {
-        verifier_code += &format!("{};\n", fact);
+        authorizer_code += &format!("{};\n", fact);
         authorizer.add_fact(fact);
     }
 
     if !ambient_rules.is_empty() {
-        verifier_code += "\n";
+        authorizer_code += "\n";
     }
 
     for rule in ambient_rules {
-        verifier_code += &format!("{};\n", rule);
+        authorizer_code += &format!("{};\n", rule);
         authorizer.add_rule(rule);
     }
 
     if !checks.is_empty() {
-        verifier_code += "\n";
+        authorizer_code += "\n";
     }
 
     for check in checks {
         authorizer.add_check(&check[..]);
         let c: Check = (&check[..]).try_into().unwrap();
-        verifier_code += &format!("{};\n", c);
+        authorizer_code += &format!("{};\n", c);
     }
 
     authorizer.allow().unwrap();
 
     let res = authorizer.authorize();
-    //println!("verifier world:\n{}", verifier.print_world());
+    //println!("authorizer world:\n{}", authorizer.print_world());
     let (mut facts, mut rules, mut checks, mut policies) = authorizer.dump();
 
     Validation {
-        world: Some(VerifierWorld {
+        world: Some(AuthorizerWorld {
             facts: facts.drain(..).map(|f| f.to_string()).collect(),
             rules: rules.drain(..).map(|r| r.to_string()).collect(),
             checks: checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
         result: match res {
-            Ok(i) => VerifierResult::Ok(i),
+            Ok(i) => AuthorizerResult::Ok(i),
             Err(e) => {
                 if let error::Token::FailedLogic(error::Logic::FailedChecks(mut v)) = e {
-                    VerifierResult::Err(v.drain(..).map(|e| format!("{:?}", e)).collect())
+                    AuthorizerResult::Err(v.drain(..).map(|e| format!("{:?}", e)).collect())
                 } else {
                     let s = format!("{:?}", e);
-                    VerifierResult::Err(vec![s])
+                    AuthorizerResult::Err(vec![s])
                 }
             }
         },
-        verifier_code,
+        authorizer_code,
     }
 }
 
@@ -953,14 +953,14 @@ fn expired_token<T: Rng + CryptoRng>(
     }
 }
 
-fn verifier_scope<T: Rng + CryptoRng>(
+fn authorizer_scope<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
     root: &KeyPair,
     test: bool,
 ) -> TestResult {
-    let title = "verifier scope".to_string();
-    let filename = "test10_verifier_scope.bc".to_string();
+    let title = "authorizer scope".to_string();
+    let filename = "test10_authorizer_scope.bc".to_string();
     let token;
 
     let mut builder = Biscuit::builder(&root);
@@ -978,13 +978,13 @@ fn verifier_scope<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test10_verifier_scope");
+        let v = load_testcase(target, "test10_authorizer_scope");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test10_verifier_scope", &data[..]);
+        write_testcase(target, "test10_authorizer_scope", &data[..]);
 
         data
     };
@@ -1019,14 +1019,14 @@ fn verifier_scope<T: Rng + CryptoRng>(
         validations,
     }
 }
-fn verifier_authority_checks<T: Rng + CryptoRng>(
+fn authorizer_authority_checks<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
     root: &KeyPair,
     test: bool,
 ) -> TestResult {
-    let title = "verifier authority checks".to_string();
-    let filename = "test11_verifier_authority_caveats.bc".to_string();
+    let title = "authorizer authority checks".to_string();
+    let filename = "test11_authorizer_authority_caveats.bc".to_string();
     let token;
 
     let mut builder = Biscuit::builder(&root);
@@ -1037,13 +1037,13 @@ fn verifier_authority_checks<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test11_verifier_authority_caveats");
+        let v = load_testcase(target, "test11_authorizer_authority_caveats");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test11_verifier_authority_caveats", &data[..]);
+        write_testcase(target, "test11_authorizer_authority_caveats", &data[..]);
         data
     };
 

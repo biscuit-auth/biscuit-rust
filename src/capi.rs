@@ -75,7 +75,7 @@ pub enum ErrorKind {
     LogicInvalidBlockFact,
     LogicInvalidBlockRule,
     LogicFailedChecks,
-    LogicVerifierNotEmpty,
+    LogicAuthorizerNotEmpty,
     LogicDeny,
     LogicNoMatchingPolicy,
     ParseError,
@@ -147,7 +147,9 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::LogicInvalidBlockRule
                     }
                     Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
-                    Token::FailedLogic(Logic::VerifierNotEmpty) => ErrorKind::LogicVerifierNotEmpty,
+                    Token::FailedLogic(Logic::AuthorizerNotEmpty) => {
+                        ErrorKind::LogicAuthorizerNotEmpty
+                    }
                     Token::FailedLogic(Logic::Deny(_)) => ErrorKind::LogicDeny,
                     Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
                     Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
@@ -181,7 +183,9 @@ pub extern "C" fn error_check_id(check_index: u64) -> u64 {
             } else {
                 match v[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { check_id, .. }) => check_id as u64,
-                    FailedCheck::Verifier(FailedVerifierCheck { check_id, .. }) => check_id as u64,
+                    FailedCheck::Authorizer(FailedAuthorizerCheck { check_id, .. }) => {
+                        check_id as u64
+                    }
                 }
             }
         }
@@ -223,7 +227,7 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
             } else {
                 let rule = match &v[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { rule, .. }) => rule,
-                    FailedCheck::Verifier(FailedVerifierCheck { rule, .. }) => rule,
+                    FailedCheck::Authorizer(FailedAuthorizerCheck { rule, .. }) => rule,
                 };
                 let err = CString::new(rule.clone()).ok();
                 CAVEAT_RULE.with(|ret| {
@@ -240,7 +244,7 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn error_check_is_verifier(check_index: u64) -> bool {
+pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
     use crate::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
@@ -249,7 +253,7 @@ pub extern "C" fn error_check_is_verifier(check_index: u64) -> bool {
             } else {
                 match v[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { .. }) => false,
-                    FailedCheck::Verifier(FailedVerifierCheck { .. }) => true,
+                    FailedCheck::Authorizer(FailedAuthorizerCheck { .. }) => true,
                 }
             }
         }
@@ -262,7 +266,7 @@ pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
 pub struct BiscuitBuilder<'a>(crate::token::builder::BiscuitBuilder<'a>);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Verifier<'t>(crate::token::verifier::Verifier<'t>);
+pub struct Authorizer<'t>(crate::token::authorizer::Authorizer<'t>);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -615,20 +619,27 @@ pub unsafe extern "C" fn biscuit_serialize_sealed(
     let biscuit = biscuit.unwrap();
 
     match (*biscuit).0.seal() {
-        Ok(v) => {
-            let size = match biscuit.0.serialized_size() {
-                Ok(sz) => sz,
-                Err(e) => {
-                    update_last_error(Error::Biscuit(e));
-                    return 0;
-                }
-            };
+        Ok(b) => match b.to_vec() {
+            Ok(v) => {
+                let size = match biscuit.0.serialized_size() {
+                    Ok(sz) => sz,
+                    Err(e) => {
+                        update_last_error(Error::Biscuit(e));
+                        return 0;
+                    }
+                };
 
-            let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, size);
+                let output_slice = std::slice::from_raw_parts_mut(buffer_ptr, size);
 
-            output_slice.copy_from_slice(&v[..]);
-            v.len()
-        }
+                output_slice.copy_from_slice(&v[..]);
+                v.len()
+            }
+            Err(e) => {
+                update_last_error(Error::Biscuit(e));
+                0
+            }
+        },
+
         Err(e) => {
             update_last_error(Error::Biscuit(e));
             0
@@ -927,15 +938,15 @@ pub unsafe extern "C" fn biscuit_append_block(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_verify<'a, 'b>(
+pub unsafe extern "C" fn biscuit_authorizer<'a, 'b>(
     biscuit: Option<&'a Biscuit>,
-) -> Option<Box<Verifier<'a>>> {
+) -> Option<Box<Authorizer<'a>>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
     }
     let biscuit = biscuit?;
 
-    (*biscuit).0.verify().map(Verifier).map(Box::new).ok()
+    (*biscuit).0.authorizer().map(Authorizer).map(Box::new).ok()
 }
 
 #[no_mangle]
@@ -1051,15 +1062,15 @@ pub unsafe extern "C" fn block_builder_add_check(
 pub unsafe extern "C" fn block_builder_free(_builder: Option<Box<BlockBuilder>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_add_fact(
-    verifier: Option<&mut Verifier>,
+pub unsafe extern "C" fn authorizer_add_fact(
+    authorizer: Option<&mut Authorizer>,
     fact: *const c_char,
 ) -> bool {
-    if verifier.is_none() {
+    if authorizer.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let verifier = verifier.unwrap();
+    let authorizer = authorizer.unwrap();
 
     let fact = CStr::from_ptr(fact);
     let s = fact.to_str();
@@ -1068,7 +1079,7 @@ pub unsafe extern "C" fn verifier_add_fact(
         return false;
     }
 
-    verifier
+    authorizer
         .0
         .add_fact(s.unwrap())
         .map_err(|e| {
@@ -1078,15 +1089,15 @@ pub unsafe extern "C" fn verifier_add_fact(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_add_rule(
-    verifier: Option<&mut Verifier>,
+pub unsafe extern "C" fn authorizer_add_rule(
+    authorizer: Option<&mut Authorizer>,
     rule: *const c_char,
 ) -> bool {
-    if verifier.is_none() {
+    if authorizer.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let verifier = verifier.unwrap();
+    let authorizer = authorizer.unwrap();
 
     let rule = CStr::from_ptr(rule);
     let s = rule.to_str();
@@ -1095,7 +1106,7 @@ pub unsafe extern "C" fn verifier_add_rule(
         return false;
     }
 
-    verifier
+    authorizer
         .0
         .add_rule(s.unwrap())
         .map_err(|e| {
@@ -1105,15 +1116,15 @@ pub unsafe extern "C" fn verifier_add_rule(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_add_check(
-    verifier: Option<&mut Verifier>,
+pub unsafe extern "C" fn authorizer_add_check(
+    authorizer: Option<&mut Authorizer>,
     check: *const c_char,
 ) -> bool {
-    if verifier.is_none() {
+    if authorizer.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let verifier = verifier.unwrap();
+    let authorizer = authorizer.unwrap();
 
     let check = CStr::from_ptr(check);
     let s = check.to_str();
@@ -1122,7 +1133,7 @@ pub unsafe extern "C" fn verifier_add_check(
         return false;
     }
 
-    verifier
+    authorizer
         .0
         .add_check(s.unwrap())
         .map_err(|e| {
@@ -1132,14 +1143,14 @@ pub unsafe extern "C" fn verifier_add_check(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_verify(verifier: Option<&mut Verifier>) -> bool {
-    if verifier.is_none() {
+pub unsafe extern "C" fn authorizer_authorize(authorizer: Option<&mut Authorizer>) -> bool {
+    if authorizer.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let verifier = verifier.unwrap();
+    let authorizer = authorizer.unwrap();
 
-    match verifier.0.verify() {
+    match authorizer.0.authorize() {
         Ok(_index) => true,
         Err(e) => {
             update_last_error(Error::Biscuit(e));
@@ -1149,14 +1160,14 @@ pub unsafe extern "C" fn verifier_verify(verifier: Option<&mut Verifier>) -> boo
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_print(verifier: Option<&mut Verifier>) -> *mut c_char {
-    if verifier.is_none() {
+pub unsafe extern "C" fn authorizer_print(authorizer: Option<&mut Authorizer>) -> *mut c_char {
+    if authorizer.is_none() {
         update_last_error(Error::InvalidArgument);
         return std::ptr::null_mut();
     }
-    let verifier = verifier.unwrap();
+    let authorizer = authorizer.unwrap();
 
-    match CString::new(verifier.0.print_world()) {
+    match CString::new(authorizer.0.print_world()) {
         Ok(s) => s.into_raw(),
         Err(_) => {
             update_last_error(Error::InvalidArgument);
@@ -1166,7 +1177,7 @@ pub unsafe extern "C" fn verifier_print(verifier: Option<&mut Verifier>) -> *mut
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn verifier_free(_verifier: Option<Box<Verifier>>) {}
+pub unsafe extern "C" fn authorizer_free(_authorizer: Option<Box<Authorizer>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn string_free(ptr: *mut c_char) {

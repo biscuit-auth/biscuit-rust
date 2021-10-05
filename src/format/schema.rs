@@ -318,7 +318,7 @@ pub mod policy {
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct VerifierPolicies {
+pub struct AuthorizerPolicies {
     #[prost(string, repeated, tag="1")]
     pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(uint32, optional, tag="2")]
