@@ -572,7 +572,7 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
 }
 
 fn name(i: &str) -> IResult<&str, &str, Error> {
-    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_';
+    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
 
     reduce(take_while1(is_name_char), " ,:(\n;")(i)
 }

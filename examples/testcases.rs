@@ -94,6 +94,8 @@ fn main() {
 
     results.push(sealed_token(&mut rng, &target, &root, test));
 
+    results.push(parsing(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1768,6 +1770,60 @@ fn sealed_token<T: Rng + CryptoRng>(
             ],
             vec![],
             vec![],
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn parsing<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "parsing".to_string();
+    let filename = "test21_parsing.bc".to_string();
+    let token;
+
+    let mut builder = Biscuit::builder(&root);
+
+    builder.add_authority_fact("ns::fact_123(\"hello é\t😁\")").unwrap();
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    token = print_blocks(&biscuit1);
+
+    let data = if test {
+        let v = load_testcase(target, "test21_parsing");
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test21_parsing", &data[..]);
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            vec![],
+            vec![],
+            vec![vec![
+                rule(
+                    "check1",
+                    &[string("test")],
+                    &[pred("ns::fact_123", &[string("hello é\t😁")])],
+                ),
+            ]]
         ),
     );
 
