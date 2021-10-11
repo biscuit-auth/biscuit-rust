@@ -164,7 +164,6 @@ impl TestResult {
             writeln!(&mut s, "symbols: {:?}\n", block.symbols);
             writeln!(&mut s, "```\n{}```\n", block.code);
         }
-        writeln!(&mut s, "```\n");
 
         for (name, validation) in &self.validations {
             if name.is_empty() {
