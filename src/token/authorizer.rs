@@ -152,6 +152,10 @@ impl<'t> Authorizer<'t> {
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
+    ///
+    /// ```rust,compile_fail
+    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// ```
     pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
