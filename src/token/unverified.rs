@@ -167,4 +167,20 @@ impl UnverifiedBiscuit {
             container,
         })
     }
+
+    /// returns a list of revocation identifiers for each block, in order
+    ///
+    /// if a token is generated with the same keys and the same content,
+    /// those identifiers will stay the same
+    pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
+        let mut res = Vec::new();
+
+        res.push(self.container.authority.signature.to_bytes().to_vec());
+
+        for block in self.container.blocks.iter() {
+            res.push(block.signature.to_bytes().to_vec());
+        }
+
+        res
+    }
 }
