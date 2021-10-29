@@ -183,4 +183,9 @@ impl UnverifiedBiscuit {
 
         res
     }
+
+    /// returns the number of blocks (at least 1)
+    pub fn block_count(&self) -> usize {
+        1 + self.container.blocks.len()
+    }
 }
