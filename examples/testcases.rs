@@ -1793,7 +1793,9 @@ fn parsing<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact("ns::fact_123(\"hello é\t😁\")").unwrap();
+    builder
+        .add_authority_fact("ns::fact_123(\"hello é\t😁\")")
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
@@ -1817,13 +1819,11 @@ fn parsing<T: Rng + CryptoRng>(
             &data[..],
             vec![],
             vec![],
-            vec![vec![
-                rule(
-                    "check1",
-                    &[string("test")],
-                    &[pred("ns::fact_123", &[string("hello é\t😁")])],
-                ),
-            ]]
+            vec![vec![rule(
+                "check1",
+                &[string("test")],
+                &[pred("ns::fact_123", &[string("hello é\t😁")])],
+            )]],
         ),
     );
 
