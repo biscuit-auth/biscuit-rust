@@ -222,36 +222,7 @@ impl Biscuit {
             }
         };
 
-        let facts: Vec<_> = block
-            .facts
-            .iter()
-            .map(|f| self.symbols.print_fact(f))
-            .collect();
-        let rules: Vec<_> = block
-            .rules
-            .iter()
-            .map(|r| self.symbols.print_rule(r))
-            .collect();
-        let checks: Vec<_> = block
-            .checks
-            .iter()
-            .map(|r| self.symbols.print_check(r))
-            .collect();
-
-        let mut res = facts.join(";\n");
-        if !facts.is_empty() {
-            res.push_str(";\n");
-        }
-        res.push_str(&rules.join(";\n"));
-        if !rules.is_empty() {
-            res.push_str(";\n");
-        }
-        res.push_str(&checks.join(";\n"));
-        if !checks.is_empty() {
-            res.push_str(";\n");
-        }
-
-        Some(res)
+        block.print_source(&self.symbols)
     }
 
     /// create the first block's builder, sing a provided symbol table
@@ -544,6 +515,27 @@ impl Block {
 
     pub fn symbol_insert(&mut self, s: &str) -> u64 {
         self.symbols.insert(s)
+    }
+
+    fn print_source(&self, symbols: &SymbolTable) -> Option<String> {
+        let facts: Vec<_> = self.facts.iter().map(|f| symbols.print_fact(f)).collect();
+        let rules: Vec<_> = self.rules.iter().map(|r| symbols.print_rule(r)).collect();
+        let checks: Vec<_> = self.checks.iter().map(|r| symbols.print_check(r)).collect();
+
+        let mut res = facts.join(";\n");
+        if !facts.is_empty() {
+            res.push_str(";\n");
+        }
+        res.push_str(&rules.join(";\n"));
+        if !rules.is_empty() {
+            res.push_str(";\n");
+        }
+        res.push_str(&checks.join(";\n"));
+        if !checks.is_empty() {
+            res.push_str(";\n");
+        }
+
+        Some(res)
     }
 }
 

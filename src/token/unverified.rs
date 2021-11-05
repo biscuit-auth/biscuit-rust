@@ -188,4 +188,18 @@ impl UnverifiedBiscuit {
     pub fn block_count(&self) -> usize {
         1 + self.container.blocks.len()
     }
+
+    /// prints the content of a block as Datalog source code
+    pub fn print_block_source(&self, index: usize) -> Option<String> {
+        let block = if index == 0 {
+            &self.authority
+        } else {
+            match self.blocks.get(index - 1) {
+                None => return None,
+                Some(block) => block,
+            }
+        };
+
+        block.print_source(&self.symbols)
+    }
 }
