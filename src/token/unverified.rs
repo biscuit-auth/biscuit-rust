@@ -200,6 +200,6 @@ impl UnverifiedBiscuit {
             }
         };
 
-        block.print_source(&self.symbols)
+        Some(block.print_source(&self.symbols))
     }
 }

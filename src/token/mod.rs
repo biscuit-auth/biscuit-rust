@@ -222,7 +222,7 @@ impl Biscuit {
             }
         };
 
-        block.print_source(&self.symbols)
+        Some(block.print_source(&self.symbols))
     }
 
     /// create the first block's builder, sing a provided symbol table
@@ -517,7 +517,7 @@ impl Block {
         self.symbols.insert(s)
     }
 
-    fn print_source(&self, symbols: &SymbolTable) -> Option<String> {
+    fn print_source(&self, symbols: &SymbolTable) -> String {
         let facts: Vec<_> = self.facts.iter().map(|f| symbols.print_fact(f)).collect();
         let rules: Vec<_> = self.rules.iter().map(|r| symbols.print_rule(r)).collect();
         let checks: Vec<_> = self.checks.iter().map(|r| symbols.print_check(r)).collect();
@@ -535,7 +535,7 @@ impl Block {
             res.push_str(";\n");
         }
 
-        Some(res)
+        res
     }
 }
 
