@@ -226,7 +226,7 @@ pub mod parser;
 mod token;
 
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
-pub use token::authorizer::Authorizer;
+pub use token::authorizer::{Authorizer, AuthorizerLimits};
 pub use token::builder;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
