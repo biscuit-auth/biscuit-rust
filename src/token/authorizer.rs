@@ -267,7 +267,7 @@ impl<'t> Authorizer<'t> {
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
-        if let Some(token) = self.token.take() {
+        if let Some(token) = self.token.as_ref() {
             for fact in token.authority.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
                 self.world.facts.insert(fact);
@@ -292,44 +292,46 @@ impl<'t> Authorizer<'t> {
                     );
                 }
             }
+        }
 
-            //FIXME: the authorizer should be generated with run limits
-            // that are "consumed" after each use
-            self.world
-                .run_with_limits(&self.symbols, RunLimits::default())
-                .map_err(error::Token::RunLimit)?;
-            self.world.rules.clear();
+        //FIXME: the authorizer should be generated with run limits
+        // that are "consumed" after each use
+        self.world
+            .run_with_limits(&self.symbols, RunLimits::default())
+            .map_err(error::Token::RunLimit)?;
+        self.world.rules.clear();
 
-            for (i, check) in self.checks.iter().enumerate() {
-                let c = check.convert(&mut self.symbols);
-                let mut successful = false;
+        for (i, check) in self.checks.iter().enumerate() {
+            let c = check.convert(&mut self.symbols);
+            let mut successful = false;
 
-                for query in check.queries.iter() {
-                    let res = self
-                        .world
-                        .query_match(query.convert(&mut self.symbols), &self.symbols);
+            for query in check.queries.iter() {
+                let res = self
+                    .world
+                    .query_match(query.convert(&mut self.symbols), &self.symbols);
 
-                    let now = Instant::now();
-                    if now >= time_limit {
-                        return Err(error::Token::RunLimit(error::RunLimit::Timeout));
-                    }
-
-                    if res {
-                        successful = true;
-                        break;
-                    }
+                let now = Instant::now();
+                if now >= time_limit {
+                    return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
-                if !successful {
-                    errors.push(error::FailedCheck::Authorizer(
-                        error::FailedAuthorizerCheck {
-                            check_id: i as u32,
-                            rule: self.symbols.print_check(&c),
-                        },
-                    ));
+                if res {
+                    successful = true;
+                    break;
                 }
             }
 
+            if !successful {
+                errors.push(error::FailedCheck::Authorizer(
+                    error::FailedAuthorizerCheck {
+                        check_id: i as u32,
+                        rule: self.symbols.print_check(&c),
+                    },
+                ));
+            }
+        }
+
+        if let Some(token) = self.token.as_ref() {
             for (j, check) in token.authority.checks.iter().enumerate() {
                 let mut successful = false;
 
@@ -358,27 +360,29 @@ impl<'t> Authorizer<'t> {
                     }));
                 }
             }
+        }
 
-            for (i, policy) in self.policies.iter().enumerate() {
-                for query in policy.queries.iter() {
-                    let res = self
-                        .world
-                        .query_match(query.convert(&mut self.symbols), &self.symbols);
+        for (i, policy) in self.policies.iter().enumerate() {
+            for query in policy.queries.iter() {
+                let res = self
+                    .world
+                    .query_match(query.convert(&mut self.symbols), &self.symbols);
 
-                    let now = Instant::now();
-                    if now >= time_limit {
-                        return Err(error::Token::RunLimit(error::RunLimit::Timeout));
-                    }
+                let now = Instant::now();
+                if now >= time_limit {
+                    return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+                }
 
-                    if res {
-                        match policy.kind {
-                            PolicyKind::Allow => policy_result = Some(Ok(i)),
-                            PolicyKind::Deny => policy_result = Some(Err(i)),
-                        };
-                    }
+                if res {
+                    match policy.kind {
+                        PolicyKind::Allow => policy_result = Some(Ok(i)),
+                        PolicyKind::Deny => policy_result = Some(Err(i)),
+                    };
                 }
             }
+        }
 
+        if let Some(token) = self.token.as_ref() {
             for (i, block) in token.blocks.iter().enumerate() {
                 // blocks cannot provide authority or ambient facts
                 for fact in block.facts.iter().cloned() {
@@ -563,5 +567,17 @@ impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
             max_iterations: limits.max_iterations,
             max_time: limits.max_time,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_authorizer() {
+        let mut authorizer = Authorizer::new().unwrap();
+        authorizer.add_policy("allow if true").unwrap();
+        assert_eq!(authorizer.authorize(), Ok(0));
     }
 }
