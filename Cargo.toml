@@ -1,8 +1,8 @@
 [package]
 name = "biscuit-auth"
-version = "1.1.0"
+version = "2.0.0-beta1"
 description = "an authentication/authorization token with decentralized verification and offline delegation"
-authors = ["Geoffroy Couprie <geoffroy.couprie@clever-cloud.com>"]
+authors = ["Geoffroy Couprie <contact@geoffroycouprie.com>"]
 edition = "2018"
 build = "build.rs"
 license = "Apache-2.0"
