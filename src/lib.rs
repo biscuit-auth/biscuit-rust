@@ -4,7 +4,7 @@
 //!
 //! * decentralized validation: any node could validate the token only with public information;
 //! * offline delegation: a new, valid token can be created from another one by attenuating its rights, by its holder, without communicating with anyone;
-//! * capabilities based: authorization in microservices should be tied to rights related to the request, instead of relying to an identity that might not make sense to the verifier;
+//! * capabilities based: authorization in microservices should be tied to rights related to the request, instead of relying to an identity that might not make sense to the authorizer;
 //! * flexible rights managements: the token uses a logic language to specify attenuation and add bounds on ambient data;
 //! * small enough to fit anywhere (cookies, etc).
 //!
@@ -17,7 +17,7 @@
 //!
 //! Most of the interaction with this library is done through the
 //! [Biscuit](`crate::token::Biscuit`) structure, that represents a valid
-//! token, and the [Verifier](`crate::token::verifier::Verifier`), used to
+//! token, and the [Authorizer](`crate::token::authorizer::Authorizer`), used to
 //! check authorization policies on a token.
 //!
 //! In this example we will see how we can create a token, add some checks,
@@ -27,7 +27,7 @@
 //! ```rust
 //! extern crate biscuit_auth as biscuit;
 //!
-//! use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
+//! use biscuit::{KeyPair, Biscuit, Authorizer, builder::*, error};
 //!
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
@@ -42,11 +42,10 @@
 //!     let mut builder = Biscuit::builder(&root);
 //!
 //!     // let's define some access rights
-//!     // every fact added to the authority block must have the authority fact
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #write)")?;
-//!     builder.add_authority_fact("right(#authority, \"/a/file2.txt\", #read)")?;
-//!     builder.add_authority_fact("right(#authority, \"/b/file3.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file2.txt\", #read)")?;
+//!     builder.add_authority_fact("right(\"/b/file3.txt\", #write)")?;
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -55,62 +54,46 @@
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this token is only 244 bytes, holding the authority data and the signature
-//!   assert_eq!(token1.len(), 244);
+//!   // this token is only 258 bytes, holding the authority data and the signature
+//!   assert_eq!(token1.len(), 258);
 //!
 //!   // now let's add some restrictions to this token
 //!   // we want to limit access to `/a/file1.txt` and to read operations
 //!   let token2 = {
 //!     // the token is deserialized, the signature is verified
-//!     let deser = Biscuit::from(&token1)?;
+//!     let deser = Biscuit::from(&token1,  |_| root.public())?;
 //!
 //!     let mut builder = deser.create_block();
 //!
 //!     // checks are implemented as logic rules. If the rule produces something,
 //!     // the check is successful
-//!     builder.add_check(rule(
-//!       // the rule's name
-//!       "check",
-//!       // the "head" of the rule, defining the kind of result that is produced
-//!       &[s("resource")],
-//!       // here we require the presence of a "resource" fact with the "ambient" tag
-//!       // (meaning it is provided by the verifier)
-//!       &[
-//!         pred("resource", &[s("ambient"), string("/a/file1.txt")]),
-//!         // we restrict to read operations
-//!         pred("operation", &[s("ambient"), s("read")]),
-//!       ],
-//!     ));
+//!     builder.add_check("check if resource(\"/a/file1.txt\"), operation(#read)")?;
 //!
-//!     // the previous check could also be written like this
-//!     // builder.add_check("check if resource(#ambient, \"/a/file1.txt\"), operation(#ambient, #read)")?;
-//!
-//!     let keypair = KeyPair::new();
 //!     // we can now create a new token
-//!     let biscuit = deser.append(&keypair, builder)?;
+//!     let biscuit = deser.append(builder)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?
 //!   };
 //!
-//!   // this new token fits in 373 bytes
-//!   assert_eq!(token2.len(), 373);
+//!   // this new token fits in 400 bytes
+//!   assert_eq!(token2.len(), 400);
 //!
 //!   /************** VERIFICATION ****************/
 //!
 //!   // let's deserialize the token:
-//!   let biscuit2 = Biscuit::from(&token2)?;
+//!   let biscuit2 = Biscuit::from(&token2,  |_| root.public())?;
 //!
-//!   // let's define 3 verifiers (corresponding to 3 different requests):
+//!   // let's define 3 authorizers (corresponding to 3 different requests):
 //!   // - one for /a/file1.txt and a read operation
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let mut v1 = biscuit2.verify(public_key)?;
+//!   let mut v1 = biscuit2.authorizer()?;
 //!   v1.add_resource("/a/file1.txt");
 //!   v1.add_operation("read");
 //!   // we will check that the token has the corresponding right
-//!   v1.add_check("check if right(#authority, \"/a/file1.txt\", #read)");
+//!   v1.add_check("check if right(\"/a/file1.txt\", #read)");
 //!
 //!   // we choose if we want to allow or deny access
 //!   // we can define a serie of allow/deny policies in the same
@@ -118,23 +101,23 @@
 //!   v1.allow();
 //!
 //!   // the token restricts to read operations:
-//!   assert!(v1.verify().is_ok());
+//!   assert!(v1.authorize().is_ok());
 //!
-//!   let mut v2 = biscuit2.verify(public_key)?;
+//!   let mut v2 = biscuit2.authorizer()?;
 //!   v2.add_resource("/a/file1.txt");
 //!   v2.add_operation("write");
-//!   v2.add_check("check if right(#authority, \"/a/file1.txt\", #write)");
+//!   v2.add_check("check if right(\"/a/file1.txt\", #write)");
 //!
-//!   // the second verifier requested a read operation
-//!   assert!(v2.verify().is_err());
+//!   // the second authorizer requested a read operation
+//!   assert!(v2.authorize().is_err());
 //!
-//!   let mut v3 = biscuit2.verify(public_key)?;
+//!   let mut v3 = biscuit2.authorizer()?;
 //!   v3.add_resource("/a/file2.txt");
 //!   v3.add_operation("read");
-//!   v3.add_check("check if right(#authority, \"/a/file2.txt\", #read)");
+//!   v3.add_check("check if right(\"/a/file2.txt\", #read)");
 //!
-//!   // the third verifier requests /a/file2.txt
-//!   assert!(v3.verify().is_err());
+//!   // the third authorizer requests /a/file2.txt
+//!   assert!(v3.authorize().is_err());
 //!
 //!   Ok(())
 //! }
@@ -181,14 +164,11 @@
 //! *or* other user with read right has delegated to user.
 //!
 //! Like Datalog, this language is based around facts and rules, but with some
-//! slight modifications:
-//!
-//! - an authority fact starts with the `#authority` symbol. It can only be added in the authority block (or generated from rules in the authority rules). It provides the basic authorization data, like which rights exist
-//! - an ambient fact starts with the `#ambient` symbol. It can only be provided by the verifier. It gives information on the current request, like which resource is accessed or the current time
-//!
-//! Blocks can provide facts but they cannot be authority or ambient facts. They
-//! contain rules that use facts from the current block, or from the authority
-//! and ambient contexts. If all rules in a block succeed, the block is validated.
+//! slight modifications: a block's rules and checks can only apply to facts
+//! from the current or previous blocks. The authorizer executes its checks and
+//! policies in the context of the first block. This allows Biscuit to carry
+//! basic rights in the first block while preventing later blocks from
+//! inreasing the token's rights.
 //!
 //! ### Checks
 //!
@@ -216,9 +196,9 @@
 //! ```ignore
 //! // verify that we have the right for this request
 //! allow if
-//!   resource(#ambient, $res),
-//!   operation(#ambient, $op),
-//!   right(#authority, $res, $op);//!
+//!   resource($res),
+//!   operation($op),
+//!   right($res, $op);
 //!
 //! deny if true;
 //! ```
@@ -237,21 +217,19 @@
 //!
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
-extern crate bytes;
-extern crate curve25519_dalek;
-extern crate hmac;
-extern crate prost;
-extern crate prost_types;
-extern crate rand_core;
-extern crate regex;
-extern crate sha2;
 
-pub mod crypto;
+mod crypto;
 pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod parser;
-pub mod token;
+mod token;
+
+pub use crypto::{KeyPair, PrivateKey, PublicKey};
+pub use token::authorizer::{Authorizer, AuthorizerLimits};
+pub use token::builder;
+pub use token::unverified::UnverifiedBiscuit;
+pub use token::Biscuit;
 
 #[cfg(cargo_c)]
 mod capi;

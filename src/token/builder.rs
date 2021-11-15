@@ -1,11 +1,12 @@
 //! helper functions and structure to create tokens and blocks
 use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
-use crate::datalog::{self, SymbolTable, ID};
+use crate::datalog::{self, SymbolTable};
 use crate::error;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use rand_core::{CryptoRng, RngCore};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashMap},
     convert::{TryFrom, TryInto},
     fmt,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -16,7 +17,6 @@ pub use crate::datalog::{Binary, Unary};
 
 #[derive(Clone, Debug)]
 pub struct BlockBuilder {
-    pub index: u32,
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
@@ -24,9 +24,8 @@ pub struct BlockBuilder {
 }
 
 impl BlockBuilder {
-    pub fn new(index: u32) -> BlockBuilder {
+    pub fn new() -> BlockBuilder {
         BlockBuilder {
-            index,
             facts: vec![],
             rules: vec![],
             checks: vec![],
@@ -56,6 +55,39 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+
+        for fact in &mut self.facts {
+            if fact.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        for rule in &mut self.rules {
+            if rule.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+        for check in &mut self.checks {
+            if check.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
+    }
+
     pub fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.symbols.len();
 
@@ -78,7 +110,6 @@ impl BlockBuilder {
         };
 
         Block {
-            index: self.index,
             symbols: new_syms,
             facts,
             rules,
@@ -93,9 +124,9 @@ impl BlockBuilder {
             "check_right",
             &[s(right)],
             &[
-                pred("resource", &[s("ambient"), var("resource_name")]),
-                pred("operation", &[s("ambient"), s(right)]),
-                pred("right", &[s("authority"), var("resource_name"), s(right)]),
+                pred("resource", &[var("resource_name")]),
+                pred("operation", &[s(right)]),
+                pred("right", &[var("resource_name"), s(right)]),
             ],
         );
 
@@ -106,7 +137,7 @@ impl BlockBuilder {
         let check = rule(
             "resource_check",
             &[s("resource_check")],
-            &[pred("resource", &[s("ambient"), string(resource)])],
+            &[pred("resource", &[string(resource)])],
         );
 
         let _ = self.add_check(check);
@@ -116,7 +147,7 @@ impl BlockBuilder {
         let check = rule(
             "operation_check",
             &[s("operation_check")],
-            &[pred("operation", &[s("ambient"), s(operation)])],
+            &[pred("operation", &[s(operation)])],
         );
 
         let _ = self.add_check(check);
@@ -126,7 +157,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "prefix",
             &[var("resource")],
-            &[pred("resource", &[s("ambient"), var("resource")])],
+            &[pred("resource", &[var("resource")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("resource")),
@@ -143,7 +174,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "suffix",
             &[var("resource")],
-            &[pred("resource", &[s("ambient"), var("resource")])],
+            &[pred("resource", &[var("resource")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("resource")),
@@ -160,7 +191,7 @@ impl BlockBuilder {
         let check = constrained_rule(
             "expiration",
             &[var("date")],
-            &[pred("time", &[s("ambient"), var("date")])],
+            &[pred("time", &[var("date")])],
             &[Expression {
                 ops: vec![
                     Op::Value(var("date")),
@@ -178,8 +209,15 @@ impl BlockBuilder {
     }
 }
 
+impl std::default::Default for BlockBuilder {
+    fn default() -> Self {
+        BlockBuilder::new()
+    }
+}
+
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
+    root_key_id: Option<u32>,
     root: &'a KeyPair,
     pub symbols_start: usize,
     pub symbols: SymbolTable,
@@ -192,6 +230,7 @@ pub struct BiscuitBuilder<'a> {
 impl<'a> BiscuitBuilder<'a> {
     pub fn new(root: &'a KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a> {
         BiscuitBuilder {
+            root_key_id: None,
             root,
             symbols_start: base_symbols.symbols.len(),
             symbols: base_symbols,
@@ -200,6 +239,10 @@ impl<'a> BiscuitBuilder<'a> {
             checks: vec![],
             context: None,
         }
+    }
+
+    pub fn set_root_key_id(&mut self, id: u32) {
+        self.root_key_id = Some(id);
     }
 
     pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
@@ -226,8 +269,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_right(&mut self, resource: &str, right: &str) {
-        let _ =
-            self.add_authority_fact(fact("right", &[s("authority"), string(resource), s(right)]));
+        let _ = self.add_authority_fact(fact("right", &[string(resource), s(right)]));
     }
 
     pub fn set_context(&mut self, context: String) {
@@ -247,7 +289,6 @@ impl<'a> BiscuitBuilder<'a> {
         };
 
         let authority_block = Block {
-            index: 0,
             symbols: new_syms,
             facts: self.facts,
             rules: self.rules,
@@ -256,13 +297,18 @@ impl<'a> BiscuitBuilder<'a> {
             version: super::MAX_SCHEMA_VERSION,
         };
 
-        Biscuit::new_with_rng(rng, self.root, self.symbols, authority_block)
+        Biscuit::new_with_rng(
+            rng,
+            self.root_key_id,
+            self.root,
+            self.symbols,
+            authority_block,
+        )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
-    Symbol(String),
     Variable(String),
     Integer(i64),
     Str(String),
@@ -273,29 +319,29 @@ pub enum Term {
 }
 
 impl Term {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> ID {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Term {
         match self {
-            Term::Symbol(s) => ID::Symbol(symbols.insert(s)),
-            Term::Variable(s) => ID::Variable(symbols.insert(s) as u32),
-            Term::Integer(i) => ID::Integer(*i),
-            Term::Str(s) => ID::Str(s.clone()),
-            Term::Date(d) => ID::Date(*d),
-            Term::Bytes(s) => ID::Bytes(s.clone()),
-            Term::Bool(b) => ID::Bool(*b),
-            Term::Set(s) => ID::Set(s.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Variable(s) => datalog::Term::Variable(symbols.insert(s) as u32),
+            Term::Integer(i) => datalog::Term::Integer(*i),
+            Term::Str(s) => datalog::Term::Str(symbols.insert(s)),
+            Term::Date(d) => datalog::Term::Date(*d),
+            Term::Bytes(s) => datalog::Term::Bytes(s.clone()),
+            Term::Bool(b) => datalog::Term::Bool(*b),
+            Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
         }
     }
 
-    pub fn convert_from(f: &datalog::ID, symbols: &SymbolTable) -> Self {
+    pub fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
         match f {
-            ID::Symbol(s) => Term::Symbol(symbols.print_symbol(*s)),
-            ID::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
-            ID::Integer(i) => Term::Integer(*i),
-            ID::Str(s) => Term::Str(s.clone()),
-            ID::Date(d) => Term::Date(*d),
-            ID::Bytes(s) => Term::Bytes(s.clone()),
-            ID::Bool(b) => Term::Bool(*b),
-            ID::Set(s) => Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect()),
+            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+            datalog::Term::Integer(i) => Term::Integer(*i),
+            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)),
+            datalog::Term::Date(d) => Term::Date(*d),
+            datalog::Term::Bytes(s) => Term::Bytes(s.clone()),
+            datalog::Term::Bool(b) => Term::Bool(*b),
+            datalog::Term::Set(s) => {
+                Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect())
+            }
         }
     }
 }
@@ -303,7 +349,6 @@ impl Term {
 impl From<&Term> for Term {
     fn from(i: &Term) -> Self {
         match i {
-            Term::Symbol(ref s) => Term::Symbol(s.clone()),
             Term::Variable(ref v) => Term::Variable(v.clone()),
             Term::Integer(ref i) => Term::Integer(*i),
             Term::Str(ref s) => Term::Str(s.clone()),
@@ -327,10 +372,10 @@ impl fmt::Display for Term {
             Term::Variable(i) => write!(f, "${}", i),
             Term::Integer(i) => write!(f, "{}", i),
             Term::Str(s) => write!(f, "\"{}\"", s),
-            Term::Symbol(s) => write!(f, "#{}", s),
             Term::Date(d) => {
-                let t = UNIX_EPOCH + Duration::from_secs(*d);
-                write!(f, "{:?}", t)
+                let date =
+                    DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
+                write!(f, "{}", date.to_rfc3339())
             }
             Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
             Term::Bool(b) => {
@@ -351,36 +396,36 @@ impl fmt::Display for Term {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
-    pub ids: Vec<Term>,
+    pub terms: Vec<Term>,
 }
 
 impl Predicate {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Predicate {
         let name = symbols.insert(&self.name);
-        let mut ids = vec![];
+        let mut terms = vec![];
 
-        for id in self.ids.iter() {
-            ids.push(id.convert(symbols));
+        for term in self.terms.iter() {
+            terms.push(term.convert(symbols));
         }
 
-        datalog::Predicate { name, ids }
+        datalog::Predicate { name, terms }
     }
 
     pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
         Predicate {
             name: symbols.print_symbol(p.name),
-            ids: p
-                .ids
+            terms: p
+                .terms
                 .iter()
-                .map(|id| Term::convert_from(&id, symbols))
+                .map(|term| Term::convert_from(term, symbols))
                 .collect(),
         }
     }
 
-    pub fn new(name: String, ids: &[Term]) -> Predicate {
+    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Predicate {
         Predicate {
             name,
-            ids: ids.to_vec(),
+            terms: terms.into(),
         }
     }
 }
@@ -395,12 +440,12 @@ impl fmt::Display for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", self.name)?;
 
-        if self.ids.len() > 0 {
-            write!(f, "{}", self.ids[0])?;
+        if !self.terms.is_empty() {
+            write!(f, "{}", self.terms[0])?;
 
-            if self.ids.len() > 1 {
-                for i in 1..self.ids.len() {
-                    write!(f, ", {}", self.ids[i])?;
+            if self.terms.len() > 1 {
+                for i in 1..self.terms.len() {
+                    write!(f, ", {}", self.terms[i])?;
                 }
             }
         }
@@ -408,30 +453,86 @@ impl fmt::Display for Predicate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct Fact(pub Predicate);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fact {
+    pub predicate: Predicate,
+    pub variables: Option<HashMap<String, Option<Term>>>,
+}
 
 impl Fact {
-    pub fn new(name: String, ids: &[Term]) -> Fact {
-        Fact(Predicate::new(name, ids))
+    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Fact {
+        let mut variables = HashMap::new();
+        let terms: Vec<Term> = terms.into();
+
+        for term in &terms {
+            if let Term::Variable(name) = &term {
+                variables.insert(name.to_string(), None);
+            }
+        }
+        Fact {
+            predicate: Predicate::new(name, terms),
+            variables: Some(variables),
+        }
     }
 }
 
 impl Fact {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
+        let mut fact = self.clone();
+        fact.apply_variables();
+
         datalog::Fact {
-            predicate: self.0.convert(symbols),
+            predicate: fact.predicate.convert(symbols),
         }
     }
 
     pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
-        Fact(Predicate::convert_from(&f.predicate, symbols))
+        Fact {
+            predicate: Predicate::convert_from(&f.predicate, symbols),
+            variables: None,
+        }
+    }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        if let Some(variables) = self.variables.as_mut() {
+            match variables.get_mut(name) {
+                None => Err(format!("unknown variable name: {}", name)),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err("variables can only be set when building facts, not on facts obtained from a token or Datalog run".to_string())
+        }
+    }
+
+    fn apply_variables(&mut self) {
+        if let Some(variables) = self.variables.clone() {
+            self.predicate.terms = self
+                .predicate
+                .terms
+                .drain(..)
+                .map(|t| {
+                    if let Term::Variable(name) = &t {
+                        if let Some(Some(term)) = variables.get(name) {
+                            return term.clone();
+                        }
+                    }
+                    t
+                })
+                .collect();
+        }
     }
 }
 
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        let mut fact = self.clone();
+        fact.apply_variables();
+
+        fact.predicate.fmt(f)
     }
 }
 
@@ -499,19 +600,59 @@ impl Op {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Rule(pub Predicate, pub Vec<Predicate>, pub Vec<Expression>);
+pub struct Rule {
+    pub head: Predicate,
+    pub body: Vec<Predicate>,
+    pub expressions: Vec<Expression>,
+    pub variables: Option<HashMap<String, Option<Term>>>,
+}
 
 impl Rule {
+    pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
+        let mut variables = HashMap::new();
+        for term in &head.terms {
+            if let Term::Variable(name) = &term {
+                variables.insert(name.to_string(), None);
+            }
+        }
+
+        for predicate in &body {
+            for term in &predicate.terms {
+                if let Term::Variable(name) = &term {
+                    variables.insert(name.to_string(), None);
+                }
+            }
+        }
+
+        for expression in &expressions {
+            for op in &expression.ops {
+                if let Op::Value(Term::Variable(name)) = &op {
+                    variables.insert(name.to_string(), None);
+                }
+            }
+        }
+
+        Rule {
+            head,
+            body,
+            expressions,
+            variables: Some(variables),
+        }
+    }
+
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
-        let head = self.0.convert(symbols);
+        let mut r = self.clone();
+        r.apply_variables();
+
+        let head = r.head.convert(symbols);
         let mut body = vec![];
         let mut expressions = vec![];
 
-        for p in self.1.iter() {
+        for p in r.body.iter() {
             body.push(p.convert(symbols));
         }
 
-        for c in self.2.iter() {
+        for c in r.expressions.iter() {
             expressions.push(c.convert(symbols));
         }
 
@@ -523,23 +664,26 @@ impl Rule {
     }
 
     pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule(
-            Predicate::convert_from(&r.head, symbols),
-            r.body
+        Rule {
+            head: Predicate::convert_from(&r.head, symbols),
+            body: r
+                .body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
                 .collect(),
-            r.expressions
+            expressions: r
+                .expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
-        )
+            variables: None,
+        }
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
         let mut head_variables: std::collections::HashSet<String> = self
-            .0
-            .ids
+            .head
+            .terms
             .iter()
             .filter_map(|term| match term {
                 Term::Variable(s) => Some(s.to_string()),
@@ -547,16 +691,13 @@ impl Rule {
             })
             .collect();
 
-        for predicate in self.1.iter() {
-            for term in predicate.ids.iter() {
-                match term {
-                    Term::Variable(v) => {
-                        head_variables.remove(v);
-                        if head_variables.is_empty() {
-                            return Ok(());
-                        }
+        for predicate in self.body.iter() {
+            for term in predicate.terms.iter() {
+                if let Term::Variable(v) = term {
+                    head_variables.remove(v);
+                    if head_variables.is_empty() {
+                        return Ok(());
                     }
-                    _ => {}
                 }
             }
         }
@@ -570,29 +711,92 @@ impl Rule {
                 .join(", ")
         ))
     }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        if let Some(variables) = self.variables.as_mut() {
+            match variables.get_mut(name) {
+                None => Err(format!("unknown variable name: {}", name)),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err("variables can only be set when building queries, not on queries obtained from a token or Datalog run".to_string())
+        }
+    }
+
+    fn apply_variables(&mut self) {
+        if let Some(variables) = self.variables.clone() {
+            self.head.terms = self
+                .head
+                .terms
+                .drain(..)
+                .map(|t| {
+                    if let Term::Variable(name) = &t {
+                        if let Some(Some(term)) = variables.get(name) {
+                            return term.clone();
+                        }
+                    }
+                    t
+                })
+                .collect();
+
+            for predicate in &mut self.body {
+                predicate.terms = predicate
+                    .terms
+                    .drain(..)
+                    .map(|t| {
+                        if let Term::Variable(name) = &t {
+                            if let Some(Some(term)) = variables.get(name) {
+                                return term.clone();
+                            }
+                        }
+                        t
+                    })
+                    .collect();
+            }
+
+            for expression in &mut self.expressions {
+                expression.ops = expression
+                    .ops
+                    .drain(..)
+                    .map(|op| {
+                        if let Op::Value(Term::Variable(name)) = &op {
+                            if let Some(Some(term)) = variables.get(name) {
+                                return Op::Value(term.clone());
+                            }
+                        }
+                        op
+                    })
+                    .collect();
+            }
+        }
+    }
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if r.1.len() > 0 {
-        write!(f, "{}", r.1[0])?;
+    if !r.body.is_empty() {
+        write!(f, "{}", r.body[0])?;
 
-        if r.1.len() > 1 {
-            for i in 1..r.1.len() {
-                write!(f, ", {}", r.1[i])?;
+        if r.body.len() > 1 {
+            for i in 1..r.body.len() {
+                write!(f, ", {}", r.body[i])?;
             }
         }
     }
 
-    if r.2.len() > 0 {
-        if r.1.len() > 0 {
+    if !r.expressions.is_empty() {
+        if !r.body.is_empty() {
             write!(f, ", ")?;
         }
 
-        write!(f, "{}", r.2[0])?;
+        write!(f, "{}", r.expressions[0])?;
 
-        if r.2.len() > 1 {
-            for i in 1..r.2.len() {
-                write!(f, ", {}", r.2[i])?;
+        if r.expressions.len() > 1 {
+            for i in 1..r.expressions.len() {
+                write!(f, ", {}", r.expressions[i])?;
             }
         }
     }
@@ -602,9 +806,12 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} <- ", self.0)?;
+        let mut r = self.clone();
+        r.apply_variables();
 
-        display_rule_body(self, f)
+        write!(f, "{} <- ", r.head)?;
+
+        display_rule_body(&r, f)
     }
 }
 
@@ -630,6 +837,27 @@ impl Check {
         }
 
         Check { queries }
+    }
+
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
     }
 }
 
@@ -657,7 +885,7 @@ impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "check if ")?;
 
-        if self.queries.len() > 0 {
+        if !self.queries.is_empty() {
             display_rule_body(&self.queries[0], f)?;
 
             if self.queries.len() > 1 {
@@ -683,15 +911,38 @@ pub struct Policy {
     pub kind: PolicyKind,
 }
 
+impl Policy {
+    /// replace a variable with the term argument
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+        let term = term.into();
+        self.set_inner(name, term)
+    }
+
+    pub fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set(name, term.clone()).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(format!("unknown variable name: {}", name))
+        }
+    }
+}
+
 impl fmt::Display for Policy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.queries.len() > 0 {
+        if !self.queries.is_empty() {
             match self.kind {
                 PolicyKind::Allow => write!(f, "allow if ")?,
                 PolicyKind::Deny => write!(f, "deny if ")?,
             }
 
-            if self.queries.len() > 0 {
+            if !self.queries.is_empty() {
                 display_rule_body(&self.queries[0], f)?;
 
                 if self.queries.len() > 1 {
@@ -713,40 +964,41 @@ impl fmt::Display for Policy {
 }
 
 /// creates a new fact
-pub fn fact<I: AsRef<Term>>(name: &str, ids: &[I]) -> Fact {
-    Fact(pred(name, ids))
+pub fn fact<I: AsRef<Term>>(name: &str, terms: &[I]) -> Fact {
+    let pred = pred(name, terms);
+    Fact::new(pred.name, pred.terms)
 }
 
 /// creates a predicate
-pub fn pred<I: AsRef<Term>>(name: &str, ids: &[I]) -> Predicate {
+pub fn pred<I: AsRef<Term>>(name: &str, terms: &[I]) -> Predicate {
     Predicate {
         name: name.to_string(),
-        ids: ids.iter().map(|id| id.as_ref().clone()).collect(),
+        terms: terms.iter().map(|term| term.as_ref().clone()).collect(),
     }
 }
 
 /// creates a rule
-pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
+pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
     head_name: &str,
-    head_ids: &[I],
+    head_terms: &[T],
     predicates: &[P],
 ) -> Rule {
-    Rule(
-        pred(head_name, head_ids),
+    Rule::new(
+        pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         Vec::new(),
     )
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
+pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
     head_name: &str,
-    head_ids: &[I],
+    head_terms: &[T],
     predicates: &[P],
     expressions: &[E],
 ) -> Rule {
-    Rule(
-        pred(head_name, head_ids),
+    Rule::new(
+        pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions.iter().map(|c| c.as_ref().clone()).collect(),
     )
@@ -756,7 +1008,7 @@ pub fn constrained_rule<I: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
 pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
-        queries: vec![Rule(
+        queries: vec![Rule::new(
             pred("query", empty_terms),
             predicates.iter().map(|p| p.as_ref().clone()).collect(),
             Vec::new(),
@@ -774,18 +1026,9 @@ pub fn string(s: &str) -> Term {
     Term::Str(s.to_string())
 }
 
-/// creates a symbol
-///
-/// once the block is generated, this symbol will be added to the symbol table if needed
+/// creates a string
 pub fn s(s: &str) -> Term {
-    Term::Symbol(s.to_string())
-}
-
-/// creates a symbol
-///
-/// once the block is generated, this symbol will be added to the symbol table if needed
-pub fn symbol(s: &str) -> Term {
-    Term::Symbol(s.to_string())
+    Term::Str(s.to_string())
 }
 
 /// creates a date
@@ -821,6 +1064,12 @@ pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
 }
 
+impl From<i64> for Term {
+    fn from(i: i64) -> Self {
+        Term::Integer(i)
+    }
+}
+
 impl TryFrom<Term> for i64 {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -831,6 +1080,12 @@ impl TryFrom<Term> for i64 {
                 value
             ))),
         }
+    }
+}
+
+impl From<bool> for Term {
+    fn from(b: bool) -> Self {
+        Term::Bool(b)
     }
 }
 
@@ -847,17 +1102,41 @@ impl TryFrom<Term> for bool {
     }
 }
 
+impl From<String> for Term {
+    fn from(s: String) -> Self {
+        Term::Str(s)
+    }
+}
+
+impl From<&str> for Term {
+    fn from(s: &str) -> Self {
+        Term::Str(s.into())
+    }
+}
+
 impl TryFrom<Term> for String {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
         println!("converting string from {:?}", value);
         match value {
-            Term::Symbol(s) | Term::Str(s) => Ok(s),
+            Term::Str(s) => Ok(s),
             _ => Err(error::Token::ConversionError(format!(
                 "expected string or symbol, got {:?}",
                 value
             ))),
         }
+    }
+}
+
+impl From<Vec<u8>> for Term {
+    fn from(v: Vec<u8>) -> Self {
+        Term::Bytes(v)
+    }
+}
+
+impl From<&[u8]> for Term {
+    fn from(v: &[u8]) -> Self {
+        Term::Bytes(v.into())
     }
 }
 
@@ -871,6 +1150,13 @@ impl TryFrom<Term> for Vec<u8> {
                 value
             ))),
         }
+    }
+}
+
+impl From<SystemTime> for Term {
+    fn from(t: SystemTime) -> Self {
+        let dur = t.duration_since(UNIX_EPOCH).unwrap();
+        Term::Date(dur.as_secs())
     }
 }
 
@@ -914,12 +1200,25 @@ macro_rules! tuple_try_from(
         );
     );
 
+impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
+    type Error = error::Token;
+    fn try_from(fact: Fact) -> Result<Self, Self::Error> {
+        let mut terms = fact.predicate.terms;
+        let mut it = terms.drain(..);
+
+        Ok((it
+            .next()
+            .ok_or_else(|| error::Token::ConversionError("not enough terms in fact".to_string()))
+            .and_then(A::try_from)?,))
+    }
+}
+
 macro_rules! tuple_try_from_impl(
     ($($ty: ident),+) => (
         impl<$($ty: TryFrom<Term, Error = error::Token>),+> TryFrom<Fact> for ($($ty),+) {
             type Error = error::Token;
             fn try_from(fact: Fact) -> Result<Self, Self::Error> {
-                let mut terms = fact.0.ids;
+                let mut terms = fact.predicate.terms;
                 let mut it = terms.drain(..);
 
                 Ok((
@@ -934,3 +1233,19 @@ macro_rules! tuple_try_from_impl(
     );
 
 tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_rule_variables() {
+        let mut rule = Rule::try_from("fact($var1, $var2) <- f1($var1, $var3), f2($var2, $var3, $var4), $var3.starts_with($var2)").unwrap();
+        rule.set("var2", "hello").unwrap();
+        rule.set("var4", 0i64).unwrap();
+        rule.set("var4", 1i64).unwrap();
+
+        let s = rule.to_string();
+        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+    }
+}

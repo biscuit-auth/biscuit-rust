@@ -5,7 +5,7 @@
 //!
 //! ```rust
 //! use std::convert::TryInto;
-//! use biscuit_auth::token::builder::Fact;
+//! use biscuit_auth::builder::Fact;
 //!
 //! let f: Fact = "test(#data)".try_into().expect("parse error");
 //! ```
@@ -52,7 +52,7 @@ pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list1(
             preceded(space0, char(',')),
@@ -61,13 +61,7 @@ pub fn fact_inner(i: &str) -> IResult<&str, builder::Fact, Error> {
         preceded(space0, char(')')),
     )(i)?;
 
-    Ok((
-        i,
-        builder::Fact(builder::Predicate {
-            name: fact_name.to_string(),
-            ids,
-        }),
-    ))
+    Ok((i, builder::Fact::new(fact_name.to_string(), terms)))
 }
 
 /// parse a Datalog check
@@ -165,10 +159,10 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
     let queries = queries
         .drain(..)
         .map(|rule_body| {
-            builder::Rule(
+            builder::Rule::new(
                 builder::Predicate {
                     name: "query".to_string(),
-                    ids: Vec::new(),
+                    terms: Vec::new(),
                 },
                 rule_body.0,
                 rule_body.1,
@@ -204,9 +198,9 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, (predicates, expressions)) = cut(rule_body)(i)?;
+    let (i, (body, expressions)) = cut(rule_body)(i)?;
 
-    let rule = builder::Rule(head, predicates, expressions);
+    let rule = builder::Rule::new(head, body, expressions);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Error(Error {
@@ -310,12 +304,28 @@ impl FromStr for builder::Predicate {
     }
 }
 
+impl TryFrom<&str> for builder::BlockBuilder {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match parse_block_source(value) {
+            Ok((_, mut result)) => Ok(builder::BlockBuilder {
+                facts: result.facts.drain(..).map(|(_, fact)| fact).collect(),
+                rules: result.rules.drain(..).map(|(_, rule)| rule).collect(),
+                checks: result.checks.drain(..).map(|(_, check)| check).collect(),
+                context: None,
+            }),
+            Err(_) => Err(error::Token::ParseError),
+        }
+    }
+}
+
 fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, _) = space0(i)?;
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list1(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
@@ -325,7 +335,7 @@ fn predicate(i: &str) -> IResult<&str, builder::Predicate, Error> {
         i,
         builder::Predicate {
             name: fact_name.to_string(),
-            ids,
+            terms,
         },
     ))
 }
@@ -335,7 +345,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
     let (i, fact_name) = name(i)?;
 
     let (i, _) = space0(i)?;
-    let (i, ids) = delimited(
+    let (i, terms) = delimited(
         char('('),
         cut(separated_list0(preceded(space0, char(',')), cut(term))),
         preceded(space0, char(')')),
@@ -345,7 +355,7 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
         i,
         builder::Predicate {
             name: fact_name.to_string(),
-            ids,
+            terms,
         },
     ))
 }
@@ -562,7 +572,7 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
 }
 
 fn name(i: &str) -> IResult<&str, &str, Error> {
-    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_';
+    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
 
     reduce(take_while1(is_name_char), " ,:(\n;")(i)
 }
@@ -611,7 +621,7 @@ fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(
             take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']' && c != ';'),
-            |s| chrono::DateTime::parse_from_rfc3339(s),
+            chrono::DateTime::parse_from_rfc3339,
         ),
         |t| t.timestamp().try_into(),
     )(i)
@@ -663,7 +673,6 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     let mut kind: Option<u8> = None;
     for term in list.drain(..) {
         let index = match term {
-            builder::Term::Symbol(_) => 0,
             builder::Term::Variable(_) => panic!("variables are not permitted in sets"),
             builder::Term::Integer(_) => 2,
             builder::Term::Str(_) => 3,
@@ -1061,7 +1070,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{date, int, set, string, symbol, var, Binary, Op, Unary};
+        use builder::{date, int, set, string, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
         use std::time::{Duration, SystemTime};
 
@@ -1256,12 +1265,12 @@ mod tests {
             ))
         );
 
-        let h = [symbol("abc"), symbol("def")]
+        let h = [string("abc"), string("def")]
             .iter()
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1273,7 +1282,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![#abc, #def].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1614,7 +1623,7 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h).unwrap();
+        let result = e.evaluate(&h, &syms).unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(
@@ -1628,7 +1637,7 @@ mod tests {
             ]
         );
         assert_eq!(&printed, "1 + 2 * 3");
-        assert_eq!(result, datalog::ID::Integer(7));
+        assert_eq!(result, datalog::Term::Integer(7));
 
         let input = " (1 + 2) * 3 ";
         println!("parsing: {}", input);
@@ -1641,7 +1650,7 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h).unwrap();
+        let result = e.evaluate(&h, &syms).unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(
@@ -1656,7 +1665,7 @@ mod tests {
             ]
         );
         assert_eq!(&printed, "(1 + 2) * 3");
-        assert_eq!(result, datalog::ID::Integer(9));
+        assert_eq!(result, datalog::Term::Integer(9));
     }
 
     #[test]

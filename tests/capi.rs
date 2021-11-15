@@ -19,7 +19,7 @@ mod capi {
 
                 BiscuitBuilder* b = biscuit_builder(root_kp);
                 printf("builder creation error? %s\n", error_message());
-                biscuit_builder_add_authority_fact(b, "right(#authority, \"file1\", #read)");
+                biscuit_builder_add_authority_fact(b, "right(\"file1\", \"read\")");
 
                 printf("builder add authority error? %s\n", error_message());
 
@@ -28,38 +28,34 @@ mod capi {
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
                 printf("block builder creation error? %s\n", error_message());
-                block_builder_add_check(bb, "check if operation(#ambient, #read)");
+                block_builder_add_check(bb, "check if operation(\"read\")");
                 block_builder_add_fact(bb, "hello(\"world\")");
                 printf("builder add check error? %s\n", error_message());
 
                 char *seed2 = "ijklmnopijklmnopijklmnopijklmnop";
-                char *seed3 = "ABCDEFGHABCDEFGHABCDEFGHABCDEFGH";
 
                 KeyPair * kp2 = key_pair_new((const uint8_t *) seed2, strlen(seed2));
 
-                Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2, (const uint8_t*) seed3, strlen(seed3));
+                Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
 
-                Verifier * verifier = biscuit_verify(b2, root);
-                printf("verifier creation error? %s\n", error_message());
-                verifier_add_check(verifier, "check if right(#efgh)");
-                printf("verifier add check error? %s\n", error_message());
-                char* world_print = verifier_print(verifier);
-                printf("verifier world:\n%s\n", world_print);
-                string_free(world_print);
-                if(!verifier_verify(verifier)) {
-                    printf("verifier error(code = %d): %s\n", error_kind(), error_message());
+                Authorizer * authorizer = biscuit_authorizer(b2);
+                printf("authorizer creation error? %s\n", error_message());
+                authorizer_add_check(authorizer, "check if right(\"efgh\")");
+                printf("authorizer add check error? %s\n", error_message());
+                if(!authorizer_authorize(authorizer)) {
+                    printf("authorizer error(code = %d): %s\n", error_kind(), error_message());
 
                     if(error_kind() == LogicFailedChecks) {
                         uint64_t error_count = error_check_count();
                         printf("failed checks (%ld):\n", error_count);
 
                         for(uint64_t i = 0; i < error_count; i++) {
-                            if(error_check_is_verifier(i)) {
+                            if(error_check_is_authorizer(i)) {
                                 uint64_t check_id = error_check_id(i);
                                 const char* rule = error_check_rule(i);
 
-                                printf("  Verifier check %ld: %s\n", check_id, rule);
+                                printf("  Authorizer check %ld: %s\n", check_id, rule);
                             } else {
                                 uint64_t check_id = error_check_id(i);
                                 uint64_t block_id = error_check_block_id(i);
@@ -70,8 +66,11 @@ mod capi {
                         }
                     }
                 } else {
-                    printf("verifier succeeded\n");
+                    printf("authorizer succeeded\n");
                 }
+                char* world_print = authorizer_print(authorizer);
+                printf("authorizer world:\n%s\n", world_print);
+                string_free(world_print);
 
                 uint64_t sz = biscuit_serialized_size(b2);
                 printf("serialized size: %ld\n", sz);
@@ -80,7 +79,7 @@ mod capi {
                 printf("wrote %ld bytes\n", written);
 
                 free(buffer);
-                verifier_free(verifier);
+                authorizer_free(authorizer);
                 block_builder_free(bb);
                 biscuit_free(b2);
                 key_pair_free(kp2);
@@ -92,39 +91,36 @@ mod capi {
             }
         })
         .success()
-        .stdout(r#"key_pair creation error? (null)
+        .stdout(
+            r#"key_pair creation error? (null)
 builder creation error? (null)
 builder add authority error? (null)
 biscuit creation error? (null)
 block builder creation error? (null)
 builder add check error? (null)
 biscuit append error? (null)
-verifier creation error? (null)
-verifier add check error? (null)
-verifier world:
+authorizer creation error? (null)
+authorizer add check error? (null)
+authorizer error(code = 22): check validation failed
+failed checks (2):
+  Authorizer check 0: check if right("efgh")
+  Block 1, check 0: check if operation("read")
+authorizer world:
 World {
   facts: [
     "hello(\"world\")",
-    "revocation_id(0, hex:f5e7f4c5af9f057b414535b94c02a82e185cd21054220f10935b403ec15f54f9)",
-    "revocation_id(1, hex:4639618cf1a4a6c4210dad868b14a9869299e7f997c36fa353c8052d6517d438)",
-    "right(#authority, \"file1\", #read)",
-    "unique_revocation_id(0, hex:14136f1a8ec36e80b9fa4e08f8bbb113a721b8cbac1abc07a18243200220328a)",
-    "unique_revocation_id(1, hex:f2789ea34973c4178a003fd796ebd91d3fd711e0e798556fa7ecaecd9efcfb2f)",
+    "revocation_id(0, hex:399f4cd638039d645f317b6401ef8308e56d4e4d983538386070e5cbb368198e63fded9e0a55e1e22e3c92f49e3e3de46f74c2fac45fb75bc546270be15ed80b)",
+    "revocation_id(1, hex:dbd504ed972e732df9d6f29103bea2dc6dbe2c86e47bdaeb13e3947c9136b33827f4c4bb24c6fbfd2c4b69acc8f5aaaaeb44e911406e892bcc8d76555629ba0e)",
+    "right(\"file1\", \"read\")",
 ]
-  privileged rules: []
   rules: []
   checks: [
-    "Verifier[0]: check if right(#efgh)",
-    "Block[1][0]: check if operation(#ambient, #read)",
+    "Authorizer[0]: check if right(\"efgh\")",
 ]
   policies: []
 }
-verifier error(code = 22): check validation failed
-failed checks (2):
-  Verifier check 0: check if right(#efgh)
-  Block 1, check 0: check if operation(#ambient, #read)
-serialized size: 262
-wrote 262 bytes
+serialized size: 332
+wrote 332 bytes
 "#);
     }
 

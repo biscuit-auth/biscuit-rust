@@ -10,7 +10,7 @@ fn main() {
     };
 
     let data = std::fs::read(target).unwrap();
-    let token = biscuit_auth::token::Biscuit::from(&data[..]).unwrap();
+    /*let token = biscuit_auth::token::Biscuit::from(&data[..]).unwrap();
 
-    println!("Token content:\n{}", token.print());
+    println!("Token content:\n{}", token.print());*/
 }

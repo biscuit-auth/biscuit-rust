@@ -4,14 +4,14 @@
 //!
 //! - serialization of Biscuit blocks to Protobuf then `Vec<u8>`
 //! - serialization of a wrapper structure containing serialized blocks and the signature
-use super::crypto::{KeyPair, TokenSignature};
-use crate::crypto::PublicKey;
-use curve25519_dalek::ristretto::CompressedRistretto;
+use super::crypto::{self, KeyPair, PrivateKey, PublicKey, TokenNext};
+
 use prost::Message;
-use rand_core::{CryptoRng, RngCore};
 
 use super::error;
 use super::token::Block;
+use ed25519_dalek::Signer;
+use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
 pub mod schema; /* {
@@ -28,63 +28,132 @@ use self::convert::*;
 /// will be used for the signature
 #[derive(Clone, Debug)]
 pub struct SerializedBiscuit {
-    pub authority: Vec<u8>,
-    pub blocks: Vec<Vec<u8>>,
-    pub keys: Vec<PublicKey>,
-    pub signature: TokenSignature,
+    pub root_key_id: Option<u32>,
+    pub authority: crypto::Block,
+    pub blocks: Vec<crypto::Block>,
+    pub proof: crypto::TokenNext,
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice(slice: &[u8]) -> Result<Self, error::Format> {
+    pub fn from_slice<F: Fn(Option<u32>) -> PublicKey>(
+        slice: &[u8],
+        f: F,
+    ) -> Result<Self, error::Format> {
+        let deser = SerializedBiscuit::deserialize(slice)?;
+
+        let root = f(deser.root_key_id);
+        deser.verify(&root)?;
+
+        Ok(deser)
+    }
+
+    pub(crate) fn deserialize(slice: &[u8]) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let mut keys = vec![];
-
-        for key in data.keys {
-            if key.len() == 32 {
-                if let Some(k) = CompressedRistretto::from_slice(&key[..]).decompress() {
-                    keys.push(PublicKey(k));
-                } else {
-                    return Err(error::Format::DeserializationError(
-                        "deserialization error: cannot decompress key point".to_string(),
-                    ));
-                }
-            } else {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: invalid size for key = {} bytes",
-                    key.len()
-                )));
-            }
+        if data.authority.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+            return Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                data.authority.next_key.algorithm
+            )));
         }
 
-        let signature = proto_sig_to_token_sig(data.signature)?;
+        let bytes: [u8; 64] = (&data.authority.signature[..])
+            .try_into()
+            .map_err(|_| error::Format::InvalidSignatureSize(data.authority.signature.len()))?;
 
-        let deser = SerializedBiscuit {
-            authority: data.authority,
-            blocks: data.blocks,
-            keys,
-            signature,
+        let authority = crypto::Block {
+            data: data.authority.block,
+            next_key: PublicKey::from_bytes(&data.authority.next_key.key)?,
+            signature: ed25519_dalek::Signature::new(bytes),
         };
 
-        match deser.verify() {
-            Ok(()) => Ok(deser),
-            Err(e) => Err(e),
+        let mut blocks = Vec::new();
+        for block in &data.blocks {
+            if block.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                return Err(error::Format::DeserializationError(format!(
+                    "deserialization error: unexpected key algorithm {}",
+                    block.next_key.algorithm
+                )));
+            }
+
+            let bytes: [u8; 64] = (&block.signature[..])
+                .try_into()
+                .map_err(|_| error::Format::InvalidSignatureSize(block.signature.len()))?;
+            blocks.push(crypto::Block {
+                data: block.block.clone(),
+                next_key: PublicKey::from_bytes(&block.next_key.key)?,
+                signature: ed25519_dalek::Signature::new(bytes),
+            });
         }
+
+        let proof = match data.proof.content {
+            None => {
+                return Err(error::Format::DeserializationError(
+                    "could not find proof".to_string(),
+                ))
+            }
+            Some(schema::proof::Content::NextSecret(v)) => {
+                TokenNext::Secret(PrivateKey::from_bytes(&v)?)
+            }
+            Some(schema::proof::Content::FinalSignature(v)) => {
+                let bytes: [u8; 64] = (&v[..])
+                    .try_into()
+                    .map_err(|_| error::Format::InvalidSignatureSize(v.len()))?;
+                TokenNext::Seal(ed25519_dalek::Signature::new(bytes))
+            }
+        };
+
+        let deser = SerializedBiscuit {
+            root_key_id: data.root_key_id,
+            authority,
+            blocks,
+            proof,
+        };
+
+        Ok(deser)
     }
 
     /// serializes the token
     pub fn to_proto(&self) -> schema::Biscuit {
+        let authority = schema::SignedBlock {
+            block: self.authority.data.clone(),
+            next_key: schema::PublicKey {
+                algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+                key: self.authority.next_key.to_bytes().to_vec(),
+            },
+            signature: self.authority.signature.to_bytes().to_vec(),
+        };
+
+        let mut blocks = Vec::new();
+        for block in &self.blocks {
+            let b = schema::SignedBlock {
+                block: block.data.clone(),
+                next_key: schema::PublicKey {
+                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+                    key: block.next_key.to_bytes().to_vec(),
+                },
+                signature: block.signature.to_bytes().to_vec(),
+            };
+
+            blocks.push(b);
+        }
+
         schema::Biscuit {
-            authority: self.authority.clone(),
-            blocks: self.blocks.clone(),
-            keys: self
-                .keys
-                .iter()
-                .map(|k| Vec::from(&k.0.compress().to_bytes()[..]))
-                .collect(),
-            signature: token_sig_to_proto_sig(&self.signature),
+            root_key_id: self.root_key_id,
+            authority,
+            blocks,
+            proof: schema::Proof {
+                content: match &self.proof {
+                    TokenNext::Seal(signature) => Some(schema::proof::Content::FinalSignature(
+                        signature.to_bytes().to_vec(),
+                    )),
+                    TokenNext::Secret(private) => Some(schema::proof::Content::NextSecret(
+                        private.to_bytes().to_vec(),
+                    )),
+                },
+            },
         }
     }
 
@@ -104,11 +173,12 @@ impl SerializedBiscuit {
     }
 
     /// creates a new token
-    pub fn new<T: RngCore + CryptoRng>(
-        rng: &mut T,
-        keypair: &KeyPair,
+    pub fn new(
+        root_key_id: Option<u32>,
+        root_keypair: &KeyPair,
+        next_keypair: &KeyPair,
         authority: &Block,
-    ) -> Result<Self, error::Format> {
+    ) -> Result<Self, error::Token> {
         let mut v = Vec::new();
         token_block_to_proto_block(authority)
             .encode(&mut v)
@@ -116,23 +186,24 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = TokenSignature::new(rng, keypair, &v);
+        let signature = crypto::sign(root_keypair, next_keypair, &v)?;
 
         Ok(SerializedBiscuit {
-            authority: v,
+            root_key_id,
+            authority: crypto::Block {
+                data: v,
+                next_key: next_keypair.public(),
+                signature,
+            },
             blocks: vec![],
-            keys: vec![keypair.public()],
-            signature,
+            proof: TokenNext::Secret(next_keypair.private()),
         })
     }
 
     /// adds a new block, serializes it and sign a new token
-    pub fn append<T: RngCore + CryptoRng>(
-        &self,
-        rng: &mut T,
-        keypair: &KeyPair,
-        block: &Block,
-    ) -> Result<Self, error::Format> {
+    pub fn append(&self, next_keypair: &KeyPair, block: &Block) -> Result<Self, error::Token> {
+        let keypair = self.proof.keypair()?;
+
         let mut v = Vec::new();
         token_block_to_proto_block(block)
             .encode(&mut v)
@@ -140,46 +211,103 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let mut blocks = vec![self.authority.clone()];
-        blocks.extend(self.blocks.iter().cloned());
+        let signature = crypto::sign(&keypair, next_keypair, &v)?;
 
-        let signature = self.signature.sign(rng, keypair, &v);
-
-        let mut t = SerializedBiscuit {
-            authority: self.authority.clone(),
-            blocks: self.blocks.clone(),
-            keys: self.keys.clone(),
+        // Add new block
+        let mut blocks = self.blocks.clone();
+        blocks.push(crypto::Block {
+            data: v,
+            next_key: next_keypair.public(),
             signature,
-        };
+        });
 
-        t.blocks.push(v);
-        t.keys.push(keypair.public());
-
-        Ok(t)
+        Ok(SerializedBiscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks,
+            proof: TokenNext::Secret(next_keypair.private()),
+        })
     }
 
     /// checks the signature on a deserialized token
-    pub fn verify(&self) -> Result<(), error::Format> {
-        if self.keys.is_empty() {
-            return Err(error::Format::EmptyKeys);
+    pub fn verify(&self, root: &PublicKey) -> Result<(), error::Format> {
+        //FIXME: try batched signature verification
+        let mut current_pub = root;
+
+        crypto::verify_block_signature(&self.authority, current_pub)?;
+        current_pub = &self.authority.next_key;
+
+        for block in &self.blocks {
+            crypto::verify_block_signature(block, current_pub)?;
+            current_pub = &block.next_key;
         }
 
-        let mut blocks = vec![self.authority.clone()];
-        blocks.extend(self.blocks.iter().cloned());
+        match &self.proof {
+            TokenNext::Secret(private) => {
+                if current_pub != &private.public() {
+                    return Err(error::Format::Signature(
+                        error::Signature::InvalidSignature(
+                            "the last public key does not match the private key".to_string(),
+                        ),
+                    ));
+                }
+            }
+            TokenNext::Seal(signature) => {
+                //FIXME: replace with SHA512 hashing
+                let mut to_verify = Vec::new();
 
-        self.signature
-            .verify(&self.keys, &blocks)
-            .map_err(error::Format::Signature)
-    }
+                let block = if self.blocks.is_empty() {
+                    &self.authority
+                } else {
+                    &self.blocks[self.blocks.len() - 1]
+                };
+                to_verify.extend(&block.data);
+                to_verify.extend(
+                    &(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes(),
+                );
+                to_verify.extend(&block.next_key.to_bytes());
+                to_verify.extend(&block.signature.to_bytes());
 
-    pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Format> {
-        if self.keys.is_empty() {
-            return Err(error::Format::EmptyKeys);
-        }
-        if self.keys[0] != root {
-            return Err(error::Format::UnknownPublicKey);
+                current_pub
+                    .0
+                    .verify_strict(&to_verify, signature)
+                    .map_err(|s| s.to_string())
+                    .map_err(error::Signature::InvalidSignature)
+                    .map_err(error::Format::Signature)?;
+            }
         }
 
         Ok(())
+    }
+
+    pub fn seal(&self) -> Result<Self, error::Token> {
+        let keypair = self.proof.keypair()?;
+
+        //FIXME: replace with SHA512 hashing
+        let mut to_sign = Vec::new();
+        let block = if self.blocks.is_empty() {
+            &self.authority
+        } else {
+            &self.blocks[self.blocks.len() - 1]
+        };
+        to_sign.extend(&block.data);
+        to_sign
+            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_sign.extend(&block.next_key.to_bytes());
+        to_sign.extend(&block.signature.to_bytes());
+
+        let signature = keypair
+            .kp
+            .try_sign(&to_sign)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignatureGeneration)
+            .map_err(error::Format::Signature)?;
+
+        Ok(SerializedBiscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks: self.blocks.clone(),
+            proof: TokenNext::Seal(signature),
+        })
     }
 }

@@ -1,24 +1,22 @@
 //! main structures to interact with Biscuit tokens
 use super::crypto::{KeyPair, PublicKey};
-use super::datalog::{Check, Fact, Rule, SymbolTable, World, ID};
+use super::datalog::{Check, Fact, Rule, SymbolTable, Term};
 use super::error;
 use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
-#[cfg(test)]
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
-use verifier::Verifier;
+use authorizer::Authorizer;
 
+pub mod authorizer;
 pub mod builder;
-pub mod sealed;
-pub mod verifier;
+pub mod unverified;
 
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 1;
+pub const MAX_SCHEMA_VERSION: u32 = 2;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
@@ -43,7 +41,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// ```rust
 /// extern crate biscuit_auth as biscuit;
 ///
-/// use biscuit::{crypto::KeyPair, token::{Biscuit, builder::*}};
+/// use biscuit::{KeyPair, Biscuit, builder::*};
 ///
 /// fn main() {
 ///   let root = KeyPair::new();
@@ -52,10 +50,10 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
 ///   let mut builder = Biscuit::builder(&root);
-///   builder.add_authority_fact(fact("right", &[s("authority"), string("/a/file1.txt"), s("read")]));
+///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), s("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("right(#authority, \"/a/file1.txt\", #read)").expect("parse error");
+///   builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
 ///
 ///   let token1 = builder.build().unwrap();
 ///
@@ -63,12 +61,12 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   let mut builder2 = token1.create_block();
 ///   builder2.check_operation("read");
 ///
-///   let keypair2 = KeyPair::new();
-///   let token2 = token1.append(&keypair2, builder2).unwrap();
+///   let token2 = token1.append(builder2).unwrap();
 /// }
 /// ```
 #[derive(Clone, Debug)]
 pub struct Biscuit {
+    pub(crate) root_key_id: Option<u32>,
     pub(crate) authority: Block,
     pub(crate) blocks: Vec<Block>,
     pub(crate) symbols: SymbolTable,
@@ -76,207 +74,29 @@ pub struct Biscuit {
 }
 
 impl Biscuit {
-    /// creates a new token
+    /// create the first block's builder
     ///
-    /// the public part of the root keypair must be used for verification
-    ///
-    /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
-    pub fn new(
-        root: &KeyPair,
-        symbols: SymbolTable,
-        authority: Block,
-    ) -> Result<Biscuit, error::Token> {
-        Self::new_with_rng(&mut rand::rngs::OsRng, root, symbols, authority)
-    }
-
-    /// creates a new token, using a provided CSPRNG
-    ///
-    /// the public part of the root keypair must be used for verification
-    ///
-    /// The block is an authority block: its index must be 0 and all of its facts must have the authority tag
-    pub fn new_with_rng<T: RngCore + CryptoRng>(
-        rng: &mut T,
-        root: &KeyPair,
-        mut symbols: SymbolTable,
-        authority: Block,
-    ) -> Result<Biscuit, error::Token> {
-        let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
-            return Err(error::Token::SymbolTableOverlap);
-        }
-
-        if authority.index as usize != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        let blocks = vec![];
-
-        let container =
-            SerializedBiscuit::new(rng, root, &authority).map_err(error::Token::Format)?;
-
-        Ok(Biscuit {
-            authority,
-            blocks,
-            symbols,
-            container: Some(container),
-        })
+    /// call [`builder::BiscuitBuilder::build`] to create the token
+    pub fn builder(root: &KeyPair) -> BiscuitBuilder {
+        Biscuit::builder_with_symbols(root, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
-        Biscuit::from_with_symbols(slice, default_symbol_table())
-    }
-
-    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
-        let container = SerializedBiscuit::from_slice(slice).map_err(error::Token::Format)?;
-
-        let authority: Block = schema::Block::decode(&container.authority[..])
-            .map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing authority block: {:?}",
-                    e
-                )))
-            })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-        if authority.index != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
-        let mut blocks = vec![];
-
-        let mut index = 1;
-        for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block[..])
-                .map_err(|e| {
-                    error::Token::Format(error::Format::BlockDeserializationError(format!(
-                        "error deserializing block: {:?}",
-                        e
-                    )))
-                })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-            if deser.index != index {
-                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                    expected: index,
-                    found: deser.index,
-                }));
-            }
-            blocks.push(deser);
-
-            index += 1;
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
-        }
-
-        let container = Some(container);
-
-        Ok(Biscuit {
-            authority,
-            blocks,
-            symbols,
-            container,
-        })
+    pub fn from<T, F>(slice: T, f: F) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
+        Biscuit::from_with_symbols(slice.as_ref(), f, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T: AsRef<[u8]>>(slice: T) -> Result<Self, error::Token> {
-        Biscuit::from_base64_with_symbols(slice, default_symbol_table())
-    }
-
-    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_base64_with_symbols<T: AsRef<[u8]>>(
-        slice: T,
-        symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
-        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
-        Biscuit::from_with_symbols(&decoded, symbols)
-    }
-
-    /// deserializes a sealed token and checks its signature with the secret, using a custom symbol table
-    pub fn from_sealed(slice: &[u8], secret: &[u8]) -> Result<Self, error::Token> {
-        Biscuit::from_sealed_with_symbols(slice, secret, default_symbol_table())
-    }
-
-    /// deserializes a sealed token and checks its signature with the secret
-    pub fn from_sealed_with_symbols(
-        slice: &[u8],
-        secret: &[u8],
-        mut symbols: SymbolTable,
-    ) -> Result<Self, error::Token> {
-        let container =
-            sealed::SealedBiscuit::from_slice(slice, secret).map_err(error::Token::Format)?;
-
-        let authority: Block = schema::Block::decode(&container.authority[..])
-            .map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing authority block: {:?}",
-                    e
-                )))
-            })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-        if authority.index != 0 {
-            return Err(error::Token::InvalidAuthorityIndex(authority.index));
-        }
-
-        let mut blocks = vec![];
-
-        let mut index = 1;
-        for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block[..])
-                .map_err(|e| {
-                    error::Token::Format(error::Format::BlockDeserializationError(format!(
-                        "error deserializing block: {:?}",
-                        e
-                    )))
-                })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
-
-            if deser.index != index {
-                return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                    expected: index,
-                    found: deser.index,
-                }));
-            }
-            blocks.push(deser);
-
-            index += 1;
-        }
-
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
-
-        for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
-        }
-
-        let container = None;
-
-        Ok(Biscuit {
-            authority,
-            blocks,
-            symbols,
-            container,
-        })
+    pub fn from_base64<T, F>(slice: T, f: F) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
+        Biscuit::from_base64_with_symbols(slice, f, default_symbol_table())
     }
 
     /// serializes the token
@@ -287,6 +107,7 @@ impl Biscuit {
         }
     }
 
+    /// serializes the token and encode it to a (URL safe) base64 string
     pub fn to_base64(&self) -> Result<String, error::Token> {
         match self.container.as_ref() {
             None => Err(error::Token::InternalError),
@@ -305,360 +126,40 @@ impl Biscuit {
         }
     }
 
-    /// serializes the token
-    pub fn sealed_size(&self) -> Result<usize, error::Token> {
-        // FIXME: not ideal to serialize a sealed token just for this
-        let sealed =
-            sealed::SealedBiscuit::from_token(self, &b"ABCD"[..]).map_err(error::Token::Format)?;
-        Ok(sealed.serialized_size())
-    }
-
-    /// serializes a sealed version of the token
-    pub fn seal(&self, secret: &[u8]) -> Result<Vec<u8>, error::Token> {
-        let sealed =
-            sealed::SealedBiscuit::from_token(self, secret).map_err(error::Token::Format)?;
-        sealed.to_vec().map_err(error::Token::Format)
-    }
-
-    /// returns the internal representation of the token
-    pub fn container(&self) -> Option<&SerializedBiscuit> {
-        self.container.as_ref()
-    }
-
-    /// tests that the token uses this public key as root
-    pub fn check_root_key(&self, root: PublicKey) -> Result<(), error::Token> {
-        self.container
-            .as_ref()
-            .map(|c| c.check_root_key(root).map_err(error::Token::Format))
-            .unwrap_or(Err(error::Token::Sealed))?;
-        Ok(())
-    }
-
-    /// creates a verifier from this token
+    /// creates a sealed version of the token
     ///
-    /// this will also call [`Biscuit::check_root_key`]
-    pub fn verify(&self, root: PublicKey) -> Result<Verifier, error::Token> {
-        self.check_root_key(root)?;
-        Verifier::from_token(self).map_err(error::Token::FailedLogic)
-    }
+    /// sealed tokens cannot be attenuated
+    pub fn seal(&self) -> Result<Biscuit, error::Token> {
+        match &self.container {
+            None => Err(error::Token::InternalError),
+            Some(c) => {
+                let container = c.seal()?;
 
-    /// creates a verifier from this token
-    pub fn verify_sealed(&self) -> Result<Verifier, error::Token> {
-        if self.container.is_some() {
-            Err(error::Token::InternalError)
-        } else {
-            Verifier::from_token(self).map_err(error::Token::FailedLogic)
-        }
-    }
+                let mut token = self.clone();
+                token.container = Some(container);
 
-    pub(crate) fn generate_world(&self, symbols: &mut SymbolTable) -> Result<World, error::Logic> {
-        let mut world = World::new();
-
-        let authority_index = symbols.get("authority").unwrap();
-        let ambient_index = symbols.get("ambient").unwrap();
-
-        for fact in self.authority.facts.iter().cloned() {
-            if fact.predicate.ids[0] == ID::Symbol(ambient_index) {
-                return Err(error::Logic::InvalidAuthorityFact(
-                    symbols.print_fact(&fact),
-                ));
+                Ok(token)
             }
-
-            world.facts.insert(fact);
-        }
-
-        let mut revocation_ids = self.revocation_identifiers();
-        let revocation_id_sym = symbols.get("revocation_id").unwrap();
-        for (i, id) in revocation_ids.drain(..).enumerate() {
-            world.facts.insert(Fact::new(
-                revocation_id_sym,
-                &[ID::Integer(i as i64), ID::Bytes(id)],
-            ));
-        }
-
-        let mut unique_revocation_ids = self.unique_revocation_identifiers();
-        let unique_revocation_id_sym = symbols.insert("unique_revocation_id");
-        for (i, id) in unique_revocation_ids.drain(..).enumerate() {
-            world.facts.insert(Fact::new(
-                unique_revocation_id_sym,
-                &[ID::Integer(i as i64), ID::Bytes(id)],
-            ));
-        }
-
-        for rule in self.authority.rules.iter().cloned() {
-            if let Err(_message) = builder::Rule::convert_from(&rule, symbols).validate_variables()
-            {
-                return Err(error::Logic::InvalidBlockRule(0, symbols.print_rule(&rule)));
-            }
-
-            world.privileged_rules.push(rule);
-        }
-
-        for (i, block) in self.blocks.iter().enumerate() {
-            // blocks cannot provide authority or ambient facts
-            for fact in block.facts.iter().cloned() {
-                if fact.predicate.ids[0] == ID::Symbol(authority_index)
-                    || fact.predicate.ids[0] == ID::Symbol(ambient_index)
-                {
-                    return Err(error::Logic::InvalidBlockFact(
-                        i as u32,
-                        symbols.print_fact(&fact),
-                    ));
-                }
-
-                world.facts.insert(fact);
-            }
-
-            for rule in block.rules.iter().cloned() {
-                // block rules cannot generate authority or ambient facts
-                if rule.head.ids[0] == ID::Symbol(authority_index)
-                    || rule.head.ids[0] == ID::Symbol(ambient_index)
-                {
-                    return Err(error::Logic::InvalidBlockRule(
-                        i as u32,
-                        symbols.print_rule(&rule),
-                    ));
-                }
-
-                if let Err(_message) =
-                    builder::Rule::convert_from(&rule, symbols).validate_variables()
-                {
-                    return Err(error::Logic::InvalidBlockRule(
-                        i as u32,
-                        symbols.print_rule(&rule),
-                    ));
-                }
-
-                world.rules.push(rule);
-            }
-        }
-
-        Ok(world)
-    }
-
-    pub(crate) fn checks(&self) -> Vec<Vec<Check>> {
-        let mut result = Vec::new();
-        let v = self.authority.checks.to_vec();
-        result.push(v);
-
-        for block in self.blocks.iter() {
-            let v = block.checks.to_vec();
-            result.push(v);
-        }
-
-        result
-    }
-
-    /// checks the checks of a token, in the context of the request it comes with
-    ///
-    /// the verifier provides ambient facts (that must carry the "ambient" tag) like
-    /// which resource is requested, which operation, the current time, etc
-    ///
-    /// those ambient facts can also be generated by the provided ambient rules
-    ///
-    /// the verifier can also provide its own checks to validate the content of the token.
-    /// Verifier checks can either apply on the "authority" part (they will be tested once
-    /// in the entire token), while block level caveast will be tested once per block.
-    ///
-    /// the symbol table argument is generated from the token's symbol table, adding
-    /// new symbols as needed from ambient facts and rules
-    ///
-    /// if successful, it returns answers to the verifier queries as a HashMap indexed
-    /// by the query name. Each query result contains a HashMap of block id -> Vec of Facts
-    #[cfg(test)]
-    pub(crate) fn check(
-        &self,
-        symbols: &SymbolTable,
-        mut ambient_facts: Vec<Fact>,
-        ambient_rules: Vec<Rule>,
-        verifier_checks: Vec<Check>,
-        queries: HashMap<String, Rule>,
-    ) -> Result<HashMap<String, Vec<Fact>>, error::Token> {
-        let mut symbols = symbols.clone();
-        let mut world = self
-            .generate_world(&mut symbols)
-            .map_err(error::Token::FailedLogic)?;
-
-        for fact in ambient_facts.drain(..) {
-            world.facts.insert(fact);
-        }
-
-        for rule in ambient_rules.iter().cloned() {
-            world.privileged_rules.push(rule);
-        }
-
-        let authority_index = symbols.get("authority").unwrap();
-        let ambient_index = symbols.get("ambient").unwrap();
-
-        world
-            .run(&[authority_index, ambient_index])
-            .map_err(error::Token::RunLimit)?;
-        //println!("world:\n{}", symbols.print_world(&world));
-
-        // we only keep the verifier rules
-        //world.rules = ambient_rules;
-
-        let mut errors = vec![];
-
-        // authority checks provided by the authority block
-        for (i, check) in self.authority.checks.iter().enumerate() {
-            let mut successful = false;
-
-            for query in check.queries.iter() {
-                let res = world.query_rule(query.clone());
-                if !res.is_empty() {
-                    successful = true;
-                    break;
-                }
-            }
-
-            if !successful {
-                errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
-                    block_id: 0,
-                    check_id: i as u32,
-                    rule: symbols.print_check(check),
-                }));
-            }
-        }
-
-        // verifier checks
-        for (i, check) in verifier_checks.iter().enumerate() {
-            let mut successful = false;
-
-            for query in check.queries.iter() {
-                let res = world.query_rule(query.clone());
-                if !res.is_empty() {
-                    successful = true;
-                    break;
-                }
-            }
-
-            if !successful {
-                errors.push(error::FailedCheck::Verifier(error::FailedVerifierCheck {
-                    check_id: i as u32,
-                    rule: symbols.print_check(check),
-                }));
-            }
-        }
-
-        for (i, block) in self.blocks.iter().enumerate() {
-            for (j, check) in block.checks.iter().enumerate() {
-                let mut successful = false;
-
-                for query in check.queries.iter() {
-                    let res = world.query_rule(query.clone());
-                    if !res.is_empty() {
-                        successful = true;
-                        break;
-                    }
-                }
-
-                if !successful {
-                    errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
-                        block_id: i as u32,
-                        check_id: j as u32,
-                        rule: symbols.print_check(check),
-                    }));
-                }
-            }
-        }
-
-        let mut query_results = HashMap::new();
-        for (name, rule) in queries.iter() {
-            let res = world.query_rule(rule.clone());
-            query_results.insert(name.clone(), res);
-        }
-
-        if errors.is_empty() {
-            Ok(query_results)
-        } else {
-            Err(error::Token::FailedLogic(error::Logic::FailedChecks(
-                errors,
-            )))
         }
     }
 
-    /// create the first block's builder
-    ///
-    /// call [`builder::BiscuitBuilder::build`] to create the token
-    pub fn builder(root: &KeyPair) -> BiscuitBuilder {
-        Biscuit::builder_with_symbols(root, default_symbol_table())
-    }
-
-    /// create the first block's builder, sing a provided symbol table
-    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
-        BiscuitBuilder::new(root, symbols)
+    /// creates a authorizer from this token
+    pub fn authorizer(&self) -> Result<Authorizer, error::Token> {
+        Authorizer::from_token(self)
     }
 
     /// creates a new block builder
     pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new((1 + self.blocks.len()) as u32)
+        BlockBuilder::new()
     }
 
     /// adds a new block to the token
     ///
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
-    pub fn append(
-        &self,
-        keypair: &KeyPair,
-        block_builder: BlockBuilder,
-    ) -> Result<Self, error::Token> {
-        self.append_with_rng(&mut rand::rngs::OsRng, keypair, block_builder)
-    }
-
-    /// adds a new block to the token, using the provided CSPRNG
-    ///
-    /// since the public key is integrated into the token, the keypair can be
-    /// discarded right after calling this function
-    pub fn append_with_rng<T: RngCore + CryptoRng>(
-        &self,
-        rng: &mut T,
-        keypair: &KeyPair,
-        block_builder: BlockBuilder,
-    ) -> Result<Self, error::Token> {
-        if self.container.is_none() {
-            return Err(error::Token::Sealed);
-        }
-
-        let block = block_builder.build(self.symbols.clone());
-
-        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
-            return Err(error::Token::SymbolTableOverlap);
-        }
-
-        if block.index as usize != 1 + self.blocks.len() {
-            return Err(error::Token::InvalidBlockIndex(error::InvalidBlockIndex {
-                expected: 1 + self.blocks.len() as u32,
-                found: block.index,
-            }));
-        }
-
-        let authority = self.authority.clone();
-        let mut blocks = self.blocks.clone();
-        let mut symbols = self.symbols.clone();
-
-        let container = match self.container.as_ref() {
-            None => return Err(error::Token::Sealed),
-            Some(c) => c
-                .append(rng, keypair, &block)
-                .map_err(error::Token::Format)?,
-        };
-
-        symbols
-            .symbols
-            .extend(block.symbols.symbols.iter().cloned());
-        blocks.push(block);
-
-        Ok(Biscuit {
-            authority,
-            blocks,
-            symbols,
-            container: Some(container),
-        })
+    pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
+        let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        self.append_with_keypair(&keypair, block_builder)
     }
 
     /// returns the list of context elements of each block
@@ -680,55 +181,13 @@ impl Biscuit {
     /// if a token is generated with the same keys and the same content,
     /// those identifiers will stay the same
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-
         let mut res = Vec::new();
-        let mut h = Sha256::new();
 
         if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority);
-            h.update(&token.keys[0].to_bytes());
+            res.push(token.authority.signature.to_bytes().to_vec());
 
-            let h2 = h.clone();
-            res.push(h2.finalize().as_slice().into());
-
-            for (i, block) in token.blocks.iter().enumerate() {
-                h.update(&block);
-                h.update(&token.keys[1 + i].to_bytes());
-
-                let h2 = h.clone();
-                res.push(h2.finalize().as_slice().into());
-            }
-        }
-
-        res
-    }
-
-    /// returns a list of unique revocation identifiers for each block, in order
-    ///
-    /// those identifiers will be different for every token even if they have the
-    /// same content and use the same keys
-    pub fn unique_revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-
-        let mut res = Vec::new();
-        let mut h = Sha256::new();
-
-        if let Some(token) = self.container.as_ref() {
-            h.update(&token.authority);
-            h.update(&token.keys[0].to_bytes());
-            h.update(&token.signature.parameters[0].compress().to_bytes());
-
-            let h2 = h.clone();
-            res.push(h2.finalize().as_slice().into());
-
-            for (i, block) in token.blocks.iter().enumerate() {
-                h.update(&block);
-                h.update(&token.keys[1 + i].to_bytes());
-                h.update(&token.signature.parameters[1 + i].compress().to_bytes());
-
-                let h2 = h.clone();
-                res.push(h2.finalize().as_slice().into());
+            for block in token.blocks.iter() {
+                res.push(block.signature.to_bytes().to_vec());
             }
         }
 
@@ -763,36 +222,207 @@ impl Biscuit {
             }
         };
 
-        let facts: Vec<_> = block
-            .facts
-            .iter()
-            .map(|f| self.symbols.print_fact(f))
-            .collect();
-        let rules: Vec<_> = block
-            .rules
-            .iter()
-            .map(|r| self.symbols.print_rule(r))
-            .collect();
-        let checks: Vec<_> = block
-            .checks
-            .iter()
-            .map(|r| self.symbols.print_check(r))
-            .collect();
+        Some(block.print_source(&self.symbols))
+    }
 
-        let mut res = facts.join(";\n");
-        if !facts.is_empty() {
-            res.push_str(";\n");
-        }
-        res.push_str(&rules.join(";\n"));
-        if !rules.is_empty() {
-            res.push_str(";\n");
-        }
-        res.push_str(&checks.join(";\n"));
-        if !checks.is_empty() {
-            res.push_str(";\n");
+    /// create the first block's builder, sing a provided symbol table
+    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
+        BiscuitBuilder::new(root, symbols)
+    }
+
+    /// creates a new token
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new(
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        Self::new_with_rng(
+            &mut rand::rngs::OsRng,
+            root_key_id,
+            root,
+            symbols,
+            authority,
+        )
+    }
+
+    /// creates a new token, using a provided CSPRNG
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new_with_rng<T: RngCore + CryptoRng>(
+        rng: &mut T,
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        mut symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
+        let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Token::SymbolTableOverlap);
         }
 
-        Some(res)
+        symbols
+            .symbols
+            .extend(authority.symbols.symbols.iter().cloned());
+
+        let blocks = vec![];
+
+        let next_keypair = KeyPair::new_with_rng(rng);
+        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
+
+        Ok(Biscuit {
+            root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container: Some(container),
+        })
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_with_symbols<F>(
+        slice: &[u8],
+        f: F,
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+    {
+        let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
+
+        Biscuit::from_serialized_container(container, symbols)
+    }
+
+    fn from_serialized_container(
+        container: SerializedBiscuit,
+        mut symbols: SymbolTable,
+    ) -> Result<Self, error::Token> {
+        let authority: Block = schema::Block::decode(&container.authority.data[..])
+            .map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing authority block: {:?}",
+                    e
+                )))
+            })
+            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+
+        let mut blocks = vec![];
+
+        for block in container.blocks.iter() {
+            let deser: Block = schema::Block::decode(&block.data[..])
+                .map_err(|e| {
+                    error::Token::Format(error::Format::BlockDeserializationError(format!(
+                        "error deserializing block: {:?}",
+                        e
+                    )))
+                })
+                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+
+            blocks.push(deser);
+        }
+
+        symbols
+            .symbols
+            .extend(authority.symbols.symbols.iter().cloned());
+
+        for block in blocks.iter() {
+            symbols
+                .symbols
+                .extend(block.symbols.symbols.iter().cloned());
+        }
+
+        let root_key_id = container.root_key_id;
+        let container = Some(container);
+
+        Ok(Biscuit {
+            root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container,
+        })
+    }
+
+    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    pub fn from_base64_with_symbols<T, F>(
+        slice: T,
+        f: F,
+        symbols: SymbolTable,
+    ) -> Result<Self, error::Token>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+        T: AsRef<[u8]>,
+    {
+        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        Biscuit::from_with_symbols(&decoded, f, symbols)
+    }
+
+    /// returns the internal representation of the token
+    pub fn container(&self) -> Option<&SerializedBiscuit> {
+        self.container.as_ref()
+    }
+
+    /// adds a new block to the token, using the provided CSPRNG
+    ///
+    /// since the public key is integrated into the token, the keypair can be
+    /// discarded right after calling this function
+    pub fn append_with_keypair(
+        &self,
+        keypair: &KeyPair,
+        block_builder: BlockBuilder,
+    ) -> Result<Self, error::Token> {
+        if self.container.is_none() {
+            return Err(error::Token::Sealed);
+        }
+
+        let block = block_builder.build(self.symbols.clone());
+
+        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
+        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Token::SymbolTableOverlap);
+        }
+
+        let authority = self.authority.clone();
+        let mut blocks = self.blocks.clone();
+        let mut symbols = self.symbols.clone();
+
+        let container = match self.container.as_ref() {
+            None => return Err(error::Token::Sealed),
+            Some(c) => c.append(keypair, &block)?,
+        };
+
+        symbols
+            .symbols
+            .extend(block.symbols.symbols.iter().cloned());
+        blocks.push(block);
+
+        Ok(Biscuit {
+            root_key_id: self.root_key_id,
+            authority,
+            blocks,
+            symbols,
+            container: Some(container),
+        })
+    }
+
+    /// gets the list of symbols from a block
+    pub fn block_symbols(&self, index: usize) -> Option<Vec<String>> {
+        let block = if index == 0 {
+            &self.authority
+        } else {
+            match self.blocks.get(index - 1) {
+                None => return None,
+                Some(block) => block,
+            }
+        };
+
+        Some(block.symbols.symbols.clone())
     }
 
     /// returns the number of blocks (at least 1)
@@ -836,8 +466,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block[{}] {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
-        block.index,
+        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
         block.symbols.symbols,
         block.version,
         block.context.as_deref().unwrap_or(""),
@@ -850,8 +479,6 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
 /// a block contained in a token
 #[derive(Clone, Debug)]
 pub struct Block {
-    /// position of the block
-    pub index: u32,
     /// list of symbols introduced by this block
     pub symbols: SymbolTable,
     /// list of facts provided by this block
@@ -871,9 +498,8 @@ impl Block {
     /// creates a new block
     ///
     /// blocks should be created through the BlockBuilder interface instead, to avoid mistakes
-    pub fn new(index: u32, base_symbols: SymbolTable) -> Block {
+    pub fn new(base_symbols: SymbolTable) -> Block {
         Block {
-            index,
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
@@ -883,12 +509,33 @@ impl Block {
         }
     }
 
-    pub fn symbol_add(&mut self, s: &str) -> ID {
+    pub fn symbol_add(&mut self, s: &str) -> Term {
         self.symbols.add(s)
     }
 
     pub fn symbol_insert(&mut self, s: &str) -> u64 {
         self.symbols.insert(s)
+    }
+
+    fn print_source(&self, symbols: &SymbolTable) -> String {
+        let facts: Vec<_> = self.facts.iter().map(|f| symbols.print_fact(f)).collect();
+        let rules: Vec<_> = self.rules.iter().map(|r| symbols.print_rule(r)).collect();
+        let checks: Vec<_> = self.checks.iter().map(|r| symbols.print_check(r)).collect();
+
+        let mut res = facts.join(";\n");
+        if !facts.is_empty() {
+            res.push_str(";\n");
+        }
+        res.push_str(&rules.join(";\n"));
+        if !rules.is_empty() {
+            res.push_str(";\n");
+        }
+        res.push_str(&checks.join(";\n"));
+        if !checks.is_empty() {
+            res.push_str(";\n");
+        }
+
+        res
     }
 }
 
@@ -910,13 +557,13 @@ mod tests {
             let mut builder = Biscuit::builder(&root);
 
             builder
-                .add_authority_fact("right(#authority, #file1, #read)")
+                .add_authority_fact("right(\"file1\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(#authority, #file2, #read)")
+                .add_authority_fact("right(\"file2\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(#authority, #file1, #write)")
+                .add_authority_fact("right(\"file1\", \"write\")")
                 .unwrap();
 
             let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -941,9 +588,9 @@ mod tests {
                 "check1",
                 &[var(0)],
                 &[
-                    pred("resource", &[s("ambient"), var(0)]),
-                    pred("operation", &[s("ambient"), s("read")]),
-                    pred("right", &[s("authority"), var(0), s("read")]),
+                    pred("resource", &[var(0)]),
+                    pred("operation", &[s("read")]),
+                    pred("right", &[var(0), s("read")]),
                 ],
             ));
 
@@ -960,7 +607,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
@@ -970,16 +617,16 @@ mod tests {
                     "check1",
                     &[var("resource")],
                     &[
-                        pred("resource", &[s("ambient"), var("resource")]),
-                        pred("operation", &[s("ambient"), s("read")]),
-                        pred("right", &[s("authority"), var("resource"), s("read")]),
+                        pred("resource", &[var("resource")]),
+                        pred("operation", &[s("read")]),
+                        pred("right", &[var("resource"), s("read")]),
                     ],
                 ))
                 .unwrap();
 
             let keypair2 = KeyPair::new_with_rng(&mut rng);
             let biscuit2 = biscuit1_deser
-                .append_with_rng(&mut rng, &keypair2, block2)
+                .append_with_keypair(&keypair2, block2)
                 .unwrap();
 
             println!("biscuit2 (1 check): {}", biscuit2.print());
@@ -991,7 +638,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2, |_| root.public()).unwrap();
 
             // new check: can only access file1
             let mut block3 = biscuit2_deser.create_block();
@@ -1000,13 +647,13 @@ mod tests {
                 .add_check(rule(
                     "check2",
                     &[s("file1")],
-                    &[pred("resource", &[s("ambient"), s("file1")])],
+                    &[pred("resource", &[s("file1")])],
                 ))
                 .unwrap();
 
             let keypair3 = KeyPair::new_with_rng(&mut rng);
             let biscuit3 = biscuit2_deser
-                .append_with_rng(&mut rng, &keypair3, block3)
+                .append_with_keypair(&keypair3, block3)
                 .unwrap();
 
             biscuit3.to_vec().unwrap()
@@ -1016,48 +663,48 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3).unwrap();
-        final_token.check_root_key(root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
         {
-            let mut symbols = final_token.symbols.clone();
+            let mut authorizer = final_token.authorizer().unwrap();
 
-            let facts = vec![
-                fact("resource", &[s("ambient"), s("file1")]),
-                fact("operation", &[s("ambient"), s("read")]),
+            let mut facts = vec![
+                fact("resource", &[s("file1")]),
+                fact("operation", &[s("read")]),
             ];
-            let mut ambient_facts = vec![];
 
-            for fact in facts.iter() {
-                ambient_facts.push(fact.convert(&mut symbols));
+            for fact in facts.drain(..) {
+                authorizer.add_fact(fact).unwrap();
             }
 
             //println!("final token: {:#?}", final_token);
-            //println!("ambient facts: {:#?}", ambient_facts);
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], HashMap::new());
+            authorizer.allow().unwrap();
+
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
-            let mut symbols = final_token.symbols.clone();
+            let mut authorizer = final_token.authorizer().unwrap();
 
-            let facts = vec![
-                fact("resource", &[s("ambient"), s("file2")]),
-                fact("operation", &[s("ambient"), s("write")]),
+            let mut facts = vec![
+                fact("resource", &[s("file2")]),
+                fact("operation", &[s("write")]),
             ];
-            let mut ambient_facts = vec![];
 
-            for fact in facts.iter() {
-                ambient_facts.push(fact.convert(&mut symbols));
+            for fact in facts.drain(..) {
+                authorizer.add_fact(fact).unwrap();
             }
 
-            let res = final_token.check(&symbols, ambient_facts, vec![], vec![], HashMap::new());
+            authorizer.allow().unwrap();
+
+            let res = authorizer.authorize();
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: String::from("check if resource(#ambient, $resource), operation(#ambient, #read), right(#authority, $resource, #read)") }),
-                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource(#ambient, #file1)") })
+                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), operation(\"read\"), right($resource, \"read\")") }),
+                FailedCheck::Block(FailedBlockCheck { block_id: 2, check_id: 0, rule: String::from("check if resource(\"file1\")") })
               ]))));
         }
     }
@@ -1085,29 +732,27 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
-            println!("verifier:\n{}", verifier.print_world());
+            println!("authorizer:\n{}", authorizer.print_world());
             res.unwrap();
         }
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("/folder2/file3");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder2/file3");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
@@ -1116,7 +761,7 @@ mod tests {
                         block_id: 1,
                         check_id: 0,
                         rule: String::from(
-                            "check if resource(#ambient, $resource), $resource.starts_with(\"/folder1/\")"
+                            "check if resource($resource), $resource.starts_with(\"/folder1/\")"
                         )
                     }),
                 ])))
@@ -1124,16 +769,16 @@ mod tests {
         }
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("/folder2/file1");
-            verifier.add_operation("write");
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder2/file1");
+            authorizer.add_operation("write");
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res3: {:?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource(#ambient, $resource), $resource.starts_with(\"/folder1/\")") }),
-                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 1, rule: String::from("check if resource(#ambient, $resource_name), operation(#ambient, #read), right(#authority, $resource_name, #read)") }),
+                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), $resource.starts_with(\"/folder1/\")") }),
+                FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 1, rule: String::from("check if resource($resource_name), operation(\"read\"), right($resource_name, \"read\")") }),
               ]))));
         }
     }
@@ -1158,36 +803,34 @@ mod tests {
         block2.revocation_id(1234);
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
 
         {
             println!("biscuit2: {}", biscuit2.print());
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
-            verifier.revocation_check(&[0, 1, 2, 5, 1234]);
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
+            authorizer.revocation_check(&[0, 1, 2, 5, 1234]);
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res3: {:?}", res);
 
             // error message should be like this:
-            //"Verifier check 0 failed: check if revocation_id($0), $0 not in [2, 1234, 1, 5, 0]"
+            //"authorizer check 0 failed: check if revocation_id($0), $0 not in [2, 1234, 1, 5, 0]"
             assert!(res.is_err());
         }
     }
@@ -1214,19 +857,17 @@ mod tests {
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -1234,19 +875,18 @@ mod tests {
         let _serialized = biscuit2.to_vec().unwrap();
         //println!("biscuit2 serialized ({} bytes):\n{}", serialized.len(), serialized.to_hex(16));
 
-        let secret = b"secret key";
-        let sealed = biscuit2.seal(&secret[..]).unwrap();
+        let sealed = biscuit2.seal().unwrap().to_vec().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
-        let biscuit3 = Biscuit::from_sealed(&sealed, &secret[..]).unwrap();
+        let biscuit3 = Biscuit::from(&sealed, |_| root.public()).unwrap();
 
         {
-            let mut verifier = biscuit3.verify_sealed().unwrap();
-            verifier.add_resource("/folder1/file1");
-            verifier.add_operation("read");
-            verifier.allow().unwrap();
+            let mut authorizer = biscuit3.authorizer().unwrap();
+            authorizer.add_resource("/folder1/file1");
+            authorizer.add_operation("read");
+            authorizer.allow().unwrap();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -1262,49 +902,43 @@ mod tests {
         let mut builder = Biscuit::builder(&root);
 
         builder
-            .add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]))
+            .add_authority_fact(fact("right", &[string("file1"), s("read")]))
             .unwrap();
         builder
-            .add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]))
+            .add_authority_fact(fact("right", &[string("file2"), s("read")]))
             .unwrap();
         builder
-            .add_authority_fact(fact(
-                "right",
-                &[s("authority"), string("file1"), s("write")],
-            ))
+            .add_authority_fact(fact("right", &[string("file1"), s("write")]))
             .unwrap();
 
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
         println!("{}", biscuit1.print());
 
-        let mut v = biscuit1.verify(root.public()).expect("omg verifier");
+        let mut v = biscuit1.authorizer().expect("omg authorizer");
 
         v.add_check(rule(
             "right",
             &[s("right")],
-            &[pred(
-                "right",
-                &[s("authority"), string("file2"), s("write")],
-            )],
+            &[pred("right", &[string("file2"), s("write")])],
         ))
         .unwrap();
 
         //assert!(v.verify().is_err());
-        let res = v.verify();
+        let res = v.authorize();
         println!("res: {:?}", res);
         assert_eq!(
             res,
             Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Verifier(FailedVerifierCheck {
+                FailedCheck::Authorizer(FailedAuthorizerCheck {
                     check_id: 0,
-                    rule: String::from("check if right(#authority, \"file2\", #write)")
+                    rule: String::from("check if right(\"file2\", \"write\")")
                 }),
             ])))
         );
     }
 
     #[test]
-    fn verifier_queries() {
+    fn authorizer_queries() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(&mut rng);
 
@@ -1323,9 +957,7 @@ mod tests {
         block2.revocation_id(1234);
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut block3 = biscuit2.create_block();
 
@@ -1333,19 +965,17 @@ mod tests {
         block3.revocation_id(5678);
 
         let keypair3 = KeyPair::new_with_rng(&mut rng);
-        let biscuit3 = biscuit2
-            .append_with_rng(&mut rng, &keypair3, block3)
-            .unwrap();
+        let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
-            let mut verifier = biscuit3.verify(root.public()).unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
+            let mut authorizer = biscuit3.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            authorizer.set_time();
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
 
-            let res2: Result<Vec<builder::Fact>, crate::error::Token> = verifier.query(rule(
+            let res2: Result<Vec<builder::Fact>, crate::error::Token> = authorizer.query(rule(
                 "revocation_id_verif",
                 &[builder::Term::Variable("id".to_string())],
                 &[pred(
@@ -1354,14 +984,21 @@ mod tests {
                 )],
             ));
             println!("res2: {:?}", res2);
+            let mut res2 = res2
+                .unwrap()
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<_>>();
+            res2.sort();
             assert_eq!(
-                &res2.unwrap().iter().collect::<HashSet<_>>(),
+                &res2,
                 &[
                     fact("revocation_id_verif", &[int(1234)]),
                     fact("revocation_id_verif", &[int(5678)])
                 ]
                 .iter()
-                .collect::<HashSet<_>>()
+                .map(|f| f.to_string())
+                .collect::<Vec<_>>()
             );
         }
     }
@@ -1374,7 +1011,7 @@ mod tests {
         let mut builder = Biscuit::builder(&root);
 
         builder
-            .add_authority_check(check(&[pred("resource", &[s("ambient"), s("hello")])]))
+            .add_authority_check(check(&[pred("resource", &[s("hello")])]))
             .unwrap();
 
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -1386,36 +1023,38 @@ mod tests {
         block2.add_fact(fact("check1", &[s("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
-            .unwrap();
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         println!("biscuit2: {}", biscuit2.print());
 
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
-            let mut verifier = biscuit2.verify(root.public()).unwrap();
-            verifier.add_resource("file1");
-            verifier.add_operation("read");
-            verifier.set_time();
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_resource("file1");
+            authorizer.add_operation("read");
+            println!("symbols before time: {:?}", authorizer.symbols);
+            authorizer.set_time();
 
-            println!("world:\n{}", verifier.print_world());
+            println!("world:\n{}", authorizer.print_world());
+            println!("symbols: {:?}", authorizer.symbols);
 
-            let res = verifier.verify();
+            let res = authorizer.authorize();
             println!("res1: {:?}", res);
+
             assert_eq!(
                 res,
                 Err(Token::FailedLogic(Logic::FailedChecks(vec![
                     FailedCheck::Block(FailedBlockCheck {
                         block_id: 0,
                         check_id: 0,
-                        rule: String::from("check if resource(#ambient, #hello)"),
+                        rule: String::from("check if resource(\"hello\")"),
                     }),
                 ])))
             );
         }
     }
 
+    /*
     #[test]
     fn check_requires_fact_in_future_block() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -1430,9 +1069,9 @@ mod tests {
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
-        let mut verifier1 = biscuit1.verify(root.public()).unwrap();
-        verifier1.allow().unwrap();
-        let res1 = verifier1.verify();
+        let mut authorizer1 = biscuit1.verify().unwrap();
+        authorizer1.allow().unwrap();
+        let res1 = authorizer1.verify();
         println!("res1: {:?}", res1);
         assert_eq!(
             res1,
@@ -1450,15 +1089,15 @@ mod tests {
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
+            .append_with_keypair(&keypair2, block2)
             .unwrap();
 
         println!("biscuit2 (with name fact): {}", biscuit2.print());
-        let mut verifier2 = biscuit2.verify(root.public()).unwrap();
-        verifier2.allow().unwrap();
-        let res2 = verifier2.verify();
+        let mut authorizer2 = biscuit2.verify().unwrap();
+        authorizer2.allow().unwrap();
+        let res2 = authorizer2.verify();
         assert_eq!(res2, Ok(0));
-    }
+    }*/
 
     #[test]
     fn bytes_constraints() {
@@ -1466,35 +1105,29 @@ mod tests {
         let root = KeyPair::new_with_rng(&mut rng);
 
         let mut builder = Biscuit::builder(&root);
-        builder
-            .add_authority_fact("bytes(#authority, hex:0102AB)")
-            .unwrap();
+        builder.add_authority_fact("bytes(hex:0102AB)").unwrap();
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
         let mut block2 = biscuit1.create_block();
         block2
-            .add_rule(
-                "has_bytes($0) <- bytes(#authority, $0), [ hex:00000000, hex:0102AB ].contains($0)",
-            )
+            .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
         let keypair2 = KeyPair::new_with_rng(&mut rng);
-        let biscuit2 = biscuit1
-            .append_with_rng(&mut rng, &keypair2, block2)
+        let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
+
+        let mut authorizer = biscuit2.authorizer().unwrap();
+        authorizer
+            .add_check("check if bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
+        authorizer.allow().unwrap();
 
-        let mut verifier = biscuit2.verify(root.public()).unwrap();
-        verifier.add_check("check if has_bytes($0)").unwrap();
-        verifier.allow().unwrap();
-
-        let res = verifier.verify();
+        let res = authorizer.authorize();
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res: Vec<(String, Vec<u8>)> = verifier
-            .query("data(#authority, $0) <- bytes(#authority, $0)")
-            .unwrap();
+        let res: Vec<(Vec<u8>,)> = authorizer.query("data($0) <- bytes($0)").unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
     }
@@ -1508,16 +1141,16 @@ mod tests {
             let mut builder = Biscuit::builder(&root);
 
             builder
-                .add_authority_fact("right(#authority, \"/folder1/file1\", #read)")
+                .add_authority_fact("right(\"/folder1/file1\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(#authority, \"/folder1/file1\", #write)")
+                .add_authority_fact("right(\"/folder1/file1\", \"write\")")
                 .unwrap();
             builder
-                .add_authority_fact("right(#authority, \"/folder2/file1\", #read)")
+                .add_authority_fact("right(\"/folder2/file1\", \"read\")")
                 .unwrap();
             builder
-                .add_authority_check("check if operation(#ambient, #read)")
+                .add_authority_check("check if operation(\"read\")")
                 .unwrap();
 
             let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -1532,28 +1165,28 @@ mod tests {
         //panic!();
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = biscuit1_deser.create_block();
 
-            // Bypass `check if operation(#ambient, #read)` from authority block
+            // Bypass `check if operation("read")` from authority block
             block2
-                .add_rule("operation($ambient, #read) <- operation($ambient, $any)")
+                .add_rule("operation(\"read\") <- operation($any)")
                 .unwrap();
 
-            // Bypass `check if resource(#ambient, $file), $file.starts_with("/folder1/")` from block #1
+            // Bypass `check if resource($file), $file.starts_with("/folder1/")` from block #1
             block2
-                .add_rule("resource($ambient, \"/folder1/\") <- resource($ambient, $any)")
+                .add_rule("resource(\"/folder1/\") <- resource($any)")
                 .unwrap();
 
             // Add missing rights
-            block2.add_rule("right($authority, $file, $right) <- right($authority, $any1, $any2), resource(#ambient, $file), operation(#ambient, $right)")
+            block2.add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
                 .unwrap();
 
             let keypair2 = KeyPair::new_with_rng(&mut rng);
             let biscuit2 = biscuit1_deser
-                .append_with_rng(&mut rng, &keypair2, block2)
+                .append_with_keypair(&keypair2, block2)
                 .unwrap();
 
             println!("biscuit2 (1 check): {}", biscuit2.print());
@@ -1564,21 +1197,23 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
-        let final_token = Biscuit::from(&serialized2).unwrap();
+        let final_token = Biscuit::from(&serialized2, |_| root.public()).unwrap();
         println!("final token:\n{}", final_token.print());
 
-        let mut verifier = final_token.verify(root.public()).unwrap();
-        verifier.add_resource("/folder2/file1");
-        verifier.add_operation("write");
-        verifier.add_policy("allow if resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)").unwrap();
-        verifier.deny().unwrap();
+        let mut authorizer = final_token.authorizer().unwrap();
+        authorizer.add_resource("/folder2/file1");
+        authorizer.add_operation("write");
+        authorizer
+            .add_policy("allow if resource($file), operation($op), right($file, $op)")
+            .unwrap();
+        authorizer.deny().unwrap();
 
-        let res = verifier.verify_with_limits(crate::token::verifier::VerifierLimits {
+        let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
             max_time: Duration::from_secs(1),
             ..Default::default()
         });
         println!("res1: {:?}", res);
-        println!("verifier:\n{}", verifier.print_world());
+        println!("authorizer:\n{}", authorizer.print_world());
 
         assert!(res.is_err());
     }

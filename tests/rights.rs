@@ -1,7 +1,7 @@
 #![allow(unused_must_use)]
-use biscuit::crypto::KeyPair;
-use biscuit::token::builder::*;
-use biscuit::token::*;
+use biscuit::builder::*;
+use biscuit::KeyPair;
+use biscuit::*;
 use biscuit_auth as biscuit;
 
 use rand::{prelude::StdRng, SeedableRng};
@@ -22,7 +22,7 @@ fn main() {
     let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
     println!("{}", biscuit1.print());
 
-    let mut v = biscuit1.verify(root.public()).expect("omg verifier");
+    let mut v = biscuit1.authorizer().expect("omg verifier");
     //v.add_resource("file2");
     //v.add_operation("read");
     //v.add_operation("write");
@@ -36,7 +36,7 @@ fn main() {
         )],
     ));
 
-    let res = v.verify();
+    let res = v.authorize();
     println!("{:#?}", res);
     panic!()
 }

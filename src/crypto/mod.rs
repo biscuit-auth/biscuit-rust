@@ -1,31 +1,24 @@
 //! cryptographic operations
 //!
-//! Biscuit tokens are based on [aggregated gamma signatures](https://eprint.iacr.org/2018/414/20180510:203542).
+//! Biscuit tokens are based on a chain of Ed25519 signatures.
 //! This provides the fundamental operation for offline delegation: from a message
 //! and a valid signature, it is possible to add a new message and produce a valid
 //! signature for the whole.
 //!
-//! The implementation is based on [curve25519_dalek](https://github.com/dalek-cryptography/curve25519-dalek),
-//! a Rust implementation of the Ristretto group over Ed25519.
+//! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
+use crate::error::Format;
+
 use super::error;
-use curve25519_dalek::{
-    constants::RISTRETTO_BASEPOINT_POINT,
-    ristretto::{CompressedRistretto, RistrettoPoint},
-    scalar::Scalar,
-    traits::Identity,
-};
+use ed25519_dalek::*;
 use rand_core::{CryptoRng, RngCore};
-use sha2::{Digest, Sha512};
-use std::{
-    convert::TryInto,
-    ops::{Deref, Drop},
-};
+use std::{convert::TryInto, ops::Drop};
 use zeroize::Zeroize;
 
+/// pair of cryptographic keys used to sign a token's block
+#[derive(Debug)]
 pub struct KeyPair {
-    pub(crate) private: Scalar,
-    pub(crate) public: RistrettoPoint,
+    pub kp: ed25519_dalek::Keypair,
 }
 
 impl KeyPair {
@@ -34,68 +27,70 @@ impl KeyPair {
     }
 
     pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let private = Scalar::random(rng);
-        let public = private * RISTRETTO_BASEPOINT_POINT;
+        let kp = ed25519_dalek::Keypair::generate(rng);
 
-        KeyPair { private, public }
+        KeyPair { kp }
     }
 
     pub fn from(key: PrivateKey) -> Self {
-        let private = key.0;
+        let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
 
-        let public = private * RISTRETTO_BASEPOINT_POINT;
+        let public = (&key.0).into();
 
-        KeyPair { private, public }
-    }
-
-    #[allow(dead_code)]
-    fn sign<T: RngCore + CryptoRng>(&self, rng: &mut T, message: &[u8]) -> (Scalar, Scalar) {
-        let mut r = Scalar::random(rng);
-        let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = hash_points(&[A]);
-        let e = hash_message(self.public, message);
-        let z = r * d - e * self.private;
-
-        r.zeroize();
-
-        (d, z)
+        KeyPair {
+            kp: ed25519_dalek::Keypair { secret, public },
+        }
     }
 
     pub fn private(&self) -> PrivateKey {
-        PrivateKey(self.private)
+        let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
+        PrivateKey(secret)
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.public)
+        PublicKey(self.kp.public)
+    }
+}
+
+impl std::default::Default for KeyPair {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl Drop for KeyPair {
     fn drop(&mut self) {
-        self.private.zeroize();
+        self.kp.secret.zeroize();
     }
 }
 
-#[allow(dead_code)]
-fn verify(public: &RistrettoPoint, message: &[u8], signature: &(Scalar, Scalar)) -> bool {
-    let (d, z) = signature;
-    let e = hash_message(*public, message);
-    let d_inv = d.invert();
-    let A = z * d_inv * RISTRETTO_BASEPOINT_POINT + e * d_inv * public;
-
-    hash_points(&[A]) == *d
-}
-
-pub struct PrivateKey(pub(crate) Scalar);
+/// the private part of a [KeyPair]
+#[derive(Debug)]
+pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 
 impl PrivateKey {
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let bytes: [u8; 32] = bytes.try_into().ok()?;
-        Scalar::from_canonical_bytes(bytes).map(PrivateKey)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
+        let bytes: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
+        SecretKey::from_bytes(&bytes)
+            .map(PrivateKey)
+            .map_err(|s| s.to_string())
+            .map_err(Format::InvalidKey)
+    }
+
+    pub fn public(&self) -> PublicKey {
+        PublicKey((&self.0).into())
+    }
+}
+
+impl std::clone::Clone for PrivateKey {
+    fn clone(&self) -> Self {
+        PrivateKey::from_bytes(&self.to_bytes()).unwrap()
     }
 }
 
@@ -105,174 +100,173 @@ impl Drop for PrivateKey {
     }
 }
 
+/// the private part of a [KeyPair]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PublicKey(pub(crate) RistrettoPoint);
+pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
 
 impl PublicKey {
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.compress().to_bytes()
+        self.0.to_bytes()
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        CompressedRistretto::from_slice(bytes)
-            .decompress()
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
+        ed25519_dalek::PublicKey::from_bytes(bytes)
             .map(PublicKey)
-    }
-}
-
-#[allow(dead_code)]
-/// test structure for aggregated signatures
-struct Token {
-    pub messages: Vec<Vec<u8>>,
-    pub keys: Vec<PublicKey>,
-    pub signature: TokenSignature,
-}
-
-impl Token {
-    #[allow(dead_code)]
-    pub fn new<T: RngCore + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
-        let signature = TokenSignature::new(rng, keypair, message);
-
-        Token {
-            messages: vec![message.to_owned()],
-            keys: vec![keypair.public()],
-            signature,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn append<T: RngCore + CryptoRng>(
-        &self,
-        rng: &mut T,
-        keypair: &KeyPair,
-        message: &[u8],
-    ) -> Self {
-        let signature = self.signature.sign(rng, keypair, message);
-
-        let mut t = Token {
-            messages: self.messages.clone(),
-            keys: self.keys.clone(),
-            signature,
-        };
-
-        t.messages.push(message.to_owned());
-        t.keys.push(keypair.public());
-
-        t
-    }
-
-    #[allow(dead_code)]
-    pub fn verify(&self) -> Result<(), error::Signature> {
-        self.signature.verify(&self.keys, &self.messages)
+            .map_err(|s| s.to_string())
+            .map_err(Format::InvalidKey)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct TokenSignature {
-    pub parameters: Vec<RistrettoPoint>,
-    pub z: Scalar,
+pub struct Block {
+    pub(crate) data: Vec<u8>,
+    pub(crate) next_key: PublicKey,
+    pub signature: ed25519_dalek::Signature,
 }
 
-impl TokenSignature {
-    pub fn new<T: RngCore + CryptoRng>(rng: &mut T, keypair: &KeyPair, message: &[u8]) -> Self {
-        let mut r = Scalar::random(rng);
-        let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = hash_points(&[A]);
-        let e = hash_message(keypair.public, message);
-        let z = r * d - e * keypair.private;
+#[derive(Clone, Debug)]
+pub struct Token {
+    pub root: PublicKey,
+    pub blocks: Vec<Block>,
+    pub next: TokenNext,
+}
 
-        r.zeroize();
+#[derive(Clone, Debug)]
+pub enum TokenNext {
+    Secret(PrivateKey),
+    Seal(ed25519_dalek::Signature),
+}
 
-        TokenSignature {
-            parameters: vec![A],
-            z,
-        }
-    }
+pub fn sign(
+    keypair: &KeyPair,
+    next_key: &KeyPair,
+    message: &[u8],
+) -> Result<Signature, error::Token> {
+    //FIXME: replace with SHA512 hashing
+    let mut to_sign = message.to_vec();
+    to_sign.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_sign.extend(&next_key.public().to_bytes());
 
-    pub fn sign<T: RngCore + CryptoRng>(
-        &self,
-        rng: &mut T,
+    let signature = keypair
+        .kp
+        .try_sign(&to_sign)
+        .map_err(|s| s.to_string())
+        .map_err(error::Signature::InvalidSignatureGeneration)
+        .map_err(error::Format::Signature)?;
+
+    Ok(signature)
+}
+
+pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
+    //FIXME: replace with SHA512 hashing
+    let mut to_verify = block.data.to_vec();
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&block.next_key.to_bytes());
+
+    public_key
+        .0
+        .verify_strict(&to_verify, &block.signature)
+        .map_err(|s| s.to_string())
+        .map_err(error::Signature::InvalidSignature)
+        .map_err(error::Format::Signature)?;
+
+    Ok(())
+}
+
+impl Token {
+    #[allow(dead_code)]
+    pub fn new<T: RngCore + CryptoRng>(
         keypair: &KeyPair,
+        next_key: &KeyPair,
         message: &[u8],
-    ) -> Self {
-        let mut r = Scalar::random(rng);
-        let A = r * RISTRETTO_BASEPOINT_POINT;
-        let d = hash_points(&[A]);
-        let e = hash_message(keypair.public, message);
-        let z = r * d - e * keypair.private;
+    ) -> Result<Self, error::Token> {
+        let signature = sign(keypair, next_key, message)?;
 
-        r.zeroize();
-
-        let mut t = TokenSignature {
-            parameters: self.parameters.clone(),
-            z: self.z + z,
+        let block = Block {
+            data: message.to_vec(),
+            next_key: next_key.public(),
+            signature,
         };
 
-        t.parameters.push(A);
-        t
+        Ok(Token {
+            root: keypair.public(),
+            blocks: vec![block],
+            next: TokenNext::Secret(next_key.private()),
+        })
     }
 
-    pub fn verify<M: Deref<Target = [u8]>>(
+    pub fn append<T: RngCore + CryptoRng>(
         &self,
-        public_keys: &[PublicKey],
-        messages: &[M],
-    ) -> Result<(), error::Signature> {
-        if !(public_keys.len() == messages.len() && public_keys.len() == self.parameters.len()) {
-            println!("invalid data");
-            return Err(error::Signature::InvalidFormat);
+        next_key: &KeyPair,
+        message: &[u8],
+    ) -> Result<Self, error::Token> {
+        let keypair = self.next.keypair()?;
+
+        let signature = sign(&keypair, next_key, message)?;
+
+        let block = Block {
+            data: message.to_vec(),
+            next_key: next_key.public(),
+            signature,
+        };
+
+        let mut t = Token {
+            root: self.root,
+            blocks: self.blocks.clone(),
+            next: TokenNext::Secret(next_key.private()),
+        };
+
+        t.blocks.push(block);
+
+        Ok(t)
+    }
+
+    pub fn verify(&self, root: PublicKey) -> Result<(), error::Token> {
+        //FIXME: try batched signature verification
+        let mut current_pub = root;
+
+        for block in &self.blocks {
+            verify_block_signature(block, &current_pub)?;
+            current_pub = block.next_key;
         }
 
-        let zP = self.z * RISTRETTO_BASEPOINT_POINT;
-        let eiXi = public_keys
-            .iter()
-            .zip(messages)
-            .map(|(pubkey, message)| {
-                let e = hash_message((*pubkey).0, message);
-                e * pubkey.0
-            })
-            .fold(RistrettoPoint::identity(), |acc, point| acc + point);
+        match &self.next {
+            TokenNext::Secret(private) => {
+                if current_pub != private.public() {
+                    return Err(error::Format::Signature(error::Signature::InvalidSignature(
+                        "the last public key does not match the private key".to_string(),
+                    ))
+                    .into());
+                }
+            }
+            TokenNext::Seal(signature) => {
+                //FIXME: replace with SHA512 hashing
+                let mut to_verify = Vec::new();
+                for block in &self.blocks {
+                    to_verify.extend(&block.data);
+                    to_verify.extend(&block.next_key.to_bytes());
+                }
 
-        let diAi = self
-            .parameters
-            .iter()
-            .map(|A| {
-                let d = hash_points(&[*A]);
-                d * A
-            })
-            .fold(RistrettoPoint::identity(), |acc, point| acc + point);
-
-        let res = zP + eiXi - diAi;
-
-        /*
-        println!("verify identity={:?}", RistrettoPoint::identity());
-        println!("verify res={:?}", res);
-        println!("verify identity={:?}", RistrettoPoint::identity().compress());
-        println!("verify res={:?}", res.compress());
-        println!("returning: {:?}", RistrettoPoint::identity() == res);
-        */
-
-        if RistrettoPoint::identity() == res {
-            Ok(())
-        } else {
-            Err(error::Signature::InvalidSignature)
+                current_pub
+                    .0
+                    .verify_strict(&to_verify, signature)
+                    .map_err(|s| s.to_string())
+                    .map_err(error::Signature::InvalidSignature)
+                    .map_err(error::Format::Signature)?;
+            }
         }
+
+        Ok(())
     }
 }
 
-//FIXME: is the output value in the right set?
-fn hash_points(points: &[RistrettoPoint]) -> Scalar {
-    let mut h = Sha512::new();
-    for point in points.iter() {
-        h.update(point.compress().as_bytes());
+impl TokenNext {
+    pub fn keypair(&self) -> Result<KeyPair, error::Token> {
+        match &self {
+            TokenNext::Seal(_) => Err(error::Token::Sealed),
+            TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
+        }
     }
-
-    Scalar::from_hash(h)
-}
-
-fn hash_message(point: RistrettoPoint, data: &[u8]) -> Scalar {
-    let h = Sha512::new().chain(point.compress().as_bytes()).chain(data);
-
-    Scalar::from_hash(h)
 }
 
 #[cfg(test)]
@@ -281,6 +275,7 @@ mod tests {
     use rand::prelude::*;
     use rand_core::SeedableRng;
 
+    /*
     #[test]
     fn basic_signature() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -367,5 +362,5 @@ mod tests {
             Err(error::Signature::InvalidSignature),
             "cannot verify third token"
         );
-    }
+    }*/
 }
