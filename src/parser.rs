@@ -203,7 +203,7 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
     let rule = builder::Rule::new(head, body, expressions);
 
     if let Err(message) = rule.validate_variables() {
-        return Err(nom::Err::Error(Error {
+        return Err(nom::Err::Failure(Error {
             input: head_input,
             code: ErrorKind::Satisfy,
             message: Some(message),
@@ -1424,7 +1424,7 @@ mod tests {
     fn rule_with_unused_head_variables() {
         assert_eq!(
             super::rule("right(#authority, $0, $test) <- resource( #ambienu, $0), operation(#ambient, #read)"),
-            Err( nom::Err::Error(Error {
+            Err( nom::Err::Failure(Error {
                 input: "right(#authority, $0, $test)",
                 code: ErrorKind::Satisfy,
                 message: Some("rule head contains variables that are not used in predicates of the rule's body: $test".to_string()),
