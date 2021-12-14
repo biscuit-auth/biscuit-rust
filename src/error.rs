@@ -27,9 +27,9 @@ pub enum Token {
     ParseError,
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
-    #[error("Cannot convert from Term: %s")]
+    #[error("Cannot convert from Term: {0}")]
     ConversionError(String),
-    #[error("Cannot decode base64 token: %s")]
+    #[error("Cannot decode base64 token: {0}")]
     Base64(base64::DecodeError),
 }
 
@@ -158,4 +158,22 @@ pub enum RunLimit {
     TooManyIterations,
     #[error("spent too much time verifying")]
     Timeout,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_format_strings() {
+        assert_eq!(
+            format!("{}", Token::ConversionError("test".to_owned())),
+            "Cannot convert from Term: test"
+        );
+
+        assert_eq!(
+            format!("{}", Token::Base64(base64::DecodeError::InvalidLength)),
+            "Cannot decode base64 token: Encoded text cannot have a 6-bit remainder."
+        );
+    }
 }
