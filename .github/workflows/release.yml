@@ -1,0 +1,36 @@
+name: Rust
+
+on:
+  push:
+    tags:
+      - *
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+    - name: Install cargo-c
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-c
+    - name: Run cargo-c tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: ctest
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: cinstall --prefix=/usr --destdir=./build
+    -name: upload artifact
+      - uses: actions/upload-artifact@v2
+      with:
+        name: biscuit_c-${{github.ref_name}}-x86_64
+        path: build/
