@@ -16,6 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo
+          target/
+        key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
     - name: Build
       run: cargo build --verbose
     - name: Run tests
@@ -27,6 +34,13 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v2
+    - name: Cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo
+          target/
+        key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
     - name: Install cargo-c
       uses: actions-rs/cargo@v1
       with:
