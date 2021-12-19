@@ -1,4 +1,4 @@
-name: Rust
+name: Release
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: cinstall --prefix=/usr --destdir=./build
-    -name: upload artifact
+    - name: upload artifact
       uses: actions/upload-artifact@v2
       with:
         name: biscuit_c-${{github.ref_name}}-x86_64
