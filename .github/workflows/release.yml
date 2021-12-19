@@ -42,7 +42,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: cinstall
-        args: --release -prefix=/usr --destdir=./build
+        args: --release --prefix=/usr --destdir=./build
     - name: upload artifact
       uses: actions/upload-artifact@v2
       with:
