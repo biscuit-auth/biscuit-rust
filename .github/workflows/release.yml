@@ -44,7 +44,7 @@ jobs:
         command: cinstall
         args: --release --prefix=/usr --destdir=./build
     - name: Compress
-      run: tar cvzf biscuit_c-${{github.ref_name}}-x86_64.tar.gz -C build/ build/
+      run: tar cvzf biscuit_c-${{github.ref_name}}-x86_64.tar.gz -C build/ .
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
