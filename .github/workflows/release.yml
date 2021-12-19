@@ -1,37 +1,19 @@
-name: Rust
+name: Release
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - '*'
+
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
   build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo
-          target/
-        key: ${{ runner.os }}-${{ hashFiles('Cargo.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ hashFiles('Cargo.toml') }}
-          ${{ runner.os }}-
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-
-  capi:
     runs-on: ubuntu-latest
 
     steps:
@@ -59,3 +41,14 @@ jobs:
       with:
         command: ctest
         args: --release
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: cinstall
+        args: --release --prefix=/usr --destdir=./build
+    - name: Compress
+      run: tar cvzf biscuit_c-${{github.ref_name}}-x86_64.tar.gz -C build/ .
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: biscuit_c-${{github.ref_name}}-x86_64.tar.gz
