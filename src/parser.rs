@@ -504,6 +504,8 @@ fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Prefix, tag("starts_with")),
         value(Binary::Suffix, tag("ends_with")),
         value(Binary::Regex, tag("matches")),
+        value(Binary::Intersection, tag("intersection")),
+        value(Binary::Union, tag("union")),
     ))(i)
 }
 
