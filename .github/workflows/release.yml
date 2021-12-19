@@ -22,7 +22,7 @@ jobs:
         path: |
           ~/.cargo
           target/
-        key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+        key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-cargoc
     - name: Install cargo-c
       uses: actions-rs/cargo@v1
       with:
