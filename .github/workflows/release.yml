@@ -46,6 +46,6 @@ jobs:
     - name: Compress
       run: tar cvzf biscuit_c-${{github.ref_name}}-x86_64.tar.gz -C build/ build/
     - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: biscuit_c-${{github.ref_name}}-x86_64.tar.gz
+      uses: softprops/action-gh-release@v1
+      with:
+        files: biscuit_c-${{github.ref_name}}-x86_64.tar.gz
