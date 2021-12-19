@@ -24,11 +24,11 @@ jobs:
     - name: Run cargo-c tests
       uses: actions-rs/cargo@v1
       with:
-        command: ctest
+        command: ctest --release
     - name: Build
       uses: actions-rs/cargo@v1
       with:
-        command: cinstall --prefix=/usr --destdir=./build
+        command: cinstall ---release -prefix=/usr --destdir=./build
     - name: upload artifact
       uses: actions/upload-artifact@v2
       with:
