@@ -30,7 +30,7 @@ jobs:
       with:
         command: cinstall --prefix=/usr --destdir=./build
     -name: upload artifact
-      - uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v2
       with:
         name: biscuit_c-${{github.ref_name}}-x86_64
         path: build/
