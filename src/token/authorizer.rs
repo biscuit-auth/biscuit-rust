@@ -362,7 +362,7 @@ impl<'t> Authorizer<'t> {
             }
         }
 
-        for (i, policy) in self.policies.iter().enumerate() {
+        'policies_test: for (i, policy) in self.policies.iter().enumerate() {
             for query in policy.queries.iter() {
                 let res = self
                     .world
@@ -378,6 +378,7 @@ impl<'t> Authorizer<'t> {
                         PolicyKind::Allow => policy_result = Some(Ok(i)),
                         PolicyKind::Deny => policy_result = Some(Err(i)),
                     };
+                    break 'policies_test;
                 }
             }
         }
