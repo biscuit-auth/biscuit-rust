@@ -202,7 +202,7 @@ struct AuthorizerWorld {
 #[derive(Debug, Serialize)]
 enum AuthorizerResult {
     Ok(usize),
-    Err(Vec<String>),
+    Err(error::Token),
 }
 
 fn validate_token(
@@ -218,7 +218,7 @@ fn validate_token(
             return Validation {
                 world: None,
                 authorizer_code: String::new(),
-                result: AuthorizerResult::Err(vec![format!("{:?}", e)]),
+                result: AuthorizerResult::Err(e),
             }
         }
     };
@@ -229,7 +229,7 @@ fn validate_token(
             return Validation {
                 world: None,
                 authorizer_code: String::new(),
-                result: AuthorizerResult::Err(vec![format!("{:?}", e)]),
+                result: AuthorizerResult::Err(e),
             }
         }
     };
@@ -274,14 +274,7 @@ fn validate_token(
         }),
         result: match res {
             Ok(i) => AuthorizerResult::Ok(i),
-            Err(e) => {
-                if let error::Token::FailedLogic(error::Logic::FailedChecks(mut v)) = e {
-                    AuthorizerResult::Err(v.drain(..).map(|e| format!("{:?}", e)).collect())
-                } else {
-                    let s = format!("{:?}", e);
-                    AuthorizerResult::Err(vec![s])
-                }
-            }
+            Err(e) => AuthorizerResult::Err(e),
         },
         authorizer_code,
     }

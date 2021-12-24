@@ -6,6 +6,7 @@ use thiserror::Error;
 
 /// the global error type for Biscuit
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Token {
     #[error("internal error")]
     InternalError,
@@ -30,7 +31,7 @@ pub enum Token {
     #[error("Cannot convert from Term: {0}")]
     ConversionError(String),
     #[error("Cannot decode base64 token: {0}")]
-    Base64(base64::DecodeError),
+    Base64(Base64Error),
 }
 
 impl From<Infallible> for Token {
@@ -53,11 +54,44 @@ impl From<Logic> for Token {
 
 impl From<base64::DecodeError> for Token {
     fn from(e: base64::DecodeError) -> Self {
-        Token::Base64(e)
+        let err = match e {
+            base64::DecodeError::InvalidByte(offset, byte) => {
+                Base64Error::InvalidByte(offset, byte)
+            }
+            base64::DecodeError::InvalidLength => Base64Error::InvalidLength,
+            base64::DecodeError::InvalidLastSymbol(offset, byte) => {
+                Base64Error::InvalidLastSymbol(offset, byte)
+            }
+        };
+
+        Token::Base64(err)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum Base64Error {
+    InvalidByte(usize, u8),
+    InvalidLength,
+    InvalidLastSymbol(usize, u8),
+}
+
+impl std::fmt::Display for Base64Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Base64Error::InvalidByte(index, byte) => {
+                write!(f, "Invalid byte {}, offset {}.", byte, index)
+            }
+            Base64Error::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            Base64Error::InvalidLastSymbol(index, byte) => {
+                write!(f, "Invalid last symbol {}, offset {}.", byte, index)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct InvalidBlockIndex {
     pub expected: u32,
     pub found: u32,
@@ -66,6 +100,7 @@ pub struct InvalidBlockIndex {
 /// Errors related to the token's serialization format or cryptographic
 /// signature
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Format {
     #[error("failed verifying the signature")]
     Signature(Signature),
@@ -95,6 +130,7 @@ pub enum Format {
 
 /// Signature errors
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Signature {
     #[error("could not parse the signature elements")]
     InvalidFormat,
@@ -106,6 +142,7 @@ pub enum Signature {
 
 /// errors in the Datalog evaluation
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Logic {
     #[error("a fact of the authority block did not have the authority tag")]
     InvalidAuthorityFact(String),
@@ -127,6 +164,7 @@ pub enum Logic {
 
 /// check check errors
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum FailedCheck {
     #[error("a check failed in a block")]
     Block(FailedBlockCheck),
@@ -135,6 +173,7 @@ pub enum FailedCheck {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedBlockCheck {
     pub block_id: u32,
     pub check_id: u32,
@@ -143,6 +182,7 @@ pub struct FailedBlockCheck {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedAuthorizerCheck {
     pub check_id: u32,
     /// pretty print of the rule that failed
@@ -151,6 +191,7 @@ pub struct FailedAuthorizerCheck {
 
 /// runtime limits errors
 #[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum RunLimit {
     #[error("too many facts generated")]
     TooManyFacts,
@@ -172,7 +213,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{}", Token::Base64(base64::DecodeError::InvalidLength)),
+            format!("{}", Token::Base64(Base64Error::InvalidLength)),
             "Cannot decode base64 token: Encoded text cannot have a 6-bit remainder."
         );
     }
