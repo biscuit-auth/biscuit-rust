@@ -33,20 +33,29 @@ impl BlockBuilder {
         }
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
-        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    where
+        error::Token: From<<F as TryInto<Fact>>::Error>,
+    {
+        let fact = fact.try_into()?;
         self.facts.push(fact);
         Ok(())
     }
 
-    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        let rule = rule.try_into()?;
         self.rules.push(rule);
         Ok(())
     }
 
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token> {
-        let check = check.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    where
+        error::Token: From<<C as TryInto<Check>>::Error>,
+    {
+        let check = check.try_into()?;
         self.checks.push(check);
         Ok(())
     }
@@ -245,24 +254,33 @@ impl<'a> BiscuitBuilder<'a> {
         self.root_key_id = Some(id);
     }
 
-    pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
-        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    where
+        error::Token: From<<F as TryInto<Fact>>::Error>,
+    {
+        let fact = fact.try_into()?;
 
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
         Ok(())
     }
 
-    pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
+    where
+        error::Token: From<<Ru as TryInto<Rule>>::Error>,
+    {
+        let rule = rule.try_into()?;
 
         let r = rule.convert(&mut self.symbols);
         self.rules.push(r);
         Ok(())
     }
 
-    pub fn add_authority_check<C: TryInto<Check>>(&mut self, rule: C) -> Result<(), error::Token> {
-        let check: Check = rule.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_authority_check<C: TryInto<Check>>(&mut self, rule: C) -> Result<(), error::Token>
+    where
+        error::Token: From<<C as TryInto<Check>>::Error>,
+    {
+        let check: Check = rule.try_into()?;
         let c = check.convert(&mut self.symbols);
         self.checks.push(c);
         Ok(())

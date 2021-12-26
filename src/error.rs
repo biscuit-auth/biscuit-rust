@@ -25,7 +25,7 @@ pub enum Token {
     #[error("check validation failed")]
     FailedLogic(Logic),
     #[error("Datalog parsing error")]
-    ParseError,
+    ParseError(ParseErrors),
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
     #[error("Cannot convert from Term: {0}")]
@@ -49,6 +49,18 @@ impl From<Format> for Token {
 impl From<Logic> for Token {
     fn from(e: Logic) -> Self {
         Token::FailedLogic(e)
+    }
+}
+
+impl<'a> From<crate::parser::Error<'a>> for Token {
+    fn from(e: crate::parser::Error<'a>) -> Self {
+        Token::ParseError(e.into())
+    }
+}
+
+impl<'a> From<Vec<crate::parser::Error<'a>>> for Token {
+    fn from(e: Vec<crate::parser::Error<'a>>) -> Self {
+        Token::ParseError(e.into())
     }
 }
 
@@ -199,6 +211,46 @@ pub enum RunLimit {
     TooManyIterations,
     #[error("spent too much time verifying")]
     Timeout,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub struct ParseErrors {
+    errors: Vec<ParseError>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub struct ParseError {
+    pub input: String,
+    pub code: nom::error::ErrorKind,
+    pub message: Option<String>,
+}
+
+impl<'a> From<crate::parser::Error<'a>> for ParseError {
+    fn from(e: crate::parser::Error<'a>) -> Self {
+        ParseError {
+            input: e.input.to_string(),
+            code: e.code,
+            message: e.message,
+        }
+    }
+}
+
+impl<'a> From<crate::parser::Error<'a>> for ParseErrors {
+    fn from(error: crate::parser::Error<'a>) -> Self {
+        ParseErrors {
+            errors: vec![error.into()],
+        }
+    }
+}
+
+impl<'a> From<Vec<crate::parser::Error<'a>>> for ParseErrors {
+    fn from(errors: Vec<crate::parser::Error<'a>>) -> Self {
+        ParseErrors {
+            errors: errors.into_iter().map(|e| e.into()).collect(),
+        }
+    }
 }
 
 #[cfg(test)]

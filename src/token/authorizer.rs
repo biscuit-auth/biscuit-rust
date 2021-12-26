@@ -138,15 +138,21 @@ impl<'t> Authorizer<'t> {
     }
 
     /// add a fact to the authorizer
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token> {
-        let fact = fact.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    where
+        error::Token: From<<F as TryInto<Fact>>::Error>,
+    {
+        let fact = fact.try_into()?;
         self.world.facts.insert(fact.convert(&mut self.symbols));
         Ok(())
     }
 
     /// add a rule to the authorizer
-    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        let rule = rule.try_into()?;
         self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
@@ -159,23 +165,25 @@ impl<'t> Authorizer<'t> {
     pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-    ) -> Result<Vec<T>, error::Token> {
+    ) -> Result<Vec<T>, error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
         self.query_with_limits(rule, AuthorizerLimits::default())
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// this method can specify custom runtime limits
-    pub fn query_with_limits<
-        R: TryInto<Rule>,
-        T: TryFrom<Fact, Error = E>,
-        E: Into<error::Token>,
-    >(
+    pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
         limits: AuthorizerLimits,
-    ) -> Result<Vec<T>, error::Token> {
-        let rule = rule.try_into().map_err(|_| error::Token::ParseError)?;
+    ) -> Result<Vec<T>, error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        let rule = rule.try_into()?;
 
         self.world
             .run_with_limits(&self.symbols, limits.into())
@@ -191,8 +199,11 @@ impl<'t> Authorizer<'t> {
     }
 
     /// add a check to the authorizer
-    pub fn add_check<R: TryInto<Check>>(&mut self, check: R) -> Result<(), error::Token> {
-        let check = check.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    where
+        error::Token: From<<C as TryInto<Check>>::Error>,
+    {
+        let check = check.try_into()?;
         self.checks.push(check);
         Ok(())
     }
@@ -231,8 +242,11 @@ impl<'t> Authorizer<'t> {
     }
 
     /// add a policy to the authorizer
-    pub fn add_policy<R: TryInto<Policy>>(&mut self, policy: R) -> Result<(), error::Token> {
-        let policy = policy.try_into().map_err(|_| error::Token::ParseError)?;
+    pub fn add_policy<P: TryInto<Policy>>(&mut self, policy: P) -> Result<(), error::Token>
+    where
+        error::Token: From<<P as TryInto<Policy>>::Error>,
+    {
+        let policy = policy.try_into()?;
         self.policies.push(policy);
         Ok(())
     }

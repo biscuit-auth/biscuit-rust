@@ -25,7 +25,7 @@ use nom::{
     error::{ErrorKind, FromExternalError, ParseError},
     multi::{many0, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, terminated, tuple},
-    IResult, Offset,
+    Finish, IResult, Offset,
 };
 use std::{
     collections::BTreeSet,
@@ -217,9 +217,7 @@ impl TryFrom<&str> for builder::Fact {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        fact(value)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(fact(value).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -227,10 +225,7 @@ impl TryFrom<&str> for builder::Rule {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        rule(value).map(|(_, o)| o).map_err(|e| {
-            println!("rule parsing error: {:?}", e);
-            error::Token::ParseError
-        })
+        Ok(rule(value).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -238,9 +233,7 @@ impl FromStr for builder::Fact {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fact(s)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(fact(s).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -248,9 +241,7 @@ impl FromStr for builder::Rule {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        rule(s)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(rule(s).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -258,9 +249,7 @@ impl TryFrom<&str> for builder::Check {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        check(value)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(check(value).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -268,9 +257,7 @@ impl FromStr for builder::Check {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        check(s)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(check(s).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -278,9 +265,7 @@ impl TryFrom<&str> for builder::Policy {
     type Error = error::Token;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        policy(value)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(policy(value).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -288,9 +273,7 @@ impl FromStr for builder::Policy {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        policy(s)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(policy(s).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -298,9 +281,7 @@ impl FromStr for builder::Predicate {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        predicate(s)
-            .map(|(_, o)| o)
-            .map_err(|_| error::Token::ParseError)
+        Ok(predicate(s).finish().map(|(_, o)| o)?)
     }
 }
 
@@ -315,7 +296,7 @@ impl TryFrom<&str> for builder::BlockBuilder {
                 checks: result.checks.drain(..).map(|(_, check)| check).collect(),
                 context: None,
             }),
-            Err(_) => Err(error::Token::ParseError),
+            Err(e) => Err(e.into()),
         }
     }
 }
