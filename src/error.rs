@@ -223,7 +223,6 @@ pub struct ParseErrors {
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct ParseError {
     pub input: String,
-    pub code: nom::error::ErrorKind,
     pub message: Option<String>,
 }
 
@@ -231,7 +230,6 @@ impl<'a> From<crate::parser::Error<'a>> for ParseError {
     fn from(e: crate::parser::Error<'a>) -> Self {
         ParseError {
             input: e.input.to_string(),
-            code: e.code,
             message: e.message,
         }
     }
