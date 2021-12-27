@@ -63,7 +63,7 @@ include = [
   "tests/*.rs"
 ]
 
-[[examples]]
+[[example]]
 name = "testcases"
 required-features = ["serde-error"]
 path = "examples/testcases.rs"

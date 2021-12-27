@@ -1,3 +1,4 @@
+#![cfg(feature = "serde-error")]
 #![allow(unused_must_use)]
 extern crate biscuit_auth as biscuit;
 
