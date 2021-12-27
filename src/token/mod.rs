@@ -800,7 +800,7 @@ mod tests {
         let mut block2 = biscuit1.create_block();
 
         block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.revocation_id(1234);
+        block2.add_fact("key(1234)").unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -954,7 +954,7 @@ mod tests {
         let mut block2 = biscuit1.create_block();
 
         block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.revocation_id(1234);
+        block2.add_fact("key(1234)").unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -962,7 +962,7 @@ mod tests {
         let mut block3 = biscuit2.create_block();
 
         block3.expiration_date(SystemTime::now() + Duration::from_secs(10));
-        block3.revocation_id(5678);
+        block3.add_fact("key(5678)").unwrap();
 
         let keypair3 = KeyPair::new_with_rng(&mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -976,12 +976,9 @@ mod tests {
             println!("res1: {:?}", res);
 
             let res2: Result<Vec<builder::Fact>, crate::error::Token> = authorizer.query(rule(
-                "revocation_id_verif",
+                "key_verif",
                 &[builder::Term::Variable("id".to_string())],
-                &[pred(
-                    "revocation_id",
-                    &[builder::Term::Variable("id".to_string())],
-                )],
+                &[pred("key", &[builder::Term::Variable("id".to_string())])],
             ));
             println!("res2: {:?}", res2);
             let mut res2 = res2
@@ -993,8 +990,8 @@ mod tests {
             assert_eq!(
                 &res2,
                 &[
-                    fact("revocation_id_verif", &[int(1234)]),
-                    fact("revocation_id_verif", &[int(5678)])
+                    fact("key_verif", &[int(1234)]),
+                    fact("key_verif", &[int(5678)])
                 ]
                 .iter()
                 .map(|f| f.to_string())

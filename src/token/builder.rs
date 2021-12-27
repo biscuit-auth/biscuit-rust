@@ -233,10 +233,6 @@ impl BlockBuilder {
 
         let _ = self.add_check(check);
     }
-
-    pub fn revocation_id(&mut self, id: i64) {
-        let _ = self.add_fact(fact("revocation_id", &[int(id)]));
-    }
 }
 
 impl std::default::Default for BlockBuilder {
