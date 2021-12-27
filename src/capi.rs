@@ -133,7 +133,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
                     Token::MissingSymbols => ErrorKind::MissingSymbols,
                     Token::Sealed => ErrorKind::Sealed,
-                    Token::ParseError => ErrorKind::ParseError,
+                    Token::ParseError(_) => ErrorKind::ParseError,
                     Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => {
                         ErrorKind::LogicInvalidAuthorityFact
                     }
