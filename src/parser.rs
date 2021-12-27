@@ -290,7 +290,7 @@ impl TryFrom<&str> for builder::BlockBuilder {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match parse_block_source(value) {
-            Ok((_, mut result)) => Ok(builder::BlockBuilder {
+            Ok(mut result) => Ok(builder::BlockBuilder {
                 facts: result.facts.drain(..).map(|(_, fact)| fact).collect(),
                 rules: result.rules.drain(..).map(|(_, rule)| rule).collect(),
                 checks: result.checks.drain(..).map(|(_, check)| check).collect(),
@@ -757,14 +757,14 @@ pub fn sep(i: &str) -> IResult<&str, &str, Error> {
     alt((tag(";"), eof))(i)
 }
 
-pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
+pub fn parse_source(mut i: &str) -> Result<SourceResult, Vec<Error>> {
     let mut result = SourceResult::default();
     let mut errors = Vec::new();
 
     loop {
         if i.is_empty() {
             if errors.is_empty() {
-                return Ok((i, result));
+                return Ok(result);
             } else {
                 return Err(errors);
             }
@@ -834,14 +834,14 @@ pub fn parse_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
     }
 }
 
-pub fn parse_block_source(mut i: &str) -> Result<(&str, SourceResult), Vec<Error>> {
+pub fn parse_block_source(mut i: &str) -> Result<SourceResult, Vec<Error>> {
     let mut result = SourceResult::default();
     let mut errors = Vec::new();
 
     loop {
         if i.is_empty() {
             if errors.is_empty() {
-                return Ok((i, result));
+                return Ok(result);
             } else {
                 return Err(errors);
             }
