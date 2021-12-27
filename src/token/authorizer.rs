@@ -6,6 +6,7 @@ use super::builder::{
 use super::Biscuit;
 use crate::datalog::{self, RunLimits};
 use crate::error;
+use crate::parser::parse_source;
 use crate::time::Instant;
 use prost::Message;
 use std::{
@@ -154,6 +155,30 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?;
         self.world.rules.push(rule.convert(&mut self.symbols));
+        Ok(())
+    }
+
+    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        let input = source.as_ref();
+
+        let source_result = parse_source(input)?;
+
+        for (_, fact) in source_result.facts.into_iter() {
+            self.world.facts.insert(fact.convert(&mut self.symbols));
+        }
+
+        for (_, rule) in source_result.rules.into_iter() {
+            self.world.rules.push(rule.convert(&mut self.symbols));
+        }
+
+        for (_, check) in source_result.checks.into_iter() {
+            self.checks.push(check);
+        }
+
+        for (_, policy) in source_result.policies.into_iter() {
+            self.policies.push(policy);
+        }
+
         Ok(())
     }
 

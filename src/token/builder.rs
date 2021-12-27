@@ -3,6 +3,7 @@ use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable};
 use crate::error;
+use crate::parser::parse_block_source;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rand_core::{CryptoRng, RngCore};
 use std::{
@@ -57,6 +58,26 @@ impl BlockBuilder {
     {
         let check = check.try_into()?;
         self.checks.push(check);
+        Ok(())
+    }
+
+    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        let input = source.as_ref();
+
+        let source_result = parse_block_source(input)?;
+
+        for (_, fact) in source_result.facts.into_iter() {
+            self.facts.push(fact);
+        }
+
+        for (_, rule) in source_result.rules.into_iter() {
+            self.rules.push(rule);
+        }
+
+        for (_, check) in source_result.checks.into_iter() {
+            self.checks.push(check);
+        }
+
         Ok(())
     }
 
@@ -283,6 +304,29 @@ impl<'a> BiscuitBuilder<'a> {
         let check: Check = rule.try_into()?;
         let c = check.convert(&mut self.symbols);
         self.checks.push(c);
+        Ok(())
+    }
+
+    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        let input = source.as_ref();
+
+        let source_result = parse_block_source(input)?;
+
+        for (_, fact) in source_result.facts.into_iter() {
+            let f = fact.convert(&mut self.symbols);
+            self.facts.push(f);
+        }
+
+        for (_, rule) in source_result.rules.into_iter() {
+            let r = rule.convert(&mut self.symbols);
+            self.rules.push(r);
+        }
+
+        for (_, check) in source_result.checks.into_iter() {
+            let c = check.convert(&mut self.symbols);
+            self.checks.push(c);
+        }
+
         Ok(())
     }
 

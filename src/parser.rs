@@ -1781,8 +1781,7 @@ mod tests {
             },
         ];
 
-        let (_remaining, mut result) = res.unwrap();
-        //assert_eq!(remaining, "\n");
+        let mut result = res.unwrap();
         assert_eq!(
             result.facts.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
             expected_facts
@@ -1908,8 +1907,7 @@ mod tests {
             },
         ];
 
-        let (_remaining, mut result) = res.unwrap();
-        //assert_eq!(remaining, "\n");
+        let mut result = res.unwrap();
         assert_eq!(
             result.facts.drain(..).map(|(_, r)| r).collect::<Vec<_>>(),
             expected_facts
