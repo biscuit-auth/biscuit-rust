@@ -15,7 +15,7 @@ default = ["regex-full"]
 regex-full = [ "regex/perf", "regex/unicode"]
 # used by cargo-c to signal the compilation of C bindings
 capi = ["inline-c"]
-wasm = ["wasm-bindgen"]
+wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 # used by biscuit-wasm to serialize errors to JSON
 serde-error = ["serde"]
 
@@ -36,6 +36,7 @@ wasm-bindgen = { version = "0.2", optional = true }
 base64 = "0.13.0"
 ed25519-dalek = "1.0.1"
 serde = { version = "1.0.132", optional = true, features = ["derive"] }
+getrandom = { version = "0.1.16" }
 
 [dev-dependencies]
 rand = "0.7"
