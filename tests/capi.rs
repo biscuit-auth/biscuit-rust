@@ -43,10 +43,14 @@ mod capi {
                 printf("authorizer creation error? %s\n", error_message());
                 authorizer_add_check(authorizer, "check if right(\"efgh\")");
                 printf("authorizer add check error? %s\n", error_message());
+
+                authorizer_add_policy(authorizer, "allow if true");
+                printf("authorizer add policy error? %s\n", error_message());
+
                 if(!authorizer_authorize(authorizer)) {
                     printf("authorizer error(code = %d): %s\n", error_kind(), error_message());
 
-                    if(error_kind() == LogicFailedChecks) {
+                    if(error_kind() == LogicUnauthorized) {
                         uint64_t error_count = error_check_count();
                         printf("failed checks (%ld):\n", error_count);
 
@@ -101,7 +105,8 @@ builder add check error? (null)
 biscuit append error? (null)
 authorizer creation error? (null)
 authorizer add check error? (null)
-authorizer error(code = 22): check validation failed
+authorizer add policy error? (null)
+authorizer error(code = 22): authorization failed
 failed checks (2):
   Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")
@@ -117,7 +122,9 @@ World {
   checks: [
     "Authorizer[0]: check if right(\"efgh\")",
 ]
-  policies: []
+  policies: [
+    "allow if true",
+]
 }
 serialized size: 332
 wrote 332 bytes

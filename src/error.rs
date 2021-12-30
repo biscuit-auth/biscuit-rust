@@ -22,7 +22,7 @@ pub enum Token {
     MissingSymbols,
     #[error("tried to append a block to a sealed token")]
     Sealed,
-    #[error("check validation failed")]
+    #[error("authorization failed")]
     FailedLogic(Logic),
     #[error("error generating Datalog")]
     Language(LanguageError),

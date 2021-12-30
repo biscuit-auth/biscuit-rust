@@ -74,11 +74,10 @@ pub enum ErrorKind {
     LogicInvalidAmbientFact,
     LogicInvalidBlockFact,
     LogicInvalidBlockRule,
-    LogicFailedChecks,
+    LogicUnauthorized,
     LogicAuthorizerNotEmpty,
-    LogicDeny,
     LogicNoMatchingPolicy,
-    ParseError,
+    LanguageError,
     TooManyFacts,
     TooManyIterations,
     Timeout,
@@ -133,7 +132,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
                     Token::MissingSymbols => ErrorKind::MissingSymbols,
                     Token::Sealed => ErrorKind::Sealed,
-                    Token::ParseError(_) => ErrorKind::ParseError,
+                    Token::Language(_) => ErrorKind::LanguageError,
                     Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => {
                         ErrorKind::LogicInvalidAuthorityFact
                     }
@@ -146,12 +145,13 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::FailedLogic(Logic::InvalidBlockRule(_, _)) => {
                         ErrorKind::LogicInvalidBlockRule
                     }
-                    Token::FailedLogic(Logic::FailedChecks(_)) => ErrorKind::LogicFailedChecks,
+                    Token::FailedLogic(Logic::Unauthorized { .. }) => ErrorKind::LogicUnauthorized,
                     Token::FailedLogic(Logic::AuthorizerNotEmpty) => {
                         ErrorKind::LogicAuthorizerNotEmpty
                     }
-                    Token::FailedLogic(Logic::Deny(_)) => ErrorKind::LogicDeny,
-                    Token::FailedLogic(Logic::NoMatchingPolicy) => ErrorKind::LogicNoMatchingPolicy,
+                    Token::FailedLogic(Logic::NoMatchingPolicy { .. }) => {
+                        ErrorKind::LogicNoMatchingPolicy
+                    }
                     Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
                     Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
@@ -168,7 +168,10 @@ pub extern "C" fn error_kind() -> ErrorKind {
 pub extern "C" fn error_check_count() -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => v.len() as u64,
+        Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
+        | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
+            checks.len() as u64
+        }
         _ => 0,
     })
 }
@@ -177,11 +180,12 @@ pub extern "C" fn error_check_count() -> u64 {
 pub extern "C" fn error_check_id(check_index: u64) -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
-            if check_index >= v.len() as u64 {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
+        | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
+            if check_index >= checks.len() as u64 {
                 u64::MAX
             } else {
-                match v[check_index as usize] {
+                match checks[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { check_id, .. }) => check_id as u64,
                     FailedCheck::Authorizer(FailedAuthorizerCheck { check_id, .. }) => {
                         check_id as u64
@@ -197,11 +201,12 @@ pub extern "C" fn error_check_id(check_index: u64) -> u64 {
 pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
     use crate::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
-            if check_index >= v.len() as u64 {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
+        | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
+            if check_index >= checks.len() as u64 {
                 u64::MAX
             } else {
-                match v[check_index as usize] {
+                match checks[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { block_id, .. }) => block_id as u64,
                     _ => u64::MAX,
                 }
@@ -221,11 +226,12 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
     }
 
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
-            if check_index >= v.len() as u64 {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
+        | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
+            if check_index >= checks.len() as u64 {
                 std::ptr::null()
             } else {
-                let rule = match &v[check_index as usize] {
+                let rule = match &checks[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { rule, .. }) => rule,
                     FailedCheck::Authorizer(FailedAuthorizerCheck { rule, .. }) => rule,
                 };
@@ -247,11 +253,12 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
 pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
     use crate::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(Error::Biscuit(Token::FailedLogic(Logic::FailedChecks(ref v)))) => {
-            if check_index >= v.len() as u64 {
+        Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
+        | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
+            if check_index >= checks.len() as u64 {
                 false
             } else {
-                match v[check_index as usize] {
+                match checks[check_index as usize] {
                     FailedCheck::Block(FailedBlockCheck { .. }) => false,
                     FailedCheck::Authorizer(FailedAuthorizerCheck { .. }) => true,
                 }
@@ -1136,6 +1143,33 @@ pub unsafe extern "C" fn authorizer_add_check(
     authorizer
         .0
         .add_check(s.unwrap())
+        .map_err(|e| {
+            update_last_error(Error::Biscuit(e));
+        })
+        .is_ok()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn authorizer_add_policy(
+    authorizer: Option<&mut Authorizer>,
+    policy: *const c_char,
+) -> bool {
+    if authorizer.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+    let authorizer = authorizer.unwrap();
+
+    let policy = CStr::from_ptr(policy);
+    let s = policy.to_str();
+    if s.is_err() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+
+    authorizer
+        .0
+        .add_policy(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
