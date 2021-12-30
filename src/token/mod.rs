@@ -828,7 +828,7 @@ mod tests {
             authorizer.add_fact("resource(\"file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
-            authorizer.revocation_check(&[0, 1, 2, 5, 1234]);
+            authorizer.revocation_check(&[vec![0], vec![1], vec![2], vec![5], vec![123]]);
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
@@ -836,7 +836,7 @@ mod tests {
 
             // error message should be like this:
             //"authorizer check 0 failed: check if revocation_id($0), $0 not in [2, 1234, 1, 5, 0]"
-            assert!(res.is_err());
+            assert!(res.is_ok());
         }
     }
 

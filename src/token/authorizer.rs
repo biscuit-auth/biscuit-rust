@@ -1,7 +1,7 @@
 //! Authorizer structure and associated functions
 use super::builder::{
-    constrained_rule, date, fact, pred, s, string, var, Binary, Check, Expression, Fact, Op,
-    Policy, PolicyKind, Rule, Term, Unary,
+    constrained_rule, date, fact, pred, var, Binary, Check, Expression, Fact, Op, Policy,
+    PolicyKind, Rule, Term, Unary,
 };
 use super::Biscuit;
 use crate::datalog::{self, RunLimits};
@@ -242,14 +242,16 @@ impl<'t> Authorizer<'t> {
         self.world.facts.insert(fact.convert(&mut self.symbols));
     }
 
-    pub fn revocation_check(&mut self, ids: &[i64]) {
+    pub fn revocation_check(&mut self, ids: &[Vec<u8>]) {
         let check = constrained_rule(
             "revocation_check",
             &[var("id")],
-            &[pred("revocation_id", &[var("id")])],
+            &[pred("revocation_id", &[var("index"), var("id")])],
             &[Expression {
                 ops: vec![
-                    Op::Value(Term::Set(ids.iter().map(|i| Term::Integer(*i)).collect())),
+                    Op::Value(Term::Set(
+                        ids.iter().map(|v| Term::Bytes(v.clone())).collect(),
+                    )),
                     Op::Value(var("id")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
