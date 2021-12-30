@@ -480,16 +480,19 @@ impl<'t> Authorizer<'t> {
             }
         }
 
-        if !errors.is_empty() {
-            Err(error::Token::FailedLogic(error::Logic::FailedChecks(
-                errors,
-            )))
-        } else {
-            match policy_result {
-                Some(Ok(i)) => Ok(i),
-                Some(Err(i)) => Err(error::Token::FailedLogic(error::Logic::Deny(i))),
-                None => Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy)),
-            }
+        match (policy_result, errors.is_empty()) {
+            (Some(Ok(i)), true) => Ok(i),
+            (None, _) => Err(error::Token::FailedLogic(error::Logic::NoMatchingPolicy {
+                checks: errors,
+            })),
+            (Some(Ok(i)), _) => Err(error::Token::FailedLogic(error::Logic::Unauthorized {
+                policy: error::MatchedPolicy::Allow(i),
+                checks: errors,
+            })),
+            (Some(Err(i)), _) => Err(error::Token::FailedLogic(error::Logic::Unauthorized {
+                policy: error::MatchedPolicy::Deny(i),
+                checks: errors,
+            })),
         }
     }
 

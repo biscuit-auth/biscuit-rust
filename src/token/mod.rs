@@ -702,10 +702,13 @@ mod tests {
             let res = authorizer.authorize();
             println!("res2: {:#?}", res);
             assert_eq!(res,
-              Err(Token::FailedLogic(Logic::FailedChecks(vec![
+              Err(Token::FailedLogic(Logic::Unauthorized {
+                  policy: MatchedPolicy::Allow(0),
+                  checks: vec![
                 FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), operation(\"read\"), right($resource, \"read\")") }),
                 FailedCheck::Block(FailedBlockCheck { block_id: 2, check_id: 0, rule: String::from("check if resource(\"file1\")") })
-              ]))));
+              ]
+              })));
         }
     }
 
@@ -756,15 +759,16 @@ mod tests {
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
-                Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                    FailedCheck::Block(FailedBlockCheck {
+                Err(Token::FailedLogic(Logic::Unauthorized {
+                    policy: MatchedPolicy::Allow(0),
+                    checks: vec![FailedCheck::Block(FailedBlockCheck {
                         block_id: 1,
                         check_id: 0,
                         rule: String::from(
                             "check if resource($resource), $resource.starts_with(\"/folder1/\")"
                         )
-                    }),
-                ])))
+                    }),]
+                }))
             );
         }
 
@@ -776,10 +780,11 @@ mod tests {
             let res = authorizer.authorize();
             println!("res3: {:?}", res);
             assert_eq!(res,
-              Err(Token::FailedLogic(Logic::FailedChecks(vec![
+              Err(Token::FailedLogic(Logic::NoMatchingPolicy {
+                  checks: vec![
                 FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 0, rule: String::from("check if resource($resource), $resource.starts_with(\"/folder1/\")") }),
                 FailedCheck::Block(FailedBlockCheck { block_id: 1, check_id: 1, rule: String::from("check if resource($resource_name), operation(\"read\"), right($resource_name, \"read\")") }),
-              ]))));
+              ]})));
         }
     }
 
@@ -928,12 +933,12 @@ mod tests {
         println!("res: {:?}", res);
         assert_eq!(
             res,
-            Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                FailedCheck::Authorizer(FailedAuthorizerCheck {
+            Err(Token::FailedLogic(Logic::NoMatchingPolicy {
+                checks: vec![FailedCheck::Authorizer(FailedAuthorizerCheck {
                     check_id: 0,
                     rule: String::from("check if right(\"file2\", \"write\")")
-                }),
-            ])))
+                }),]
+            }))
         );
     }
 
@@ -1040,13 +1045,13 @@ mod tests {
 
             assert_eq!(
                 res,
-                Err(Token::FailedLogic(Logic::FailedChecks(vec![
-                    FailedCheck::Block(FailedBlockCheck {
+                Err(Token::FailedLogic(Logic::NoMatchingPolicy {
+                    checks: vec![FailedCheck::Block(FailedBlockCheck {
                         block_id: 0,
                         check_id: 0,
                         rule: String::from("check if resource(\"hello\")"),
-                    }),
-                ])))
+                    }),]
+                }))
             );
         }
     }

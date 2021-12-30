@@ -164,17 +164,32 @@ pub enum Logic {
     InvalidBlockFact(u32, String),
     #[error("a rule provided by a block is generating facts with the authority or ambient tag, or has head variables not used in its body")]
     InvalidBlockRule(u32, String),
-    #[error("list of checks that failed validation")]
-    FailedChecks(Vec<FailedCheck>),
+    #[error("authorization failed")]
+    Unauthorized {
+        /// the policy that matched
+        policy: MatchedPolicy,
+        /// list of checks that failed validation
+        checks: Vec<FailedCheck>,
+    },
     #[error("the authorizer already contains a token")]
     AuthorizerNotEmpty,
-    #[error("denied by policy")]
-    Deny(usize),
     #[error("no matching policy was found")]
-    NoMatchingPolicy,
+    NoMatchingPolicy {
+        /// list of checks that failed validation
+        checks: Vec<FailedCheck>,
+    },
 }
 
-/// check check errors
+#[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum MatchedPolicy {
+    #[error("an allow policy matched")]
+    Allow(usize),
+    #[error("a deny policy matched")]
+    Deny(usize),
+}
+
+/// check errors
 #[derive(Error, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum FailedCheck {
