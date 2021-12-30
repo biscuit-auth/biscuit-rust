@@ -144,6 +144,8 @@ impl<'t> Authorizer<'t> {
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
         let fact = fact.try_into()?;
+        fact.validate()?;
+
         self.world.facts.insert(fact.convert(&mut self.symbols));
         Ok(())
     }
@@ -164,6 +166,7 @@ impl<'t> Authorizer<'t> {
         let source_result = parse_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
+            fact.validate()?;
             self.world.facts.insert(fact.convert(&mut self.symbols));
         }
 

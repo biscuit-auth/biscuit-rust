@@ -39,6 +39,8 @@ impl BlockBuilder {
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
         let fact = fact.try_into()?;
+        fact.validate()?;
+
         self.facts.push(fact);
         Ok(())
     }
@@ -67,6 +69,7 @@ impl BlockBuilder {
         let source_result = parse_block_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
+            fact.validate()?;
             self.facts.push(fact);
         }
 
@@ -276,6 +279,7 @@ impl<'a> BiscuitBuilder<'a> {
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
         let fact = fact.try_into()?;
+        fact.validate()?;
 
         let f = fact.convert(&mut self.symbols);
         self.facts.push(f);
@@ -309,6 +313,7 @@ impl<'a> BiscuitBuilder<'a> {
         let source_result = parse_block_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
+            fact.validate()?;
             let f = fact.convert(&mut self.symbols);
             self.facts.push(f);
         }
@@ -532,6 +537,35 @@ impl Fact {
             variables: Some(variables),
         }
     }
+
+    pub fn validate(&self) -> Result<(), error::Token> {
+        match &self.variables {
+            None => Ok(()),
+            Some(variables) => {
+                let invalid_variables = variables
+                    .iter()
+                    .filter_map(
+                        |(name, opt_term)| {
+                            if opt_term.is_none() {
+                                Some(name)
+                            } else {
+                                None
+                            }
+                        },
+                    )
+                    .map(|name| name.to_string())
+                    .collect::<Vec<_>>();
+
+                if invalid_variables.is_empty() {
+                    Ok(())
+                } else {
+                    Err(error::Token::Language(error::LanguageError::Builder {
+                        invalid_variables,
+                    }))
+                }
+            }
+        }
+    }
 }
 
 impl Fact {
@@ -552,17 +586,21 @@ impl Fact {
     }
 
     /// replace a variable with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(variables) = self.variables.as_mut() {
             match variables.get_mut(name) {
-                None => Err(format!("unknown variable name: {}", name)),
+                None => Err(error::Token::Language(
+                    error::LanguageError::UnknownVariable(name.to_string()),
+                )),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err("variables can only be set when building facts, not on facts obtained from a token or Datalog run".to_string())
+            Err(error::Token::Language(
+                error::LanguageError::UnknownVariable(name.to_string()),
+            ))
         }
     }
 
@@ -771,17 +809,21 @@ impl Rule {
     }
 
     /// replace a variable with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(variables) = self.variables.as_mut() {
             match variables.get_mut(name) {
-                None => Err(format!("unknown variable name: {}", name)),
+                None => Err(error::Token::Language(
+                    error::LanguageError::UnknownVariable(name.to_string()),
+                )),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err("variables can only be set when building queries, not on queries obtained from a token or Datalog run".to_string())
+            Err(error::Token::Language(
+                error::LanguageError::UnknownVariable(name.to_string()),
+            ))
         }
     }
 
@@ -898,12 +940,12 @@ impl Check {
     }
 
     /// replace a variable with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
         self.set_inner(name, term)
     }
 
-    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), error::Token> {
         let mut found = false;
         for query in &mut self.queries {
             if query.set(name, term.clone()).is_ok() {
@@ -914,7 +956,9 @@ impl Check {
         if found {
             Ok(())
         } else {
-            Err(format!("unknown variable name: {}", name))
+            Err(error::Token::Language(
+                error::LanguageError::UnknownVariable(name.to_string()),
+            ))
         }
     }
 }
@@ -971,12 +1015,12 @@ pub struct Policy {
 
 impl Policy {
     /// replace a variable with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
+    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
         self.set_inner(name, term)
     }
 
-    pub fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
+    pub fn set_inner(&mut self, name: &str, term: Term) -> Result<(), error::Token> {
         let mut found = false;
         for query in &mut self.queries {
             if query.set(name, term.clone()).is_ok() {
@@ -987,7 +1031,9 @@ impl Policy {
         if found {
             Ok(())
         } else {
-            Err(format!("unknown variable name: {}", name))
+            Err(error::Token::Language(
+                error::LanguageError::UnknownVariable(name.to_string()),
+            ))
         }
     }
 }

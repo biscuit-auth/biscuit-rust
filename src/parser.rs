@@ -73,7 +73,6 @@ pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
         |input| {
             match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
-            //Some('$') => "variables are not allowed in facts".to_string(),
             _ => format!("expected either the next term after ',' or the next check variant after 'or', but got '{}'",
                      input)
         }
@@ -102,7 +101,6 @@ pub fn policy(i: &str) -> IResult<&str, builder::Policy, Error> {
         |input| {
             match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
-            //Some('$') => "variables are not allowed in facts".to_string(),
             _ => format!("expected either the next term after ',' or the next policy variant after 'or', but got '{}'",
                      input)
         }
@@ -180,7 +178,6 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
         preceded(space0, eof),
         |input| match input.chars().next() {
             Some(')') => "unexpected parens".to_string(),
-            //Some('$') => "variables are not allowed in facts".to_string(),
             _ => format!(
                 "expected the next term or expression after ',', but got '{}'",
                 input
@@ -692,10 +689,9 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((symbol, string, date, integer, bytes, boolean, set)),
+            alt((symbol, string, date, variable, integer, bytes, boolean, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
-                Some('$') => "variables are not allowed in facts".to_string(),
                 _ => "expected a valid term".to_string(),
             },
             " ,)\n;",
@@ -1293,17 +1289,6 @@ mod tests {
                     ]
                 )
             ))
-        );
-
-        use nom::error::ErrorKind;
-        // facts should not contain variables
-        assert_eq!(
-            super::fact("right( #authority, $var, #read )"),
-            Err(nom::Err::Failure(super::Error {
-                code: ErrorKind::Char,
-                input: "$var",
-                message: Some("variables are not allowed in facts".to_string()),
-            }))
         );
     }
 

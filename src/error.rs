@@ -24,8 +24,8 @@ pub enum Token {
     Sealed,
     #[error("check validation failed")]
     FailedLogic(Logic),
-    #[error("Datalog parsing error")]
-    ParseError(ParseErrors),
+    #[error("error generating Datalog")]
+    Language(LanguageError),
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
     #[error("Cannot convert from Term: {0}")]
@@ -54,13 +54,13 @@ impl From<Logic> for Token {
 
 impl<'a> From<crate::parser::Error<'a>> for Token {
     fn from(e: crate::parser::Error<'a>) -> Self {
-        Token::ParseError(e.into())
+        Token::Language(LanguageError::ParseError(e.into()))
     }
 }
 
 impl<'a> From<Vec<crate::parser::Error<'a>>> for Token {
     fn from(e: Vec<crate::parser::Error<'a>>) -> Self {
-        Token::ParseError(e.into())
+        Token::Language(LanguageError::ParseError(e.into()))
     }
 }
 
@@ -228,10 +228,21 @@ pub enum RunLimit {
     Timeout,
 }
 
+#[derive(Error, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum LanguageError {
+    #[error("datalog parsing error")]
+    ParseError(ParseErrors),
+    #[error("facts must not contain variables")]
+    Builder { invalid_variables: Vec<String> },
+    #[error("cannot setz alue for an unknown variable")]
+    UnknownVariable(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct ParseErrors {
-    errors: Vec<ParseError>,
+    pub errors: Vec<ParseError>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
