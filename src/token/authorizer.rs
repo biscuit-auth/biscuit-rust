@@ -236,16 +236,6 @@ impl<'t> Authorizer<'t> {
         Ok(())
     }
 
-    pub fn add_resource(&mut self, resource: &str) {
-        let fact = fact("resource", &[string(resource)]);
-        self.world.facts.insert(fact.convert(&mut self.symbols));
-    }
-
-    pub fn add_operation(&mut self, operation: &str) {
-        let fact = fact("operation", &[s(operation)]);
-        self.world.facts.insert(fact.convert(&mut self.symbols));
-    }
-
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
         let fact = fact("time", &[date(&SystemTime::now())]);

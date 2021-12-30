@@ -739,8 +739,8 @@ mod tests {
 
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("/folder1/file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
@@ -751,8 +751,8 @@ mod tests {
 
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("/folder2/file3");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"/folder2/file3\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
@@ -774,8 +774,8 @@ mod tests {
 
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("/folder2/file1");
-            authorizer.add_operation("write");
+            authorizer.add_fact("resource(\"/folder2/file1\")").unwrap();
+            authorizer.add_fact("operation(\"write\")").unwrap();
 
             let res = authorizer.authorize();
             println!("res3: {:?}", res);
@@ -812,8 +812,8 @@ mod tests {
 
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
             authorizer.allow().unwrap();
 
@@ -825,8 +825,8 @@ mod tests {
         {
             println!("biscuit2: {}", biscuit2.print());
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
             authorizer.revocation_check(&[0, 1, 2, 5, 1234]);
             authorizer.allow().unwrap();
@@ -868,8 +868,8 @@ mod tests {
         //panic!();
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("/folder1/file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
@@ -887,8 +887,8 @@ mod tests {
 
         {
             let mut authorizer = biscuit3.authorizer().unwrap();
-            authorizer.add_resource("/folder1/file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
@@ -973,8 +973,8 @@ mod tests {
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
             let mut authorizer = biscuit3.authorizer().unwrap();
-            authorizer.add_resource("file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
 
             let res = authorizer.authorize();
@@ -1032,8 +1032,8 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
             let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_resource("file1");
-            authorizer.add_operation("read");
+            authorizer.add_fact("resource(\"file1\")").unwrap();
+            authorizer.add_fact("operation(\"read\")").unwrap();
             println!("symbols before time: {:?}", authorizer.symbols);
             authorizer.set_time();
 
@@ -1203,8 +1203,8 @@ mod tests {
         println!("final token:\n{}", final_token.print());
 
         let mut authorizer = final_token.authorizer().unwrap();
-        authorizer.add_resource("/folder2/file1");
-        authorizer.add_operation("write");
+        authorizer.add_fact("resource(\"/folder2/file1\")").unwrap();
+        authorizer.add_fact("operation(\"write\")").unwrap();
         authorizer
             .add_policy("allow if resource($file), operation($op), right($file, $op)")
             .unwrap();

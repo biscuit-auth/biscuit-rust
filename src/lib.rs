@@ -90,10 +90,10 @@
 //!   // - one for /a/file2.txt and a read operation
 //!
 //!   let mut v1 = biscuit2.authorizer()?;
-//!   v1.add_resource("/a/file1.txt");
-//!   v1.add_operation("read");
+//!   v1.add_fact("resource(\"/a/file1.txt\")")?;
+//!   v1.add_fact("operation(\"read\")")?;
 //!   // we will check that the token has the corresponding right
-//!   v1.add_check("check if right(\"/a/file1.txt\", #read)");
+//!   v1.add_check("check if right(\"/a/file1.txt\", #read)")?;
 //!
 //!   // we choose if we want to allow or deny access
 //!   // we can define a serie of allow/deny policies in the same
@@ -104,17 +104,17 @@
 //!   assert!(v1.authorize().is_ok());
 //!
 //!   let mut v2 = biscuit2.authorizer()?;
-//!   v2.add_resource("/a/file1.txt");
-//!   v2.add_operation("write");
-//!   v2.add_check("check if right(\"/a/file1.txt\", #write)");
+//!   v2.add_fact("resource(\"/a/file1.txt\")")?;
+//!   v2.add_fact("operation(\"write\")")?;
+//!   v2.add_check("check if right(\"/a/file1.txt\", #write)")?;
 //!
 //!   // the second authorizer requested a read operation
 //!   assert!(v2.authorize().is_err());
 //!
 //!   let mut v3 = biscuit2.authorizer()?;
-//!   v3.add_resource("/a/file2.txt");
-//!   v3.add_operation("read");
-//!   v3.add_check("check if right(\"/a/file2.txt\", #read)");
+//!   v3.add_fact("resource(\"/a/file2.txt\")")?;
+//!   v3.add_fact("operation(\"read\")")?;
+//!   v3.add_check("check if right(\"/a/file2.txt\", #read)")?;
 //!
 //!   // the third authorizer requests /a/file2.txt
 //!   assert!(v3.authorize().is_err());

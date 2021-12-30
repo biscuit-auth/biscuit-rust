@@ -86,28 +86,28 @@ fn main() -> Result<(), error::Token> {
   // - one for /a/file2.txt and a read operation
 
   let mut v1 = biscuit2.verify()?;
-  v1.add_resource("/a/file1.txt");
-  v1.add_operation("read");
+  v1.add_fact("resource(\"/a/file1.txt\")")?;
+  v1.add_fact("operation(\"read\")")?;
 
   // a verifier can come with allow/deny policies. While checks are all tested
   // and must all succeeed, allow/deny policies are tried one by one in order,
   // and we stop verification on the first that matches
   //
   // here we will check that the token has the corresponding right
-  v1.add_policy("allow if right(\"/a/file1.txt\", "read")");
+  v1.add_policy("allow if right(\"/a/file1.txt\", "read")")?;
   // default deny policy, equivalent to "deny if true"
   v1.deny();
 
   let mut v2 = biscuit2.verify()?;
-  v2.add_resource("/a/file1.txt");
-  v2.add_operation("write");
-  v2.add_policy("allow if <- right(\"/a/file1.txt\", "write")");
+  v2.add_fact("resource(\"/a/file1.txt\")")?;
+  v2.add_fact("operation(\"write\")")?;
+  v2.add_policy("allow if <- right(\"/a/file1.txt\", "write")")?;
   v1.deny();
 
   let mut v3 = biscuit2.verify()?;
-  v3.add_resource("/a/file2.txt");
-  v3.add_operation("read");
-  v3.add_policy("allow if right(\"/a/file2.txt\", "read")");
+  v3.add_fact("resource(\"/a/file2.txt\")")?;
+  v3.add_fact("operation(\"read\")")?;
+  v3.add_policy("allow if right(\"/a/file2.txt\", "read")")?;
   v1.deny();
 
   // the token restricts to read operations:
