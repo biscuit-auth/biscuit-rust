@@ -230,7 +230,6 @@ impl Biscuit {
         BiscuitBuilder::new(root, symbols)
     }
 
-
     /// creates a new token, using a provided CSPRNG
     ///
     /// the public part of the root keypair must be used for verification
