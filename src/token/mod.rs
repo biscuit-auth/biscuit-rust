@@ -230,23 +230,6 @@ impl Biscuit {
         BiscuitBuilder::new(root, symbols)
     }
 
-    /// creates a new token
-    ///
-    /// the public part of the root keypair must be used for verification
-    pub(crate) fn new(
-        root_key_id: Option<u32>,
-        root: &KeyPair,
-        symbols: SymbolTable,
-        authority: Block,
-    ) -> Result<Biscuit, error::Token> {
-        Self::new_with_rng(
-            &mut rand::rngs::OsRng,
-            root_key_id,
-            root,
-            symbols,
-            authority,
-        )
-    }
 
     /// creates a new token, using a provided CSPRNG
     ///

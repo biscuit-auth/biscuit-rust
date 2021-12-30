@@ -195,6 +195,7 @@ impl Token {
         })
     }
 
+    #[allow(dead_code)]
     pub fn append<T: RngCore + CryptoRng>(
         &self,
         next_key: &KeyPair,
@@ -221,6 +222,7 @@ impl Token {
         Ok(t)
     }
 
+    #[allow(dead_code)]
     pub fn verify(&self, root: PublicKey) -> Result<(), error::Token> {
         //FIXME: try batched signature verification
         let mut current_pub = root;
@@ -271,11 +273,11 @@ impl TokenNext {
 
 #[cfg(test)]
 mod tests {
+    /*
     use super::*;
     use rand::prelude::*;
     use rand_core::SeedableRng;
 
-    /*
     #[test]
     fn basic_signature() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
