@@ -21,7 +21,7 @@ use std::{
 #[derive(Clone)]
 pub struct Authorizer<'t> {
     world: datalog::World,
-    pub symbols: datalog::SymbolTable,
+    pub(crate) symbols: datalog::SymbolTable,
     checks: Vec<Check>,
     token_checks: Vec<Vec<datalog::Check>>,
     policies: Vec<Policy>,
@@ -241,25 +241,6 @@ impl<'t> Authorizer<'t> {
     pub fn set_time(&mut self) {
         let fact = fact("time", &[date(&SystemTime::now())]);
         self.world.facts.insert(fact.convert(&mut self.symbols));
-    }
-
-    pub fn revocation_check(&mut self, ids: &[Vec<u8>]) {
-        let check = constrained_rule(
-            "revocation_check",
-            &[var("id")],
-            &[pred("revocation_id", &[var("index"), var("id")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(Term::Set(
-                        ids.iter().map(|v| Term::Bytes(v.clone())).collect(),
-                    )),
-                    Op::Value(var("id")),
-                    Op::Binary(Binary::Contains),
-                    Op::Unary(Unary::Negate),
-                ],
-            }],
-        );
-        let _ = self.add_check(check);
     }
 
     /// add a policy to the authorizer

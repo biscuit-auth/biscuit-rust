@@ -117,7 +117,7 @@ impl BlockBuilder {
         }
     }
 
-    pub fn build(self, mut symbols: SymbolTable) -> Block {
+    pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.symbols.len();
 
         let mut facts = Vec::new();
@@ -148,7 +148,9 @@ impl BlockBuilder {
         }
     }
 
-    pub fn check_right(&mut self, right: &str) {
+    // still used in tests but does not make sense for the public API
+    #[cfg(test)]
+    pub(crate) fn check_right(&mut self, right: &str) {
         let check = rule(
             "check_right",
             &[s(right)],
@@ -325,7 +327,8 @@ impl<'a> BiscuitBuilder<'a> {
         Ok(())
     }
 
-    pub fn add_right(&mut self, resource: &str, right: &str) {
+    #[cfg(test)]
+    pub(crate) fn add_right(&mut self, resource: &str, right: &str) {
         let _ = self.add_authority_fact(fact("right", &[string(resource), s(right)]));
     }
 

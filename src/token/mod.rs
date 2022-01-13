@@ -810,7 +810,6 @@ mod tests {
             authorizer.add_fact("resource(\"file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
-            authorizer.revocation_check(&[vec![0], vec![1], vec![2], vec![5], vec![123]]);
             authorizer.allow().unwrap();
 
             let res = authorizer.authorize();
