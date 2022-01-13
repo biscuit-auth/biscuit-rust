@@ -16,7 +16,8 @@ use std::{
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{Binary, Unary};
 
-#[derive(Clone, Debug)]
+/// creates a Block content to append to an existing token
+#[derive(Clone, Debug, Default)]
 pub struct BlockBuilder {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
@@ -26,12 +27,7 @@ pub struct BlockBuilder {
 
 impl BlockBuilder {
     pub fn new() -> BlockBuilder {
-        BlockBuilder {
-            facts: vec![],
-            rules: vec![],
-            checks: vec![],
-            context: None,
-        }
+        BlockBuilder::default()
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
@@ -166,6 +162,7 @@ impl BlockBuilder {
         let _ = self.add_check(check);
     }
 
+    /// checks the presence of a fact `resource($resource)`
     pub fn check_resource(&mut self, resource: &str) {
         let check = rule(
             "resource_check",
@@ -176,6 +173,7 @@ impl BlockBuilder {
         let _ = self.add_check(check);
     }
 
+    /// checks the presence of a fact `operation($operation)`
     pub fn check_operation(&mut self, operation: &str) {
         let check = rule(
             "operation_check",
@@ -238,12 +236,7 @@ impl BlockBuilder {
     }
 }
 
-impl std::default::Default for BlockBuilder {
-    fn default() -> Self {
-        BlockBuilder::new()
-    }
-}
-
+/// creates a Biscuit
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
     root_key_id: Option<u32>,
@@ -270,6 +263,7 @@ impl<'a> BiscuitBuilder<'a> {
         }
     }
 
+    /// hints for the authorizer side to decide which key to use for signature verification
     pub fn set_root_key_id(&mut self, id: u32) {
         self.root_key_id = Some(id);
     }
@@ -370,6 +364,7 @@ impl<'a> BiscuitBuilder<'a> {
     }
 }
 
+/// Builder for a Datalog value
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
     Variable(String),
@@ -456,6 +451,7 @@ impl fmt::Display for Term {
     }
 }
 
+/// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
@@ -516,6 +512,7 @@ impl fmt::Display for Predicate {
     }
 }
 
+/// Builder for a Datalog fact
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fact {
     pub predicate: Predicate,
@@ -632,6 +629,7 @@ impl fmt::Display for Fact {
     }
 }
 
+/// Builder for a Datalog expression
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
     pub ops: Vec<Op>,
@@ -670,6 +668,7 @@ impl fmt::Display for Expression {
     }
 }
 
+/// Builder for an expression operation
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
     Value(Term),
@@ -695,6 +694,7 @@ impl Op {
     }
 }
 
+/// Builder for a Datalog rule
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule {
     pub head: Predicate,
@@ -915,6 +915,7 @@ impl fmt::Display for Rule {
     }
 }
 
+/// Builder for a Biscuit check
 #[derive(Debug, Clone, PartialEq)]
 pub struct Check {
     pub queries: Vec<Rule>,
@@ -1007,6 +1008,8 @@ pub enum PolicyKind {
     Allow,
     Deny,
 }
+
+/// Builder for a Biscuit policy
 #[derive(Debug, Clone, PartialEq)]
 pub struct Policy {
     pub queries: Vec<Rule>,

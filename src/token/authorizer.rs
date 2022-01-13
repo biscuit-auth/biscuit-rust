@@ -17,7 +17,7 @@ use std::{
 
 /// used to check authorization policies on a token
 ///
-/// can be created from [`Biscuit::authorizer`](`crate::token::Biscuit::authorizer`) or [`authorizer::new`]
+/// can be created from [Biscuit::authorizer] or [Authorizer::new]
 #[derive(Clone)]
 pub struct Authorizer<'t> {
     world: datalog::World,
@@ -59,6 +59,7 @@ impl<'t> Authorizer<'t> {
         })
     }
 
+    /// creates an `Authorizer` from a serialized [crate::format::schema::AuthorizerPolicies]
     pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
         let data = crate::format::schema::AuthorizerPolicies::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
@@ -271,25 +272,27 @@ impl<'t> Authorizer<'t> {
         Ok(())
     }
 
+    /// adds a `allow if true` policy
     pub fn allow(&mut self) -> Result<(), error::Token> {
         self.add_policy("allow if true")
     }
 
+    /// adds a `deny if true` policy
     pub fn deny(&mut self) -> Result<(), error::Token> {
         self.add_policy("deny if true")
     }
 
-    /// checks all the checks
+    /// verifies the checks and policiies
     ///
-    /// on error, this can return a list of all the failed checks
+    /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
         self.authorize_with_limits(AuthorizerLimits::default())
     }
 
-    /// checks all the checks
+    /// verifies the checks and policiies
     ///
-    /// on error, this can return a list of all the failed checks
+    /// on error, this can return a list of all the failed checks or deny policy
     ///
     /// this method can specify custom runtime limits
     pub fn authorize_with_limits(

@@ -11,6 +11,13 @@ use crate::{
 };
 use prost::Message;
 
+/// A token that was parsed without cryptographic signature verification
+///
+/// Use this if you want to attenuate or print the content of a token
+/// without verifying it.
+///
+/// It can be converted to a [Biscuit] using [UnverifiedBiscuit::check_signature],
+/// and then used for authorization
 #[derive(Clone, Debug)]
 pub struct UnverifiedBiscuit {
     pub(crate) authority: Block,
@@ -20,6 +27,7 @@ pub struct UnverifiedBiscuit {
 }
 
 impl UnverifiedBiscuit {
+    /// deserializes a token from raw bytes
     pub fn from<T>(slice: T) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
@@ -27,6 +35,7 @@ impl UnverifiedBiscuit {
         Self::from_with_symbols(slice.as_ref(), default_symbol_table())
     }
 
+    /// deserializes a token from base64
     pub fn from_base64<T>(slice: T) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
@@ -34,10 +43,11 @@ impl UnverifiedBiscuit {
         Self::from_base64_with_symbols(slice, default_symbol_table())
     }
 
-    pub fn check_signature<F: Fn(Option<u32>) -> PublicKey>(
-        self,
-        f: F,
-    ) -> Result<Biscuit, error::Format> {
+    /// checks the signature of the token and convert it to a [Biscuit] for authorization
+    pub fn check_signature<F>(self, f: F) -> Result<Biscuit, error::Format>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+    {
         let root = f(self.container.root_key_id);
         self.container.verify(&root)?;
 
@@ -77,6 +87,7 @@ impl UnverifiedBiscuit {
         BlockBuilder::new()
     }
 
+    /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::deserialize(slice)?;
 
@@ -122,7 +133,7 @@ impl UnverifiedBiscuit {
         })
     }
 
-    /// deserializes a token and validates the signature using the root public key, with a custom symbol table
+    /// deserializes a token from base64 with a custom symbol table
     pub fn from_base64_with_symbols<T>(slice: T, symbols: SymbolTable) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
@@ -131,7 +142,7 @@ impl UnverifiedBiscuit {
         Self::from_with_symbols(&decoded, symbols)
     }
 
-    /// adds a new block to the token, using the provided CSPRNG
+    /// adds a new block to the token
     ///
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function

@@ -69,10 +69,12 @@ impl Drop for KeyPair {
 pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 
 impl PrivateKey {
+    /// serializes to a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
         let bytes: [u8; 32] = bytes
             .try_into()
@@ -83,6 +85,7 @@ impl PrivateKey {
             .map_err(Format::InvalidKey)
     }
 
+    /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         PublicKey((&self.0).into())
     }
@@ -100,15 +103,17 @@ impl Drop for PrivateKey {
     }
 }
 
-/// the private part of a [KeyPair]
+/// the public part of a [KeyPair]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
 
 impl PublicKey {
+    /// serializes to a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
         ed25519_dalek::PublicKey::from_bytes(bytes)
             .map(PublicKey)
