@@ -1,8 +1,5 @@
 //! Authorizer structure and associated functions
-use super::builder::{
-    constrained_rule, date, fact, pred, var, Binary, Check, Expression, Fact, Op, Policy,
-    PolicyKind, Rule, Term, Unary,
-};
+use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule};
 use super::Biscuit;
 use crate::datalog::{self, RunLimits};
 use crate::error;
