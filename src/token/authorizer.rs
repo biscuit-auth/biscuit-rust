@@ -267,12 +267,42 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?;
 
+        if let Some(token) = self.token.as_ref() {
+            for fact in token.authority.facts.iter().cloned() {
+                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+                self.world.facts.insert(fact);
+            }
+
+            let mut revocation_ids = token.revocation_identifiers();
+            let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
+            for (i, id) in revocation_ids.drain(..).enumerate() {
+                self.world.facts.insert(datalog::Fact::new(
+                    revocation_id_sym,
+                    &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
+                ));
+            }
+
+            for rule in token.authority.rules.iter().cloned() {
+                let r = Rule::convert_from(&rule, &token.symbols);
+                let rule = r.convert(&mut self.symbols);
+
+                if let Err(_message) = r.validate_variables() {
+                    return Err(
+                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                    );
+                }
+            }
+        }
+
         self.world
             .run_with_limits(&self.symbols, limits.into())
             .map_err(error::Token::RunLimit)?;
         let mut res = self
             .world
             .query_rule(rule.convert(&mut self.symbols), &self.symbols);
+
+        self.world.rules.clear();
+        self.world.facts.clear();
 
         res.drain(..)
             .map(|f| Fact::convert_from(&f, &self.symbols))
@@ -629,5 +659,44 @@ mod tests {
         let mut authorizer = Authorizer::new().unwrap();
         authorizer.add_policy("allow if true").unwrap();
         assert_eq!(authorizer.authorize(), Ok(0));
+    }
+
+    #[test]
+    fn query_authorizer_from_token_tuple() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let mut builder = Biscuit::builder(&keypair);
+        builder
+            .add_authority_fact("user(\"John Doe\", 42)")
+            .unwrap();
+
+        let biscuit = builder.build().unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Vec<(String, i64)> = authorizer
+            .query("data($name, $id) <- user($name, $id)")
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].0, "John Doe");
+        assert_eq!(res[0].1, 42);
+    }
+
+    #[test]
+    fn query_authorizer_from_token_string() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let mut builder = Biscuit::builder(&keypair);
+        builder.add_authority_fact("user(\"John Doe\")").unwrap();
+
+        let biscuit = builder.build().unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].0, "John Doe");
     }
 }
