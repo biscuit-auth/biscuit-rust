@@ -20,7 +20,7 @@ In this example we will see how we can create a token, add some checks, serializ
 ```rust
 extern crate biscuit_auth as biscuit;
 
-use biscuit::{crypto::KeyPair, token::{Biscuit, verifier::Verifier, builder::*}, error};
+use biscuit::{KeyPair, Biscuit, error};
 
 fn main() -> Result<(), error::Token> {
   // let's generate the root key pair. The root public key will be necessary
@@ -36,10 +36,10 @@ fn main() -> Result<(), error::Token> {
 
     // let's define some access rights
     // every fact added to the authority block must have the authority fact
-    builder.add_authority_fact("right(\"/a/file1.txt\", "read")")?;
-    builder.add_authority_fact("right(\"/a/file1.txt\", "write")")?;
-    builder.add_authority_fact("right(\"/a/file2.txt\", "read")")?;
-    builder.add_authority_fact("right(\"/b/file3.txt\", "write")")?;
+    builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")")?;
+    builder.add_authority_fact("right(\"/a/file1.txt\", \"write\")")?;
+    builder.add_authority_fact("right(\"/a/file2.txt\", \"read\")")?;
+    builder.add_authority_fact("right(\"/b/file3.txt\", \"write\")")?;
 
     // we can now create the token
     let biscuit = builder.build()?;
@@ -48,14 +48,14 @@ fn main() -> Result<(), error::Token> {
     biscuit.to_vec()?
   };
 
-  // this token is only 266 bytes, holding the authority data and the signature
-  assert_eq!(token1.len(), 266);
+  // this token is only 258 bytes, holding the authority data and the signature
+  assert_eq!(token1.len(), 258);
 
   // now let's add some restrictions to this token
   // we want to limit access to `/a/file1.txt` and to read operations
   let token2 = {
     // the token is deserialized, the signature is verified
-    let deser = Biscuit::from(&token1)?;
+    let deser = Biscuit::from(&token1, |_root_key_id| root.public())?;
 
     let mut builder = deser.create_block();
 
@@ -63,17 +63,17 @@ fn main() -> Result<(), error::Token> {
     // the check is successful
     // here we verify the presence of a `resource` fact with a path set to "/a/file1.txt"
     // and a read operation
-    builder.add_check("check if resource(\"/a/file1.txt\"), operation("read")")?;
+    builder.add_check("check if resource(\"/a/file1.txt\"), operation(\"read\")")?;
 
     // we can now create a new token
-    let biscuit = deser.append(builder.build())?;
+    let biscuit = deser.append(builder)?;
     println!("biscuit (authority): {}", biscuit.print());
 
     biscuit.to_vec()?
   };
 
-  // this new token fits in 402 bytes
-  assert_eq!(token2.len(), 402);
+  // this new token fits in 400 bytes
+  assert_eq!(token2.len(), 400);
 
   /************** VERIFICATION ****************/
 
@@ -85,7 +85,7 @@ fn main() -> Result<(), error::Token> {
   // - one for /a/file1.txt and a write operation
   // - one for /a/file2.txt and a read operation
 
-  let mut v1 = biscuit2.verify()?;
+  let mut v1 = biscuit2.authorizer()?;
   v1.add_fact("resource(\"/a/file1.txt\")")?;
   v1.add_fact("operation(\"read\")")?;
 
@@ -94,28 +94,28 @@ fn main() -> Result<(), error::Token> {
   // and we stop verification on the first that matches
   //
   // here we will check that the token has the corresponding right
-  v1.add_policy("allow if right(\"/a/file1.txt\", "read")")?;
+  v1.add_policy("allow if right(\"/a/file1.txt\", \"read\")")?;
   // default deny policy, equivalent to "deny if true"
-  v1.deny();
+  v1.deny()?;
 
-  let mut v2 = biscuit2.verify()?;
+  let mut v2 = biscuit2.authorizer()?;
   v2.add_fact("resource(\"/a/file1.txt\")")?;
   v2.add_fact("operation(\"write\")")?;
-  v2.add_policy("allow if <- right(\"/a/file1.txt\", "write")")?;
-  v1.deny();
+  v2.add_policy("allow if right(\"/a/file1.txt\", \"write\")")?;
+  v1.deny()?;
 
-  let mut v3 = biscuit2.verify()?;
+  let mut v3 = biscuit2.authorizer()?;
   v3.add_fact("resource(\"/a/file2.txt\")")?;
   v3.add_fact("operation(\"read\")")?;
-  v3.add_policy("allow if right(\"/a/file2.txt\", "read")")?;
-  v1.deny();
+  v3.add_policy("allow if right(\"/a/file2.txt\", \"read\")")?;
+  v1.deny()?;
 
   // the token restricts to read operations:
-  assert!(v1.verify().is_ok());
+  assert!(v1.authorize().is_ok());
   // the second verifier requested a read operation
-  assert!(v2.verify().is_err());
+  assert!(v2.authorize().is_err());
   // the third verifier requests /a/file2.txt
-  assert!(v3.verify().is_err());
+  assert!(v3.authorize().is_err());
 
   Ok(())
 }
