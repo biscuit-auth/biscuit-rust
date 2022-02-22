@@ -184,6 +184,24 @@ impl<'t> Authorizer<'t> {
         Ok(())
     }
 
+    /// adds some datalog code to the authorizer
+    ///
+    /// ```rust
+    /// extern crate biscuit_auth as biscuit;
+    ///
+    /// use biscuit::Authorizer;
+    ///
+    /// let mut authorizer = Authorizer::new().unwrap();
+    ///
+    /// authorizer.add_code(r#"
+    ///   resource("/file1.txt");
+    ///
+    ///   check if user(1234);
+    ///
+    ///   // default allow
+    ///   allow if true;
+    /// "#).expect("should parse correctly");
+    /// ```
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
         let input = source.as_ref();
 
