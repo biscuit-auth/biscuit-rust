@@ -203,17 +203,15 @@
 //! deny if true;
 //! ```
 //!
-//! ## Symbols and symbol tables
+//! ## Symbol table
 //!
-//! To reduce the size of tokens, the language supports a data type called "symbol".
-//! A symbol is a string that we can refer to with a number, an index in the symbol
-//! table that is carried with the token. Symbols can be checked for equality, or
-//! presence in a set, but lack the other constraints on strings like prefix or suffix
-//! matching.
+//! To reduce the size of tokens, the language uses string interning: strings are
+//! serialized as an index in a list of strings. Any repetition of the string will
+//! then use reduced space.
 //!
 //! They can be used for pretty printing of a fact or rule. As an example, with a table
-//! containing `["resource", "operation", "read", "rule1"]`, we could have the following rule:
-//! `#4() <- #0("file.txt"), #1(#2)` that would be printed as `rule1() <- resource("file.txt"), operation(#read)`
+//! containing `["resource", "operation", "read", "rule1", "file1.txt"]`, we could have the following rule:
+//! `#3() <- #0(#4), #1(#2)` that would be printed as `rule1() <- resource("file.txt"), operation("read")`
 //!
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
