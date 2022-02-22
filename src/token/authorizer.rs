@@ -28,7 +28,7 @@ pub struct Authorizer<'t> {
 impl<'t> Authorizer<'t> {
     pub(crate) fn from_token(token: &'t Biscuit) -> Result<Self, error::Token> {
         let mut v = Authorizer::new()?;
-        v.token = Some(token);
+        v.add_token(token)?;
 
         Ok(v)
     }
@@ -94,6 +94,32 @@ impl<'t> Authorizer<'t> {
     pub fn add_token(&mut self, token: &'t Biscuit) -> Result<(), error::Token> {
         if self.token.is_some() {
             return Err(error::Logic::AuthorizerNotEmpty.into());
+        }
+
+        // add authority facts and rules right away to make them available to queries
+        for fact in token.authority.facts.iter().cloned() {
+            let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+            self.world.facts.insert(fact);
+        }
+
+        let mut revocation_ids = token.revocation_identifiers();
+        let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
+        for (i, id) in revocation_ids.drain(..).enumerate() {
+            self.world.facts.insert(datalog::Fact::new(
+                revocation_id_sym,
+                &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
+            ));
+        }
+
+        for rule in token.authority.rules.iter().cloned() {
+            let r = Rule::convert_from(&rule, &token.symbols);
+            let rule = r.convert(&mut self.symbols);
+
+            if let Err(_message) = r.validate_variables() {
+                return Err(
+                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                );
+            }
         }
 
         self.token = Some(token);
@@ -282,35 +308,10 @@ impl<'t> Authorizer<'t> {
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
-        if let Some(token) = self.token.as_ref() {
-            for fact in token.authority.facts.iter().cloned() {
-                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-                self.world.facts.insert(fact);
-            }
-
-            let mut revocation_ids = token.revocation_identifiers();
-            let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
-            for (i, id) in revocation_ids.drain(..).enumerate() {
-                self.world.facts.insert(datalog::Fact::new(
-                    revocation_id_sym,
-                    &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
-                ));
-            }
-
-            for rule in token.authority.rules.iter().cloned() {
-                let r = Rule::convert_from(&rule, &token.symbols);
-                let rule = r.convert(&mut self.symbols);
-
-                if let Err(_message) = r.validate_variables() {
-                    return Err(
-                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
-                    );
-                }
-            }
-        }
-
         //FIXME: the authorizer should be generated with run limits
         // that are "consumed" after each use
+        // Note: the authority facts and rules were already inserted
+        // in add_token
         self.world
             .run_with_limits(&self.symbols, RunLimits::default())
             .map_err(error::Token::RunLimit)?;
