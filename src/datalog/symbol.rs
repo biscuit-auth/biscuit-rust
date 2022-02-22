@@ -1,6 +1,5 @@
 //! Symbol table implementation
-use chrono::{DateTime, NaiveDateTime, Utc};
-
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 pub type SymbolIndex = u64;
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
@@ -66,11 +65,10 @@ impl SymbolTable {
             Term::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
             Term::Integer(i) => i.to_string(),
             Term::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
-            Term::Date(d) => {
-                let date =
-                    DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(*d as i64, 0), Utc);
-                date.to_rfc3339()
-            }
+            Term::Date(d) => OffsetDateTime::from_unix_timestamp(*d as i64)
+                .ok()
+                .and_then(|t| t.format(&Rfc3339).ok())
+                .unwrap_or_else(|| "<invalid date>".to_string()),
             Term::Bytes(s) => format!("hex:{}", hex::encode(s)),
             Term::Bool(b) => {
                 if *b {
