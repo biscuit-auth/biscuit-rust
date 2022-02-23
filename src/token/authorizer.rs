@@ -267,42 +267,12 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?;
 
-        if let Some(token) = self.token.as_ref() {
-            for fact in token.authority.facts.iter().cloned() {
-                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-                self.world.facts.insert(fact);
-            }
-
-            let mut revocation_ids = token.revocation_identifiers();
-            let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
-            for (i, id) in revocation_ids.drain(..).enumerate() {
-                self.world.facts.insert(datalog::Fact::new(
-                    revocation_id_sym,
-                    &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
-                ));
-            }
-
-            for rule in token.authority.rules.iter().cloned() {
-                let r = Rule::convert_from(&rule, &token.symbols);
-                let rule = r.convert(&mut self.symbols);
-
-                if let Err(_message) = r.validate_variables() {
-                    return Err(
-                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
-                    );
-                }
-            }
-        }
-
         self.world
             .run_with_limits(&self.symbols, limits.into())
             .map_err(error::Token::RunLimit)?;
         let mut res = self
             .world
             .query_rule(rule.convert(&mut self.symbols), &self.symbols);
-
-        self.world.rules.clear();
-        self.world.facts.clear();
 
         res.drain(..)
             .map(|f| Fact::convert_from(&f, &self.symbols))
