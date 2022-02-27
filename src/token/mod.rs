@@ -932,6 +932,7 @@ mod tests {
 
         builder.add_right("file1", "read");
         builder.add_right("file2", "read");
+        builder.add_authority_fact("key(0000)").unwrap();
 
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
 
@@ -958,14 +959,14 @@ mod tests {
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
 
-            let res = authorizer.authorize();
-            println!("res1: {:?}", res);
+            // test that cloning correctly embeds the first block's facts
+            let mut other_authorizer = authorizer.clone();
 
-            let res2: Result<Vec<builder::Fact>, crate::error::Token> = authorizer.query(rule(
-                "key_verif",
-                &[builder::Term::Variable("id".to_string())],
-                &[pred("key", &[builder::Term::Variable("id".to_string())])],
-            ));
+            let authorization_res = authorizer.authorize();
+            println!("authorization result: {:?}", authorization_res);
+
+            let res2: Result<Vec<builder::Fact>, crate::error::Token> =
+                authorizer.query("key_verif($id) <- key($id)");
             println!("res2: {:?}", res2);
             let mut res2 = res2
                 .unwrap()
@@ -974,14 +975,23 @@ mod tests {
                 .collect::<Vec<_>>();
             res2.sort();
             assert_eq!(
-                &res2,
-                &[
-                    fact("key_verif", &[int(1234)]),
-                    fact("key_verif", &[int(5678)])
+                res2,
+                vec![
+                    "key_verif(0)".to_string(),
+                    "key_verif(1234)".to_string(),
+                    "key_verif(5678)".to_string(),
                 ]
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<_>>()
+            );
+
+            let res1: Result<Vec<builder::Fact>, crate::error::Token> =
+                other_authorizer.query("key_verif($id) <- key($id)");
+            println!("res1: {:?}", res1);
+            assert_eq!(
+                res1.unwrap()
+                    .into_iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<_>>(),
+                vec!["key_verif(0)".to_string()]
             );
         }
     }
