@@ -229,8 +229,20 @@ impl<'t> Authorizer<'t> {
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
-    /// ```rust,compile_fail
+    /// ```rust
+    /// # use biscuit_auth::KeyPair;
+    /// # use biscuit_auth::Biscuit;
+    /// let keypair = KeyPair::new();
+    /// let mut builder = Biscuit::builder(&keypair);
+    /// builder.add_authority_fact("user(\"John Doe\", 42)");
+    ///
+    /// let biscuit = builder.build().unwrap();
+    ///
+    /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// # assert_eq!(res.len(), 1);
+    /// # assert_eq!(res[0].0, "John Doe");
+    /// # assert_eq!(res[0].1, 42);
     /// ```
     pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
@@ -617,5 +629,44 @@ mod tests {
         let mut authorizer = Authorizer::new().unwrap();
         authorizer.add_policy("allow if true").unwrap();
         assert_eq!(authorizer.authorize(), Ok(0));
+    }
+
+    #[test]
+    fn query_authorizer_from_token_tuple() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let mut builder = Biscuit::builder(&keypair);
+        builder
+            .add_authority_fact("user(\"John Doe\", 42)")
+            .unwrap();
+
+        let biscuit = builder.build().unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Vec<(String, i64)> = authorizer
+            .query("data($name, $id) <- user($name, $id)")
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].0, "John Doe");
+        assert_eq!(res[0].1, 42);
+    }
+
+    #[test]
+    fn query_authorizer_from_token_string() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let mut builder = Biscuit::builder(&keypair);
+        builder.add_authority_fact("user(\"John Doe\")").unwrap();
+
+        let biscuit = builder.build().unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].0, "John Doe");
     }
 }
