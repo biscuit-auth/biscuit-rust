@@ -27,7 +27,7 @@ pub fn default_symbol_table() -> SymbolTable {
     syms.insert("resource");
     syms.insert("operation");
     syms.insert("right");
-    syms.insert("current_time");
+    syms.insert("time");
     syms.insert("revocation_id");
 
     syms
