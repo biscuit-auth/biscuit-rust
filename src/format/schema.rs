@@ -120,115 +120,14 @@ pub struct TermSet {
     pub set: ::prost::alloc::vec::Vec<TermV2>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConstraintV2 {
-    #[prost(uint32, required, tag = "1")]
-    pub term: u32,
-    #[prost(oneof = "constraint_v2::Constraint", tags = "2, 3, 4, 5")]
-    pub constraint: ::core::option::Option<constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `ConstraintV2`.
-pub mod constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(message, tag = "2")]
-        Int(super::IntConstraintV2),
-        #[prost(message, tag = "3")]
-        String(super::StringConstraintV2),
-        #[prost(message, tag = "4")]
-        Date(super::DateConstraintV2),
-        #[prost(message, tag = "5")]
-        Bytes(super::BytesConstraintV2),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct IntConstraintV2 {
-    #[prost(oneof = "int_constraint_v2::Constraint", tags = "1, 2, 3, 4, 5, 6, 7")]
-    pub constraint: ::core::option::Option<int_constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `IntConstraintV2`.
-pub mod int_constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(int64, tag = "1")]
-        LessThan(i64),
-        #[prost(int64, tag = "2")]
-        GreaterThan(i64),
-        #[prost(int64, tag = "3")]
-        LessOrEqual(i64),
-        #[prost(int64, tag = "4")]
-        GreaterOrEqual(i64),
-        #[prost(int64, tag = "5")]
-        Equal(i64),
-        #[prost(message, tag = "6")]
-        InSet(super::IntSet),
-        #[prost(message, tag = "7")]
-        NotInSet(super::IntSet),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct IntSet {
     #[prost(int64, repeated, tag = "7")]
     pub set: ::prost::alloc::vec::Vec<i64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StringConstraintV2 {
-    #[prost(oneof = "string_constraint_v2::Constraint", tags = "1, 2, 3, 4, 5, 6")]
-    pub constraint: ::core::option::Option<string_constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `StringConstraintV2`.
-pub mod string_constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(string, tag = "1")]
-        Prefix(::prost::alloc::string::String),
-        #[prost(string, tag = "2")]
-        Suffix(::prost::alloc::string::String),
-        #[prost(string, tag = "3")]
-        Equal(::prost::alloc::string::String),
-        #[prost(message, tag = "4")]
-        InSet(super::StringSet),
-        #[prost(message, tag = "5")]
-        NotInSet(super::StringSet),
-        #[prost(string, tag = "6")]
-        Regex(::prost::alloc::string::String),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringSet {
     #[prost(uint64, repeated, tag = "1")]
     pub set: ::prost::alloc::vec::Vec<u64>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DateConstraintV2 {
-    #[prost(oneof = "date_constraint_v2::Constraint", tags = "1, 2")]
-    pub constraint: ::core::option::Option<date_constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `DateConstraintV2`.
-pub mod date_constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(uint64, tag = "1")]
-        Before(u64),
-        #[prost(uint64, tag = "2")]
-        After(u64),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BytesConstraintV2 {
-    #[prost(oneof = "bytes_constraint_v2::Constraint", tags = "1, 2, 3")]
-    pub constraint: ::core::option::Option<bytes_constraint_v2::Constraint>,
-}
-/// Nested message and enum types in `BytesConstraintV2`.
-pub mod bytes_constraint_v2 {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Constraint {
-        #[prost(bytes, tag = "1")]
-        Equal(::prost::alloc::vec::Vec<u8>),
-        #[prost(message, tag = "2")]
-        InSet(super::BytesSet),
-        #[prost(message, tag = "3")]
-        NotInSet(super::BytesSet),
-    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BytesSet {
