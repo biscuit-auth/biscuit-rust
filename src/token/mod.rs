@@ -22,8 +22,8 @@ pub const MAX_SCHEMA_VERSION: u32 = 2;
 /// transmitting them with every token
 pub fn default_symbol_table() -> SymbolTable {
     let mut syms = SymbolTable::new();
-    syms.insert("authority");
-    syms.insert("ambient");
+    syms.insert("read");
+    syms.insert("write");
     syms.insert("resource");
     syms.insert("operation");
     syms.insert("right");
@@ -523,7 +523,7 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::builder::{check, fact, int, pred, rule, s, var};
+    use super::builder::{check, fact, pred, rule, s, var};
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;

@@ -114,8 +114,8 @@ authorizer world:
 World {
   facts: [
     "hello(\"world\")",
-    "revocation_id(0, hex:399f4cd638039d645f317b6401ef8308e56d4e4d983538386070e5cbb368198e63fded9e0a55e1e22e3c92f49e3e3de46f74c2fac45fb75bc546270be15ed80b)",
-    "revocation_id(1, hex:dbd504ed972e732df9d6f29103bea2dc6dbe2c86e47bdaeb13e3947c9136b33827f4c4bb24c6fbfd2c4b69acc8f5aaaaeb44e911406e892bcc8d76555629ba0e)",
+    "revocation_id(0, hex:476a8eee508a0d7be124a1a2da5abb868d7db69da0234a34773f26207df1df84ca48f109bbc14869b4dc3ad1d97ed80c815aa152b58b121fe3a4ab7fdb66f803)",
+    "revocation_id(1, hex:9d11ee70c038c359d7f227199792373e5d6807cea134829fe3abb034f6e5a37562b52dc63be8088df88cdc3ed3eb442927b74677c0bcdcc1c6104c87a0e9d80d)",
     "right(\"file1\", \"read\")",
 ]
   rules: []
@@ -126,8 +126,8 @@ World {
     "allow if true",
 ]
 }
-serialized size: 332
-wrote 332 bytes
+serialized size: 326
+wrote 326 bytes
 "#);
     }
 
