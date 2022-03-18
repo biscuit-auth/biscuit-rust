@@ -966,7 +966,7 @@ mod tests {
             println!("authorization result: {:?}", authorization_res);
 
             let res2: Result<Vec<builder::Fact>, crate::error::Token> =
-                authorizer.query("key_verif($id) <- key($id)");
+                authorizer.query_all("key_verif($id) <- key($id)");
             println!("res2: {:?}", res2);
             let mut res2 = res2
                 .unwrap()

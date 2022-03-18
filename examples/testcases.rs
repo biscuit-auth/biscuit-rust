@@ -97,6 +97,8 @@ fn main() {
 
     results.push(parsing(&mut rng, &target, &root, test));
 
+    results.push(execution_scope(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1819,6 +1821,64 @@ fn parsing<T: Rng + CryptoRng>(
                 &[pred("ns::fact_123", &[string("hello é\t😁")])],
             )]],
         ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn execution_scope<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "execution scope".to_string();
+    let filename = "test22_execution_scope.bc".to_string();
+    let token;
+
+    let mut builder = Biscuit::builder(&root);
+
+    builder.add_authority_fact("authority_fact(1)").unwrap();
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+
+    let mut block2 = biscuit1.create_block();
+
+    block2.add_fact("block1_fact(1)").unwrap();
+
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
+
+    let mut block3 = biscuit2.create_block();
+
+    block3.add_check("check if authority_fact($var)").unwrap();
+    block3.add_check("check if block1_fact($var)").unwrap();
+
+    let keypair3 = KeyPair::new_with_rng(rng);
+    let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
+    token = print_blocks(&biscuit3);
+
+    let data = if test {
+        let v = load_testcase(target, "test22_execution_scope");
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
+        print_diff(&biscuit3.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit3.to_vec().unwrap();
+        write_testcase(target, "test7_scoped_rules", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], vec![], vec![], vec![]),
     );
 
     TestResult {

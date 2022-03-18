@@ -7,6 +7,7 @@ use crate::parser::parse_source;
 use crate::time::Instant;
 use prost::Message;
 use std::{
+    collections::HashSet,
     convert::{TryFrom, TryInto},
     default::Default,
     time::{Duration, SystemTime},
@@ -18,6 +19,7 @@ use std::{
 #[derive(Clone)]
 pub struct Authorizer<'t> {
     world: datalog::World,
+    block_worlds: Vec<datalog::World>,
     pub(crate) symbols: datalog::SymbolTable,
     checks: Vec<Check>,
     token_checks: Vec<Vec<datalog::Check>>,
@@ -48,6 +50,7 @@ impl<'t> Authorizer<'t> {
 
         Ok(Authorizer {
             world,
+            block_worlds: vec![],
             symbols,
             checks: vec![],
             token_checks: vec![],
@@ -82,6 +85,7 @@ impl<'t> Authorizer<'t> {
 
         Ok(Authorizer {
             world,
+            block_worlds: vec![],
             symbols,
             checks,
             token_checks: vec![],
@@ -229,6 +233,7 @@ impl<'t> Authorizer<'t> {
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
+    /// this only sees facts from the authorizer and the authority block
     /// ```rust
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
@@ -256,6 +261,8 @@ impl<'t> Authorizer<'t> {
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
+    /// this only sees facts from the authorizer and the authority block
+    ///
     /// this method can specify custom runtime limits
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
@@ -275,6 +282,76 @@ impl<'t> Authorizer<'t> {
             .query_rule(rule.convert(&mut self.symbols), &self.symbols);
 
         res.drain(..)
+            .map(|f| Fact::convert_from(&f, &self.symbols))
+            .map(|fact| fact.try_into().map_err(Into::into))
+            .collect()
+    }
+
+    /// run a query over the authorizer's Datalog engine to gather data
+    ///
+    /// this has access to the facts generated when evaluating all the blocks
+    ///
+    /// ```rust
+    /// # use biscuit_auth::KeyPair;
+    /// # use biscuit_auth::Biscuit;
+    /// let keypair = KeyPair::new();
+    /// let mut builder = Biscuit::builder(&keypair);
+    /// builder.add_authority_fact("user(\"John Doe\", 42)");
+    ///
+    /// let biscuit = builder.build().unwrap();
+    ///
+    /// let mut authorizer = biscuit.authorizer().unwrap();
+    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// # assert_eq!(res.len(), 1);
+    /// # assert_eq!(res[0].0, "John Doe");
+    /// # assert_eq!(res[0].1, 42);
+    /// ```
+    pub fn query_all<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: R,
+    ) -> Result<Vec<T>, error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        self.query_all_with_limits(rule, AuthorizerLimits::default())
+    }
+
+    /// run a query over the authorizer's Datalog engine to gather data
+    ///
+    /// this has access to the facts generated when evaluating all the blocks
+    ///
+    /// this method can specify custom runtime limits
+    pub fn query_all_with_limits<
+        R: TryInto<Rule>,
+        T: TryFrom<Fact, Error = E>,
+        E: Into<error::Token>,
+    >(
+        &mut self,
+        rule: R,
+        limits: AuthorizerLimits,
+    ) -> Result<Vec<T>, error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        let rule = rule.try_into()?;
+
+        self.world
+            .run_with_limits(&self.symbols, limits.into())
+            .map_err(error::Token::RunLimit)?;
+        let rule = rule.convert(&mut self.symbols);
+        let mut res = self.world.query_rule(rule.clone(), &self.symbols);
+
+        let r: HashSet<_> = res
+            .drain(..)
+            .chain(
+                self.block_worlds
+                    .iter()
+                    .map(|world| rule.apply(&world.facts, &self.symbols))
+                    .flatten(),
+            )
+            .collect();
+
+        r.into_iter()
             .map(|f| Fact::convert_from(&f, &self.symbols))
             .map(|fact| fact.try_into().map_err(Into::into))
             .collect()
@@ -431,10 +508,12 @@ impl<'t> Authorizer<'t> {
 
         if let Some(token) = self.token.as_ref() {
             for (i, block) in token.blocks.iter().enumerate() {
+                let mut world = self.world.clone();
+
                 // blocks cannot provide authority or ambient facts
                 for fact in block.facts.iter().cloned() {
                     let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-                    self.world.facts.insert(fact);
+                    world.facts.insert(fact);
                 }
 
                 for rule in block.rules.iter().cloned() {
@@ -449,13 +528,13 @@ impl<'t> Authorizer<'t> {
                     }
 
                     let rule = r.convert(&mut self.symbols);
-                    self.world.rules.push(rule);
+                    world.rules.push(rule);
                 }
 
-                self.world
+                world
                     .run_with_limits(&self.symbols, RunLimits::default())
                     .map_err(error::Token::RunLimit)?;
-                self.world.rules.clear();
+                world.rules.clear();
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
@@ -463,7 +542,7 @@ impl<'t> Authorizer<'t> {
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
-                        let res = self.world.query_match(query.clone(), &self.symbols);
+                        let res = world.query_match(query.clone(), &self.symbols);
 
                         let now = Instant::now();
                         if now >= time_limit {
@@ -484,6 +563,8 @@ impl<'t> Authorizer<'t> {
                         }));
                     }
                 }
+
+                self.block_worlds.push(world);
             }
         }
 
@@ -562,6 +643,12 @@ impl<'t> Authorizer<'t> {
             self.world
                 .facts
                 .iter()
+                .chain(
+                    self.block_worlds
+                        .iter()
+                        .map(|world| world.facts.iter())
+                        .flatten(),
+                )
                 .map(|f| Fact::convert_from(f, &self.symbols))
                 .collect(),
             self.world
