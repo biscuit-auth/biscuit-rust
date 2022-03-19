@@ -28,7 +28,27 @@ pub fn default_symbol_table() -> SymbolTable {
     syms.insert("operation");
     syms.insert("right");
     syms.insert("time");
-    syms.insert("revocation_id");
+    syms.insert("rule");
+    syms.insert("owner");
+    syms.insert("tenant");
+    syms.insert("namespace");
+    syms.insert("user");
+    syms.insert("team");
+    syms.insert("service");
+    syms.insert("admin");
+    syms.insert("email");
+    syms.insert("group");
+    syms.insert("member");
+    syms.insert("ip_address");
+    syms.insert("client");
+    syms.insert("client_ip");
+    syms.insert("domain");
+    syms.insert("path");
+    syms.insert("version");
+    syms.insert("cluster");
+    syms.insert("node");
+    syms.insert("hostname");
+    syms.insert("nonce");
 
     syms
 }
