@@ -56,10 +56,11 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 
     let context = input.context.clone();
 
+    let mut symbols = SymbolTable::new();
+    symbols.symbols = input.symbols.clone();
+
     Ok(Block {
-        symbols: SymbolTable {
-            symbols: input.symbols.clone(),
-        },
+        symbols,
         facts,
         rules,
         checks,
@@ -109,9 +110,9 @@ pub fn proto_authorizer_to_authorizer(
         });
     }
 
-    let symbols = SymbolTable {
-        symbols: input.symbols.clone(),
-    };
+
+    let mut symbols = SymbolTable::new();
+    symbols.symbols = input.symbols.clone();
 
     let mut facts = vec![];
     let mut rules = vec![];

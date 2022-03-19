@@ -35,6 +35,16 @@ impl SymbolTable {
             .map(|i| i as SymbolIndex)
     }
 
+    pub fn current_offset(&self) -> usize {
+        self.symbols.len()
+    }
+
+    pub fn split_at(&mut self, offset: usize) -> SymbolTable {
+        let mut table = SymbolTable::new();
+        table.symbols = self.symbols.split_off(offset);
+        table
+    }
+
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
         self.symbols.get(i as usize).map(|s| s.as_str())
     }
