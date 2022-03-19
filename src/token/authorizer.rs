@@ -102,15 +102,6 @@ impl<'t> Authorizer<'t> {
             self.world.facts.insert(fact);
         }
 
-        let mut revocation_ids = token.revocation_identifiers();
-        let revocation_id_sym = self.symbols.get("revocation_id").unwrap();
-        for (i, id) in revocation_ids.drain(..).enumerate() {
-            self.world.facts.insert(datalog::Fact::new(
-                revocation_id_sym,
-                &[datalog::Term::Integer(i as i64), datalog::Term::Bytes(id)],
-            ));
-        }
-
         for rule in token.authority.rules.iter().cloned() {
             let r = Rule::convert_from(&rule, &token.symbols);
             let rule = r.convert(&mut self.symbols);

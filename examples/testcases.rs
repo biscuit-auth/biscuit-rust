@@ -238,7 +238,14 @@ fn validate_token(
     let mut authorizer_code = String::new();
     for fact in ambient_facts {
         authorizer_code += &format!("{};\n", fact);
-        authorizer.add_fact(fact);
+        authorizer.add_fact(fact).unwrap();
+    }
+
+    let mut revocation_ids = token.revocation_identifiers();
+    for (i, id) in revocation_ids.drain(..).enumerate() {
+        let fact = format!("revocation_id({}, hex:{})", i, hex::encode(id));
+        authorizer_code += &format!("{};\n", fact);
+        authorizer.add_fact(fact.as_str()).unwrap();
     }
 
     if !ambient_rules.is_empty() {
