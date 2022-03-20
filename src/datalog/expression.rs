@@ -349,7 +349,7 @@ mod tests {
 
         let ops1 = vec![
             Op::Value(Term::Integer(-1)),
-            Op::Value(Term::Variable(2)),
+            Op::Value(Term::Variable(1026)),
             Op::Binary(Binary::LessThan),
         ];
 

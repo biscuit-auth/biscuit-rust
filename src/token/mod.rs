@@ -21,36 +21,7 @@ pub const MAX_SCHEMA_VERSION: u32 = 2;
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
 pub fn default_symbol_table() -> SymbolTable {
-    let mut syms = SymbolTable::new();
-    syms.insert("read");
-    syms.insert("write");
-    syms.insert("resource");
-    syms.insert("operation");
-    syms.insert("right");
-    syms.insert("time");
-    syms.insert("role");
-    syms.insert("owner");
-    syms.insert("tenant");
-    syms.insert("namespace");
-    syms.insert("user");
-    syms.insert("team");
-    syms.insert("service");
-    syms.insert("admin");
-    syms.insert("email");
-    syms.insert("group");
-    syms.insert("member");
-    syms.insert("ip_address");
-    syms.insert("client");
-    syms.insert("client_ip");
-    syms.insert("domain");
-    syms.insert("path");
-    syms.insert("version");
-    syms.insert("cluster");
-    syms.insert("node");
-    syms.insert("hostname");
-    syms.insert("nonce");
-
-    syms
+    SymbolTable::new()
 }
 
 /// This structure represents a valid Biscuit token

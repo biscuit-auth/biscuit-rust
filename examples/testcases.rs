@@ -1856,7 +1856,7 @@ fn default_symbols<T: Rng + CryptoRng>(
             role(6);owner(7);tenant(8);namespace(9);user(10);team(11);
             service(12);admin(13);email(14);group(15);member(16);
             ip_address(17);client(18);client_ip(19);domain(20);path(21);
-            version(22);cluster(23);node(24);hostname(25);nonce(26)"#,
+            version(22);cluster(23);node(24);hostname(25);nonce(26);query(27)"#,
         )
         .unwrap();
 
@@ -1878,7 +1878,7 @@ fn default_symbols<T: Rng + CryptoRng>(
         time(5),role(6),owner(7),tenant(8),namespace(9),user(10),team(11),
         service(12),admin(13),email(14),group(15),member(16),ip_address(17),
         client(18),client_ip(19),domain(20),path(21),version(22),cluster(23),
-        node(24),hostname(25),nonce(26)"#
+        node(24),hostname(25),nonce(26),query(27)"#
         .parse()
         .unwrap();
     let mut validations = BTreeMap::new();

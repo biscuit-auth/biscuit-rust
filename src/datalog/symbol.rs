@@ -10,6 +10,39 @@ pub struct SymbolTable {
     symbols: Vec<String>,
 }
 
+const DEFAULT_SYMBOLS: [&str; 28] = [
+    "read",
+    "write",
+    "resource",
+    "operation",
+    "right",
+    "time",
+    "role",
+    "owner",
+    "tenant",
+    "namespace",
+    "user",
+    "team",
+    "service",
+    "admin",
+    "email",
+    "group",
+    "member",
+    "ip_address",
+    "client",
+    "client_ip",
+    "domain",
+    "path",
+    "version",
+    "cluster",
+    "node",
+    "hostname",
+    "nonce",
+    "query",
+];
+
+const OFFSET: usize = 1024;
+
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable { symbols: vec![] }
@@ -25,11 +58,15 @@ impl SymbolTable {
     }
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {
+        if let Some(index) = DEFAULT_SYMBOLS.iter().position(|sym| *sym == s) {
+            return index as u64;
+        }
+
         match self.symbols.iter().position(|sym| sym.as_str() == s) {
-            Some(index) => index as u64,
+            Some(index) => (OFFSET + index) as u64,
             None => {
                 self.symbols.push(s.to_string());
-                (self.symbols.len() - 1) as u64
+                (OFFSET + (self.symbols.len() - 1)) as u64
             }
         }
     }
@@ -40,10 +77,14 @@ impl SymbolTable {
     }
 
     pub fn get(&self, s: &str) -> Option<SymbolIndex> {
+        if let Some(index) = DEFAULT_SYMBOLS.iter().position(|sym| *sym == s) {
+            return Some(index as u64);
+        }
+
         self.symbols
             .iter()
             .position(|sym| sym.as_str() == s)
-            .map(|i| i as SymbolIndex)
+            .map(|i| (OFFSET + i) as SymbolIndex)
     }
 
     pub fn strings(&self) -> Vec<String> {
@@ -68,12 +109,15 @@ impl SymbolTable {
     }
 
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
-        self.symbols.get(i as usize).map(|s| s.as_str())
+        if i >= 1024 {
+            self.symbols.get((i - 1024) as usize).map(|s| s.as_str())
+        } else {
+            DEFAULT_SYMBOLS.get(i as usize).map(|s| *s)
+        }
     }
 
     pub fn print_symbol(&self, i: SymbolIndex) -> String {
-        self.symbols
-            .get(i as usize)
+        self.get_symbol(i)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("<{}?>", i))
     }
@@ -130,10 +174,7 @@ impl SymbolTable {
             .collect::<Vec<_>>();
         format!(
             "{}({})",
-            self.symbols
-                .get(p.name as usize)
-                .map(|s| s.as_str())
-                .unwrap_or("<?>"),
+            self.get_symbol(p.name).unwrap_or("<?>"),
             strings.join(", ")
         )
     }
