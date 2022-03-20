@@ -28,7 +28,7 @@ pub fn default_symbol_table() -> SymbolTable {
     syms.insert("operation");
     syms.insert("right");
     syms.insert("time");
-    syms.insert("rule");
+    syms.insert("role");
     syms.insert("owner");
     syms.insert("tenant");
     syms.insert("namespace");
