@@ -1,16 +1,27 @@
 //! Symbol table implementation
+use std::collections::HashSet;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+
 pub type SymbolIndex = u64;
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
-    pub symbols: Vec<String>,
+    symbols: Vec<String>,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
-        SymbolTable::default()
+        SymbolTable { symbols: vec![] }
+    }
+
+    //FIXME: should check if symbols are already in default
+    pub fn from(symbols: Vec<String>) -> Self {
+        SymbolTable { symbols }
+    }
+
+    pub fn extend(&mut self, other: &SymbolTable) {
+        self.symbols.extend(other.symbols.iter().cloned());
     }
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {
@@ -35,6 +46,10 @@ impl SymbolTable {
             .map(|i| i as SymbolIndex)
     }
 
+    pub fn strings(&self) -> Vec<String> {
+        self.symbols.clone()
+    }
+
     pub fn current_offset(&self) -> usize {
         self.symbols.len()
     }
@@ -43,6 +58,13 @@ impl SymbolTable {
         let mut table = SymbolTable::new();
         table.symbols = self.symbols.split_off(offset);
         table
+    }
+
+    pub fn is_disjoint(&self, other: &SymbolTable) -> bool {
+        let h1 = self.symbols.iter().collect::<HashSet<_>>();
+        let h2 = other.symbols.iter().collect::<HashSet<_>>();
+
+        h1.is_disjoint(&h2)
     }
 
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {

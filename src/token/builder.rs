@@ -253,7 +253,7 @@ impl<'a> BiscuitBuilder<'a> {
         BiscuitBuilder {
             root_key_id: None,
             root,
-            symbols_start: base_symbols.symbols.len(),
+            symbols_start: base_symbols.current_offset(),
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
