@@ -1838,7 +1838,7 @@ fn execution_scope<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "execution scope".to_string();
-    let filename = "test22_execution_scope.bc".to_string();
+    let filename = "test23_execution_scope.bc".to_string();
     let token;
 
     let mut builder = Biscuit::builder(&root);
@@ -1864,13 +1864,13 @@ fn execution_scope<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit3);
 
     let data = if test {
-        let v = load_testcase(target, "test22_execution_scope");
+        let v = load_testcase(target, "test23_execution_scope");
         let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
         print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
         let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, "test7_scoped_rules", &data[..]);
+        write_testcase(target, "test23_execution_scope", &data[..]);
 
         data
     };
