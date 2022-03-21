@@ -268,9 +268,10 @@ mod tests {
 
     #[test]
     fn negate() {
-        let symbols = SymbolTable {
-            symbols: vec!["test1".to_string(), "test2".to_string(), "var1".to_string()],
-        };
+        let mut symbols = SymbolTable::new();
+        symbols.insert("test1");
+        symbols.insert("test2");
+        symbols.insert("var1");
 
         let ops = vec![
             Op::Value(Term::Integer(1)),
@@ -341,13 +342,14 @@ mod tests {
 
     #[test]
     fn printer() {
-        let symbols = SymbolTable {
-            symbols: vec!["test1".to_string(), "test2".to_string(), "var1".to_string()],
-        };
+        let mut symbols = SymbolTable::new();
+        symbols.insert("test1");
+        symbols.insert("test2");
+        symbols.insert("var1");
 
         let ops1 = vec![
             Op::Value(Term::Integer(-1)),
-            Op::Value(Term::Variable(2)),
+            Op::Value(Term::Variable(1026)),
             Op::Binary(Binary::LessThan),
         ];
 

@@ -7,7 +7,7 @@ use crate::token::{authorizer::AuthorizerPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {
-        symbols: input.symbols.symbols.clone(),
+        symbols: input.symbols.strings(),
         context: input.context.clone(),
         version: Some(input.version),
         facts_v2: input
@@ -56,10 +56,10 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
 
     let context = input.context.clone();
 
+    let symbols = SymbolTable::from(input.symbols.clone());
+
     Ok(Block {
-        symbols: SymbolTable {
-            symbols: input.symbols.clone(),
-        },
+        symbols,
         facts,
         rules,
         checks,
@@ -77,7 +77,7 @@ pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::Aut
         .collect();
 
     schema::AuthorizerPolicies {
-        symbols: symbols.symbols,
+        symbols: symbols.strings(),
         version: Some(input.version),
         facts: input
             .facts
@@ -109,9 +109,7 @@ pub fn proto_authorizer_to_authorizer(
         });
     }
 
-    let symbols = SymbolTable {
-        symbols: input.symbols.clone(),
-    };
+    let symbols = SymbolTable::from(input.symbols.clone());
 
     let mut facts = vec![];
     let mut rules = vec![];

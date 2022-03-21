@@ -117,7 +117,7 @@ impl BlockBuilder {
     }
 
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
-        let symbols_start = symbols.symbols.len();
+        let symbols_start = symbols.current_offset();
 
         let mut facts = Vec::new();
         for fact in self.facts {
@@ -133,9 +133,7 @@ impl BlockBuilder {
         for check in self.checks {
             checks.push(check.convert(&mut symbols));
         }
-        let new_syms = SymbolTable {
-            symbols: symbols.symbols.split_off(symbols_start),
-        };
+        let new_syms = symbols.split_at(symbols_start);
 
         Block {
             symbols: new_syms,
@@ -255,7 +253,7 @@ impl<'a> BiscuitBuilder<'a> {
         BiscuitBuilder {
             root_key_id: None,
             root,
-            symbols_start: base_symbols.symbols.len(),
+            symbols_start: base_symbols.current_offset(),
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
@@ -343,9 +341,7 @@ impl<'a> BiscuitBuilder<'a> {
         mut self,
         rng: &'a mut R,
     ) -> Result<Biscuit, error::Token> {
-        let new_syms = SymbolTable {
-            symbols: self.symbols.symbols.split_off(self.symbols_start),
-        };
+        let new_syms = self.symbols.split_at(self.symbols_start);
 
         let authority_block = Block {
             symbols: new_syms,

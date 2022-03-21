@@ -21,16 +21,7 @@ pub const MAX_SCHEMA_VERSION: u32 = 2;
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
 pub fn default_symbol_table() -> SymbolTable {
-    let mut syms = SymbolTable::new();
-    syms.insert("read");
-    syms.insert("write");
-    syms.insert("resource");
-    syms.insert("operation");
-    syms.insert("right");
-    syms.insert("time");
-    syms.insert("revocation_id");
-
-    syms
+    SymbolTable::new()
 }
 
 /// This structure represents a valid Biscuit token
@@ -205,7 +196,7 @@ impl Biscuit {
 
         format!(
             "Biscuit {{\n    symbols: {:?}\n    authority: {}\n    blocks: [\n        {}\n    ]\n}}",
-            self.symbols.symbols,
+            self.symbols.strings(),
             authority,
             blocks.join(",\n\t")
         )
@@ -240,16 +231,11 @@ impl Biscuit {
         mut symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
-        let h1 = symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = authority.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
+        if !symbols.is_disjoint(&authority.symbols) {
             return Err(error::Token::SymbolTableOverlap);
         }
 
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
+        symbols.extend(&authority.symbols);
 
         let blocks = vec![];
 
@@ -307,14 +293,10 @@ impl Biscuit {
             blocks.push(deser);
         }
 
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
+        symbols.extend(&authority.symbols);
 
         for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
+            symbols.extend(&block.symbols);
         }
 
         let root_key_id = container.root_key_id;
@@ -363,10 +345,7 @@ impl Biscuit {
 
         let block = block_builder.build(self.symbols.clone());
 
-        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
+        if !self.symbols.is_disjoint(&block.symbols) {
             return Err(error::Token::SymbolTableOverlap);
         }
 
@@ -379,9 +358,7 @@ impl Biscuit {
             Some(c) => c.append(keypair, &block)?,
         };
 
-        symbols
-            .symbols
-            .extend(block.symbols.symbols.iter().cloned());
+        symbols.extend(&block.symbols);
         blocks.push(block);
 
         Ok(Biscuit {
@@ -404,7 +381,7 @@ impl Biscuit {
             }
         };
 
-        Some(block.symbols.symbols.clone())
+        Some(block.symbols.strings())
     }
 
     /// returns the number of blocks (at least 1)
@@ -449,7 +426,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
 
     format!(
         "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
-        block.symbols.symbols,
+        block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
         facts,

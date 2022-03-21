@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::{default_symbol_table, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
@@ -115,14 +113,10 @@ impl UnverifiedBiscuit {
             blocks.push(deser);
         }
 
-        symbols
-            .symbols
-            .extend(authority.symbols.symbols.iter().cloned());
+        symbols.extend(&authority.symbols);
 
         for block in blocks.iter() {
-            symbols
-                .symbols
-                .extend(block.symbols.symbols.iter().cloned());
+            symbols.extend(&block.symbols);
         }
 
         Ok(UnverifiedBiscuit {
@@ -153,10 +147,7 @@ impl UnverifiedBiscuit {
     ) -> Result<Self, error::Token> {
         let block = block_builder.build(self.symbols.clone());
 
-        let h1 = self.symbols.symbols.iter().collect::<HashSet<_>>();
-        let h2 = block.symbols.symbols.iter().collect::<HashSet<_>>();
-
-        if !h1.is_disjoint(&h2) {
+        if !self.symbols.is_disjoint(&block.symbols) {
             return Err(error::Token::SymbolTableOverlap);
         }
 
@@ -166,9 +157,7 @@ impl UnverifiedBiscuit {
 
         let container = self.container.append(keypair, &block)?;
 
-        symbols
-            .symbols
-            .extend(block.symbols.symbols.iter().cloned());
+        symbols.extend(&block.symbols);
         blocks.push(block);
 
         Ok(UnverifiedBiscuit {

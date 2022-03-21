@@ -97,6 +97,8 @@ fn main() {
 
     results.push(parsing(&mut rng, &target, &root, test));
 
+    results.push(default_symbols(&mut rng, &target, &root, test));
+
     results.push(execution_scope(&mut rng, &target, &root, test));
 
     if json {
@@ -240,7 +242,14 @@ fn validate_token(
     let mut authorizer_code = String::new();
     for fact in ambient_facts {
         authorizer_code += &format!("{};\n", fact);
-        authorizer.add_fact(fact);
+        authorizer.add_fact(fact).unwrap();
+    }
+
+    let mut revocation_ids = token.revocation_identifiers();
+    for (i, id) in revocation_ids.drain(..).enumerate() {
+        let fact = format!("revocation_id({}, hex:{})", i, hex::encode(id));
+        authorizer_code += &format!("{};\n", fact);
+        authorizer.add_fact(fact.as_str()).unwrap();
     }
 
     if !ambient_rules.is_empty() {
@@ -1821,6 +1830,63 @@ fn parsing<T: Rng + CryptoRng>(
                 &[pred("ns::fact_123", &[string("hello é\t😁")])],
             )]],
         ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn default_symbols<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "default_symbols".to_string();
+    let filename = "test22_default_symbols.bc".to_string();
+    let token;
+
+    let mut builder = Biscuit::builder(&root);
+
+    builder
+        .add_code(
+            r#"read(0);write(1);resource(2);operation(3);right(4);time(5);
+            role(6);owner(7);tenant(8);namespace(9);user(10);team(11);
+            service(12);admin(13);email(14);group(15);member(16);
+            ip_address(17);client(18);client_ip(19);domain(20);path(21);
+            version(22);cluster(23);node(24);hostname(25);nonce(26);query(27)"#,
+        )
+        .unwrap();
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    token = print_blocks(&biscuit1);
+
+    let data = if test {
+        let v = load_testcase(target, "test22_default_symbols");
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test22_default_symbols", &data[..]);
+        data
+    };
+
+    let check: Check = r#"check if read(0),write(1),resource(2),operation(3),right(4),
+        time(5),role(6),owner(7),tenant(8),namespace(9),user(10),team(11),
+        service(12),admin(13),email(14),group(15),member(16),ip_address(17),
+        client(18),client_ip(19),domain(20),path(21),version(22),cluster(23),
+        node(24),hostname(25),nonce(26),query(27)"#
+        .parse()
+        .unwrap();
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], vec![], vec![], vec![check.queries]),
     );
 
     TestResult {
