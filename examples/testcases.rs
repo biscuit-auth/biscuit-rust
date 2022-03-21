@@ -258,7 +258,7 @@ fn validate_token(
 
     for rule in ambient_rules {
         authorizer_code += &format!("{};\n", rule);
-        authorizer.add_rule(rule);
+        authorizer.add_rule(rule).unwrap();
     }
 
     if !checks.is_empty() {
@@ -266,7 +266,7 @@ fn validate_token(
     }
 
     for check in checks {
-        authorizer.add_check(&check[..]);
+        authorizer.add_check(&check[..]).unwrap();
         let c: Check = (&check[..]).try_into().unwrap();
         authorizer_code += &format!("{};\n", c);
     }
@@ -322,23 +322,31 @@ fn basic_token<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -392,21 +400,25 @@ fn different_root_key<T: Rng + CryptoRng>(
     let root2 = KeyPair::new_with_rng(rng);
     let mut builder = Biscuit::builder(&root2);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -453,23 +465,31 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -520,23 +540,31 @@ fn random_block<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -590,23 +618,31 @@ fn invalid_signature<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -659,34 +695,44 @@ fn reordered_blocks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
-    block3.add_check(rule(
-        "check2",
-        &[var("0")],
-        &[pred("resource", &[string("file1")])],
-    ));
+    block3
+        .add_check(rule(
+            "check2",
+            &[var("0")],
+            &[pred("resource", &[string("file1")])],
+        ))
+        .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -739,38 +785,48 @@ fn scoped_rules<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("user_id", &[string("alice")]));
-    builder.add_authority_fact(fact("owner", &[string("alice"), string("file1")]));
+    builder
+        .add_authority_fact(fact("user_id", &[string("alice")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("owner", &[string("alice"), string("file1")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_rule(rule(
-        "right",
-        &[var("0"), s("read")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("user_id", &[var("1")]),
-            pred("owner", &[var("1"), var("0")]),
-        ],
-    ));
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_rule(rule(
+            "right",
+            &[var("0"), s("read")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("user_id", &[var("1")]),
+                pred("owner", &[var("1"), var("0")]),
+            ],
+        ))
+        .unwrap();
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
-    block3.add_fact(fact("owner", &[string("alice"), string("file2")]));
+    block3
+        .add_fact(fact("owner", &[string("alice"), string("file2")]))
+        .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -823,28 +879,34 @@ fn scoped_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
     let mut block3 = biscuit2.create_block();
 
-    block3.add_fact(fact("right", &[string("file2"), s("read")]));
+    block3
+        .add_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -900,11 +962,13 @@ fn expired_token<T: Rng + CryptoRng>(
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[string("file1")],
-        &[pred("resource", &[string("file1")])],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[string("file1")],
+            &[pred("resource", &[string("file1")])],
+        ))
+        .unwrap();
     // January 1 2019
     block2.expiration_date(
         UNIX_EPOCH
@@ -971,13 +1035,17 @@ fn authorizer_scope<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_fact(fact("right", &[string("file2"), s("read")]));
+    block2
+        .add_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1037,7 +1105,9 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
@@ -1096,11 +1166,13 @@ fn authority_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_check(rule(
-        "check1",
-        &[string("file1")],
-        &[pred("resource", &[string("file1")])],
-    ));
+    builder
+        .add_authority_check(rule(
+            "check1",
+            &[string("file1")],
+            &[pred("resource", &[string("file1")])],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
@@ -1164,8 +1236,12 @@ fn block_rules<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1175,21 +1251,23 @@ fn block_rules<T: Rng + CryptoRng>(
     let date1 = SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399);
 
     // generate valid_date("file1") if before date1
-    block2.add_rule(constrained_rule(
-        "valid_date",
-        &[string("file1")],
-        &[
-            pred("time", &[variable("0")]),
-            pred("resource", &[string("file1")]),
-        ],
-        &[Expression {
-            ops: vec![
-                Op::Value(var("0")),
-                Op::Value(date(&date1)),
-                Op::Binary(Binary::LessOrEqual),
+    block2
+        .add_rule(constrained_rule(
+            "valid_date",
+            &[string("file1")],
+            &[
+                pred("time", &[variable("0")]),
+                pred("resource", &[string("file1")]),
             ],
-        }],
-    ));
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("0")),
+                    Op::Value(date(&date1)),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
+            }],
+        ))
+        .unwrap();
 
     // timestamp for Friday, December 31, 1999 12:59:59 PM UTC
     let date2 = SystemTime::UNIX_EPOCH + Duration::from_secs(946645199);
@@ -1198,40 +1276,44 @@ fn block_rules<T: Rng + CryptoRng>(
     strings.insert(string("file1"));
 
     // generate a valid date fact for any file other than "file1" if before date2
-    block2.add_rule(constrained_rule(
-        "valid_date",
-        &[variable("1")],
-        &[
-            pred("time", &[variable("0")]),
-            pred("resource", &[variable("1")]),
-        ],
-        &[
-            Expression {
-                ops: vec![
-                    Op::Value(var("0")),
-                    Op::Value(date(&date2)),
-                    Op::Binary(Binary::LessOrEqual),
-                ],
-            },
-            Expression {
-                ops: vec![
-                    Op::Value(set(strings)),
-                    Op::Value(var("1")),
-                    Op::Binary(Binary::Contains),
-                    Op::Unary(Unary::Negate),
-                ],
-            },
-        ],
-    ));
+    block2
+        .add_rule(constrained_rule(
+            "valid_date",
+            &[variable("1")],
+            &[
+                pred("time", &[variable("0")]),
+                pred("resource", &[variable("1")]),
+            ],
+            &[
+                Expression {
+                    ops: vec![
+                        Op::Value(var("0")),
+                        Op::Value(date(&date2)),
+                        Op::Binary(Binary::LessOrEqual),
+                    ],
+                },
+                Expression {
+                    ops: vec![
+                        Op::Value(set(strings)),
+                        Op::Value(var("1")),
+                        Op::Binary(Binary::Contains),
+                        Op::Unary(Unary::Negate),
+                    ],
+                },
+            ],
+        ))
+        .unwrap();
 
-    block2.add_check(rule(
-        "check1",
-        &[variable("0")],
-        &[
-            pred("valid_date", &[variable("0")]),
-            pred("resource", &[var("0")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[variable("0")],
+            &[
+                pred("valid_date", &[variable("0")]),
+                pred("resource", &[var("0")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1312,18 +1394,20 @@ fn regex_constraint<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_check(constrained_rule(
-        "resource_match",
-        &[variable("0")],
-        &[pred("resource", &[variable("0")])],
-        &[Expression {
-            ops: vec![
-                Op::Value(var("0")),
-                Op::Value(string("file[0-9]+.txt")),
-                Op::Binary(Binary::Regex),
-            ],
-        }],
-    ));
+    builder
+        .add_authority_check(constrained_rule(
+            "resource_match",
+            &[variable("0")],
+            &[pred("resource", &[variable("0")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("file[0-9]+.txt")),
+                    Op::Binary(Binary::Regex),
+                ],
+            }],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
@@ -1381,11 +1465,13 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact(
-        "must_be_present",
-        &[string("hello")],
-        //&[string("hello")],
-    ));
+    builder
+        .add_authority_fact(fact(
+            "must_be_present",
+            &[string("hello")],
+            //&[string("hello")],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
@@ -1444,11 +1530,13 @@ fn check_head_name<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_check(rule(
-        "check1",
-        &[s("test")],
-        &[pred("resource", &[s("hello")])],
-    ));
+    builder
+        .add_authority_check(rule(
+            "check1",
+            &[s("test")],
+            &[pred("resource", &[s("hello")])],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1498,66 +1586,106 @@ fn expressions<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     //boolean true
-    builder.add_authority_check("check if true");
+    builder.add_authority_check("check if true").unwrap();
     //boolean false and negation
-    builder.add_authority_check("check if !false");
+    builder.add_authority_check("check if !false").unwrap();
     //boolean and
-    builder.add_authority_check("check if !false and true");
+    builder
+        .add_authority_check("check if !false && true")
+        .unwrap();
     //boolean or
-    builder.add_authority_check("check if false or true");
+    builder
+        .add_authority_check("check if false or true")
+        .unwrap();
     //boolean parens
-    builder.add_authority_check("check if (true or false) and true");
+    builder
+        .add_authority_check("check if (true || false) && true")
+        .unwrap();
 
     //integer less than
-    builder.add_authority_check("check if 1 < 2");
+    builder.add_authority_check("check if 1 < 2").unwrap();
     //integer greater than
-    builder.add_authority_check("check if 2 > 1");
+    builder.add_authority_check("check if 2 > 1").unwrap();
     //integer less or equal
-    builder.add_authority_check("check if 1 <= 2");
-    builder.add_authority_check("check if 1 <= 1");
+    builder.add_authority_check("check if 1 <= 2").unwrap();
+    builder.add_authority_check("check if 1 <= 1").unwrap();
     //integer greater or equal
-    builder.add_authority_check("check if 2 >= 1");
-    builder.add_authority_check("check if 2 >= 2");
+    builder.add_authority_check("check if 2 >= 1").unwrap();
+    builder.add_authority_check("check if 2 >= 2").unwrap();
     //integer equal
-    builder.add_authority_check("check if 3 == 3");
+    builder.add_authority_check("check if 3 == 3").unwrap();
     //integer add sub mul div
-    builder.add_authority_check("check if 1 + 2 * 3 - 4 /2 == 5");
+    builder
+        .add_authority_check("check if 1 + 2 * 3 - 4 /2 == 5")
+        .unwrap();
 
     // string prefix and suffix
     builder.add_authority_check(
         "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
-    );
+    ).unwrap();
     // string regex
-    builder.add_authority_check("check if \"aaabde\".matches(\"a*c?.e\")");
+    builder
+        .add_authority_check("check if \"aaabde\".matches(\"a*c?.e\")")
+        .unwrap();
     // string contains
-    builder.add_authority_check("check if \"aaabde\".contains(\"abd\")");
+    builder
+        .add_authority_check("check if \"aaabde\".contains(\"abd\")")
+        .unwrap();
     // string concatenation
-    builder.add_authority_check("check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"");
+    builder
+        .add_authority_check("check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"")
+        .unwrap();
     // string equal
-    builder.add_authority_check("check if \"abcD12\" == \"abcD12\"");
+    builder
+        .add_authority_check("check if \"abcD12\" == \"abcD12\"")
+        .unwrap();
 
     //date less than
-    builder.add_authority_check("check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00");
+    builder
+        .add_authority_check("check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00")
+        .unwrap();
     //date greater than
-    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 > 2019-12-04T09:46:41+00:00");
+    builder
+        .add_authority_check("check if 2020-12-04T09:46:41+00:00 > 2019-12-04T09:46:41+00:00")
+        .unwrap();
     //date less or equal
-    builder.add_authority_check("check if 2019-12-04T09:46:41+00:00 <= 2020-12-04T09:46:41+00:00");
-    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00");
+    builder
+        .add_authority_check("check if 2019-12-04T09:46:41+00:00 <= 2020-12-04T09:46:41+00:00")
+        .unwrap();
+    builder
+        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
+        .unwrap();
     //date greater or equal
-    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00");
-    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00");
+    builder
+        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00")
+        .unwrap();
+    builder
+        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
+        .unwrap();
     //date equal
-    builder.add_authority_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00");
+    builder
+        .add_authority_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00")
+        .unwrap();
 
     //bytes equal
-    builder.add_authority_check("check if hex:12ab == hex:12ab");
+    builder
+        .add_authority_check("check if hex:12ab == hex:12ab")
+        .unwrap();
 
     // set contains
-    builder.add_authority_check("check if [1, 2].contains(2)");
-    builder.add_authority_check("check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00)");
-    builder.add_authority_check("check if [true, false, true].contains(true)");
-    builder.add_authority_check("check if [\"abc\", \"def\"].contains(\"abc\")");
-    builder.add_authority_check("check if [hex:12ab, hex:34de].contains(hex:34de)");
+    builder
+        .add_authority_check("check if [1, 2].contains(2)")
+        .unwrap();
+    builder.add_authority_check("check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00)").unwrap();
+    builder
+        .add_authority_check("check if [true, false, true].contains(true)")
+        .unwrap();
+    builder
+        .add_authority_check("check if [\"abc\", \"def\"].contains(\"abc\")")
+        .unwrap();
+    builder
+        .add_authority_check("check if [hex:12ab, hex:34de].contains(hex:34de)")
+        .unwrap();
 
     let biscuit = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit);
@@ -1598,11 +1726,13 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_check(rule(
-        "check1",
-        &[s("test")],
-        &[pred("operation", &[s("read")])],
-    ));
+    builder
+        .add_authority_check(rule(
+            "check1",
+            &[s("test")],
+            &[pred("operation", &[s("read")])],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1662,11 +1792,13 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_check(rule(
-        "check1",
-        &[s("test")],
-        &[pred("operation", &[s("read")])],
-    ));
+    builder
+        .add_authority_check(rule(
+            "check1",
+            &[s("test")],
+            &[pred("operation", &[s("read")])],
+        ))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
@@ -1730,23 +1862,31 @@ fn sealed_token<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .unwrap();
+    builder
+        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
     let mut block2 = biscuit1.create_block();
 
-    block2.add_check(rule(
-        "check1",
-        &[var("0")],
-        &[
-            pred("resource", &[var("0")]),
-            pred("operation", &[s("read")]),
-            pred("right", &[var("0"), s("read")]),
-        ],
-    ));
+    block2
+        .add_check(rule(
+            "check1",
+            &[var("0")],
+            &[
+                pred("resource", &[var("0")]),
+                pred("operation", &[s("read")]),
+                pred("right", &[var("0"), s("read")]),
+            ],
+        ))
+        .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
