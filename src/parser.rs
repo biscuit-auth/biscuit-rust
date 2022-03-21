@@ -1574,7 +1574,7 @@ mod tests {
 
     #[test]
     fn parens() {
-        use crate::datalog::SymbolTable;
+        use crate::datalog::{SymbolTable, TemporarySymbolTable};
         use builder::{int, Binary, Op, Unary};
         use std::collections::HashMap;
 
@@ -1591,7 +1591,9 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h, &syms).unwrap();
+        let result = e
+            .evaluate(&h, &mut TemporarySymbolTable::new(&syms))
+            .unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(
@@ -1618,7 +1620,9 @@ mod tests {
         let printed = e.print(&syms).unwrap();
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
-        let result = e.evaluate(&h, &syms).unwrap();
+        let result = e
+            .evaluate(&h, &mut TemporarySymbolTable::new(&syms))
+            .unwrap();
         println!("evaluates to: {:?}", result);
 
         assert_eq!(

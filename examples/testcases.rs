@@ -1529,6 +1529,10 @@ fn expressions<T: Rng + CryptoRng>(
     );
     // string regex
     builder.add_authority_check("check if \"aaabde\".matches(\"a*c?.e\")");
+    // string contains
+    builder.add_authority_check("check if \"aaabde\".contains(\"abd\")");
+    // string concatenation
+    builder.add_authority_check("check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"");
     // string equal
     builder.add_authority_check("check if \"abcD12\" == \"abcD12\"");
 

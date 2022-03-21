@@ -204,8 +204,9 @@ impl<'a> Iterator for CombineIt<'a> {
                 Some(variables) => {
                     //println!("predicates empty, will test variables: {:?}", variables);
                     let mut valid = true;
+                    let mut temporary_symbols = TemporarySymbolTable::new(&self.symbols);
                     for e in self.expressions.iter() {
-                        match e.evaluate(&variables, self.symbols) {
+                        match e.evaluate(&variables, &mut temporary_symbols) {
                             Some(Term::Bool(true)) => {}
                             _res => {
                                 //println!("expr returned {:?}", res);
@@ -261,8 +262,10 @@ impl<'a> Iterator for CombineIt<'a> {
                                 Some(variables) => {
                                     //println!("will test with variables: {:?}", variables);
                                     let mut valid = true;
+                                    let mut temporary_symbols =
+                                        TemporarySymbolTable::new(&self.symbols);
                                     for e in self.expressions.iter() {
-                                        match e.evaluate(&variables, self.symbols) {
+                                        match e.evaluate(&variables, &mut temporary_symbols) {
                                             Some(Term::Bool(true)) => {
                                                 //println!("expression returned true");
                                             }

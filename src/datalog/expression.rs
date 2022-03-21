@@ -1,5 +1,5 @@
-use super::SymbolTable;
 use super::Term;
+use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -23,7 +23,7 @@ pub enum Unary {
 }
 
 impl Unary {
-    fn evaluate(&self, value: Term, symbols: &SymbolTable) -> Option<Term> {
+    fn evaluate(&self, value: Term, symbols: &TemporarySymbolTable) -> Option<Term> {
         match (self, value) {
             (Unary::Negate, Term::Bool(b)) => Some(Term::Bool(!b)),
             (Unary::Parens, i) => Some(i),
@@ -70,7 +70,12 @@ pub enum Binary {
 }
 
 impl Binary {
-    fn evaluate(&self, left: Term, right: Term, symbols: &SymbolTable) -> Option<Term> {
+    fn evaluate(
+        &self,
+        left: Term,
+        right: Term,
+        symbols: &mut TemporarySymbolTable,
+    ) -> Option<Term> {
         match (self, left, right) {
             // integer
             (Binary::LessThan, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i < j)),
@@ -111,6 +116,22 @@ impl Binary {
                     (Some(s), Some(r)) => Some(Term::Bool(
                         Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
                     )),
+                    _ => None,
+                }
+            }
+            (Binary::Contains, Term::Str(s), Term::Str(pattern)) => {
+                match (symbols.get_symbol(s), symbols.get_symbol(pattern)) {
+                    (Some(s), Some(pattern)) => Some(Term::Bool(s.contains(pattern))),
+                    _ => None,
+                }
+            }
+            (Binary::Add, Term::Str(s1), Term::Str(s2)) => {
+                match (symbols.get_symbol(s1), symbols.get_symbol(s2)) {
+                    (Some(s1), Some(s2)) => {
+                        let s = format!("{}{}", s1, s2);
+                        let sym = symbols.insert(&s);
+                        Some(Term::Str(sym))
+                    }
                     _ => None,
                 }
             }
@@ -189,7 +210,11 @@ impl Binary {
 }
 
 impl Expression {
-    pub fn evaluate(&self, values: &HashMap<u32, Term>, symbols: &SymbolTable) -> Option<Term> {
+    pub fn evaluate(
+        &self,
+        values: &HashMap<u32, Term>,
+        symbols: &mut TemporarySymbolTable,
+    ) -> Option<Term> {
         let mut stack: Vec<Term> = Vec::new();
 
         for op in self.ops.iter() {
@@ -264,7 +289,7 @@ impl Expression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datalog::SymbolTable;
+    use crate::datalog::{SymbolTable, TemporarySymbolTable};
 
     #[test]
     fn negate() {
@@ -272,6 +297,7 @@ mod tests {
         symbols.insert("test1");
         symbols.insert("test2");
         symbols.insert("var1");
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
 
         let ops = vec![
             Op::Value(Term::Integer(1)),
@@ -288,13 +314,14 @@ mod tests {
         let e = Expression { ops };
         println!("print: {}", e.print(&symbols).unwrap());
 
-        let res = e.evaluate(&values, &symbols);
+        let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Some(Term::Bool(true)));
     }
 
     #[test]
     fn checked() {
         let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
         let ops = vec![
             Op::Value(Term::Integer(1)),
             Op::Value(Term::Integer(0)),
@@ -303,7 +330,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values, &symbols);
+        let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -314,7 +341,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values, &symbols);
+        let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -325,7 +352,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values, &symbols);
+        let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, None);
 
         let ops = vec![
@@ -336,7 +363,7 @@ mod tests {
 
         let values = HashMap::new();
         let e = Expression { ops };
-        let res = e.evaluate(&values, &symbols);
+        let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, None);
     }
 

@@ -220,3 +220,46 @@ impl SymbolTable {
         format!("check if {}", queries.join(" or "))
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TemporarySymbolTable<'a> {
+    base: &'a SymbolTable,
+    offset: usize,
+    symbols: Vec<String>,
+}
+
+impl<'a> TemporarySymbolTable<'a> {
+    pub fn new(base: &'a SymbolTable) -> Self {
+        let offset = OFFSET + base.current_offset();
+
+        TemporarySymbolTable {
+            base,
+            offset,
+            symbols: vec![],
+        }
+    }
+
+    pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
+        if i as usize >= self.offset {
+            self.symbols
+                .get(i as usize - self.offset)
+                .map(|s| s.as_str())
+        } else {
+            self.base.get_symbol(i)
+        }
+    }
+
+    pub fn insert(&mut self, s: &str) -> SymbolIndex {
+        if let Some(index) = self.base.get(s) {
+            return index as u64;
+        }
+
+        match self.symbols.iter().position(|sym| sym.as_str() == s) {
+            Some(index) => (self.offset + index) as u64,
+            None => {
+                self.symbols.push(s.to_string());
+                (self.offset + (self.symbols.len() - 1)) as u64
+            }
+        }
+    }
+}
