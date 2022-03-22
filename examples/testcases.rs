@@ -151,6 +151,7 @@ struct Validation {
     world: Option<AuthorizerWorld>,
     result: AuthorizerResult,
     authorizer_code: String,
+    revocation_ids: Vec<String>,
 }
 
 impl TestResult {
@@ -224,9 +225,16 @@ fn validate_token(
                 world: None,
                 authorizer_code: String::new(),
                 result: AuthorizerResult::Err(e),
+                revocation_ids: vec![],
             }
         }
     };
+
+    let mut revocation_ids = vec![];
+
+    for bytes in token.revocation_identifiers() {
+        revocation_ids.push(hex::encode(&bytes));
+    }
 
     let mut authorizer = match token.authorizer() {
         Ok(v) => v,
@@ -235,6 +243,7 @@ fn validate_token(
                 world: None,
                 authorizer_code: String::new(),
                 result: AuthorizerResult::Err(e),
+                revocation_ids,
             }
         }
     };
@@ -243,13 +252,6 @@ fn validate_token(
     for fact in ambient_facts {
         authorizer_code += &format!("{};\n", fact);
         authorizer.add_fact(fact).unwrap();
-    }
-
-    let mut revocation_ids = token.revocation_identifiers();
-    for (i, id) in revocation_ids.drain(..).enumerate() {
-        let fact = format!("revocation_id({}, hex:{})", i, hex::encode(id));
-        authorizer_code += &format!("{};\n", fact);
-        authorizer.add_fact(fact.as_str()).unwrap();
     }
 
     if !ambient_rules.is_empty() {
@@ -289,6 +291,7 @@ fn validate_token(
             Err(e) => AuthorizerResult::Err(e),
         },
         authorizer_code,
+        revocation_ids,
     }
 }
 
@@ -445,6 +448,7 @@ fn different_root_key<T: Rng + CryptoRng>(
             vec![],
         ),
     );
+
     TestResult {
         title,
         filename,
