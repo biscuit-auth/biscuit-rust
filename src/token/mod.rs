@@ -218,7 +218,7 @@ impl Biscuit {
     }
 
     /// create the first block's builder, sing a provided symbol table
-    pub fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
+    fn builder_with_symbols(root: &KeyPair, symbols: SymbolTable) -> BiscuitBuilder {
         BiscuitBuilder::new(root, symbols)
     }
 
@@ -253,11 +253,7 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_with_symbols<F>(
-        slice: &[u8],
-        f: F,
-        symbols: SymbolTable,
-    ) -> Result<Self, error::Token>
+    fn from_with_symbols<F>(slice: &[u8], f: F, symbols: SymbolTable) -> Result<Self, error::Token>
     where
         F: Fn(Option<u32>) -> PublicKey,
     {
@@ -313,7 +309,7 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    pub fn from_base64_with_symbols<T, F>(
+    fn from_base64_with_symbols<T, F>(
         slice: T,
         f: F,
         symbols: SymbolTable,
@@ -455,20 +451,6 @@ pub struct Block {
 }
 
 impl Block {
-    /// creates a new block
-    ///
-    /// blocks should be created through the BlockBuilder interface instead, to avoid mistakes
-    pub fn new(base_symbols: SymbolTable) -> Block {
-        Block {
-            symbols: base_symbols,
-            facts: vec![],
-            rules: vec![],
-            checks: vec![],
-            context: None,
-            version: MAX_SCHEMA_VERSION,
-        }
-    }
-
     pub fn symbol_add(&mut self, s: &str) -> Term {
         self.symbols.add(s)
     }
