@@ -113,7 +113,6 @@ failed checks (2):
 authorizer world:
 World {
   facts: [
-    "hello(\"world\")",
     "right(\"file1\", \"read\")",
 ]
   rules: []
@@ -126,7 +125,8 @@ World {
 }
 serialized size: 322
 wrote 322 bytes
-"#);
+"#,
+        );
     }
 
     #[test]
