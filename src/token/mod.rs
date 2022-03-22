@@ -6,7 +6,6 @@ use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
-use std::collections::HashSet;
 
 use crate::format::{convert::proto_block_to_token_block, schema};
 use authorizer::Authorizer;
@@ -15,8 +14,10 @@ pub mod authorizer;
 pub mod builder;
 pub mod unverified;
 
+/// minimum supported version of the serialization format
+pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 2;
+pub const MAX_SCHEMA_VERSION: u32 = 3;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token

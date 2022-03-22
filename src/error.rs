@@ -131,7 +131,11 @@ pub enum Format {
     #[error("could not serialize the block")]
     BlockSerializationError(String),
     #[error("Block format version is higher than supported")]
-    Version { maximum: u32, actual: u32 },
+    Version {
+        maximum: u32,
+        minimum: u32,
+        actual: u32,
+    },
     #[error("invalid key size")]
     InvalidKeySize(usize),
     #[error("invalid signature size")]

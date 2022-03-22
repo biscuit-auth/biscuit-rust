@@ -30,8 +30,9 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
 
 pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error::Format> {
     let version = input.version.unwrap_or(0);
-    if version > crate::token::MAX_SCHEMA_VERSION {
+    if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
+            minimum: crate::token::MIN_SCHEMA_VERSION,
             maximum: crate::token::MAX_SCHEMA_VERSION,
             actual: version,
         });
@@ -40,7 +41,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
     let mut facts = vec![];
     let mut rules = vec![];
     let mut checks = vec![];
-    if version == 2 {
+    if version == crate::token::MIN_SCHEMA_VERSION {
         for fact in input.facts_v2.iter() {
             facts.push(v2::proto_fact_to_token_fact(fact)?);
         }
@@ -102,8 +103,9 @@ pub fn proto_authorizer_to_authorizer(
     input: &schema::AuthorizerPolicies,
 ) -> Result<AuthorizerPolicies, error::Format> {
     let version = input.version.unwrap_or(0);
-    if version == 0 || version > crate::token::MAX_SCHEMA_VERSION {
+    if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
+            minimum: crate::token::MIN_SCHEMA_VERSION,
             maximum: crate::token::MAX_SCHEMA_VERSION,
             actual: version,
         });
