@@ -186,7 +186,12 @@ impl TestResult {
                     "authorizer code:\n```\n{}```\n",
                     validation.authorizer_code
                 );
-                writeln!(&mut s, "authorizer world:\n```\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n```\n",
+
+                writeln!(&mut s, "revocation ids:");
+                for id in &validation.revocation_ids {
+                    writeln!(&mut s, "- `{}`", id);
+                }
+                writeln!(&mut s, "\nauthorizer world:\n```\nWorld {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}\n```\n",
                          world.facts, world.rules, world.checks, world.policies);
             }
 
