@@ -65,14 +65,8 @@ pub enum ErrorKind {
     FormatBlockDeserializationError,
     FormatBlockSerializationError,
     FormatVersion,
-    InvalidAuthorityIndex,
-    InvalidBlockIndex,
     SymbolTableOverlap,
-    MissingSymbols,
     Sealed,
-    LogicInvalidAuthorityFact,
-    LogicInvalidAmbientFact,
-    LogicInvalidBlockFact,
     LogicInvalidBlockRule,
     LogicUnauthorized,
     LogicAuthorizerNotEmpty,
@@ -127,21 +121,9 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::FormatInvalidSignatureSize
                     }
                     Token::Format(Format::InvalidKey(_)) => ErrorKind::FormatInvalidKey,
-                    Token::InvalidAuthorityIndex(_) => ErrorKind::InvalidAuthorityIndex,
-                    Token::InvalidBlockIndex(_) => ErrorKind::InvalidBlockIndex,
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
-                    Token::MissingSymbols => ErrorKind::MissingSymbols,
                     Token::Sealed => ErrorKind::Sealed,
                     Token::Language(_) => ErrorKind::LanguageError,
-                    Token::FailedLogic(Logic::InvalidAuthorityFact(_)) => {
-                        ErrorKind::LogicInvalidAuthorityFact
-                    }
-                    Token::FailedLogic(Logic::InvalidAmbientFact(_)) => {
-                        ErrorKind::LogicInvalidAmbientFact
-                    }
-                    Token::FailedLogic(Logic::InvalidBlockFact(_, _)) => {
-                        ErrorKind::LogicInvalidBlockFact
-                    }
                     Token::FailedLogic(Logic::InvalidBlockRule(_, _)) => {
                         ErrorKind::LogicInvalidBlockRule
                     }
