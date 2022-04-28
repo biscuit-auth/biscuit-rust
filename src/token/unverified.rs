@@ -200,4 +200,14 @@ impl UnverifiedBiscuit {
 
         Some(block.print_source(&self.symbols))
     }
+
+    /// creates a sealed version of the token
+    ///
+    /// sealed tokens cannot be attenuated
+    pub fn seal(&self) -> Result<UnverifiedBiscuit, error::Token> {
+        let container = self.container.seal()?;
+        let mut token = self.clone();
+        token.container = container;
+        Ok(token)
+    }
 }
