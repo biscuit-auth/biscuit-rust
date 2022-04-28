@@ -206,7 +206,10 @@ impl Token {
         next_key: &KeyPair,
         message: &[u8],
     ) -> Result<Self, error::Token> {
-        let keypair = self.next.keypair()?;
+        let keypair = match self.next.keypair() {
+            Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
+            other => other,
+        }?;
 
         let signature = sign(&keypair, next_key, message)?;
 
@@ -270,7 +273,7 @@ impl Token {
 impl TokenNext {
     pub fn keypair(&self) -> Result<KeyPair, error::Token> {
         match &self {
-            TokenNext::Seal(_) => Err(error::Token::Sealed),
+            TokenNext::Seal(_) => Err(error::Token::AlreadySealed),
             TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
         }
     }

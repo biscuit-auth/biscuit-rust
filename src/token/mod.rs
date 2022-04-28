@@ -337,7 +337,7 @@ impl Biscuit {
         block_builder: BlockBuilder,
     ) -> Result<Self, error::Token> {
         if self.container.is_none() {
-            return Err(error::Token::Sealed);
+            return Err(error::Token::AppendOnSealed);
         }
 
         let block = block_builder.build(self.symbols.clone());
@@ -351,7 +351,7 @@ impl Biscuit {
         let mut symbols = self.symbols.clone();
 
         let container = match self.container.as_ref() {
-            None => return Err(error::Token::Sealed),
+            None => return Err(error::Token::AppendOnSealed),
             Some(c) => c.append(keypair, &block)?,
         };
 
