@@ -1232,7 +1232,6 @@ impl From<&str> for Term {
 impl TryFrom<Term> for String {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
-        println!("converting string from {:?}", value);
         match value {
             Term::Str(s) => Ok(s),
             _ => Err(error::Token::ConversionError(format!(
