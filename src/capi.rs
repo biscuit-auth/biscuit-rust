@@ -66,7 +66,7 @@ pub enum ErrorKind {
     FormatBlockSerializationError,
     FormatVersion,
     SymbolTableOverlap,
-    Sealed,
+    AppendOnSealed,
     LogicInvalidBlockRule,
     LogicUnauthorized,
     LogicAuthorizerNotEmpty,
@@ -80,6 +80,7 @@ pub enum ErrorKind {
     FormatInvalidSignatureSize,
     FormatInvalidKey,
     FormatSignatureInvalidSignatureGeneration,
+    AlreadySealed,
 }
 
 #[no_mangle]
@@ -122,7 +123,8 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     }
                     Token::Format(Format::InvalidKey(_)) => ErrorKind::FormatInvalidKey,
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
-                    Token::Sealed => ErrorKind::Sealed,
+                    Token::AppendOnSealed => ErrorKind::AppendOnSealed,
+                    Token::AlreadySealed => ErrorKind::AlreadySealed,
                     Token::Language(_) => ErrorKind::LanguageError,
                     Token::FailedLogic(Logic::InvalidBlockRule(_, _)) => {
                         ErrorKind::LogicInvalidBlockRule

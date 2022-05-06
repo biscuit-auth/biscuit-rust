@@ -15,7 +15,9 @@ pub enum Token {
     #[error("multiple blocks declare the same symbols")]
     SymbolTableOverlap,
     #[error("tried to append a block to a sealed token")]
-    Sealed,
+    AppendOnSealed,
+    #[error("tried to seal an already sealed token")]
+    AlreadySealed,
     #[error("authorization failed")]
     FailedLogic(Logic),
     #[error("error generating Datalog")]
