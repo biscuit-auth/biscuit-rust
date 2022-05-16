@@ -220,10 +220,10 @@ pub enum RunLimit {
 pub enum LanguageError {
     #[error("datalog parsing error")]
     ParseError(ParseErrors),
-    #[error("facts must not contain variables")]
-    Builder { invalid_variables: Vec<String> },
-    #[error("cannot setz alue for an unknown variable")]
-    UnknownVariable(String),
+    #[error("facts must not contain unbound parameters")]
+    Builder { invalid_parameters: Vec<String> },
+    #[error("cannot set value for an unknown parameter")]
+    UnknownParameter(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

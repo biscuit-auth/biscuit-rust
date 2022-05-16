@@ -626,6 +626,10 @@ fn variable(i: &str) -> IResult<&str, builder::Term, Error> {
     map(preceded(char('$'), name), builder::variable)(i)
 }
 
+fn parameter(i: &str) -> IResult<&str, builder::Term, Error> {
+    map(delimited(char('{'), name, char('}')), builder::parameter)(i)
+}
+
 fn parse_bool(i: &str) -> IResult<&str, bool, Error> {
     alt((value(true, tag("true")), value(false, tag("false"))))(i)
 }
@@ -652,6 +656,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
             builder::Term::Bytes(_) => 5,
             builder::Term::Bool(_) => 6,
             builder::Term::Set(_) => panic!("sets cannot contain other sets"),
+            builder::Term::Parameter(_) => 7,
         };
 
         if let Some(k) = kind {
@@ -673,7 +678,9 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
-        alt((string, date, variable, integer, bytes, boolean, set)),
+        alt((
+            parameter, string, date, variable, integer, bytes, boolean, set,
+        )),
     )(i)
 }
 
@@ -681,7 +688,9 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((string, date, variable, integer, bytes, boolean, set)),
+            alt((
+                parameter, string, date, variable, integer, bytes, boolean, set,
+            )),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 _ => "expected a valid term".to_string(),
@@ -695,7 +704,7 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((string, date, integer, bytes, boolean)),
+            alt((parameter, string, date, integer, bytes, boolean)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(']') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
@@ -1032,6 +1041,14 @@ mod tests {
     #[test]
     fn variable() {
         assert_eq!(super::variable("$1"), Ok(("", builder::variable("1"))));
+    }
+
+    #[test]
+    fn parameter() {
+        assert_eq!(
+            super::parameter("{param}"),
+            Ok(("", builder::parameter("param")))
+        );
     }
 
     #[test]

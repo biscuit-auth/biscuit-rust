@@ -45,6 +45,7 @@ impl BlockBuilder {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let rule = rule.try_into()?;
+        rule.validate_parameters()?;
         self.rules.push(rule);
         Ok(())
     }
@@ -54,25 +55,68 @@ impl BlockBuilder {
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
         let check = check.try_into()?;
+        check.validate_parameters()?;
         self.checks.push(check);
         Ok(())
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        self.add_code_with_params(source, HashMap::new())
+    }
+
+    /// Add datalog code to the builder, performing parameter subsitution as required
+    /// Unknown parameters are ignored
+    pub fn add_code_with_params<T: AsRef<str>>(
+        &mut self,
+        source: T,
+        params: HashMap<String, Term>,
+    ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
         let source_result = parse_block_source(input)?;
 
-        for (_, fact) in source_result.facts.into_iter() {
+        for (_, mut fact) in source_result.facts.into_iter() {
+            for (name, value) in &params {
+                let res = match fact.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             fact.validate()?;
             self.facts.push(fact);
         }
 
-        for (_, rule) in source_result.rules.into_iter() {
+        for (_, mut rule) in source_result.rules.into_iter() {
+            for (name, value) in &params {
+                let res = match rule.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            rule.validate_parameters()?;
             self.rules.push(rule);
         }
 
-        for (_, check) in source_result.checks.into_iter() {
+        for (_, mut check) in source_result.checks.into_iter() {
+            for (name, value) in &params {
+                let res = match check.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            check.validate_parameters()?;
             self.checks.push(check);
         }
 
@@ -83,7 +127,7 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
-    /// replace a variable with the term argument
+    /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
         let term = term.into();
         self.set_inner(name, term)
@@ -284,6 +328,7 @@ impl<'a> BiscuitBuilder<'a> {
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
         let rule = rule.try_into()?;
+        rule.validate_parameters()?;
 
         let r = rule.convert(&mut self.symbols);
         self.rules.push(r);
@@ -312,11 +357,13 @@ impl<'a> BiscuitBuilder<'a> {
         }
 
         for (_, rule) in source_result.rules.into_iter() {
+            rule.validate_parameters()?;
             let r = rule.convert(&mut self.symbols);
             self.rules.push(r);
         }
 
         for (_, check) in source_result.checks.into_iter() {
+            check.validate_parameters()?;
             let c = check.convert(&mut self.symbols);
             self.checks.push(c);
         }
@@ -372,6 +419,7 @@ pub enum Term {
     Bytes(Vec<u8>),
     Bool(bool),
     Set(BTreeSet<Term>),
+    Parameter(String),
 }
 
 impl Term {
@@ -384,6 +432,9 @@ impl Term {
             Term::Bytes(s) => datalog::Term::Bytes(s.clone()),
             Term::Bool(b) => datalog::Term::Bool(*b),
             Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
+            // The error is caught in the `add_xxx` functions, so this should
+            // not happen™
+            Term::Parameter(_s) => panic!("Remaining parameter"),
         }
     }
 
@@ -412,6 +463,7 @@ impl From<&Term> for Term {
             Term::Bytes(ref s) => Term::Bytes(s.clone()),
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
+            Term::Parameter(ref p) => Term::Parameter(p.clone()),
         }
     }
 }
@@ -450,6 +502,9 @@ impl fmt::Display for Term {
             Term::Set(s) => {
                 let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
                 write!(f, "[ {}]", terms.join(", "))
+            }
+            Term::Parameter(s) => {
+                write!(f, "{{{}}}", s)
             }
         }
     }
@@ -520,30 +575,30 @@ impl fmt::Display for Predicate {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fact {
     pub predicate: Predicate,
-    pub variables: Option<HashMap<String, Option<Term>>>,
+    pub parameters: Option<HashMap<String, Option<Term>>>,
 }
 
 impl Fact {
     pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Fact {
-        let mut variables = HashMap::new();
+        let mut parameters = HashMap::new();
         let terms: Vec<Term> = terms.into();
 
         for term in &terms {
-            if let Term::Variable(name) = &term {
-                variables.insert(name.to_string(), None);
+            if let Term::Parameter(name) = &term {
+                parameters.insert(name.to_string(), None);
             }
         }
         Fact {
             predicate: Predicate::new(name, terms),
-            variables: Some(variables),
+            parameters: Some(parameters),
         }
     }
 
     pub fn validate(&self) -> Result<(), error::Token> {
-        match &self.variables {
+        match &self.parameters {
             None => Ok(()),
-            Some(variables) => {
-                let invalid_variables = variables
+            Some(parameters) => {
+                let invalid_parameters = parameters
                     .iter()
                     .filter_map(
                         |(name, opt_term)| {
@@ -557,11 +612,11 @@ impl Fact {
                     .map(|name| name.to_string())
                     .collect::<Vec<_>>();
 
-                if invalid_variables.is_empty() {
+                if invalid_parameters.is_empty() {
                     Ok(())
                 } else {
                     Err(error::Token::Language(error::LanguageError::Builder {
-                        invalid_variables,
+                        invalid_parameters,
                     }))
                 }
             }
@@ -572,7 +627,7 @@ impl Fact {
 impl Fact {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
         let mut fact = self.clone();
-        fact.apply_variables();
+        fact.apply_parameters();
 
         datalog::Fact {
             predicate: fact.predicate.convert(symbols),
@@ -582,16 +637,16 @@ impl Fact {
     pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
         Fact {
             predicate: Predicate::convert_from(&f.predicate, symbols),
-            variables: None,
+            parameters: None,
         }
     }
 
-    /// replace a variable with the term argument
+    /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
-        if let Some(variables) = self.variables.as_mut() {
-            match variables.get_mut(name) {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
                 None => Err(error::Token::Language(
-                    error::LanguageError::UnknownVariable(name.to_string()),
+                    error::LanguageError::UnknownParameter(name.to_string()),
                 )),
                 Some(v) => {
                     *v = Some(term.into());
@@ -600,20 +655,20 @@ impl Fact {
             }
         } else {
             Err(error::Token::Language(
-                error::LanguageError::UnknownVariable(name.to_string()),
+                error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
     }
 
-    fn apply_variables(&mut self) {
-        if let Some(variables) = self.variables.clone() {
+    fn apply_parameters(&mut self) {
+        if let Some(parameters) = self.parameters.clone() {
             self.predicate.terms = self
                 .predicate
                 .terms
                 .drain(..)
                 .map(|t| {
-                    if let Term::Variable(name) = &t {
-                        if let Some(Some(term)) = variables.get(name) {
+                    if let Term::Parameter(name) = &t {
+                        if let Some(Some(term)) = parameters.get(name) {
                             return term.clone();
                         }
                     }
@@ -627,7 +682,7 @@ impl Fact {
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fact = self.clone();
-        fact.apply_variables();
+        fact.apply_parameters();
 
         fact.predicate.fmt(f)
     }
@@ -638,6 +693,7 @@ impl fmt::Display for Fact {
 pub struct Expression {
     pub ops: Vec<Op>,
 }
+// todo track parameters
 
 impl Expression {
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Expression {
@@ -704,30 +760,30 @@ pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
-    pub variables: Option<HashMap<String, Option<Term>>>,
+    pub parameters: Option<HashMap<String, Option<Term>>>,
 }
 
 impl Rule {
     pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
-        let mut variables = HashMap::new();
+        let mut parameters = HashMap::new();
         for term in &head.terms {
-            if let Term::Variable(name) = &term {
-                variables.insert(name.to_string(), None);
+            if let Term::Parameter(name) = &term {
+                parameters.insert(name.to_string(), None);
             }
         }
 
         for predicate in &body {
             for term in &predicate.terms {
-                if let Term::Variable(name) = &term {
-                    variables.insert(name.to_string(), None);
+                if let Term::Parameter(name) = &term {
+                    parameters.insert(name.to_string(), None);
                 }
             }
         }
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Variable(name)) = &op {
-                    variables.insert(name.to_string(), None);
+                if let Op::Value(Term::Parameter(name)) = &op {
+                    parameters.insert(name.to_string(), None);
                 }
             }
         }
@@ -736,13 +792,13 @@ impl Rule {
             head,
             body,
             expressions,
-            variables: Some(variables),
+            parameters: Some(parameters),
         }
     }
 
     pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
         let mut r = self.clone();
-        r.apply_variables();
+        r.apply_parameters();
 
         let head = r.head.convert(symbols);
         let mut body = vec![];
@@ -776,7 +832,36 @@ impl Rule {
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
-            variables: None,
+            parameters: None,
+        }
+    }
+
+    pub fn validate_parameters(&self) -> Result<(), error::Token> {
+        match &self.parameters {
+            None => Ok(()),
+            Some(parameters) => {
+                let invalid_parameters = parameters
+                    .iter()
+                    .filter_map(
+                        |(name, opt_term)| {
+                            if opt_term.is_none() {
+                                Some(name)
+                            } else {
+                                None
+                            }
+                        },
+                    )
+                    .map(|name| name.to_string())
+                    .collect::<Vec<_>>();
+
+                if invalid_parameters.is_empty() {
+                    Ok(())
+                } else {
+                    Err(error::Token::Language(error::LanguageError::Builder {
+                        invalid_parameters,
+                    }))
+                }
+            }
         }
     }
 
@@ -816,12 +901,12 @@ impl Rule {
         }
     }
 
-    /// replace a variable with the term argument
+    /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
-        if let Some(variables) = self.variables.as_mut() {
-            match variables.get_mut(name) {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
                 None => Err(error::Token::Language(
-                    error::LanguageError::UnknownVariable(name.to_string()),
+                    error::LanguageError::UnknownParameter(name.to_string()),
                 )),
                 Some(v) => {
                     *v = Some(term.into());
@@ -830,20 +915,20 @@ impl Rule {
             }
         } else {
             Err(error::Token::Language(
-                error::LanguageError::UnknownVariable(name.to_string()),
+                error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
     }
 
-    fn apply_variables(&mut self) {
-        if let Some(variables) = self.variables.clone() {
+    fn apply_parameters(&mut self) {
+        if let Some(parameters) = self.parameters.clone() {
             self.head.terms = self
                 .head
                 .terms
                 .drain(..)
                 .map(|t| {
-                    if let Term::Variable(name) = &t {
-                        if let Some(Some(term)) = variables.get(name) {
+                    if let Term::Parameter(name) = &t {
+                        if let Some(Some(term)) = parameters.get(name) {
                             return term.clone();
                         }
                     }
@@ -856,8 +941,8 @@ impl Rule {
                     .terms
                     .drain(..)
                     .map(|t| {
-                        if let Term::Variable(name) = &t {
-                            if let Some(Some(term)) = variables.get(name) {
+                        if let Term::Parameter(name) = &t {
+                            if let Some(Some(term)) = parameters.get(name) {
                                 return term.clone();
                             }
                         }
@@ -871,8 +956,8 @@ impl Rule {
                     .ops
                     .drain(..)
                     .map(|op| {
-                        if let Op::Value(Term::Variable(name)) = &op {
-                            if let Some(Some(term)) = variables.get(name) {
+                        if let Op::Value(Term::Parameter(name)) = &op {
+                            if let Some(Some(term)) = parameters.get(name) {
                                 return Op::Value(term.clone());
                             }
                         }
@@ -915,7 +1000,7 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut r = self.clone();
-        r.apply_variables();
+        r.apply_parameters();
 
         write!(f, "{} <- ", r.head)?;
 
@@ -948,7 +1033,7 @@ impl Check {
         Check { queries }
     }
 
-    /// replace a variable with the term argument
+    /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
         self.set_inner(name, term)
@@ -966,9 +1051,17 @@ impl Check {
             Ok(())
         } else {
             Err(error::Token::Language(
-                error::LanguageError::UnknownVariable(name.to_string()),
+                error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
+    }
+
+    pub fn validate_parameters(&self) -> Result<(), error::Token> {
+        for rule in &self.queries {
+            rule.validate_parameters()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1025,7 +1118,7 @@ pub struct Policy {
 }
 
 impl Policy {
-    /// replace a variable with the term argument
+    /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
         self.set_inner(name, term)
@@ -1043,7 +1136,7 @@ impl Policy {
             Ok(())
         } else {
             Err(error::Token::Language(
-                error::LanguageError::UnknownVariable(name.to_string()),
+                error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
     }
@@ -1172,6 +1265,11 @@ pub fn boolean(b: bool) -> Term {
 /// creates a set
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
+}
+
+/// creates a parameter
+pub fn parameter(p: &str) -> Term {
+    Term::Parameter(p.to_string())
 }
 
 impl From<i64> for Term {
@@ -1348,13 +1446,76 @@ mod tests {
     use super::*;
 
     #[test]
-    fn set_rule_variables() {
-        let mut rule = Rule::try_from("fact($var1, $var2) <- f1($var1, $var3), f2($var2, $var3, $var4), $var3.starts_with($var2)").unwrap();
-        rule.set("var2", "hello").unwrap();
-        rule.set("var4", 0i64).unwrap();
-        rule.set("var4", 1i64).unwrap();
+    fn set_rule_parameters() {
+        let mut rule = Rule::try_from(
+            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
+        )
+        .unwrap();
+        rule.set("p2", "hello").unwrap();
+        rule.set("p4", 0i64).unwrap();
+        rule.set("p4", 1i64).unwrap();
 
         let s = rule.to_string();
         assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+    }
+
+    #[test]
+    fn set_code_parameters() {
+        let mut builder = BlockBuilder::new();
+        let mut params = HashMap::new();
+        params.insert("p1".to_string(), "hello".into());
+        params.insert("p2".to_string(), 1i64.into());
+        params.insert("p3".to_string(), true.into());
+        params.insert("p4".to_string(), "this will be ignored".into());
+        builder
+            .add_code_with_params(
+                r#"fact({p1}, "value");
+             rule($head_var) <- f1($head_var), {p2} > 0;
+             check if {p3};
+            "#,
+                params,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn forbid_unbound_parameters() {
+        let mut rule = Rule::try_from(
+            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
+        )
+        .unwrap();
+        rule.set("p2", "hello").unwrap();
+
+        let mut builder = BlockBuilder::new();
+        let res = builder.add_rule(rule);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        )
+    }
+
+    #[test]
+    fn forbid_unbound_parameters_in_set_code() {
+        let mut builder = BlockBuilder::new();
+        let mut params = HashMap::new();
+        params.insert("p1".to_string(), "hello".into());
+        params.insert("p2".to_string(), 1i64.into());
+        params.insert("p4".to_string(), "this will be ignored".into());
+        let res = builder.add_code_with_params(
+            r#"fact({p1}, "value");
+             rule($head_var) <- f1($head_var), {p2} > 0;
+             check if {p3};
+            "#,
+            params,
+        );
+
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p3".to_string()]
+            }))
+        )
     }
 }
