@@ -12,11 +12,17 @@ fn main() {
 
     let mut builder = Biscuit::builder(&root);
 
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[s("authority"), string("file2"), s("read")]));
     builder.add_authority_fact(fact(
         "right",
-        &[s("authority"), string("file1"), s("write")],
+        &[string("authority"), string("file1"), string("read")],
+    ));
+    builder.add_authority_fact(fact(
+        "right",
+        &[string("authority"), string("file2"), string("read")],
+    ));
+    builder.add_authority_fact(fact(
+        "right",
+        &[string("authority"), string("file1"), string("write")],
     ));
 
     let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -29,10 +35,10 @@ fn main() {
 
     v.add_check(rule(
         "right",
-        &[s("right")],
+        &[string("right")],
         &[pred(
             "right",
-            &[s("authority"), string("file2"), s("write")],
+            &[string("authority"), string("file2"), string("write")],
         )],
     ));
 

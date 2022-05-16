@@ -42,7 +42,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
 ///   let mut builder = Biscuit::builder(&root);
-///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), s("read")]));
+///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), string("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
 ///   builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
@@ -483,7 +483,7 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::builder::{check, fact, pred, rule, s, var};
+    use super::builder::{check, fact, pred, rule, string, var};
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
@@ -531,8 +531,8 @@ mod tests {
                 &[var(0)],
                 &[
                     pred("resource", &[var(0)]),
-                    pred("operation", &[s("read")]),
-                    pred("right", &[var(0), s("read")]),
+                    pred("operation", &[string("read")]),
+                    pred("right", &[var(0), string("read")]),
                 ],
             ));
 
@@ -560,8 +560,8 @@ mod tests {
                     &[var("resource")],
                     &[
                         pred("resource", &[var("resource")]),
-                        pred("operation", &[s("read")]),
-                        pred("right", &[var("resource"), s("read")]),
+                        pred("operation", &[string("read")]),
+                        pred("right", &[var("resource"), string("read")]),
                     ],
                 ))
                 .unwrap();
@@ -588,8 +588,8 @@ mod tests {
             block3
                 .add_check(rule(
                     "check2",
-                    &[s("file1")],
-                    &[pred("resource", &[s("file1")])],
+                    &[string("file1")],
+                    &[pred("resource", &[string("file1")])],
                 ))
                 .unwrap();
 
@@ -611,8 +611,8 @@ mod tests {
             let mut authorizer = final_token.authorizer().unwrap();
 
             let mut facts = vec![
-                fact("resource", &[s("file1")]),
-                fact("operation", &[s("read")]),
+                fact("resource", &[string("file1")]),
+                fact("operation", &[string("read")]),
             ];
 
             for fact in facts.drain(..) {
@@ -631,8 +631,8 @@ mod tests {
             let mut authorizer = final_token.authorizer().unwrap();
 
             let mut facts = vec![
-                fact("resource", &[s("file2")]),
-                fact("operation", &[s("write")]),
+                fact("resource", &[string("file2")]),
+                fact("operation", &[string("write")]),
             ];
 
             for fact in facts.drain(..) {
@@ -848,13 +848,13 @@ mod tests {
         let mut builder = Biscuit::builder(&root);
 
         builder
-            .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+            .add_authority_fact(fact("right", &[string("file1"), string("read")]))
             .unwrap();
         builder
-            .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+            .add_authority_fact(fact("right", &[string("file2"), string("read")]))
             .unwrap();
         builder
-            .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+            .add_authority_fact(fact("right", &[string("file1"), string("write")]))
             .unwrap();
 
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -864,8 +864,8 @@ mod tests {
 
         v.add_check(rule(
             "right",
-            &[s("right")],
-            &[pred("right", &[string("file2"), s("write")])],
+            &[string("right")],
+            &[pred("right", &[string("file2"), string("write")])],
         ))
         .unwrap();
 
@@ -964,7 +964,7 @@ mod tests {
         let mut builder = Biscuit::builder(&root);
 
         builder
-            .add_authority_check(check(&[pred("resource", &[s("hello")])]))
+            .add_authority_check(check(&[pred("resource", &[string("hello")])]))
             .unwrap();
 
         let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
@@ -973,7 +973,7 @@ mod tests {
 
         // new check: can only have read access1
         let mut block2 = biscuit1.create_block();
-        block2.add_fact(fact("check1", &[s("test")])).unwrap();
+        block2.add_fact(fact("check1", &[string("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1038,7 +1038,7 @@ mod tests {
         );
 
         let mut block2 = biscuit1.create_block();
-        block2.add_fact(fact("name", &[s("test")])).unwrap();
+        block2.add_fact(fact("name", &[string("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1

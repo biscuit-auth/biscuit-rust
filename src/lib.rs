@@ -42,10 +42,10 @@
 //!     let mut builder = Biscuit::builder(&root);
 //!
 //!     // let's define some access rights
-//!     builder.add_authority_fact("right(\"/a/file1.txt\", #read)")?;
-//!     builder.add_authority_fact("right(\"/a/file1.txt\", #write)")?;
-//!     builder.add_authority_fact("right(\"/a/file2.txt\", #read)")?;
-//!     builder.add_authority_fact("right(\"/b/file3.txt\", #write)")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")")?;
+//!     builder.add_authority_fact("right(\"/a/file1.txt\", \"write\")")?;
+//!     builder.add_authority_fact("right(\"/a/file2.txt\", \"read\")")?;
+//!     builder.add_authority_fact("right(\"/b/file3.txt\", \"write\")")?;
 //!
 //!     // we can now create the token
 //!     let biscuit = builder.build()?;
@@ -67,7 +67,7 @@
 //!
 //!     // checks are implemented as logic rules. If the rule produces something,
 //!     // the check is successful
-//!     builder.add_check("check if resource(\"/a/file1.txt\"), operation(#read)")?;
+//!     builder.add_check("check if resource(\"/a/file1.txt\"), operation(\"read\")")?;
 //!
 //!     // we can now create a new token
 //!     let biscuit = deser.append(builder)?;
@@ -93,7 +93,7 @@
 //!   v1.add_fact("resource(\"/a/file1.txt\")")?;
 //!   v1.add_fact("operation(\"read\")")?;
 //!   // we will check that the token has the corresponding right
-//!   v1.add_check("check if right(\"/a/file1.txt\", #read)")?;
+//!   v1.add_check("check if right(\"/a/file1.txt\", \"read\")")?;
 //!
 //!   // we choose if we want to allow or deny access
 //!   // we can define a serie of allow/deny policies in the same
@@ -106,7 +106,7 @@
 //!   let mut v2 = biscuit2.authorizer()?;
 //!   v2.add_fact("resource(\"/a/file1.txt\")")?;
 //!   v2.add_fact("operation(\"write\")")?;
-//!   v2.add_check("check if right(\"/a/file1.txt\", #write)")?;
+//!   v2.add_check("check if right(\"/a/file1.txt\", \"write\")")?;
 //!
 //!   // the second authorizer requested a read operation
 //!   assert!(v2.authorize().is_err());
@@ -114,7 +114,7 @@
 //!   let mut v3 = biscuit2.authorizer()?;
 //!   v3.add_fact("resource(\"/a/file2.txt\")")?;
 //!   v3.add_fact("operation(\"read\")")?;
-//!   v3.add_check("check if right(\"/a/file2.txt\", #read)")?;
+//!   v3.add_check("check if right(\"/a/file2.txt\", \"read\")")?;
 //!
 //!   // the third authorizer requests /a/file2.txt
 //!   assert!(v3.authorize().is_err());

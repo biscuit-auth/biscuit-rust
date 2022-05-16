@@ -158,9 +158,7 @@ Here are examples of checks that can be implemented with that language:
 
 Like Datalog, this language is based around facts and rules, but with some slight modifications:
 
-- an authority fact starts with the #authority symbol. It can only be added in the authority block (or generated from rules in the authority rules). It provides the basic authorization data, like which rights exist
-- an ambient fact starts with the #ambient symbol. It can only be provided by the verifier. It gives information on the current request, like which resource is accessed or the current time
-- Blocks can provide facts but they cannot be authority or ambient facts. They contain rules that use facts from the current block, or from the authority and ambient contexts. If all rules in a block succeed, the block is validated.
+- Blocks can provide facts but they are not visible from other blocks. They contain rules that use facts from the current block, or from the authority and ambient contexts. If all rules in a block succeed, the block is validated.
 
 A check rule requires the presence of one or more facts, and can have additional expressions on these facts. It is possible to create rules like these ones:
 
