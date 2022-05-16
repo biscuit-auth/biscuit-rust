@@ -331,13 +331,13 @@ fn basic_token<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -350,8 +350,8 @@ fn basic_token<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -409,7 +409,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root2);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -422,8 +422,8 @@ fn different_root_key<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -475,13 +475,13 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -494,8 +494,8 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -550,13 +550,13 @@ fn random_block<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -569,8 +569,8 @@ fn random_block<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -628,13 +628,13 @@ fn invalid_signature<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -647,8 +647,8 @@ fn invalid_signature<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -705,13 +705,13 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -724,8 +724,8 @@ fn reordered_blocks<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -808,7 +808,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
     block2
         .add_rule(rule(
             "right",
-            &[var("0"), s("read")],
+            &[var("0"), string("read")],
             &[
                 pred("resource", &[var("0")]),
                 pred("user_id", &[var("1")]),
@@ -822,8 +822,8 @@ fn scoped_rules<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -861,7 +861,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file2")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![],
@@ -889,7 +889,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -902,8 +902,8 @@ fn scoped_checks<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();
@@ -914,7 +914,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
     let mut block3 = biscuit2.create_block();
 
     block3
-        .add_fact(fact("right", &[string("file2"), s("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
@@ -941,7 +941,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file2")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![],
@@ -1009,7 +1009,7 @@ fn expired_token<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file1")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
                 fact(
                     "time",
                     &[date(
@@ -1045,7 +1045,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1053,7 +1053,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
     let mut block2 = biscuit1.create_block();
 
     block2
-        .add_fact(fact("right", &[string("file2"), s("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -1080,7 +1080,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file2")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![vec![rule(
@@ -1115,7 +1115,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1140,7 +1140,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file2")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![vec![rule(
@@ -1205,7 +1205,7 @@ fn authority_checks<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file1")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![],
@@ -1219,7 +1219,7 @@ fn authority_checks<T: Rng + CryptoRng>(
             &data[..],
             vec![
                 fact("resource", &[string("file2")]),
-                fact("operation", &[s("read")]),
+                fact("operation", &[string("read")]),
             ],
             vec![],
             vec![],
@@ -1246,10 +1246,10 @@ fn block_rules<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder(&root);
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1542,8 +1542,8 @@ fn check_head_name<T: Rng + CryptoRng>(
     builder
         .add_authority_check(rule(
             "check1",
-            &[s("test")],
-            &[pred("resource", &[s("hello")])],
+            &[string("test")],
+            &[pred("resource", &[string("hello")])],
         ))
         .unwrap();
 
@@ -1552,7 +1552,7 @@ fn check_head_name<T: Rng + CryptoRng>(
     //println!("biscuit1 (authority): {}", biscuit1.print());
 
     let mut block2 = biscuit1.create_block();
-    block2.add_fact(fact("check1", &[s("test")])).unwrap();
+    block2.add_fact(fact("check1", &[string("test")])).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1738,8 +1738,8 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     builder
         .add_authority_check(rule(
             "check1",
-            &[s("test")],
-            &[pred("operation", &[s("read")])],
+            &[string("test")],
+            &[pred("operation", &[string("read")])],
         ))
         .unwrap();
 
@@ -1750,7 +1750,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     block2
         .add_rule(rule(
             "operation",
-            &[var("unbound"), s("read")],
+            &[var("unbound"), string("read")],
             &[pred("operation", &[var("any1"), var("any2")])],
         ))
         .unwrap();
@@ -1776,7 +1776,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[s("write")])],
+            vec![fact("operation", &[string("write")])],
             vec![],
             vec![],
         ),
@@ -1804,8 +1804,8 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     builder
         .add_authority_check(rule(
             "check1",
-            &[s("test")],
-            &[pred("operation", &[s("read")])],
+            &[string("test")],
+            &[pred("operation", &[string("read")])],
         ))
         .unwrap();
 
@@ -1816,7 +1816,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     block2
         .add_rule(rule(
             "operation",
-            &[s("read")],
+            &[string("read")],
             &[pred("operation", &[var("any")])],
         ))
         .unwrap();
@@ -1846,7 +1846,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[s("write")])],
+            vec![fact("operation", &[string("write")])],
             vec![],
             vec![],
         ),
@@ -1872,13 +1872,13 @@ fn sealed_token<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder(&root);
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), s("read")]))
+        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), s("write")]))
+        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
@@ -1891,8 +1891,8 @@ fn sealed_token<T: Rng + CryptoRng>(
             &[var("0")],
             &[
                 pred("resource", &[var("0")]),
-                pred("operation", &[s("read")]),
-                pred("right", &[var("0"), s("read")]),
+                pred("operation", &[string("read")]),
+                pred("right", &[var("0"), string("read")]),
             ],
         ))
         .unwrap();

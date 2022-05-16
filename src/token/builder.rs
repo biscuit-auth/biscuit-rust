@@ -150,11 +150,11 @@ impl BlockBuilder {
     pub(crate) fn check_right(&mut self, right: &str) {
         let check = rule(
             "check_right",
-            &[s(right)],
+            &[string(right)],
             &[
                 pred("resource", &[var("resource_name")]),
-                pred("operation", &[s(right)]),
-                pred("right", &[var("resource_name"), s(right)]),
+                pred("operation", &[string(right)]),
+                pred("right", &[var("resource_name"), string(right)]),
             ],
         );
 
@@ -165,7 +165,7 @@ impl BlockBuilder {
     pub fn check_resource(&mut self, resource: &str) {
         let check = rule(
             "resource_check",
-            &[s("resource_check")],
+            &[string("resource_check")],
             &[pred("resource", &[string(resource)])],
         );
 
@@ -176,8 +176,8 @@ impl BlockBuilder {
     pub fn check_operation(&mut self, operation: &str) {
         let check = rule(
             "operation_check",
-            &[s("operation_check")],
-            &[pred("operation", &[s(operation)])],
+            &[string("operation_check")],
+            &[pred("operation", &[string(operation)])],
         );
 
         let _ = self.add_check(check);
@@ -326,7 +326,7 @@ impl<'a> BiscuitBuilder<'a> {
 
     #[cfg(test)]
     pub(crate) fn add_right(&mut self, resource: &str, right: &str) {
-        let _ = self.add_authority_fact(fact("right", &[string(resource), s(right)]));
+        let _ = self.add_authority_fact(fact("right", &[string(resource), string(right)]));
     }
 
     pub fn set_context(&mut self, context: String) {
@@ -1138,11 +1138,6 @@ pub fn int(i: i64) -> Term {
 
 /// creates a string
 pub fn string(s: &str) -> Term {
-    Term::Str(s.to_string())
-}
-
-/// creates a string
-pub fn s(s: &str) -> Term {
     Term::Str(s.to_string())
 }
 

@@ -1186,7 +1186,7 @@ mod tests {
 
         assert!(res.is_empty());
 
-        // operation($unbound, #read) should not have been generated
+        // operation($unbound, "read") should not have been generated
         // in case it is generated though, verify that rule application
         // will not match it
         w.add_fact(fact(operation, &[&unbound, &read]));

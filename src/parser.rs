@@ -7,7 +7,7 @@
 //! use std::convert::TryInto;
 //! use biscuit_auth::builder::Fact;
 //!
-//! let f: Fact = "test(#data)".try_into().expect("parse error");
+//! let f: Fact = "test(\"data\")".try_into().expect("parse error");
 //! ```
 //!
 //! All of the methods in [BiscuitBuilder](`crate::token::builder::BiscuitBuilder`)
@@ -581,14 +581,6 @@ fn string(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_string(i).map(|(i, s)| (i, builder::Term::Str(s)))
 }
 
-fn parse_symbol(i: &str) -> IResult<&str, &str, Error> {
-    preceded(char('#'), name)(i)
-}
-
-fn symbol(i: &str) -> IResult<&str, builder::Term, Error> {
-    parse_symbol(i).map(|(i, s)| (i, builder::s(s)))
-}
-
 fn parse_integer(i: &str) -> IResult<&str, i64, Error> {
     map_res(recognize(pair(opt(char('-')), digit1)), |s: &str| s.parse())(i)
 }
@@ -681,7 +673,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
-        alt((symbol, string, date, variable, integer, bytes, boolean, set)),
+        alt((string, date, variable, integer, bytes, boolean, set)),
     )(i)
 }
 
@@ -689,7 +681,7 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((symbol, string, date, variable, integer, bytes, boolean, set)),
+            alt((string, date, variable, integer, bytes, boolean, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 _ => "expected a valid term".to_string(),
@@ -703,7 +695,7 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((symbol, string, date, integer, bytes, boolean)),
+            alt((string, date, integer, bytes, boolean)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(']') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
@@ -1010,14 +1002,9 @@ mod tests {
     #[test]
     fn name() {
         assert_eq!(
-            super::name("operation(#ambient, #read)"),
-            Ok(("(#ambient, #read)", "operation"))
+            super::name("operation(\"read\")"),
+            Ok(("(\"read\")", "operation"))
         );
-    }
-
-    #[test]
-    fn symbol() {
-        assert_eq!(super::symbol("#ambient"), Ok(("", builder::s("ambient"))));
     }
 
     #[test]
@@ -1277,16 +1264,12 @@ mod tests {
     #[test]
     fn fact() {
         assert_eq!(
-            super::fact("right( #authority, \"file1\", #read )"),
+            super::fact("right( \"file1\", \"read\" )"),
             Ok((
                 "",
                 builder::fact(
                     "right",
-                    &[
-                        builder::s("authority"),
-                        builder::string("file1"),
-                        builder::s("read")
-                    ]
+                    &[builder::string("file1"), builder::string("read")]
                 )
             ))
         );
@@ -1295,13 +1278,10 @@ mod tests {
     #[test]
     fn fact_with_date() {
         assert_eq!(
-            super::fact("date(#ambient,2019-12-02T13:49:53Z)"),
+            super::fact("date(2019-12-02T13:49:53Z)"),
             Ok((
                 "",
-                builder::fact(
-                    "date",
-                    &[builder::s("ambient"), builder::Term::Date(1575294593)]
-                )
+                builder::fact("date", &[builder::Term::Date(1575294593)])
             ))
         );
     }
@@ -1309,19 +1289,15 @@ mod tests {
     #[test]
     fn rule() {
         assert_eq!(
-            super::rule("right(#authority, $0, #read) <- resource( #ambient, $0), operation(#ambient, #read)"),
+            super::rule("right($0, \"read\") <- resource( $0), operation(\"read\")"),
             Ok((
                 "",
                 builder::rule(
                     "right",
+                    &[builder::variable("0"), builder::string("read"),],
                     &[
-                        builder::s("authority"),
-                        builder::variable("0"),
-                        builder::s("read"),
-                    ],
-                    &[
-                        builder::pred("resource", &[builder::s("ambient"), builder::variable("0")]),
-                        builder::pred("operation", &[builder::s("ambient"), builder::s("read")]),
+                        builder::pred("resource", &[builder::variable("0")]),
+                        builder::pred("operation", &[builder::string("read")]),
                     ]
                 )
             ))
@@ -1334,7 +1310,7 @@ mod tests {
         use std::time::{Duration, SystemTime};
 
         assert_eq!(
-            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), resource( #ambient, \"file1\"), $0 <= 2019-12-04T09:46:41+00:00"),
+            super::rule("valid_date(\"file1\") <- time($0 ), resource(\"file1\"), $0 <= 2019-12-04T09:46:41+00:00"),
             Ok((
                 "",
                 builder::constrained_rule(
@@ -1343,8 +1319,8 @@ mod tests {
                         builder::string("file1"),
                     ],
                     &[
-                        builder::pred("time", &[builder::s("ambient"), builder::variable("0")]),
-                        builder::pred("resource", &[builder::s("ambient"), builder::string("file1")]),
+                        builder::pred("time", &[builder::variable("0")]),
+                        builder::pred("resource", &[builder::string("file1")]),
                     ],
                     &[Expression {
                         ops: vec![
@@ -1364,7 +1340,7 @@ mod tests {
         use std::time::{Duration, SystemTime};
 
         assert_eq!(
-            super::rule("valid_date(\"file1\") <- time(#ambient, $0 ), $0 <= 2019-12-04T09:46:41+00:00, resource(#ambient, \"file1\")"),
+            super::rule("valid_date(\"file1\") <- time( $0 ), $0 <= 2019-12-04T09:46:41+00:00, resource(\"file1\")"),
             Ok((
                 "",
                 builder::constrained_rule(
@@ -1373,8 +1349,8 @@ mod tests {
                         builder::string("file1"),
                     ],
                     &[
-                        builder::pred("time", &[builder::s("ambient"), builder::variable("0")]),
-                        builder::pred("resource", &[builder::s("ambient"), builder::string("file1")]),
+                        builder::pred("time", &[builder::variable("0")]),
+                        builder::pred("resource", &[builder::string("file1")]),
                     ],
                     &[Expression {
                         ops: vec![
@@ -1391,9 +1367,9 @@ mod tests {
     #[test]
     fn rule_with_unused_head_variables() {
         assert_eq!(
-            super::rule("right(#authority, $0, $test) <- resource( #ambienu, $0), operation(#ambient, #read)"),
+            super::rule("right($0, $test) <- resource($0), operation(\"read\")"),
             Err( nom::Err::Failure(Error {
-                input: "right(#authority, $0, $test)",
+                input: "right($0, $test)",
                 code: ErrorKind::Satisfy,
                 message: Some("rule head contains variables that are not used in predicates of the rule's body: $test".to_string()),
             }))
@@ -1404,9 +1380,7 @@ mod tests {
     fn check() {
         let empty: &[builder::Term] = &[];
         assert_eq!(
-            super::check(
-                "check if resource(#ambient, $0), operation(#ambient, #read) or admin(#authority)"
-            ),
+            super::check("check if resource( $0), operation(\"read\") or admin(\"authority\")"),
             Ok((
                 "",
                 builder::Check {
@@ -1415,20 +1389,14 @@ mod tests {
                             "query",
                             empty,
                             &[
-                                builder::pred(
-                                    "resource",
-                                    &[builder::s("ambient"), builder::variable("0")]
-                                ),
-                                builder::pred(
-                                    "operation",
-                                    &[builder::s("ambient"), builder::s("read")]
-                                ),
+                                builder::pred("resource", &[builder::variable("0")]),
+                                builder::pred("operation", &[builder::string("read")]),
                             ]
                         ),
                         builder::rule(
                             "query",
                             empty,
-                            &[builder::pred("admin", &[builder::s("authority")]),]
+                            &[builder::pred("admin", &[builder::string("authority")]),]
                         ),
                     ]
                 }
@@ -1440,7 +1408,7 @@ mod tests {
     fn invalid_check() {
         assert_eq!(
             super::check(
-                "check if resource(#ambient, $0) and operation(#ambient, #read) or admin(#authority)"
+                "check if resource($0) and operation(\"read\") or admin(\"authority\")"
             ),
             Err( nom::Err::Error(Error {
                 input: "and",
@@ -1450,10 +1418,8 @@ mod tests {
         );
 
         assert_eq!(
-            super::check(
-                "check if resource(#ambient, \"{}\"), operation(#ambient, #write)) or operation(#ambient, #read)"
-            ),
-            Err( nom::Err::Error(Error {
+            super::check("check if resource(\"{}\"), operation(\"write\")) or operation(\"read\")"),
+            Err(nom::Err::Error(Error {
                 input: ")",
                 code: ErrorKind::Eof,
                 message: Some("unexpected parens".to_string()),
@@ -1462,7 +1428,7 @@ mod tests {
 
         assert_eq!(
             super::check(
-                "check if resource(#ambient, \"{}\") && operation(#ambient, #write)) || operation(#ambient, #read)"
+                "check if resource(\"{}\") && operation(\"write\")) || operation(\"read\")"
             ),
             Err( nom::Err::Error(Error {
                 input: "&&",
@@ -1643,13 +1609,13 @@ mod tests {
     #[test]
     fn source_file() {
         use builder::{
-            boolean, constrained_rule, fact, int, pred, rule, s, string, var, Binary, Check,
+            boolean, constrained_rule, fact, int, pred, rule, string, var, Binary, Check,
             Expression, Op, Policy, PolicyKind,
         };
         use std::time::{Duration, SystemTime};
 
         let input = r#"
-          fact("string", #symbol);
+          fact("string");
           fact2(1234);
 
           rule_head($var0) <- fact($var0, $var1), 1 < 2;
@@ -1679,7 +1645,7 @@ mod tests {
         let empty_preds: &[builder::Predicate] = &[];
 
         let expected_facts = vec![
-            fact("fact", &[string("string"), s("symbol")]),
+            fact("fact", &[string("string")]),
             fact("fact2", &[int(1234)]),
         ];
 
@@ -1796,12 +1762,12 @@ mod tests {
     #[test]
     fn block_source_file() {
         use builder::{
-            constrained_rule, fact, int, pred, rule, s, string, var, Binary, Check, Expression, Op,
+            constrained_rule, fact, int, pred, rule, string, var, Binary, Check, Expression, Op,
         };
         use std::time::{Duration, SystemTime};
 
         let input = r#"
-          fact("string", #symbol);
+          fact("string");
           fact2(1234);
 
           rule_head($var0) <- fact($var0, $var1), 1 < 2;
@@ -1827,7 +1793,7 @@ mod tests {
         let empty_preds: &[builder::Predicate] = &[];
 
         let expected_facts = vec![
-            fact("fact", &[string("string"), s("symbol")]),
+            fact("fact", &[string("string")]),
             fact("fact2", &[int(1234)]),
         ];
 
