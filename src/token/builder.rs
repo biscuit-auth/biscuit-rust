@@ -1178,6 +1178,14 @@ impl Policy {
             ))
         }
     }
+
+    pub fn validate_parameters(&self) -> Result<(), error::Token> {
+        for query in &self.queries {
+            query.validate_parameters()?;
+        }
+
+        Ok(())
+    }
 }
 
 impl fmt::Display for Policy {
