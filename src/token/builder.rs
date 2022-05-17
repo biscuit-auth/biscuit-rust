@@ -1518,20 +1518,38 @@ mod tests {
 
     #[test]
     fn forbid_unbound_parameters() {
+        let mut builder = BlockBuilder::new();
+
+        let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
+        fact.set("p1", "hello").unwrap();
+        let res = builder.add_fact(fact);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-
-        let mut builder = BlockBuilder::new();
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
             Err(error::Token::Language(error::LanguageError::Builder {
                 invalid_parameters: vec!["p4".to_string()]
             }))
-        )
+        );
+        let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
+        check.set("p3", true).unwrap();
+        let res = builder.add_check(check);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
     }
 
     #[test]
