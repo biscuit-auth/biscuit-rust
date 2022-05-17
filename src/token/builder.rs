@@ -346,23 +346,61 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        self.add_code_with_params(source, HashMap::new())
+    }
+
+    pub fn add_code_with_params<T: AsRef<str>>(
+        &mut self,
+        source: T,
+        params: HashMap<String, Term>,
+    ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
         let source_result = parse_block_source(input)?;
 
-        for (_, fact) in source_result.facts.into_iter() {
+        for (_, mut fact) in source_result.facts.into_iter() {
+            for (name, value) in &params {
+                let res = match fact.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             fact.validate()?;
             let f = fact.convert(&mut self.symbols);
             self.facts.push(f);
         }
 
-        for (_, rule) in source_result.rules.into_iter() {
+        for (_, mut rule) in source_result.rules.into_iter() {
+            for (name, value) in &params {
+                let res = match rule.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             rule.validate_parameters()?;
             let r = rule.convert(&mut self.symbols);
             self.rules.push(r);
         }
 
-        for (_, check) in source_result.checks.into_iter() {
+        for (_, mut check) in source_result.checks.into_iter() {
+            for (name, value) in &params {
+                let res = match check.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             check.validate_parameters()?;
             let c = check.convert(&mut self.symbols);
             self.checks.push(c);
