@@ -127,39 +127,6 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
-    /// replace a parameter with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
-        let term = term.into();
-        self.set_inner(name, term)
-    }
-
-    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
-        let mut found = false;
-
-        for fact in &mut self.facts {
-            if fact.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-
-        for rule in &mut self.rules {
-            if rule.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-        for check in &mut self.checks {
-            if check.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-
-        if found {
-            Ok(())
-        } else {
-            Err(format!("unknown variable name: {}", name))
-        }
-    }
-
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.current_offset();
 
