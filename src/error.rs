@@ -131,6 +131,10 @@ pub enum Format {
     InvalidSignatureSize(usize),
     #[error("invalid key")]
     InvalidKey(String),
+    #[error("could not deserialize signature")]
+    SignatureDeserializationError(String),
+    #[error("could not deserialize the signature's block")]
+    BlockSignatureDeserializationError(String),
 }
 
 /// Signature errors

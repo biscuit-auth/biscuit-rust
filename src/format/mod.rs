@@ -63,10 +63,17 @@ impl SerializedBiscuit {
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(data.authority.signature.len()))?;
 
+        let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+            error::Format::SignatureDeserializationError(format!(
+                "signature deserialization error: {:?}",
+                e
+            ))
+        })?;
+
         let authority = crypto::Block {
             data: data.authority.block,
             next_key: PublicKey::from_bytes(&data.authority.next_key.key)?,
-            signature: ed25519_dalek::Signature::new(bytes),
+            signature,
         };
 
         let mut blocks = Vec::new();
@@ -81,10 +88,17 @@ impl SerializedBiscuit {
             let bytes: [u8; 64] = (&block.signature[..])
                 .try_into()
                 .map_err(|_| error::Format::InvalidSignatureSize(block.signature.len()))?;
+
+            let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+                error::Format::BlockSignatureDeserializationError(format!(
+                    "block signature deserialization error: {:?}",
+                    e
+                ))
+            })?;
             blocks.push(crypto::Block {
                 data: block.block.clone(),
                 next_key: PublicKey::from_bytes(&block.next_key.key)?,
-                signature: ed25519_dalek::Signature::new(bytes),
+                signature,
             });
         }
 
@@ -101,7 +115,13 @@ impl SerializedBiscuit {
                 let bytes: [u8; 64] = (&v[..])
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(v.len()))?;
-                TokenNext::Seal(ed25519_dalek::Signature::new(bytes))
+                let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+                    error::Format::SignatureDeserializationError(format!(
+                        "final signature deserialization error: {:?}",
+                        e
+                    ))
+                })?;
+                TokenNext::Seal(signature)
             }
         };
 
