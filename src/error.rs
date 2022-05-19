@@ -133,7 +133,7 @@ pub enum Format {
     InvalidKey(String),
     #[error("could not deserialize signature")]
     SignatureDeserializationError(String),
-    #[error("could not deserialize the signature's block")]
+    #[error("could not deserialize the block signature")]
     BlockSignatureDeserializationError(String),
 }
 
