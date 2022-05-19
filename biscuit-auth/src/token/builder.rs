@@ -718,6 +718,24 @@ impl Fact {
         }
     }
 
+    /// replace a parameter with the term argument, without raising an error
+    /// if the parameter is not present in the fact description
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                error::LanguageError::UnknownParameter(name.to_string()),
+            ))
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.predicate.terms = self
@@ -1015,6 +1033,24 @@ impl Rule {
         }
     }
 
+    /// replace a parameter with the term argument, without raising an error if the
+    /// parameter is not present in the rule
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                error::LanguageError::UnknownParameter(name.to_string()),
+            ))
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.head.terms = self
@@ -1165,6 +1201,16 @@ impl Check {
                 error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
+    }
+
+    /// replace a parameter with the term argument, without raising an error if the
+    /// parameter is not present in the check
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        let term = term.into();
+        for query in &mut self.queries {
+            query.set_lenient(name, term.clone())?;
+        }
+        Ok(())
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {

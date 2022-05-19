@@ -114,21 +114,21 @@ impl ToTokens for BlockBuilderWithParams {
         let facts_quote = self.builder.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
-                #(fact.set(#param_names, #param_values).unwrap();)*
+                #(fact.set_lenient(#param_names, #param_values).unwrap();)*
                 builder.add_fact(fact).unwrap();
             }
         });
         let rules_quote = self.builder.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
-                #(rule.set(#param_names, #param_values).unwrap();)*
+                #(rule.set_lenient(#param_names, #param_values).unwrap();)*
                 builder.add_rule(rule).unwrap();
             }
         });
         let checks_quote = self.builder.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
-                #(check.set(#param_names, #param_values).unwrap();)*
+                #(check.set_lenient(#param_names, #param_values).unwrap();)*
                 builder.add_check(check).unwrap();
             }
         });

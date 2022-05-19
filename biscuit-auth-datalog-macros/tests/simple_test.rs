@@ -19,7 +19,8 @@ fn it_works() {
             rule($0, true) <- fact($0, $1, $2, {my_key});
             check if {my_key}.starts_with("my");
             "#,
-            my_key = "my_value"
+            my_key = "my_value",
+            other_key = false,
         ))
         .unwrap();
     println!("biscuit: {}", new.print());
