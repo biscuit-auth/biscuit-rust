@@ -246,6 +246,24 @@ impl BlockBuilder {
     }
 }
 
+impl fmt::Display for BlockBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for mut fact in self.facts.clone().into_iter() {
+            fact.apply_parameters();
+            write!(f, "{};\n", &fact)?;
+        }
+        for mut rule in self.rules.clone().into_iter() {
+            rule.apply_parameters();
+            write!(f, "{};\n", &rule)?;
+        }
+        for mut check in self.checks.clone().into_iter() {
+            check.apply_parameters();
+            write!(f, "{};\n", &check)?;
+        }
+        Ok(())
+    }
+}
+
 /// creates a Biscuit
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
@@ -1068,6 +1086,12 @@ impl Check {
 
         Ok(())
     }
+
+    fn apply_parameters(&mut self) {
+        for rule in self.queries.iter_mut() {
+            rule.apply_parameters();
+        }
+    }
 }
 
 impl TryFrom<Rule> for Check {
@@ -1489,6 +1513,13 @@ mod tests {
                 params,
             )
             .unwrap();
+        assert_eq!(
+            format!("{}", &builder),
+            r#"fact("hello", "value");
+rule($head_var) <- f1($head_var), 1 > 0;
+check if true;
+"#
+        );
     }
 
     #[test]
