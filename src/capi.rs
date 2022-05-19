@@ -79,6 +79,8 @@ pub enum ErrorKind {
     FormatInvalidKeySize,
     FormatInvalidSignatureSize,
     FormatInvalidKey,
+    FormatSignatureDeserializationError,
+    FormatBlockSignatureDeserializationError,
     FormatSignatureInvalidSignatureGeneration,
     AlreadySealed,
 }
@@ -122,6 +124,12 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::FormatInvalidSignatureSize
                     }
                     Token::Format(Format::InvalidKey(_)) => ErrorKind::FormatInvalidKey,
+                    Token::Format(Format::SignatureDeserializationError(_)) => {
+                        ErrorKind::FormatSignatureDeserializationError
+                    }
+                    Token::Format(Format::BlockSignatureDeserializationError(_)) => {
+                        ErrorKind::FormatBlockSignatureDeserializationError
+                    }
                     Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
                     Token::AppendOnSealed => ErrorKind::AppendOnSealed,
                     Token::AlreadySealed => ErrorKind::AlreadySealed,
