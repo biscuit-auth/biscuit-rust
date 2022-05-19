@@ -1,5 +1,5 @@
 //! Authorizer structure and associated functions
-use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule};
+use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::Biscuit;
 use crate::datalog::{self, RunLimits};
 use crate::error;
@@ -7,7 +7,7 @@ use crate::parser::parse_source;
 use crate::time::Instant;
 use prost::Message;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     convert::{TryFrom, TryInto},
     default::Default,
     time::{Duration, SystemTime},
@@ -175,6 +175,7 @@ impl<'t> Authorizer<'t> {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let rule = rule.try_into()?;
+        rule.validate_parameters()?;
         self.world.rules.push(rule.convert(&mut self.symbols));
         Ok(())
     }
@@ -198,24 +199,75 @@ impl<'t> Authorizer<'t> {
     /// "#).expect("should parse correctly");
     /// ```
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        self.add_code_with_params(source, HashMap::new())
+    }
+
+    pub fn add_code_with_params<T: AsRef<str>>(
+        &mut self,
+        source: T,
+        params: HashMap<String, Term>,
+    ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
         let source_result = parse_source(input)?;
 
-        for (_, fact) in source_result.facts.into_iter() {
+        for (_, mut fact) in source_result.facts.into_iter() {
+            for (name, value) in &params {
+                let res = match fact.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             fact.validate()?;
             self.world.facts.insert(fact.convert(&mut self.symbols));
         }
 
-        for (_, rule) in source_result.rules.into_iter() {
+        for (_, mut rule) in source_result.rules.into_iter() {
+            for (name, value) in &params {
+                let res = match rule.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            rule.validate_parameters()?;
             self.world.rules.push(rule.convert(&mut self.symbols));
         }
 
-        for (_, check) in source_result.checks.into_iter() {
+        for (_, mut check) in source_result.checks.into_iter() {
+            for (name, value) in &params {
+                let res = match check.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            check.validate_parameters()?;
             self.checks.push(check);
         }
 
-        for (_, policy) in source_result.policies.into_iter() {
+        for (_, mut policy) in source_result.policies.into_iter() {
+            for (name, value) in &params {
+                let res = match policy.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            policy.validate_parameters()?;
             self.policies.push(policy);
         }
 
@@ -354,6 +406,7 @@ impl<'t> Authorizer<'t> {
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
         let check = check.try_into()?;
+        check.validate_parameters()?;
         self.checks.push(check);
         Ok(())
     }
@@ -370,6 +423,7 @@ impl<'t> Authorizer<'t> {
         error::Token: From<<P as TryInto<Policy>>::Error>,
     {
         let policy = policy.try_into()?;
+        policy.validate_parameters()?;
         self.policies.push(policy);
         Ok(())
     }
@@ -707,6 +761,96 @@ mod tests {
         let mut authorizer = Authorizer::new().unwrap();
         authorizer.add_policy("allow if true").unwrap();
         assert_eq!(authorizer.authorize(), Ok(0));
+    }
+
+    #[test]
+    fn parameter_substitution() {
+        let mut authorizer = Authorizer::new().unwrap();
+        let mut params = HashMap::new();
+        params.insert("p1".to_string(), "value".into());
+        params.insert("p2".to_string(), 0i64.into());
+        params.insert("p3".to_string(), true.into());
+        authorizer
+            .add_code_with_params(
+                r#"
+                  fact({p1}, "value");
+                  rule($var, {p2}) <- fact($var, {p2});
+                  check if {p3};
+                  allow if {p3};
+              "#,
+                params,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn forbid_unbound_parameters() {
+        let mut builder = Authorizer::new().unwrap();
+
+        let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
+        fact.set("p1", "hello").unwrap();
+        let res = builder.add_fact(fact);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
+        let mut rule = Rule::try_from(
+            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
+        )
+        .unwrap();
+        rule.set("p2", "hello").unwrap();
+        let res = builder.add_rule(rule);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
+        let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
+        check.set("p3", true).unwrap();
+        let res = builder.add_check(check);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
+        let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
+        policy.set("p3", true).unwrap();
+
+        let res = builder.add_policy(policy);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
+    }
+
+    #[test]
+    fn forbid_unbound_parameters_in_add_code() {
+        let mut builder = Authorizer::new().unwrap();
+        let mut params = HashMap::new();
+        params.insert("p1".to_string(), "hello".into());
+        params.insert("p2".to_string(), 1i64.into());
+        params.insert("p4".to_string(), "this will be ignored".into());
+        let res = builder.add_code_with_params(
+            r#"fact({p1}, "value");
+             rule($head_var) <- f1($head_var), {p2} > 0;
+             check if {p3};
+             allow if {p3};
+            "#,
+            params,
+        );
+
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p3".to_string()]
+            }))
+        )
     }
 
     #[test]

@@ -127,39 +127,6 @@ impl BlockBuilder {
         self.context = Some(context);
     }
 
-    /// replace a parameter with the term argument
-    pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), String> {
-        let term = term.into();
-        self.set_inner(name, term)
-    }
-
-    fn set_inner(&mut self, name: &str, term: Term) -> Result<(), String> {
-        let mut found = false;
-
-        for fact in &mut self.facts {
-            if fact.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-
-        for rule in &mut self.rules {
-            if rule.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-        for check in &mut self.checks {
-            if check.set(name, term.clone()).is_ok() {
-                found = true;
-            }
-        }
-
-        if found {
-            Ok(())
-        } else {
-            Err(format!("unknown variable name: {}", name))
-        }
-    }
-
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.current_offset();
 
@@ -279,6 +246,24 @@ impl BlockBuilder {
     }
 }
 
+impl fmt::Display for BlockBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for mut fact in self.facts.clone().into_iter() {
+            fact.apply_parameters();
+            write!(f, "{};\n", &fact)?;
+        }
+        for mut rule in self.rules.clone().into_iter() {
+            rule.apply_parameters();
+            write!(f, "{};\n", &rule)?;
+        }
+        for mut check in self.checks.clone().into_iter() {
+            check.apply_parameters();
+            write!(f, "{};\n", &check)?;
+        }
+        Ok(())
+    }
+}
+
 /// creates a Biscuit
 #[derive(Clone)]
 pub struct BiscuitBuilder<'a> {
@@ -346,23 +331,61 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        self.add_code_with_params(source, HashMap::new())
+    }
+
+    pub fn add_code_with_params<T: AsRef<str>>(
+        &mut self,
+        source: T,
+        params: HashMap<String, Term>,
+    ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
         let source_result = parse_block_source(input)?;
 
-        for (_, fact) in source_result.facts.into_iter() {
+        for (_, mut fact) in source_result.facts.into_iter() {
+            for (name, value) in &params {
+                let res = match fact.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             fact.validate()?;
             let f = fact.convert(&mut self.symbols);
             self.facts.push(f);
         }
 
-        for (_, rule) in source_result.rules.into_iter() {
+        for (_, mut rule) in source_result.rules.into_iter() {
+            for (name, value) in &params {
+                let res = match rule.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             rule.validate_parameters()?;
             let r = rule.convert(&mut self.symbols);
             self.rules.push(r);
         }
 
-        for (_, check) in source_result.checks.into_iter() {
+        for (_, mut check) in source_result.checks.into_iter() {
+            for (name, value) in &params {
+                let res = match check.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             check.validate_parameters()?;
             let c = check.convert(&mut self.symbols);
             self.checks.push(c);
@@ -1063,6 +1086,12 @@ impl Check {
 
         Ok(())
     }
+
+    fn apply_parameters(&mut self) {
+        for rule in self.queries.iter_mut() {
+            rule.apply_parameters();
+        }
+    }
 }
 
 impl TryFrom<Rule> for Check {
@@ -1139,6 +1168,14 @@ impl Policy {
                 error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
+    }
+
+    pub fn validate_parameters(&self) -> Result<(), error::Token> {
+        for query in &self.queries {
+            query.validate_parameters()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1476,24 +1513,49 @@ mod tests {
                 params,
             )
             .unwrap();
+        assert_eq!(
+            format!("{}", &builder),
+            r#"fact("hello", "value");
+rule($head_var) <- f1($head_var), 1 > 0;
+check if true;
+"#
+        );
     }
 
     #[test]
     fn forbid_unbound_parameters() {
+        let mut builder = BlockBuilder::new();
+
+        let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
+        fact.set("p1", "hello").unwrap();
+        let res = builder.add_fact(fact);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-
-        let mut builder = BlockBuilder::new();
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
             Err(error::Token::Language(error::LanguageError::Builder {
                 invalid_parameters: vec!["p4".to_string()]
             }))
-        )
+        );
+        let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
+        check.set("p3", true).unwrap();
+        let res = builder.add_check(check);
+        assert_eq!(
+            res,
+            Err(error::Token::Language(error::LanguageError::Builder {
+                invalid_parameters: vec!["p4".to_string()]
+            }))
+        );
     }
 
     #[test]
