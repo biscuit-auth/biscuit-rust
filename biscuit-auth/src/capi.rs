@@ -1208,7 +1208,7 @@ pub unsafe extern "C" fn authorizer_free(_authorizer: Option<Box<Authorizer>>) {
 #[no_mangle]
 pub unsafe extern "C" fn string_free(ptr: *mut c_char) {
     if ptr != std::ptr::null_mut() {
-        CString::from_raw(ptr);
+        drop(CString::from_raw(ptr));
     }
 }
 
