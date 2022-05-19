@@ -1,0 +1,12 @@
+[package]
+name = "biscuit-quote"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+biscuit-auth = { path = "../biscuit-auth", features = ["datalog-macro"], version = "2.1.0" }
+quote = "1.0.14"
+syn = { version = "1.0.85", features = ["full", "extra-traits"] }
