@@ -140,6 +140,13 @@ impl Biscuit {
         Authorizer::from_token(self)
     }
 
+    /// runs authorization with the provided authorizer
+    pub fn authorize<'t>(&self, authorizer: &Authorizer) -> Result<usize, error::Token> {
+        let mut a = authorizer.clone();
+        a.add_token(self)?;
+        a.authorize()
+    }
+
     /// creates a new block builder
     pub fn create_block(&self) -> BlockBuilder {
         BlockBuilder::new()

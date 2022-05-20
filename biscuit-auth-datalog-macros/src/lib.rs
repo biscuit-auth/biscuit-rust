@@ -23,7 +23,7 @@
 //!   expiration = SystemTime::now() + Duration::from_secs(86_400),
 //! )).expect("Failed to append block");
 //!
-//! let mut authorizer = authorizer!(
+//! biscuit.authorize(&authorizer!(
 //!   r#"
 //!      time({now});
 //!      operation({operation});
@@ -39,10 +39,7 @@
 //!   operation = "read",
 //!   resource = "file1",
 //!   user_id = "1234",
-//! );
-//! authorizer.add_token(&biscuit)
-//!  .expect("Failed to load token in authorizer");
-//! authorizer.authorize();
+//! )).expect("Failed to authorize biscuit");
 //! ```
 
 extern crate proc_macro;
