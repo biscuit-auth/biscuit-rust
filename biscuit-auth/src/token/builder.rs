@@ -406,6 +406,39 @@ impl<'a> BiscuitBuilder<'a> {
         self.context = Some(context);
     }
 
+    /// returns all of the datalog loaded in the biscuit builder
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
+        (
+            self.facts
+                .iter()
+                .map(|f| Fact::convert_from(f, &self.symbols))
+                .collect(),
+            self.rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &self.symbols))
+                .collect(),
+            self.checks
+                .iter()
+                .map(|c| Check::convert_from(c, &self.symbols))
+                .collect(),
+        )
+    }
+
+    pub fn dump_code(&self) -> String {
+        let (facts, rules, checks) = self.dump();
+        let mut f = String::new();
+        for fact in facts {
+            f.push_str(&format!("{};\n", &fact));
+        }
+        for rule in rules {
+            f.push_str(&format!("{};\n", &rule));
+        }
+        for check in checks {
+            f.push_str(&format!("{};\n", &check));
+        }
+        f
+    }
+
     pub fn build(self) -> Result<Biscuit, error::Token> {
         self.build_with_rng(&mut rand::rngs::OsRng)
     }

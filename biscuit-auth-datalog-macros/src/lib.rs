@@ -267,3 +267,156 @@ pub fn authorizer(input: TokenStream) -> TokenStream {
 
     gen.into()
 }
+
+struct ParsedBiscuitQuery {
+    keypair: Expr,
+    datalog: String,
+    parameters: HashMap<String, Expr>,
+}
+
+impl Parse for ParsedBiscuitQuery {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let keypair = input.parse::<Expr>()?;
+        let _: Token![,] = input.parse()?;
+        let datalog = input.parse::<LitStr>()?.value();
+
+        let mut parameters = HashMap::new();
+
+        while input.peek(Token![,]) {
+            let _: Token![,] = input.parse()?;
+            if input.is_empty() {
+                break;
+            }
+
+            let key: Ident = input.parse()?;
+            let _: Token![=] = input.parse()?;
+            let value: Expr = input.parse()?;
+
+            parameters.insert(key.to_string(), value);
+        }
+
+        Ok(ParsedBiscuitQuery {
+            keypair,
+            datalog,
+            parameters,
+        })
+    }
+}
+
+/// create an `BiscuitBuilder` from a keypair, a datalog string and optional parameters.
+/// The datalog string is parsed at compile time and replaced by manual
+/// block building.
+///
+/// ```rust
+/// extern crate biscuit_quote;
+/// extern crate biscuit_auth;
+/// use biscuit_auth::{Biscuit, KeyPair};
+/// use biscuit_quote::{biscuit};
+/// use std::time::{SystemTime, Duration};
+///
+/// let root = KeyPair::new();
+/// let biscuit = biscuit!(
+///   &root,
+///   r#"
+///     user({user_id});
+///     check if time($time), $time < {expiration}
+///   "#,
+///   user_id = "1234",
+///   expiration = SystemTime::now() + Duration::from_secs(86_400)
+/// ).build();
+/// ```
+#[proc_macro]
+pub fn biscuit(input: TokenStream) -> TokenStream {
+    let ParsedBiscuitQuery {
+        keypair,
+        datalog,
+        parameters,
+    } = syn::parse(input).unwrap();
+
+    let builder = BiscuitWithParams::from_code(&keypair, &datalog, &parameters).unwrap();
+
+    let gen = quote! {
+        {
+          #builder
+        }
+    };
+
+    gen.into()
+}
+
+#[derive(Clone, Debug)]
+struct BiscuitWithParams {
+    pub keypair: Expr,
+    pub parameters: HashMap<String, Expr>,
+    pub facts: Vec<Fact>,
+    pub rules: Vec<Rule>,
+    pub checks: Vec<Check>,
+}
+
+impl BiscuitWithParams {
+    pub fn from_code<T: AsRef<str>>(
+        keypair: &Expr,
+        source: T,
+        parameters: &HashMap<String, Expr>,
+    ) -> std::result::Result<Self, error::Token> {
+        let input = source.as_ref();
+        let source_result = parse_block_source(input)?;
+        let mut facts = Vec::new();
+        let mut rules = Vec::new();
+        let mut checks = Vec::new();
+
+        for (_, fact) in source_result.facts.into_iter() {
+            facts.push(fact);
+        }
+        for (_, rule) in source_result.rules.into_iter() {
+            rules.push(rule);
+        }
+        for (_, check) in source_result.checks.into_iter() {
+            checks.push(check);
+        }
+
+        Ok(BiscuitWithParams {
+            keypair: keypair.clone(),
+            facts,
+            rules,
+            checks,
+            parameters: parameters.clone(),
+        })
+    }
+}
+
+impl ToTokens for BiscuitWithParams {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let keypair = &self.keypair;
+        let param_names: Vec<String> = self.parameters.clone().into_keys().collect();
+        let param_values: Vec<Expr> = self.parameters.clone().into_values().collect();
+        let facts_quote = self.facts.iter().map(|f| {
+            quote! {
+                let mut fact = #f;
+                #(fact.set_lenient(#param_names, #param_values).unwrap();)*
+                builder.add_authority_fact(fact).unwrap();
+            }
+        });
+        let rules_quote = self.rules.iter().map(|r| {
+            quote! {
+                let mut rule = #r;
+                #(rule.set_lenient(#param_names, #param_values).unwrap();)*
+                builder.add_authority_rule(rule).unwrap();
+            }
+        });
+        let checks_quote = self.checks.iter().map(|c| {
+            quote! {
+                let mut check = #c;
+                #(check.set_lenient(#param_names, #param_values).unwrap();)*
+                builder.add_authority_check(check).unwrap();
+            }
+        });
+        tokens.extend(quote! {
+            let mut builder = ::biscuit_auth::Biscuit::builder(#keypair);
+            #(#facts_quote)*
+            #(#rules_quote)*
+            #(#checks_quote)*
+            builder
+        });
+    }
+}
