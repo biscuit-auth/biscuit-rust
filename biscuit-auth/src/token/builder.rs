@@ -1285,6 +1285,20 @@ pub enum PolicyKind {
     Deny,
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for PolicyKind {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            PolicyKind::Allow => quote! {
+              ::biscuit_auth::builder::PolicyKind::Allow
+            },
+            PolicyKind::Deny => quote! {
+              ::biscuit_auth::builder::PolicyKind::Deny
+            },
+        });
+    }
+}
+
 /// Builder for a Biscuit policy
 #[derive(Debug, Clone, PartialEq)]
 pub struct Policy {
@@ -1314,6 +1328,15 @@ impl Policy {
                 error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
+    }
+
+    /// replace a parameter with the term argument, ignoring unknown parameters
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        let term = term.into();
+        for query in &mut self.queries {
+            query.set_lenient(name, term.clone())?;
+        }
+        Ok(())
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1351,6 +1374,20 @@ impl fmt::Display for Policy {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Policy {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let queries = self.queries.iter();
+        let kind = &self.kind;
+        tokens.extend(quote! {
+          ::biscuit_auth::builder::Policy{
+            kind: #kind,
+            queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
+          }
+        });
     }
 }
 
