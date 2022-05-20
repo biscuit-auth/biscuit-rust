@@ -460,7 +460,7 @@ impl Term {
             Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
-            Term::Parameter(_s) => panic!("Remaining parameter"),
+            Term::Parameter(s) => panic!("Remaining parameter {}", &s),
         }
     }
 
@@ -1101,26 +1101,28 @@ impl Rule {
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if !r.body.is_empty() {
-        write!(f, "{}", r.body[0])?;
+    let mut rule = r.clone();
+    rule.apply_parameters();
+    if !rule.body.is_empty() {
+        write!(f, "{}", rule.body[0])?;
 
-        if r.body.len() > 1 {
-            for i in 1..r.body.len() {
-                write!(f, ", {}", r.body[i])?;
+        if rule.body.len() > 1 {
+            for i in 1..rule.body.len() {
+                write!(f, ", {}", rule.body[i])?;
             }
         }
     }
 
-    if !r.expressions.is_empty() {
-        if !r.body.is_empty() {
+    if !rule.expressions.is_empty() {
+        if !rule.body.is_empty() {
             write!(f, ", ")?;
         }
 
-        write!(f, "{}", r.expressions[0])?;
+        write!(f, "{}", rule.expressions[0])?;
 
-        if r.expressions.len() > 1 {
-            for i in 1..r.expressions.len() {
-                write!(f, ", {}", r.expressions[i])?;
+        if rule.expressions.len() > 1 {
+            for i in 1..rule.expressions.len() {
+                write!(f, ", {}", rule.expressions[i])?;
             }
         }
     }
@@ -1253,12 +1255,16 @@ impl fmt::Display for Check {
         write!(f, "check if ")?;
 
         if !self.queries.is_empty() {
-            display_rule_body(&self.queries[0], f)?;
+            let mut q0 = self.queries[0].clone();
+            q0.apply_parameters();
+            display_rule_body(&q0, f)?;
 
             if self.queries.len() > 1 {
                 for i in 1..self.queries.len() {
                     write!(f, " or ")?;
-                    display_rule_body(&self.queries[i], f)?;
+                    let mut qn = self.queries[i].clone();
+                    qn.apply_parameters();
+                    display_rule_body(&qn, f)?;
                 }
             }
         }
