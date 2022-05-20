@@ -1,3 +1,50 @@
+//! ```rust
+//! extern crate biscuit_auth;
+//! extern crate biscuit_quote;
+//! use biscuit_auth::KeyPair;
+//! use biscuit_quote::{authorizer, biscuit, block};
+//! use std::time::{Duration, SystemTime};
+//!
+//! let root = KeyPair::new();
+//!
+//! let biscuit = biscuit!(
+//!   &root,
+//!   r#"
+//!   user({user_id});
+//!   right({user_id}, "file1", "read");
+//!   "#,
+//!   user_id = "1234",
+//! ).build().expect("Failed to create biscuit");
+//!
+//! biscuit.append(block!(
+//!   r#"
+//!     check if time($time), $time < {expiration};
+//!   "#,
+//!   expiration = SystemTime::now() + Duration::from_secs(86_400),
+//! )).expect("Failed to append block");
+//!
+//! let mut authorizer = authorizer!(
+//!   r#"
+//!      time({now});
+//!      operation({operation});
+//!      resource({resource});
+//!
+//!      is_allowed($user_id) <- right($user_id, $resource, $operation),
+//!                              resource($resource),
+//!                              operation($operation);
+//!
+//!      allow if is_allowed({user_id});
+//!   "#,
+//!   now = SystemTime::now(),
+//!   operation = "read",
+//!   resource = "file1",
+//!   user_id = "1234",
+//! );
+//! authorizer.add_token(&biscuit)
+//!  .expect("Failed to load token in authorizer");
+//! authorizer.authorize();
+//! ```
+
 extern crate proc_macro;
 use biscuit_auth::{
     builder::{BlockBuilder, Check, Fact, Policy, Rule},
