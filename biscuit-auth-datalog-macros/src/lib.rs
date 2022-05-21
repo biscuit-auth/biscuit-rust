@@ -177,7 +177,7 @@ impl BlockBuilderWithParams {
                 parameters: parameters.clone(),
             })
         } else {
-            let unknown_parameters: Vec<String> = macro_parameters
+            let unused_parameters: Vec<String> = macro_parameters
                 .difference(&datalog_parameters)
                 .map(|k| k.to_string())
                 .collect();
@@ -185,18 +185,10 @@ impl BlockBuilderWithParams {
                 .difference(&macro_parameters)
                 .map(|k| k.to_string())
                 .collect();
-
-            if !missing_parameters.is_empty() {
-                Err(error::Token::Language(error::LanguageError::Builder {
-                    invalid_parameters: missing_parameters,
-                }))
-            } else {
-                Err(error::Token::Language(
-                    error::LanguageError::UnknownParameter(
-                        unknown_parameters[0].clone().to_string(),
-                    ),
-                ))
-            }
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters,
+                unused_parameters,
+            }))
         }
     }
 }

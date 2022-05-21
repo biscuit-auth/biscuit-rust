@@ -224,7 +224,12 @@ pub enum RunLimit {
 pub enum LanguageError {
     #[error("datalog parsing error")]
     ParseError(ParseErrors),
-    #[error("facts must not contain unbound parameters")]
+    #[error("datalog parameters must all be bound, provided values must all be used. {missing_parameters:?} {unused_parameters:?}")]
+    Parameters {
+        missing_parameters: Vec<String>,
+        unused_parameters: Vec<String>,
+    },
+    #[error("datalog fragments must not contain unbound parameters")]
     Builder { invalid_parameters: Vec<String> },
     #[error("cannot set value for an unknown parameter")]
     UnknownParameter(String),
