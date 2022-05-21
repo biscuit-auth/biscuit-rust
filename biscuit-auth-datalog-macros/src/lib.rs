@@ -43,12 +43,14 @@
 //! ```
 
 extern crate proc_macro;
+extern crate proc_macro_error;
 use biscuit_auth::{
     builder::{BlockBuilder, Check, Fact, Policy, Rule},
     error,
     parser::{parse_block_source, parse_source},
 };
 use proc_macro::TokenStream;
+use proc_macro_error::{abort, abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -75,13 +77,15 @@ use syn::{
 /// );
 /// ```
 #[proc_macro]
+#[proc_macro_error]
 pub fn block(input: TokenStream) -> TokenStream {
     let ParsedQuery {
         datalog,
         parameters,
-    } = syn::parse(input).unwrap();
+    } = syn::parse(input).unwrap_or_else(|e| abort!(e));
 
-    let builder = BlockBuilderWithParams::from_code(&datalog, &parameters).unwrap();
+    let builder = BlockBuilderWithParams::from_code(&datalog, &parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let gen = quote! {
         {

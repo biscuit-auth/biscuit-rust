@@ -20,7 +20,7 @@ pub enum Token {
     AlreadySealed,
     #[error("authorization failed")]
     FailedLogic(Logic),
-    #[error("error generating Datalog")]
+    #[error("error generating Datalog: {0}")]
     Language(LanguageError),
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
@@ -224,7 +224,7 @@ pub enum RunLimit {
 pub enum LanguageError {
     #[error("datalog parsing error")]
     ParseError(ParseErrors),
-    #[error("datalog parameters must all be bound, provided values must all be used. {missing_parameters:?} {unused_parameters:?}")]
+    #[error("datalog parameters must all be bound, provided values must all be used.\nMissing parameters: {missing_parameters:?}\nUnused parameters: {unused_parameters:?}")]
     Parameters {
         missing_parameters: Vec<String>,
         unused_parameters: Vec<String>,
