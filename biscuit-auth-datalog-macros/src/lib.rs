@@ -50,7 +50,7 @@ use biscuit_auth::{
 };
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syn::{
     parse::{Parse, ParseStream, Result},
     Expr, Ident, LitStr, Token,
@@ -135,23 +135,69 @@ impl BlockBuilderWithParams {
         parameters: &HashMap<String, Expr>,
     ) -> std::result::Result<Self, error::Token> {
         let input = source.as_ref();
+        let mut datalog_parameters = HashSet::new();
+        let macro_parameters = HashSet::from_iter(parameters.keys().map(|k| k.to_string()));
         let mut builder = BlockBuilder::new();
         let source_result = parse_block_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
+            if let Some(params) = &fact.parameters.clone() {
+                for param in params.clone().keys() {
+                    let p = param.clone();
+                    datalog_parameters.insert(p);
+                }
+            }
+
             builder.facts.push(fact);
         }
         for (_, rule) in source_result.rules.into_iter() {
+            if let Some(params) = &rule.parameters.clone() {
+                for param in params.clone().keys() {
+                    let p = param.clone();
+                    datalog_parameters.insert(p);
+                }
+            }
             builder.rules.push(rule);
         }
         for (_, check) in source_result.checks.into_iter() {
+            for query in check.queries.iter() {
+                if let Some(params) = &query.parameters.clone() {
+                    for param in params.clone().keys() {
+                        let p = param.clone();
+                        datalog_parameters.insert(p);
+                    }
+                }
+            }
             builder.checks.push(check);
         }
 
-        Ok(BlockBuilderWithParams {
-            builder,
-            parameters: parameters.clone(),
-        })
+        if datalog_parameters == macro_parameters {
+            Ok(BlockBuilderWithParams {
+                builder,
+                parameters: parameters.clone(),
+            })
+        } else {
+            let unknown_parameters: Vec<String> = macro_parameters
+                .difference(&datalog_parameters)
+                .map(|k| k.to_string())
+                .collect();
+            let missing_parameters: Vec<String> = datalog_parameters
+                .difference(&macro_parameters)
+                .map(|k| k.to_string())
+                .collect();
+
+            if !missing_parameters.is_empty() {
+                Err(error::Token::Language(error::LanguageError::Builder {
+                    invalid_parameters: missing_parameters,
+                }))
+            } else {
+                Err(error::Token::Language(
+                    error::LanguageError::UnknownParameter(
+                        unknown_parameters[0].clone().to_string(),
+                    ),
+                ))
+            }
+        }
     }
 }
 
