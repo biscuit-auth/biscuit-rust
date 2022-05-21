@@ -11,13 +11,15 @@ homepage = "https://github.com/biscuit-auth/biscuit"
 repository = "https://github.com/biscuit-auth/biscuit-rust"
 
 [features]
-default = ["regex-full"]
+default = ["regex-full", "datalog-macro"]
 regex-full = [ "regex/perf", "regex/unicode"]
 # used by cargo-c to signal the compilation of C bindings
 capi = ["inline-c"]
 wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 # used by biscuit-wasm to serialize errors to JSON
 serde-error = ["serde"]
+# used by biscuit-auth-quote to parse datalog at compile-time
+datalog-macro = ["quote"]
 
 [dependencies]
 rand_core = "^0.5"
@@ -37,6 +39,7 @@ ed25519-dalek = "1.0.1"
 serde = { version = "1.0.132", optional = true, features = ["derive"] }
 getrandom = { version = "0.1.16" }
 time = {version = "0.3.7", features = ["formatting", "parsing"]}
+quote = { version = "1.0.14", optional = true }
 
 [dev-dependencies]
 rand = "0.7"

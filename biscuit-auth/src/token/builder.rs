@@ -15,6 +15,9 @@ use std::{
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{Binary, Unary};
 
+#[cfg(feature = "datalog-macro")]
+use quote::{quote, ToTokens};
+
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
 pub struct BlockBuilder {
@@ -403,6 +406,39 @@ impl<'a> BiscuitBuilder<'a> {
         self.context = Some(context);
     }
 
+    /// returns all of the datalog loaded in the biscuit builder
+    pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
+        (
+            self.facts
+                .iter()
+                .map(|f| Fact::convert_from(f, &self.symbols))
+                .collect(),
+            self.rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &self.symbols))
+                .collect(),
+            self.checks
+                .iter()
+                .map(|c| Check::convert_from(c, &self.symbols))
+                .collect(),
+        )
+    }
+
+    pub fn dump_code(&self) -> String {
+        let (facts, rules, checks) = self.dump();
+        let mut f = String::new();
+        for fact in facts {
+            f.push_str(&format!("{};\n", &fact));
+        }
+        for rule in rules {
+            f.push_str(&format!("{};\n", &rule));
+        }
+        for check in checks {
+            f.push_str(&format!("{};\n", &check));
+        }
+        f
+    }
+
     pub fn build(self) -> Result<Biscuit, error::Token> {
         self.build_with_rng(&mut rand::rngs::OsRng)
     }
@@ -457,7 +493,7 @@ impl Term {
             Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
-            Term::Parameter(_s) => panic!("Remaining parameter"),
+            Term::Parameter(s) => panic!("Remaining parameter {}", &s),
         }
     }
 
@@ -533,6 +569,24 @@ impl fmt::Display for Term {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Term {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            Term::Variable(v) => quote! { ::biscuit_auth::builder::Term::Variable(#v.to_string()) },
+            Term::Integer(v) => quote! { ::biscuit_auth::builder::Term::Integer(#v) },
+            Term::Str(v) => quote! { ::biscuit_auth::builder::Term::Str(#v.to_string()) },
+            Term::Date(v) => quote! { ::biscuit_auth::builder::Term::Date(#v) },
+            Term::Bool(v) => quote! { ::biscuit_auth::builder::Term::Bool(#v) },
+            Term::Parameter(v) => quote! { ::biscuit_auth::builder::Term::Parameter(#v.to_string()) },
+            Term::Bytes(v) => quote! { ::biscuit_auth::builder::Term::Bytes(<[u8]>::into_vec(Box::new([ #(#v),*]))) },
+            Term::Set(v) => {
+                quote! { ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) }
+            }
+        })
+    }
+}
+
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -591,6 +645,20 @@ impl fmt::Display for Predicate {
             }
         }
         write!(f, ")")
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Predicate {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let name = &self.name;
+        let terms = self.terms.iter();
+        tokens.extend(quote! {
+            ::biscuit_auth::builder::Predicate::new(
+              #name.to_string(),
+              <[::biscuit_auth::builder::Term]>::into_vec(Box::new([#(#terms),*]))
+            )
+        })
     }
 }
 
@@ -683,6 +751,24 @@ impl Fact {
         }
     }
 
+    /// replace a parameter with the term argument, without raising an error
+    /// if the parameter is not present in the fact description
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                error::LanguageError::UnknownParameter(name.to_string()),
+            ))
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.predicate.terms = self
@@ -708,6 +794,20 @@ impl fmt::Display for Fact {
         fact.apply_parameters();
 
         fact.predicate.fmt(f)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Fact {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let name = &self.predicate.name;
+        let terms = self.predicate.terms.iter();
+        tokens.extend(quote! {
+            ::biscuit_auth::builder::Fact::new(
+              #name.to_string(),
+              <[::biscuit_auth::builder::Term]>::into_vec(Box::new([#(#terms),*]))
+            )
+        })
     }
 }
 
@@ -751,6 +851,18 @@ impl fmt::Display for Expression {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Expression {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let ops = self.ops.iter();
+        tokens.extend(quote! {
+          ::biscuit_auth::builder::Expression {
+            ops: <[::biscuit_auth::builder::Op]>::into_vec(Box::new([#(#ops),*]))
+          }
+        });
+    }
+}
+
 /// Builder for an expression operation
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
@@ -774,6 +886,17 @@ impl Op {
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
         }
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Op {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            Op::Value(t) => quote! { ::biscuit_auth::builder::Op::Value(#t) },
+            Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
+            Op::Binary(b) => quote! { ::biscuit_auth::builder::Op::Binary(#b) },
+        });
     }
 }
 
@@ -943,6 +1066,24 @@ impl Rule {
         }
     }
 
+    /// replace a parameter with the term argument, without raising an error if the
+    /// parameter is not present in the rule
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        if let Some(parameters) = self.parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(term.into());
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                error::LanguageError::UnknownParameter(name.to_string()),
+            ))
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.head.terms = self
@@ -993,26 +1134,28 @@ impl Rule {
 }
 
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if !r.body.is_empty() {
-        write!(f, "{}", r.body[0])?;
+    let mut rule = r.clone();
+    rule.apply_parameters();
+    if !rule.body.is_empty() {
+        write!(f, "{}", rule.body[0])?;
 
-        if r.body.len() > 1 {
-            for i in 1..r.body.len() {
-                write!(f, ", {}", r.body[i])?;
+        if rule.body.len() > 1 {
+            for i in 1..rule.body.len() {
+                write!(f, ", {}", rule.body[i])?;
             }
         }
     }
 
-    if !r.expressions.is_empty() {
-        if !r.body.is_empty() {
+    if !rule.expressions.is_empty() {
+        if !rule.body.is_empty() {
             write!(f, ", ")?;
         }
 
-        write!(f, "{}", r.expressions[0])?;
+        write!(f, "{}", rule.expressions[0])?;
 
-        if r.expressions.len() > 1 {
-            for i in 1..r.expressions.len() {
-                write!(f, ", {}", r.expressions[i])?;
+        if rule.expressions.len() > 1 {
+            for i in 1..rule.expressions.len() {
+                write!(f, ", {}", rule.expressions[i])?;
             }
         }
     }
@@ -1028,6 +1171,22 @@ impl fmt::Display for Rule {
         write!(f, "{} <- ", r.head)?;
 
         display_rule_body(&r, f)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Rule {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let head = &self.head;
+        let body = self.body.iter();
+        let expressions = self.expressions.iter();
+        tokens.extend(quote! {
+          ::biscuit_auth::builder::Rule::new(
+            #head,
+            <[::biscuit_auth::builder::Predicate]>::into_vec(Box::new([#(#body),*])),
+            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*]))
+          )
+        });
     }
 }
 
@@ -1079,6 +1238,16 @@ impl Check {
         }
     }
 
+    /// replace a parameter with the term argument, without raising an error if the
+    /// parameter is not present in the check
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        let term = term.into();
+        for query in &mut self.queries {
+            query.set_lenient(name, term.clone())?;
+        }
+        Ok(())
+    }
+
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
         for rule in &self.queries {
             rule.validate_parameters()?;
@@ -1119,12 +1288,16 @@ impl fmt::Display for Check {
         write!(f, "check if ")?;
 
         if !self.queries.is_empty() {
-            display_rule_body(&self.queries[0], f)?;
+            let mut q0 = self.queries[0].clone();
+            q0.apply_parameters();
+            display_rule_body(&q0, f)?;
 
             if self.queries.len() > 1 {
                 for i in 1..self.queries.len() {
                     write!(f, " or ")?;
-                    display_rule_body(&self.queries[i], f)?;
+                    let mut qn = self.queries[i].clone();
+                    qn.apply_parameters();
+                    display_rule_body(&qn, f)?;
                 }
             }
         }
@@ -1133,10 +1306,36 @@ impl fmt::Display for Check {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Check {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let queries = self.queries.iter();
+        tokens.extend(quote! {
+          ::biscuit_auth::builder::Check {
+            queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
+          }
+        });
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PolicyKind {
     Allow,
     Deny,
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for PolicyKind {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            PolicyKind::Allow => quote! {
+              ::biscuit_auth::builder::PolicyKind::Allow
+            },
+            PolicyKind::Deny => quote! {
+              ::biscuit_auth::builder::PolicyKind::Deny
+            },
+        });
+    }
 }
 
 /// Builder for a Biscuit policy
@@ -1168,6 +1367,15 @@ impl Policy {
                 error::LanguageError::UnknownParameter(name.to_string()),
             ))
         }
+    }
+
+    /// replace a parameter with the term argument, ignoring unknown parameters
+    pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
+        let term = term.into();
+        for query in &mut self.queries {
+            query.set_lenient(name, term.clone())?;
+        }
+        Ok(())
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1205,6 +1413,20 @@ impl fmt::Display for Policy {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Policy {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        let queries = self.queries.iter();
+        let kind = &self.kind;
+        tokens.extend(quote! {
+          ::biscuit_auth::builder::Policy{
+            kind: #kind,
+            queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
+          }
+        });
     }
 }
 

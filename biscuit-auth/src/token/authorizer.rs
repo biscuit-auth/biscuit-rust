@@ -705,6 +705,24 @@ impl<'t> Authorizer<'t> {
             self.policies.clone(),
         )
     }
+
+    pub fn dump_code(&self) -> String {
+        let (facts, rules, checks, policies) = self.dump();
+        let mut f = String::new();
+        for fact in facts {
+            f.push_str(&format!("{};\n", &fact));
+        }
+        for rule in rules {
+            f.push_str(&format!("{};\n", &rule));
+        }
+        for check in checks {
+            f.push_str(&format!("{};\n", &check));
+        }
+        for policy in policies {
+            f.push_str(&format!("{};\n", &policy));
+        }
+        f
+    }
 }
 
 #[derive(Debug, Clone)]
