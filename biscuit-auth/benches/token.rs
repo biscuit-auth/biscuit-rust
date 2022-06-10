@@ -13,20 +13,20 @@ fn create_block_1(b: &mut Bencher) {
     let root = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder.build_with_rng(&mut rng).unwrap();
     let data = token.to_vec().unwrap();
 
     b.bytes = data.len() as u64;
-    assert_eq!(b.bytes, 216);
+    assert_eq!(b.bytes, 206);
     b.iter(|| {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let data = token.to_vec().unwrap();
@@ -40,9 +40,9 @@ fn append_block_2(b: &mut Bencher) {
     let keypair2 = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder.build_with_rng(&mut rng).unwrap();
     let base_data = token.to_vec().unwrap();
@@ -55,7 +55,7 @@ fn append_block_2(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 184);
+    assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token = Biscuit::from(&base_data, |_| root.public()).unwrap();
         let mut block_builder = token.create_block();
@@ -77,9 +77,9 @@ fn append_block_5(b: &mut Bencher) {
     let keypair5 = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder.build_with_rng(&mut rng).unwrap();
     let base_data = token.to_vec().unwrap();
@@ -92,7 +92,7 @@ fn append_block_5(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 184);
+    assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token2 = Biscuit::from(&data, |_| root.public()).unwrap();
         let mut b = token2.create_block();
@@ -127,9 +127,9 @@ fn unverified_append_block_2(b: &mut Bencher) {
     let keypair2 = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder.build_with_rng(&mut rng).unwrap();
     let base_data = token.to_vec().unwrap();
@@ -142,7 +142,7 @@ fn unverified_append_block_2(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 184);
+    assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token = UnverifiedBiscuit::from(&base_data).unwrap();
         let mut block_builder = token.create_block();
@@ -164,9 +164,9 @@ fn unverified_append_block_5(b: &mut Bencher) {
     let keypair5 = KeyPair::new_with_rng(&mut rng);
 
     let mut builder = Biscuit::builder(&root);
-    builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-    builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+    builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder.build_with_rng(&mut rng).unwrap();
     let base_data = token.to_vec().unwrap();
@@ -179,7 +179,7 @@ fn unverified_append_block_5(b: &mut Bencher) {
     let data = token2.to_vec().unwrap();
 
     b.bytes = (data.len() - base_data.len()) as u64;
-    assert_eq!(b.bytes, 184);
+    assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token2 = UnverifiedBiscuit::from(&data).unwrap();
         let mut b = token2.create_block();
@@ -215,9 +215,9 @@ fn verify_block_2(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -232,8 +232,8 @@ fn verify_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -241,8 +241,8 @@ fn verify_block_2(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, |_| root.public()).unwrap();
         let mut verifier = token.authorizer().unwrap();
-        verifier.add_resource("file1");
-        verifier.add_operation("read");
+        verifier.add_fact("resource(\"file1\")");
+        verifier.add_fact("operation(\"read\")");
         verifier.allow();
         verifier.authorize().unwrap();
     });
@@ -259,9 +259,9 @@ fn verify_block_5(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -300,8 +300,8 @@ fn verify_block_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -309,8 +309,8 @@ fn verify_block_5(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, |_| root.public()).unwrap();
         let mut verifier = token.authorizer().unwrap();
-        verifier.add_resource("file1");
-        verifier.add_operation("read");
+        verifier.add_fact("resource(\"file1\")");
+        verifier.add_fact("operation(\"read\")");
         verifier.allow();
         verifier.authorize().unwrap();
     });
@@ -324,9 +324,9 @@ fn check_signature_2(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -341,8 +341,8 @@ fn check_signature_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -363,9 +363,9 @@ fn check_signature_5(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -403,8 +403,8 @@ fn check_signature_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -422,9 +422,9 @@ fn caveats_block_2(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -439,8 +439,8 @@ fn caveats_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -448,8 +448,8 @@ fn caveats_block_2(b: &mut Bencher) {
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut verifier = token.authorizer().unwrap();
-        verifier.add_resource("file1");
-        verifier.add_operation("read");
+        verifier.add_fact("resource(\"file1\")");
+        verifier.add_fact("operation(\"read\")");
         verifier.allow();
         verifier.authorize().unwrap();
     });
@@ -463,9 +463,9 @@ fn caveats_block_create_verifier2(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -480,8 +480,8 @@ fn caveats_block_create_verifier2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
@@ -500,9 +500,9 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
 
     let data = {
         let mut builder = Biscuit::builder(&root);
-        builder.add_authority_fact(fact("right", &[string("file1"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file2"), s("read")]));
-        builder.add_authority_fact(fact("right", &[string("file1"), s("write")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file2"), string("read")]));
+        builder.add_authority_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder.build_with_rng(&mut rng).unwrap();
         let base_data = token.to_vec().unwrap();
@@ -517,16 +517,16 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
-    verifier.add_resource("file1");
-    verifier.add_operation("read");
+    verifier.add_fact("resource(\"file1\")");
+    verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
     let token = Biscuit::from(&data, |_| root.public()).unwrap();
     b.iter(|| {
         let mut verifier = token.authorizer().unwrap();
-        verifier.add_resource("file1");
-        verifier.add_operation("read");
+        verifier.add_fact("resource(\"file1\")");
+        verifier.add_fact("operation(\"read\")");
         verifier.allow();
         verifier.authorize().unwrap();
     });
