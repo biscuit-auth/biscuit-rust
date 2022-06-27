@@ -17,6 +17,15 @@ pub struct SignedBlock {
     pub next_key: PublicKey,
     #[prost(bytes = "vec", required, tag = "3")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub external_signature: ::core::option::Option<ExternalSignature>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExternalSignature {
+    #[prost(bytes = "vec", required, tag = "1")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, required, tag = "2")]
+    pub public_key: PublicKey,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublicKey {
@@ -62,6 +71,31 @@ pub struct Block {
     pub rules_v2: ::prost::alloc::vec::Vec<RuleV2>,
     #[prost(message, repeated, tag = "6")]
     pub checks_v2: ::prost::alloc::vec::Vec<CheckV2>,
+    #[prost(message, repeated, tag = "7")]
+    pub scope: ::prost::alloc::vec::Vec<Scope>,
+    #[prost(message, repeated, tag = "8")]
+    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Scope {
+    #[prost(oneof = "scope::Content", tags = "1, 2")]
+    pub content: ::core::option::Option<scope::Content>,
+}
+/// Nested message and enum types in `Scope`.
+pub mod scope {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum ScopeType {
+        Authority = 0,
+        Previous = 1,
+    }
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(enumeration = "ScopeType", tag = "1")]
+        ScopeType(i32),
+        #[prost(int64, tag = "2")]
+        Block(i64),
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FactV2 {
@@ -76,6 +110,8 @@ pub struct RuleV2 {
     pub body: ::prost::alloc::vec::Vec<PredicateV2>,
     #[prost(message, repeated, tag = "3")]
     pub expressions: ::prost::alloc::vec::Vec<ExpressionV2>,
+    #[prost(message, repeated, tag = "4")]
+    pub scope: ::prost::alloc::vec::Vec<Scope>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckV2 {
@@ -118,21 +154,6 @@ pub mod term_v2 {
 pub struct TermSet {
     #[prost(message, repeated, tag = "1")]
     pub set: ::prost::alloc::vec::Vec<TermV2>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct IntSet {
-    #[prost(int64, repeated, tag = "7")]
-    pub set: ::prost::alloc::vec::Vec<i64>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StringSet {
-    #[prost(uint64, repeated, tag = "1")]
-    pub set: ::prost::alloc::vec::Vec<u64>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BytesSet {
-    #[prost(bytes = "vec", repeated, tag = "1")]
-    pub set: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExpressionV2 {
@@ -230,4 +251,18 @@ pub struct AuthorizerPolicies {
     pub checks: ::prost::alloc::vec::Vec<CheckV2>,
     #[prost(message, repeated, tag = "6")]
     pub policies: ::prost::alloc::vec::Vec<Policy>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ThirdPartyBlockRequest {
+    #[prost(message, required, tag = "1")]
+    pub previous_key: PublicKey,
+    #[prost(message, repeated, tag = "2")]
+    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ThirdPartyBlockContents {
+    #[prost(bytes = "vec", required, tag = "1")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, required, tag = "2")]
+    pub external_signature: ExternalSignature,
 }

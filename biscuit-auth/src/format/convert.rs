@@ -25,6 +25,8 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .iter()
             .map(v2::token_check_to_proto_check)
             .collect(),
+        scope: vec![],
+        public_keys: vec![],
     }
 }
 
@@ -238,6 +240,7 @@ pub mod v2 {
                 .iter()
                 .map(token_expression_to_proto_expression)
                 .collect(),
+            scope: vec![],
         }
     }
 

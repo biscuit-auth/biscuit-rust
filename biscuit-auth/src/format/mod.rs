@@ -144,6 +144,7 @@ impl SerializedBiscuit {
                 key: self.authority.next_key.to_bytes().to_vec(),
             },
             signature: self.authority.signature.to_bytes().to_vec(),
+            external_signature: None,
         };
 
         let mut blocks = Vec::new();
@@ -155,6 +156,7 @@ impl SerializedBiscuit {
                     key: block.next_key.to_bytes().to_vec(),
                 },
                 signature: block.signature.to_bytes().to_vec(),
+                external_signature: None,
             };
 
             blocks.push(b);
