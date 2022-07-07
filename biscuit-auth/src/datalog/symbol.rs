@@ -125,12 +125,18 @@ impl SymbolTable {
     pub fn print_world(&self, w: &World) -> String {
         let facts = w
             .facts
+            .inner
             .iter()
+            .map(|facts| facts.1.iter())
+            .flatten()
             .map(|f| self.print_fact(f))
             .collect::<Vec<_>>();
         let rules = w
             .rules
+            .inner
             .iter()
+            .map(|rules| rules.1.iter())
+            .flatten()
             .map(|r| self.print_rule(r))
             .collect::<Vec<_>>();
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)

@@ -14,7 +14,7 @@ use ed25519_dalek::Signer;
 use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
-pub mod schema; /* {
+pub mod schema; /*{
                     include!(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs"));
                 }*/
 

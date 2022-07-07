@@ -6,19 +6,19 @@ use std::collections::HashMap;
 #[cfg(feature = "datalog-macro")]
 use quote::{quote, ToTokens};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
     pub ops: Vec<Op>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Unary {
     Negate,
     Parens,
@@ -62,7 +62,7 @@ impl ToTokens for Unary {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Binary {
     LessThan,
     GreaterThan,
