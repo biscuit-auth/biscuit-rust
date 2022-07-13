@@ -222,7 +222,7 @@ pub enum RunLimit {
 #[derive(Error, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum LanguageError {
-    #[error("datalog parsing error")]
+    #[error("datalog parsing error: {0:?}")]
     ParseError(ParseErrors),
     #[error("datalog parameters must all be bound, provided values must all be used.\nMissing parameters: {missing_parameters:?}\nUnused parameters: {unused_parameters:?}")]
     Parameters {
