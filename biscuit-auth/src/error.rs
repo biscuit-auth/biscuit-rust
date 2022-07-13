@@ -229,10 +229,6 @@ pub enum LanguageError {
         missing_parameters: Vec<String>,
         unused_parameters: Vec<String>,
     },
-    #[error("datalog fragments must not contain unbound parameters")]
-    Builder { invalid_parameters: Vec<String> },
-    #[error("cannot set value for an unknown parameter")]
-    UnknownParameter(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
