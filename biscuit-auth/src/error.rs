@@ -20,7 +20,7 @@ pub enum Token {
     AlreadySealed,
     #[error("authorization failed")]
     FailedLogic(Logic),
-    #[error("error generating Datalog")]
+    #[error("error generating Datalog: {0}")]
     Language(LanguageError),
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
@@ -222,12 +222,13 @@ pub enum RunLimit {
 #[derive(Error, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum LanguageError {
-    #[error("datalog parsing error")]
+    #[error("datalog parsing error: {0:?}")]
     ParseError(ParseErrors),
-    #[error("facts must not contain unbound parameters")]
-    Builder { invalid_parameters: Vec<String> },
-    #[error("cannot set value for an unknown parameter")]
-    UnknownParameter(String),
+    #[error("datalog parameters must all be bound, provided values must all be used.\nMissing parameters: {missing_parameters:?}\nUnused parameters: {unused_parameters:?}")]
+    Parameters {
+        missing_parameters: Vec<String>,
+        unused_parameters: Vec<String>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -43,14 +43,16 @@
 //! ```
 
 extern crate proc_macro;
+extern crate proc_macro_error;
 use biscuit_auth::{
     builder::{BlockBuilder, Check, Fact, Policy, Rule},
     error,
     parser::{parse_block_source, parse_source},
 };
 use proc_macro::TokenStream;
+use proc_macro_error::{abort, abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syn::{
     parse::{Parse, ParseStream, Result},
     Expr, Ident, LitStr, Token,
@@ -75,13 +77,15 @@ use syn::{
 /// );
 /// ```
 #[proc_macro]
+#[proc_macro_error]
 pub fn block(input: TokenStream) -> TokenStream {
     let ParsedQuery {
         datalog,
         parameters,
-    } = syn::parse(input).unwrap();
+    } = syn::parse(input).unwrap_or_else(|e| abort!(e));
 
-    let builder = BlockBuilderWithParams::from_code(&datalog, &parameters).unwrap();
+    let builder = BlockBuilderWithParams::from_code(&datalog, &parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let gen = quote! {
         {
@@ -135,23 +139,61 @@ impl BlockBuilderWithParams {
         parameters: &HashMap<String, Expr>,
     ) -> std::result::Result<Self, error::Token> {
         let input = source.as_ref();
+        let mut datalog_parameters = HashSet::new();
+        let macro_parameters = HashSet::from_iter(parameters.keys().map(|k| k.to_string()));
         let mut builder = BlockBuilder::new();
         let source_result = parse_block_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
+            if let Some(params) = &fact.parameters.clone() {
+                for param in params.clone().keys() {
+                    let p = param.clone();
+                    datalog_parameters.insert(p);
+                }
+            }
+
             builder.facts.push(fact);
         }
         for (_, rule) in source_result.rules.into_iter() {
+            if let Some(params) = &rule.parameters.clone() {
+                for param in params.clone().keys() {
+                    let p = param.clone();
+                    datalog_parameters.insert(p);
+                }
+            }
             builder.rules.push(rule);
         }
         for (_, check) in source_result.checks.into_iter() {
+            for query in check.queries.iter() {
+                if let Some(params) = &query.parameters.clone() {
+                    for param in params.clone().keys() {
+                        let p = param.clone();
+                        datalog_parameters.insert(p);
+                    }
+                }
+            }
             builder.checks.push(check);
         }
 
-        Ok(BlockBuilderWithParams {
-            builder,
-            parameters: parameters.clone(),
-        })
+        if datalog_parameters == macro_parameters {
+            Ok(BlockBuilderWithParams {
+                builder,
+                parameters: parameters.clone(),
+            })
+        } else {
+            let unused_parameters: Vec<String> = macro_parameters
+                .difference(&datalog_parameters)
+                .map(|k| k.to_string())
+                .collect();
+            let missing_parameters: Vec<String> = datalog_parameters
+                .difference(&macro_parameters)
+                .map(|k| k.to_string())
+                .collect();
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters,
+                unused_parameters,
+            }))
+        }
     }
 }
 

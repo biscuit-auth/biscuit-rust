@@ -11,7 +11,6 @@ fn block_macro() {
             check if {my_key}.starts_with("my");
             "#,
         my_key = "my_value",
-        other_key = false,
     );
     assert_eq!(
         b.to_string(),
@@ -24,7 +23,7 @@ check if "my_value".starts_with("my");
 
 #[test]
 fn block_macro_trailing_comma() {
-    let b = block!(r#"fact("test");"#, my_key = "my_value",);
+    let b = block!(r#"fact({my_key});"#, my_key = "test",);
     assert_eq!(
         b.to_string(),
         r#"fact("test");
