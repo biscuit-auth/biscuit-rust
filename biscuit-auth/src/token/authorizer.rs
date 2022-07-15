@@ -118,14 +118,13 @@ impl<'t> Authorizer<'t> {
         }
 
         for rule in token.authority.rules.iter().cloned() {
-            let r = Rule::convert_from(&rule, &token.symbols);
-            let rule = r.convert(&mut self.symbols);
-
-            if let Err(_message) = r.validate_variables() {
+            if let Err(_message) = rule.validate_variables(&token.symbols) {
                 return Err(
                     error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
                 );
             }
+
+            let rule = rule.translate(&token.symbols, &mut self.symbols);
         }
         for (i, block) in token.blocks.iter().enumerate() {
             // if it is a 3rd party block, it should not affect the main symbol table
@@ -143,17 +142,13 @@ impl<'t> Authorizer<'t> {
             }
 
             for rule in block.rules.iter().cloned() {
-                let r = Rule::convert_from(&rule, &block_symbols);
-
-                if let Err(_message) = r.validate_variables() {
-                    return Err(error::Logic::InvalidBlockRule(
-                        i as u32,
-                        token.symbols.print_rule(&rule),
-                    )
-                    .into());
+                if let Err(_message) = rule.validate_variables(&token.symbols) {
+                    return Err(
+                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                    );
                 }
+                let rule = rule.translate(&block_symbols, &mut self.symbols);
 
-                let rule = r.convert(&mut self.symbols);
                 self.world.rules.insert(&origin, rule);
             }
         }

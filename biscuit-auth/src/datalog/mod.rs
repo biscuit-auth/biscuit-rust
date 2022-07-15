@@ -156,6 +156,71 @@ impl Rule {
         let next = it.next();
         next.is_some()
     }
+
+    // use this to translate rules and checks from token to authorizer world without translating
+    // to a builder Rule first, because the builder Rule can contain a public key, so we would
+    // need to loo up then retranslate that key, while the datalog rule does not need to know about
+    // the key (the scope is driven by the authorizer's side)
+    pub fn translate(
+        &self,
+        origin_symbols: &SymbolTable,
+        target_symbols: &mut SymbolTable,
+    ) -> Self {
+        Rule {
+            head: builder::Predicate::convert_from(&self.head, origin_symbols)
+                .convert(target_symbols),
+            body: self
+                .body
+                .iter()
+                .map(|p| {
+                    builder::Predicate::convert_from(p, origin_symbols).convert(target_symbols)
+                })
+                .collect(),
+            expressions: self
+                .expressions
+                .iter()
+                .map(|c| {
+                    builder::Expression::convert_from(c, origin_symbols).convert(target_symbols)
+                })
+                .collect(),
+        }
+    }
+
+    pub fn validate_variables(&self, symbols: &SymbolTable) -> Result<(), String> {
+        let mut head_variables: std::collections::HashSet<u32> = self
+            .head
+            .terms
+            .iter()
+            .filter_map(|term| match term {
+                Term::Variable(s) => Some(*s),
+                _ => None,
+            })
+            .collect();
+
+        for predicate in self.body.iter() {
+            for term in predicate.terms.iter() {
+                if let Term::Variable(v) = term {
+                    head_variables.remove(v);
+                    if head_variables.is_empty() {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        if head_variables.is_empty() {
+            Ok(())
+        } else {
+            Err(format!(
+                    "rule head contains variables that are not used in predicates of the rule's body: {}",
+                    head_variables
+                    .iter()
+                    .map(|s| format!("${}", symbols.print_symbol(*s as u64)))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    ))
+        }
+    }
 }
 
 /// recursive iterator for rule application
