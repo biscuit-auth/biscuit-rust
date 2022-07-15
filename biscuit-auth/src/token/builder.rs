@@ -156,7 +156,10 @@ impl BlockBuilder {
             checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
+            //FIXME
             external_key: None,
+            //FIXME
+            public_keys: vec![],
         }
     }
 
@@ -457,7 +460,10 @@ impl<'a> BiscuitBuilder<'a> {
             checks: self.checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
+            //FIXME
             external_key: None,
+            //FIXME
+            public_keys: vec![],
         };
 
         Biscuit::new_with_rng(

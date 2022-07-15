@@ -12,7 +12,7 @@ use crate::error::Format;
 use super::error;
 use ed25519_dalek::*;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, ops::Drop};
+use std::{convert::TryInto, hash::Hash, ops::Drop};
 use zeroize::Zeroize;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -119,6 +119,13 @@ impl PublicKey {
             .map(PublicKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
+    }
+}
+
+impl Hash for PublicKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
+        self.0.to_bytes().hash(state);
     }
 }
 

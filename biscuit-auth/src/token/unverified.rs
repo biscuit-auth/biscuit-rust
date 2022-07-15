@@ -1,4 +1,4 @@
-use super::{default_symbol_table, Biscuit, Block};
+use super::{default_symbol_table, public_keys::PublicKeys, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
     crypto::PublicKey,
@@ -21,6 +21,7 @@ pub struct UnverifiedBiscuit {
     pub(crate) authority: Block,
     pub(crate) blocks: Vec<Block>,
     pub(crate) symbols: SymbolTable,
+    pub(crate) public_keys: PublicKeys,
     container: SerializedBiscuit,
 }
 
@@ -54,6 +55,7 @@ impl UnverifiedBiscuit {
             authority: self.authority,
             blocks: self.blocks,
             symbols: self.symbols,
+            public_keys: self.public_keys,
             container: Some(self.container),
         })
     }
@@ -88,6 +90,7 @@ impl UnverifiedBiscuit {
     /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::deserialize(slice)?;
+        let mut public_keys = PublicKeys::new();
 
         let authority: Block = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
@@ -107,6 +110,11 @@ impl UnverifiedBiscuit {
                 )
                 .map_err(error::Token::Format)
             })?;
+
+        //FIXME: should we show an error if a key is already known?
+        for key in &authority.public_keys {
+            public_keys.insert(&key);
+        }
 
         let mut blocks = vec![];
 
@@ -133,12 +141,17 @@ impl UnverifiedBiscuit {
 
         for block in blocks.iter() {
             symbols.extend(&block.symbols);
+            //FIXME: should we show an error if a key is already known?
+            for key in &block.public_keys {
+                public_keys.insert(&key);
+            }
         }
 
         Ok(UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
+            public_keys,
             container,
         })
     }
@@ -170,16 +183,22 @@ impl UnverifiedBiscuit {
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
+        let mut public_keys = self.public_keys.clone();
 
         let container = self.container.append(keypair, &block)?;
 
         symbols.extend(&block.symbols);
+        //FIXME: should we show an error if a key is already known?
+        for key in &block.public_keys {
+            public_keys.insert(&key);
+        }
         blocks.push(block);
 
         Ok(UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
+            public_keys,
             container,
         })
     }

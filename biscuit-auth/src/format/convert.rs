@@ -27,7 +27,14 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .map(v2::token_check_to_proto_check)
             .collect(),
         scope: vec![],
-        public_keys: vec![],
+        public_keys: input
+            .public_keys
+            .iter()
+            .map(|key| schema::PublicKey {
+                algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+                key: key.to_bytes().to_vec(),
+            })
+            .collect(),
     }
 }
 
@@ -64,6 +71,19 @@ pub fn proto_block_to_token_block(
     let context = input.context.clone();
 
     let symbols = SymbolTable::from(input.symbols.clone());
+    let public_keys: Result<Vec<PublicKey>, _> = input
+        .public_keys
+        .iter()
+        .map(|pk| {
+            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                return Err(error::Format::DeserializationError(format!(
+                    "deserialization error: unexpected key algorithm {}",
+                    pk.algorithm
+                )));
+            }
+            Ok(PublicKey::from_bytes(&pk.key)?)
+        })
+        .collect();
 
     Ok(Block {
         symbols,
@@ -73,6 +93,7 @@ pub fn proto_block_to_token_block(
         context,
         version,
         external_key,
+        public_keys: public_keys?,
     })
 }
 

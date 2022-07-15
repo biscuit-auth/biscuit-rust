@@ -1,4 +1,5 @@
 //! main structures to interact with Biscuit tokens
+use self::public_keys::PublicKeys;
 use super::crypto::{KeyPair, PublicKey};
 use super::datalog::{Check, Fact, Rule, SymbolTable, Term};
 use super::error;
@@ -12,6 +13,7 @@ use authorizer::Authorizer;
 
 pub mod authorizer;
 pub mod builder;
+mod public_keys;
 pub mod unverified;
 
 /// minimum supported version of the serialization format
@@ -62,6 +64,7 @@ pub struct Biscuit {
     pub(crate) authority: Block,
     pub(crate) blocks: Vec<Block>,
     pub(crate) symbols: SymbolTable,
+    pub(crate) public_keys: PublicKeys,
     container: Option<SerializedBiscuit>,
 }
 
@@ -203,8 +206,9 @@ impl Biscuit {
             .collect();
 
         format!(
-            "Biscuit {{\n    symbols: {:?}\n    authority: {}\n    blocks: [\n        {}\n    ]\n}}",
+            "Biscuit {{\n    symbols: {:?}\n    public keys: {:?}\n    authority: {}\n    blocks: [\n        {}\n    ]\n}}",
             self.symbols.strings(),
+            self.public_keys.keys.iter().map(|pk| hex::encode(pk.to_bytes())).collect::<Vec<_>>(),
             authority,
             blocks.join(",\n\t")
         )
@@ -256,6 +260,7 @@ impl Biscuit {
             blocks,
             symbols,
             container: Some(container),
+            public_keys: PublicKeys::new(),
         })
     }
 
@@ -273,6 +278,8 @@ impl Biscuit {
         container: SerializedBiscuit,
         mut symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
+        let mut public_keys = PublicKeys::new();
+
         let authority: Block = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
@@ -291,6 +298,11 @@ impl Biscuit {
                 )
                 .map_err(error::Token::Format)
             })?;
+
+        //FIXME: should we show an error if a key is already known?
+        for key in &authority.public_keys {
+            public_keys.insert(&key);
+        }
 
         let mut blocks = vec![];
 
@@ -319,6 +331,11 @@ impl Biscuit {
             if block.external_key.is_none() {
                 symbols.extend(&block.symbols);
             }
+
+            //FIXME: should we show an error if a key is already known?
+            for key in &block.public_keys {
+                public_keys.insert(&key);
+            }
         }
 
         let root_key_id = container.root_key_id;
@@ -330,6 +347,7 @@ impl Biscuit {
             blocks,
             symbols,
             container,
+            public_keys,
         })
     }
 
@@ -374,6 +392,7 @@ impl Biscuit {
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
+        let mut public_keys = self.public_keys.clone();
 
         let container = match self.container.as_ref() {
             None => return Err(error::Token::AppendOnSealed),
@@ -381,6 +400,10 @@ impl Biscuit {
         };
 
         symbols.extend(&block.symbols);
+        //FIXME: should we show an error if a key is already known?
+        for key in &block.public_keys {
+            public_keys.insert(&key);
+        }
         blocks.push(block);
 
         Ok(Biscuit {
@@ -388,6 +411,7 @@ impl Biscuit {
             authority,
             blocks,
             symbols,
+            public_keys,
             container: Some(container),
         })
     }
@@ -447,11 +471,12 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            external key: {}\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
+        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            external key: {}\n            public keys: {:?}\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
         block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
+        block.public_keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
         facts,
         rules,
         checks,
@@ -476,6 +501,8 @@ pub struct Block {
     pub version: u32,
     /// key used in optional external signature
     pub external_key: Option<PublicKey>,
+    /// list of public keys referenced by this block
+    pub public_keys: Vec<PublicKey>,
 }
 
 impl Block {

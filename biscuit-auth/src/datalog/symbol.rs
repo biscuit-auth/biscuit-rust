@@ -109,8 +109,10 @@ impl SymbolTable {
     }
 
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
-        if i >= 1024 {
-            self.symbols.get((i - 1024) as usize).map(|s| s.as_str())
+        if i >= OFFSET as u64 {
+            self.symbols
+                .get((i - OFFSET as u64) as usize)
+                .map(|s| s.as_str())
         } else {
             DEFAULT_SYMBOLS.get(i as usize).map(|s| *s)
         }
