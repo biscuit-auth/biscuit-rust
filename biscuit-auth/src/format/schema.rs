@@ -94,7 +94,7 @@ pub mod scope {
         #[prost(enumeration = "ScopeType", tag = "1")]
         ScopeType(i32),
         #[prost(int64, tag = "2")]
-        Block(i64),
+        PublicKey(i64),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
