@@ -1,5 +1,7 @@
 //! helper functions for conversion between internal structures and Protobuf
 
+use self::v2::proto_scope_to_token_scope;
+
 use super::schema;
 use crate::crypto::PublicKey;
 use crate::datalog::*;
@@ -30,19 +32,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
         scope: input
             .scopes
             .iter()
-            .map(|scope| schema::Scope {
-                content: Some(match scope {
-                    crate::token::Scope::Authority => schema::scope::Content::ScopeType(
-                        schema::scope::ScopeType::Authority as i32,
-                    ),
-                    crate::token::Scope::Previous => {
-                        schema::scope::Content::ScopeType(schema::scope::ScopeType::Previous as i32)
-                    }
-                    crate::token::Scope::PublicKey(i) => {
-                        schema::scope::Content::PublicKey(*i as i64)
-                    }
-                }),
-            })
+            .map(v2::token_scope_to_proto_scope)
             .collect(),
         public_keys: input
             .public_keys
@@ -102,22 +92,8 @@ pub fn proto_block_to_token_block(
         })
         .collect();
 
-    let scopes = input
-        .scope
-        .iter()
-        .filter_map(|scope|
-    //FIXME: check that the referenced public key index exists in the public key table
-    scope.content.as_ref().and_then(|content| {
-        match content {
-            schema::scope::Content::ScopeType(i) => if *i == schema::scope::ScopeType::Authority as i32 {
-                Some(Scope::Authority)
-            } else if *i == schema::scope::ScopeType::Previous as i32 {
-                Some(Scope::Previous)
-            } else { None},
-            schema::scope::Content::PublicKey(i) => Some(Scope::PublicKey(*i as u64)),
-        }
-    }))
-        .collect();
+    let scopes: Result<Vec<Scope>, _> =
+        input.scope.iter().map(proto_scope_to_token_scope).collect();
 
     Ok(Block {
         symbols,
@@ -128,7 +104,7 @@ pub fn proto_block_to_token_block(
         version,
         external_key,
         public_keys: public_keys?,
-        scopes,
+        scopes: scopes?,
     })
 }
 
@@ -211,6 +187,7 @@ pub mod v2 {
     use super::schema;
     use crate::datalog::*;
     use crate::error;
+    use crate::token::Scope;
     use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
@@ -544,5 +521,45 @@ pub mod v2 {
         }
 
         Ok(Expression { ops })
+    }
+
+    pub fn token_scope_to_proto_scope(input: &Scope) -> schema::Scope {
+        schema::Scope {
+            content: Some(match input {
+                crate::token::Scope::Authority => {
+                    schema::scope::Content::ScopeType(schema::scope::ScopeType::Authority as i32)
+                }
+                crate::token::Scope::Previous => {
+                    schema::scope::Content::ScopeType(schema::scope::ScopeType::Previous as i32)
+                }
+                crate::token::Scope::PublicKey(i) => schema::scope::Content::PublicKey(*i as i64),
+            }),
+        }
+    }
+
+    pub fn proto_scope_to_token_scope(input: &schema::Scope) -> Result<Scope, error::Format> {
+        //FIXME: check that the referenced public key index exists in the public key table
+        match input.content.as_ref() {
+            Some(content) => match content {
+                schema::scope::Content::ScopeType(i) => {
+                    if *i == schema::scope::ScopeType::Authority as i32 {
+                        Ok(Scope::Authority)
+                    } else if *i == schema::scope::ScopeType::Previous as i32 {
+                        Ok(Scope::Previous)
+                    } else {
+                        Err(error::Format::DeserializationError(format!(
+                            "deserialization error: unexpected value `{}` for scope type",
+                            i
+                        )))
+                    }
+                }
+                schema::scope::Content::PublicKey(i) => Ok(Scope::PublicKey(*i as u64)),
+            },
+            None => {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: expected `content` field in Scope".to_string(),
+                ));
+            }
+        }
     }
 }
