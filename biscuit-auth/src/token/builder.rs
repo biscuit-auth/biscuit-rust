@@ -156,6 +156,7 @@ impl BlockBuilder {
             checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
+            external_key: None,
         }
     }
 
@@ -456,6 +457,7 @@ impl<'a> BiscuitBuilder<'a> {
             checks: self.checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
+            external_key: None,
         };
 
         Biscuit::new_with_rng(

@@ -280,7 +280,17 @@ impl Biscuit {
                     e
                 )))
             })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+            .and_then(|b| {
+                proto_block_to_token_block(
+                    &b,
+                    container
+                        .authority
+                        .external_signature
+                        .as_ref()
+                        .map(|ex| ex.public_key),
+                )
+                .map_err(error::Token::Format)
+            })?;
 
         let mut blocks = vec![];
 
@@ -292,7 +302,13 @@ impl Biscuit {
                         e
                     )))
                 })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+                .and_then(|b| {
+                    proto_block_to_token_block(
+                        &b,
+                        block.external_signature.as_ref().map(|ex| ex.public_key),
+                    )
+                    .map_err(error::Token::Format)
+                })?;
 
             blocks.push(deser);
         }
@@ -429,10 +445,11 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
+        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            external key: {}\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
+        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
         facts,
         rules,
         checks,
@@ -455,6 +472,8 @@ pub struct Block {
     pub context: Option<String>,
     /// format version used to generate this block
     pub version: u32,
+    /// key used in optional external signature
+    pub external_key: Option<PublicKey>,
 }
 
 impl Block {

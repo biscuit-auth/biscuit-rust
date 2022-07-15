@@ -96,7 +96,17 @@ impl UnverifiedBiscuit {
                     e
                 )))
             })
-            .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+            .and_then(|b| {
+                proto_block_to_token_block(
+                    &b,
+                    container
+                        .authority
+                        .external_signature
+                        .as_ref()
+                        .map(|ex| ex.public_key),
+                )
+                .map_err(error::Token::Format)
+            })?;
 
         let mut blocks = vec![];
 
@@ -108,7 +118,13 @@ impl UnverifiedBiscuit {
                         e
                     )))
                 })
-                .and_then(|b| proto_block_to_token_block(&b).map_err(error::Token::Format))?;
+                .and_then(|b| {
+                    proto_block_to_token_block(
+                        &b,
+                        block.external_signature.as_ref().map(|ex| ex.public_key),
+                    )
+                    .map_err(error::Token::Format)
+                })?;
 
             blocks.push(deser);
         }

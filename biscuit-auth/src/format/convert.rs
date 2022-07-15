@@ -1,6 +1,7 @@
 //! helper functions for conversion between internal structures and Protobuf
 
 use super::schema;
+use crate::crypto::PublicKey;
 use crate::datalog::*;
 use crate::error;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
@@ -30,7 +31,10 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     }
 }
 
-pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error::Format> {
+pub fn proto_block_to_token_block(
+    input: &schema::Block,
+    external_key: Option<PublicKey>,
+) -> Result<Block, error::Format> {
     let version = input.version.unwrap_or(0);
     if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
@@ -68,6 +72,7 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         checks,
         context,
         version,
+        external_key,
     })
 }
 
