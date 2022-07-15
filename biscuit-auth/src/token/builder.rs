@@ -160,6 +160,8 @@ impl BlockBuilder {
             external_key: None,
             //FIXME
             public_keys: vec![],
+            //FIXME
+            scopes: vec![],
         }
     }
 
@@ -464,6 +466,8 @@ impl<'a> BiscuitBuilder<'a> {
             external_key: None,
             //FIXME
             public_keys: vec![],
+            //FIXME
+            scopes: vec![],
         };
 
         Biscuit::new_with_rng(

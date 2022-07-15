@@ -4,6 +4,7 @@ use super::schema;
 use crate::crypto::PublicKey;
 use crate::datalog::*;
 use crate::error;
+use crate::token::Scope;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
@@ -26,7 +27,23 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .iter()
             .map(v2::token_check_to_proto_check)
             .collect(),
-        scope: vec![],
+        scope: input
+            .scopes
+            .iter()
+            .map(|scope| schema::Scope {
+                content: Some(match scope {
+                    crate::token::Scope::Authority => schema::scope::Content::ScopeType(
+                        schema::scope::ScopeType::Authority as i32,
+                    ),
+                    crate::token::Scope::Previous => {
+                        schema::scope::Content::ScopeType(schema::scope::ScopeType::Previous as i32)
+                    }
+                    crate::token::Scope::PublicKey(i) => {
+                        schema::scope::Content::PublicKey(*i as i64)
+                    }
+                }),
+            })
+            .collect(),
         public_keys: input
             .public_keys
             .iter()
@@ -85,6 +102,23 @@ pub fn proto_block_to_token_block(
         })
         .collect();
 
+    let scopes = input
+        .scope
+        .iter()
+        .filter_map(|scope|
+    //FIXME: check that the referenced public key index exists in the public key table
+    scope.content.as_ref().and_then(|content| {
+        match content {
+            schema::scope::Content::ScopeType(i) => if *i == schema::scope::ScopeType::Authority as i32 {
+                Some(Scope::Authority)
+            } else if *i == schema::scope::ScopeType::Previous as i32 {
+                Some(Scope::Previous)
+            } else { None},
+            schema::scope::Content::PublicKey(i) => Some(Scope::PublicKey(*i as u64)),
+        }
+    }))
+        .collect();
+
     Ok(Block {
         symbols,
         facts,
@@ -94,6 +128,7 @@ pub fn proto_block_to_token_block(
         version,
         external_key,
         public_keys: public_keys?,
+        scopes,
     })
 }
 

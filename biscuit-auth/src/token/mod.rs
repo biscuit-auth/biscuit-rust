@@ -471,12 +471,13 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     };
 
     format!(
-        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            external key: {}\n            public keys: {:?}\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
+        "Block {{\n            symbols: {:?}\n            version: {}\n            context: \"{}\"\n            external key: {}\n            public keys: {:?}\n            scopes: {:?}\n            facts: [{}]\n            rules: [{}]\n            checks: [{}]\n        }}",
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
         block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
         block.public_keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
+        block.scopes,
         facts,
         rules,
         checks,
@@ -503,6 +504,8 @@ pub struct Block {
     pub external_key: Option<PublicKey>,
     /// list of public keys referenced by this block
     pub public_keys: Vec<PublicKey>,
+    /// list of scopes defining which blocks are trusted by this block
+    pub scopes: Vec<Scope>,
 }
 
 impl Block {
@@ -534,6 +537,14 @@ impl Block {
 
         res
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum Scope {
+    Authority,
+    Previous,
+    // index of the public key in the token's list
+    PublicKey(u64),
 }
 
 #[cfg(test)]
