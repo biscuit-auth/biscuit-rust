@@ -10,6 +10,7 @@ use prost::Message;
 
 use super::error;
 use super::token::Block;
+use crate::crypto::ExternalSignature;
 use ed25519_dalek::Signer;
 use std::convert::TryInto;
 
@@ -70,10 +71,17 @@ impl SerializedBiscuit {
             ))
         })?;
 
+        if data.authority.external_signature.is_some() {
+            return Err(error::Format::DeserializationError(
+                "the authority block must not contain an external signature".to_string(),
+            ));
+        }
+
         let authority = crypto::Block {
             data: data.authority.block,
             next_key: PublicKey::from_bytes(&data.authority.next_key.key)?,
             signature,
+            external_signature: None,
         };
 
         let mut blocks = Vec::new();
@@ -95,10 +103,38 @@ impl SerializedBiscuit {
                     e
                 ))
             })?;
+
+            let external_signature = if let Some(ex) = block.external_signature.as_ref() {
+                if ex.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                    return Err(error::Format::DeserializationError(format!(
+                        "deserialization error: unexpected key algorithm {}",
+                        ex.public_key.algorithm
+                    )));
+                }
+                let bytes: [u8; 64] = (&ex.signature[..])
+                    .try_into()
+                    .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
+
+                let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+                    error::Format::BlockSignatureDeserializationError(format!(
+                        "block external signature deserialization error: {:?}",
+                        e
+                    ))
+                })?;
+
+                Some(ExternalSignature {
+                    public_key: PublicKey::from_bytes(&ex.public_key.key)?,
+                    signature,
+                })
+            } else {
+                None
+            };
+
             blocks.push(crypto::Block {
                 data: block.block.clone(),
                 next_key: PublicKey::from_bytes(&block.next_key.key)?,
                 signature,
+                external_signature,
             });
         }
 
@@ -216,6 +252,7 @@ impl SerializedBiscuit {
                 data: v,
                 next_key: next_keypair.public(),
                 signature,
+                external_signature: None,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -241,6 +278,7 @@ impl SerializedBiscuit {
             data: v,
             next_key: next_keypair.public(),
             signature,
+            external_signature: None,
         });
 
         Ok(SerializedBiscuit {

@@ -127,6 +127,13 @@ pub struct Block {
     pub(crate) data: Vec<u8>,
     pub(crate) next_key: PublicKey,
     pub signature: ed25519_dalek::Signature,
+    pub external_signature: Option<ExternalSignature>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExternalSignature {
+    pub(crate) public_key: PublicKey,
+    pub(crate) signature: ed25519_dalek::Signature,
 }
 
 #[derive(Clone, Debug)]
@@ -175,6 +182,21 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
         .map_err(error::Signature::InvalidSignature)
         .map_err(error::Format::Signature)?;
 
+    if let Some(external_signature) = block.external_signature.as_ref() {
+        let mut to_verify = block.data.to_vec();
+        to_verify
+            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&public_key.to_bytes());
+
+        external_signature
+            .public_key
+            .0
+            .verify_strict(&to_verify, &external_signature.signature)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignature)
+            .map_err(error::Format::Signature)?;
+    }
+
     Ok(())
 }
 
@@ -191,6 +213,7 @@ impl Token {
             data: message.to_vec(),
             next_key: next_key.public(),
             signature,
+            external_signature: None,
         };
 
         Ok(Token {
@@ -205,6 +228,7 @@ impl Token {
         &self,
         next_key: &KeyPair,
         message: &[u8],
+        external_signature: Option<ExternalSignature>,
     ) -> Result<Self, error::Token> {
         let keypair = match self.next.keypair() {
             Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
@@ -217,6 +241,7 @@ impl Token {
             data: message.to_vec(),
             next_key: next_key.public(),
             signature,
+            external_signature,
         };
 
         let mut t = Token {
