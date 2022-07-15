@@ -316,7 +316,9 @@ impl Biscuit {
         symbols.extend(&authority.symbols);
 
         for block in blocks.iter() {
-            symbols.extend(&block.symbols);
+            if block.external_key.is_none() {
+                symbols.extend(&block.symbols);
+            }
         }
 
         let root_key_id = container.root_key_id;

@@ -1,12 +1,12 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::Biscuit;
-use crate::datalog::{self, FactSet, RuleSet, RunLimits};
+use crate::datalog::{self, FactSet, RuleSet, RunLimits, SymbolTable};
 use crate::error;
 use crate::parser::parse_source;
 use crate::time::Instant;
 use prost::Message;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
@@ -20,7 +20,6 @@ use std::{
 #[derive(Clone)]
 pub struct Authorizer<'t> {
     world: datalog::World,
-    block_worlds: Vec<datalog::World>,
     pub(crate) symbols: datalog::SymbolTable,
     checks: Vec<Check>,
     token_checks: Vec<Vec<datalog::Check>>,
@@ -51,7 +50,6 @@ impl<'t> Authorizer<'t> {
 
         Ok(Authorizer {
             world,
-            block_worlds: vec![],
             symbols,
             checks: vec![],
             token_checks: vec![],
@@ -96,7 +94,6 @@ impl<'t> Authorizer<'t> {
 
         Ok(Authorizer {
             world,
-            block_worlds: vec![],
             symbols,
             checks,
             token_checks: vec![],
@@ -128,6 +125,36 @@ impl<'t> Authorizer<'t> {
                 return Err(
                     error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
                 );
+            }
+        }
+        for (i, block) in token.blocks.iter().enumerate() {
+            // if it is a 3rd party block, it should not affect the main symbol table
+            let block_symbols = if block.external_key.is_none() {
+                &token.symbols
+            } else {
+                &block.symbols
+            };
+
+            let mut origin = BTreeSet::new();
+            origin.insert(i + 1);
+            for fact in block.facts.iter().cloned() {
+                let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
+                self.world.facts.insert(&origin, fact);
+            }
+
+            for rule in block.rules.iter().cloned() {
+                let r = Rule::convert_from(&rule, &block_symbols);
+
+                if let Err(_message) = r.validate_variables() {
+                    return Err(error::Logic::InvalidBlockRule(
+                        i as u32,
+                        token.symbols.print_rule(&rule),
+                    )
+                    .into());
+                }
+
+                let rule = r.convert(&mut self.symbols);
+                self.world.rules.insert(&origin, rule);
             }
         }
 
@@ -434,16 +461,7 @@ impl<'t> Authorizer<'t> {
 
         let res = self.world.query_rule(rule.clone(), &origin, &self.symbols);
 
-        let r: HashSet<_> = res
-            .into_iter()
-            .chain(
-                self.block_worlds
-                    .iter()
-                    .map(|world| rule.apply(world.facts.iterator(&origin), &origin, &self.symbols))
-                    .flatten(),
-            )
-            .map(|(_, fact)| fact)
-            .collect();
+        let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
         r.into_iter()
             .map(|f| Fact::convert_from(&f, &self.symbols))
@@ -618,44 +636,31 @@ impl<'t> Authorizer<'t> {
 
         if let Some(token) = self.token.as_ref() {
             for (i, block) in token.blocks.iter().enumerate() {
-                let mut world = self.world.clone();
+                // if it is a 3rd party block, it should not affect the main symbol table
+                let block_symbols = if block.external_key.is_none() {
+                    &token.symbols
+                } else {
+                    &block.symbols
+                };
 
+                //FIXME: get the scope from the token
                 let mut origin = BTreeSet::new();
                 origin.insert(0);
-                origin.insert(i);
-                // blocks cannot provide authority or ambient facts
-                for fact in block.facts.iter().cloned() {
-                    let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-                    world.facts.insert(&origin, fact);
-                }
+                origin.insert(i + 1);
 
-                for rule in block.rules.iter().cloned() {
-                    let r = Rule::convert_from(&rule, &token.symbols);
-
-                    if let Err(_message) = r.validate_variables() {
-                        return Err(error::Logic::InvalidBlockRule(
-                            i as u32,
-                            token.symbols.print_rule(&rule),
-                        )
-                        .into());
-                    }
-
-                    let rule = r.convert(&mut self.symbols);
-                    world.rules.insert(&origin, rule);
-                }
-
-                world
+                self.world
                     .run_with_limits(&self.symbols, RunLimits::default())
                     .map_err(error::Token::RunLimit)?;
-                //world.rules.clear();
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
-                    let c = Check::convert_from(check, &token.symbols);
+                    let c = Check::convert_from(check, &block_symbols);
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
-                        let res = world.query_match(query.clone(), &origin, &self.symbols);
+                        let res = self
+                            .world
+                            .query_match(query.clone(), &origin, &self.symbols);
 
                         let now = Instant::now();
                         if now >= time_limit {
@@ -676,8 +681,6 @@ impl<'t> Authorizer<'t> {
                         }));
                     }
                 }
-
-                self.block_worlds.push(world);
             }
         }
 
@@ -699,27 +702,37 @@ impl<'t> Authorizer<'t> {
 
     /// prints the content of the authorizer
     pub fn print_world(&self) -> String {
-        let mut facts = self
+        let facts: BTreeMap<_, _> = self
             .world
             .facts
             .inner
             .iter()
-            .map(|f| f.1.iter())
-            .flatten()
-            .map(|f| self.symbols.print_fact(f))
-            .collect::<Vec<_>>();
-        facts.sort();
+            .map(|(origin, facts)| {
+                (
+                    origin,
+                    facts
+                        .iter()
+                        .map(|f| self.symbols.print_fact(f))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
 
-        let mut rules = self
+        let rules: BTreeMap<_, _> = self
             .world
             .rules
             .inner
             .iter()
-            .map(|r| r.1.iter())
-            .flatten()
-            .map(|r| self.symbols.print_rule(r))
-            .collect::<Vec<_>>();
-        rules.sort();
+            .map(|(origin, rules)| {
+                (
+                    origin,
+                    rules
+                        .iter()
+                        .map(|r| self.symbols.print_rule(r))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
 
         let mut checks = Vec::new();
         for (index, check) in self.checks.iter().enumerate() {
@@ -748,7 +761,7 @@ impl<'t> Authorizer<'t> {
         )
     }
 
-    /*/// returns all of the data loaded in the authorizer
+    /// returns all of the data loaded in the authorizer
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.checks.clone();
         checks.extend(
@@ -761,19 +774,13 @@ impl<'t> Authorizer<'t> {
         (
             self.world
                 .facts
-                .iter()
-                .chain(
-                    self.block_worlds
-                        .iter()
-                        .map(|world| world.facts.iter())
-                        .flatten(),
-                )
-                .map(|f| Fact::convert_from(f, &self.symbols))
+                .iter_all()
+                .map(|f| Fact::convert_from(f.1, &self.symbols))
                 .collect(),
             self.world
                 .rules
-                .iter()
-                .map(|r| Rule::convert_from(r, &self.symbols))
+                .iter_all()
+                .map(|r| Rule::convert_from(r.1, &self.symbols))
                 .collect(),
             checks,
             self.policies.clone(),
@@ -796,7 +803,7 @@ impl<'t> Authorizer<'t> {
             f.push_str(&format!("{};\n", &policy));
         }
         f
-    }*/
+    }
 }
 
 #[derive(Debug, Clone)]

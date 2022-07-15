@@ -679,6 +679,13 @@ impl RuleSet {
             }
         }
     }
+
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&BTreeSet<usize>, &Rule)> + Clone {
+        self.inner
+            .iter()
+            .map(move |(ids, rules)| rules.iter().map(move |rule| (ids, rule)))
+            .flatten()
+    }
 }
 
 #[cfg(test)]
