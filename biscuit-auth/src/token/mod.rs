@@ -66,8 +66,8 @@ pub fn default_symbol_table() -> SymbolTable {
 #[derive(Clone, Debug)]
 pub struct Biscuit {
     pub(crate) root_key_id: Option<u32>,
-    pub(crate) authority: Block,
-    pub(crate) blocks: Vec<Block>,
+    pub(crate) authority: schema::Block,
+    pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
     pub(crate) public_keys: PublicKeys,
     container: SerializedBiscuit,
@@ -243,6 +243,13 @@ impl Biscuit {
         let next_keypair = KeyPair::new_with_rng(rng);
         let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
 
+        let authority = schema::Block::decode(&container.authority.data[..]).map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing block: {:?}",
+                e
+            )))
+        })?;
+
         Ok(Biscuit {
             root_key_id,
             authority,
@@ -269,14 +276,14 @@ impl Biscuit {
     ) -> Result<Self, error::Token> {
         let mut public_keys = PublicKeys::new();
 
-        let authority: Block = schema::Block::decode(&container.authority.data[..])
+        let authority = schema::Block::decode(&container.authority.data[..])
             .map_err(|e| {
                 error::Token::Format(error::Format::BlockDeserializationError(format!(
                     "error deserializing authority block: {:?}",
                     e
                 )))
             })
-            .and_then(|b| {
+            /*.and_then(|b| {
                 proto_block_to_token_block(
                     &b,
                     container
@@ -286,45 +293,55 @@ impl Biscuit {
                         .map(|ex| ex.public_key),
                 )
                 .map_err(error::Token::Format)
-            })?;
+            })*/?;
+
+        symbols.extend(&SymbolTable::from(authority.symbols));
 
         //FIXME: should we show an error if a key is already known?
-        for key in &authority.public_keys.keys {
-            public_keys.insert(&key);
+        for pk in &authority.public_keys {
+            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                return Err(error::Format::DeserializationError(format!(
+                    "deserialization error: unexpected key algorithm {}",
+                    pk.algorithm
+                )))
+                .map_err(error::Token::Format);
+            }
+            public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
         }
 
         let mut blocks = vec![];
 
         for block in container.blocks.iter() {
-            let deser: Block = schema::Block::decode(&block.data[..])
+            let deser = schema::Block::decode(&block.data[..])
                 .map_err(|e| {
                     error::Token::Format(error::Format::BlockDeserializationError(format!(
                         "error deserializing block: {:?}",
                         e
                     )))
                 })
-                .and_then(|b| {
+                /*.and_then(|b| {
                     proto_block_to_token_block(
                         &b,
                         block.external_signature.as_ref().map(|ex| ex.public_key),
                     )
                     .map_err(error::Token::Format)
-                })?;
-
-            blocks.push(deser);
-        }
-
-        symbols.extend(&authority.symbols);
-
-        for block in blocks.iter() {
-            if block.external_key.is_none() {
-                symbols.extend(&block.symbols);
-            }
+                })*/?;
 
             //FIXME: should we show an error if a key is already known?
-            for key in &block.public_keys.keys {
-                public_keys.insert(&key);
+            for pk in &deser.public_keys {
+                if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                    return Err(error::Format::DeserializationError(format!(
+                        "deserialization error: unexpected key algorithm {}",
+                        pk.algorithm
+                    )))
+                    .map_err(error::Token::Format);
+                }
+                public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
             }
+
+            symbols.extend(&SymbolTable::from(deser.symbols));
+
+            blocks.push(deser);
         }
 
         let root_key_id = container.root_key_id;
@@ -385,7 +402,21 @@ impl Biscuit {
         for key in &block.public_keys.keys {
             public_keys.insert(&key);
         }
-        blocks.push(block);
+        let deser = schema::Block::decode(
+            &self
+                .container
+                .blocks
+                .last()
+                .expect("a new block was just added so the list is not empty")
+                .data[..],
+        )
+        .map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing block: {:?}",
+                e
+            )))
+        })?;
+        blocks.push(deser);
 
         Ok(Biscuit {
             root_key_id: self.root_key_id,
@@ -408,7 +439,7 @@ impl Biscuit {
             }
         };
 
-        Some(block.symbols.strings())
+        Some(block.symbols.clone())
     }
 
     /// returns the number of blocks (at least 1)
