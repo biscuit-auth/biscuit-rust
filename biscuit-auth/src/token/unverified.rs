@@ -56,7 +56,7 @@ impl UnverifiedBiscuit {
             blocks: self.blocks,
             symbols: self.symbols,
             public_keys: self.public_keys,
-            container: Some(self.container),
+            container: self.container,
         })
     }
 
@@ -112,7 +112,7 @@ impl UnverifiedBiscuit {
             })?;
 
         //FIXME: should we show an error if a key is already known?
-        for key in &authority.public_keys {
+        for key in &authority.public_keys.keys {
             public_keys.insert(&key);
         }
 
@@ -142,7 +142,7 @@ impl UnverifiedBiscuit {
         for block in blocks.iter() {
             symbols.extend(&block.symbols);
             //FIXME: should we show an error if a key is already known?
-            for key in &block.public_keys {
+            for key in &block.public_keys.keys {
                 public_keys.insert(&key);
             }
         }
@@ -189,7 +189,7 @@ impl UnverifiedBiscuit {
 
         symbols.extend(&block.symbols);
         //FIXME: should we show an error if a key is already known?
-        for key in &block.public_keys {
+        for key in &block.public_keys.keys {
             public_keys.insert(&key);
         }
         blocks.push(block);

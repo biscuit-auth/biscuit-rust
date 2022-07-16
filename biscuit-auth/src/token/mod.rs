@@ -70,7 +70,7 @@ pub struct Biscuit {
     pub(crate) blocks: Vec<Block>,
     pub(crate) symbols: SymbolTable,
     pub(crate) public_keys: PublicKeys,
-    container: Option<SerializedBiscuit>,
+    container: SerializedBiscuit,
 }
 
 impl Biscuit {
@@ -101,46 +101,32 @@ impl Biscuit {
 
     /// serializes the token
     pub fn to_vec(&self) -> Result<Vec<u8>, error::Token> {
-        match self.container.as_ref() {
-            None => Err(error::Token::InternalError),
-            Some(c) => c.to_vec().map_err(error::Token::Format),
-        }
+        self.container.to_vec().map_err(error::Token::Format)
     }
 
     /// serializes the token and encode it to a (URL safe) base64 string
     pub fn to_base64(&self) -> Result<String, error::Token> {
-        match self.container.as_ref() {
-            None => Err(error::Token::InternalError),
-            Some(c) => c
-                .to_vec()
-                .map_err(error::Token::Format)
-                .map(|v| base64::encode_config(v, base64::URL_SAFE)),
-        }
+        self.container
+            .to_vec()
+            .map_err(error::Token::Format)
+            .map(|v| base64::encode_config(v, base64::URL_SAFE))
     }
 
     /// serializes the token
     pub fn serialized_size(&self) -> Result<usize, error::Token> {
-        match self.container.as_ref() {
-            None => Err(error::Token::InternalError),
-            Some(c) => Ok(c.serialized_size()),
-        }
+        Ok(self.container.serialized_size())
     }
 
     /// creates a sealed version of the token
     ///
     /// sealed tokens cannot be attenuated
     pub fn seal(&self) -> Result<Biscuit, error::Token> {
-        match &self.container {
-            None => Err(error::Token::InternalError),
-            Some(c) => {
-                let container = c.seal()?;
+        let container = self.container.seal()?;
 
-                let mut token = self.clone();
-                token.container = Some(container);
+        let mut token = self.clone();
+        token.container = container;
 
-                Ok(token)
-            }
-        }
+        Ok(token)
     }
 
     /// creates a authorizer from this token
@@ -190,12 +176,10 @@ impl Biscuit {
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         let mut res = Vec::new();
 
-        if let Some(token) = self.container.as_ref() {
-            res.push(token.authority.signature.to_bytes().to_vec());
+        res.push(self.container.authority.signature.to_bytes().to_vec());
 
-            for block in token.blocks.iter() {
-                res.push(block.signature.to_bytes().to_vec());
-            }
+        for block in self.container.blocks.iter() {
+            res.push(block.signature.to_bytes().to_vec());
         }
 
         res
@@ -264,7 +248,7 @@ impl Biscuit {
             authority,
             blocks,
             symbols,
-            container: Some(container),
+            container,
             public_keys: PublicKeys::new(),
         })
     }
@@ -305,7 +289,7 @@ impl Biscuit {
             })?;
 
         //FIXME: should we show an error if a key is already known?
-        for key in &authority.public_keys {
+        for key in &authority.public_keys.keys {
             public_keys.insert(&key);
         }
 
@@ -338,13 +322,12 @@ impl Biscuit {
             }
 
             //FIXME: should we show an error if a key is already known?
-            for key in &block.public_keys {
+            for key in &block.public_keys.keys {
                 public_keys.insert(&key);
             }
         }
 
         let root_key_id = container.root_key_id;
-        let container = Some(container);
 
         Ok(Biscuit {
             root_key_id,
@@ -371,8 +354,8 @@ impl Biscuit {
     }
 
     /// returns the internal representation of the token
-    pub fn container(&self) -> Option<&SerializedBiscuit> {
-        self.container.as_ref()
+    pub fn container(&self) -> &SerializedBiscuit {
+        &self.container
     }
 
     /// adds a new block to the token, using the provided CSPRNG
@@ -384,10 +367,6 @@ impl Biscuit {
         keypair: &KeyPair,
         block_builder: BlockBuilder,
     ) -> Result<Self, error::Token> {
-        if self.container.is_none() {
-            return Err(error::Token::AppendOnSealed);
-        }
-
         let block = block_builder.build(self.symbols.clone());
 
         if !self.symbols.is_disjoint(&block.symbols) {
@@ -399,14 +378,11 @@ impl Biscuit {
         let mut symbols = self.symbols.clone();
         let mut public_keys = self.public_keys.clone();
 
-        let container = match self.container.as_ref() {
-            None => return Err(error::Token::AppendOnSealed),
-            Some(c) => c.append(keypair, &block)?,
-        };
+        let container = self.container.append(keypair, &block)?;
 
         symbols.extend(&block.symbols);
         //FIXME: should we show an error if a key is already known?
-        for key in &block.public_keys {
+        for key in &block.public_keys.keys {
             public_keys.insert(&key);
         }
         blocks.push(block);
@@ -417,7 +393,7 @@ impl Biscuit {
             blocks,
             symbols,
             public_keys,
-            container: Some(container),
+            container,
         })
     }
 
@@ -443,11 +419,20 @@ impl Biscuit {
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     let facts: Vec<_> = block.facts.iter().map(|f| symbols.print_fact(f)).collect();
-    let rules: Vec<_> = block.rules.iter().map(|r| symbols.print_rule(r)).collect();
+    let rules: Vec<_> = block
+        .rules
+        .iter()
+        .map(|r| {
+            r.1.iter()
+                .map(|r| symbols.print_rule(r))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .collect();
     let checks: Vec<_> = block
         .checks
         .iter()
-        .map(|r| symbols.print_check(r))
+        .map(|r| symbols.print_check(&r.0))
         .collect();
 
     let facts = if facts.is_empty() {
@@ -481,7 +466,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         block.version,
         block.context.as_deref().unwrap_or(""),
         block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
-        block.public_keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
+        block.public_keys.keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
         block.scopes,
         facts,
         rules,
