@@ -67,7 +67,7 @@ pub fn proto_block_to_token_block(
         }
 
         for rule in input.rules_v2.iter() {
-            rules.push(v2::proto_rule_to_token_rule(rule)?);
+            rules.push(v2::proto_rule_to_token_rule(rule)?.0);
         }
 
         for check in input.checks_v2.iter() {
@@ -162,7 +162,7 @@ pub fn proto_authorizer_to_authorizer(
     }
 
     for rule in input.rules.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule)?);
+        rules.push(v2::proto_rule_to_token_rule(rule)?.0);
     }
 
     for check in input.checks.iter() {
@@ -212,7 +212,7 @@ pub mod v2 {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            queries.push(proto_rule_to_token_rule(q)?);
+            queries.push(proto_rule_to_token_rule(q)?.0);
         }
 
         Ok(Check { queries })
@@ -244,7 +244,7 @@ pub mod v2 {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            let c = proto_rule_to_token_rule(q)?;
+            let (c, scopes) = proto_rule_to_token_rule(q)?;
             let c = crate::token::builder::Rule::convert_from(&c, symbols);
             queries.push(c);
         }
@@ -282,7 +282,9 @@ pub mod v2 {
         }
     }
 
-    pub fn proto_rule_to_token_rule(input: &schema::RuleV2) -> Result<Rule, error::Format> {
+    pub fn proto_rule_to_token_rule(
+        input: &schema::RuleV2,
+    ) -> Result<(Rule, Vec<Scope>), error::Format> {
         let mut body = vec![];
 
         for p in input.body.iter() {
@@ -295,11 +297,19 @@ pub mod v2 {
             expressions.push(proto_expression_to_token_expression(c)?);
         }
 
-        Ok(Rule {
-            head: proto_predicate_to_token_predicate(&input.head)?,
-            body,
-            expressions,
-        })
+        let scopes: Result<Vec<_>, _> =
+            input.scope.iter().map(proto_scope_to_token_scope).collect();
+        let scopes = scopes?;
+
+        Ok((
+            Rule {
+                head: proto_predicate_to_token_predicate(&input.head)?,
+                body,
+                expressions,
+                scopes: scopes.clone(),
+            },
+            scopes,
+        ))
     }
 
     pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV2 {

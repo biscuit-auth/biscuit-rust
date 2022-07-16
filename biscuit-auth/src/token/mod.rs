@@ -539,7 +539,7 @@ impl Block {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Scope {
     Authority,
     Previous,

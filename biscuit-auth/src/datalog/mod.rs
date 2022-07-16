@@ -1,5 +1,7 @@
 //! Logic language implementation for checks
+use crate::builder;
 use crate::time::Instant;
+use crate::token::Scope;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
@@ -75,11 +77,12 @@ impl Fact {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
+    pub scopes: Vec<Scope>,
 }
 
 impl AsRef<Expression> for Expression {
@@ -183,6 +186,7 @@ impl Rule {
                     builder::Expression::convert_from(c, origin_symbols).convert(target_symbols)
                 })
                 .collect(),
+            scopes: self.scopes.clone(),
         }
     }
 
@@ -470,6 +474,7 @@ pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
         head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: Vec::new(),
+        scopes: vec![],
     }
 }
 
@@ -483,6 +488,7 @@ pub fn expressed_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Expression>>
         head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        scopes: vec![],
     }
 }
 

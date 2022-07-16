@@ -974,6 +974,7 @@ impl Rule {
             head,
             body,
             expressions,
+            scopes: vec![],
         }
     }
 
