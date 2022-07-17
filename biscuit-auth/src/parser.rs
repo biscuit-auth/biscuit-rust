@@ -13,7 +13,7 @@
 //! All of the methods in [BiscuitBuilder](`crate::token::builder::BiscuitBuilder`)
 //! and [BlockBuilder](`crate::token::builder::BlockBuilder`) can take strings
 //! as arguments too
-use crate::{error, token::builder};
+use crate::{builder::Scope, crypto::PublicKey, error, token::builder};
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
@@ -156,14 +156,15 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
 
     let queries = queries
         .drain(..)
-        .map(|rule_body| {
+        .map(|(predicates, expressions, scopes)| {
             builder::Rule::new(
                 builder::Predicate {
                     name: "query".to_string(),
                     terms: Vec::new(),
                 },
-                rule_body.0,
-                rule_body.1,
+                predicates,
+                expressions,
+                scopes,
             )
         })
         .collect();
@@ -195,9 +196,9 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, (body, expressions)) = cut(rule_body)(i)?;
+    let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
 
-    let rule = builder::Rule::new(head, body, expressions);
+    let rule = builder::Rule::new(head, body, expressions, scopes);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Failure(Error {
@@ -341,7 +342,15 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
 /// parse a Datalog rule body
 pub fn rule_body(
     i: &str,
-) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>), Error> {
+) -> IResult<
+    &str,
+    (
+        Vec<builder::Predicate>,
+        Vec<builder::Expression>,
+        Vec<builder::Scope>,
+    ),
+    Error,
+> {
     let (i, mut elements) = separated_list1(
         preceded(space0, char(',')),
         preceded(space0, cut(predicate_or_expression)),
@@ -361,7 +370,9 @@ pub fn rule_body(
         }
     }
 
-    Ok((i, (predicates, expressions)))
+    let (i, scopes) = scopes(i)?;
+
+    Ok((i, (predicates, expressions, scopes)))
 }
 
 enum PredOrExpr {
@@ -374,6 +385,25 @@ fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
         alt((map(predicate, PredOrExpr::P), map(expr, PredOrExpr::E))),
         ",;",
     )(i)
+}
+
+fn scopes(i: &str) -> IResult<&str, Vec<Scope>, Error> {
+    if let Ok((i, _)) = tag::<_, _, ()>("trusting ")(i) {
+        separated_list1(preceded(space0, char(',')), preceded(space0, cut(scope)))(i)
+    } else {
+        Ok((i, vec![]))
+    }
+}
+
+fn scope(i: &str) -> IResult<&str, Scope, Error> {
+    alt((
+        map(tag("authority"), |_| Scope::Authority),
+        map(tag("previous"), |_| Scope::Previous),
+        map(preceded(tag("ed25519/"), parse_hex), |bytes| {
+            //FIXME: handle the unwrap()
+            Scope::PublicKey(PublicKey::from_bytes(&bytes).unwrap())
+        }),
+    ))(i)
 }
 
 #[derive(Debug, PartialEq)]
@@ -604,17 +634,16 @@ fn date(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>, Error> {
-    preceded(
-        tag("hex:"),
-        map_res(
-            take_while1(|c| {
-                let c = c as u8;
-                (b'0'..=b'9').contains(&c)
-                    || (b'a'..=b'f').contains(&c)
-                    || (b'A'..=b'F').contains(&c)
-            }),
-            hex::decode,
-        ),
+    preceded(tag("hex:"), parse_hex)(i)
+}
+
+fn parse_hex(i: &str) -> IResult<&str, Vec<u8>, Error> {
+    map_res(
+        take_while1(|c| {
+            let c = c as u8;
+            (b'0'..=b'9').contains(&c) || (b'a'..=b'f').contains(&c) || (b'A'..=b'F').contains(&c)
+        }),
+        hex::decode,
     )(i)
 }
 

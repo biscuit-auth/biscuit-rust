@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::public_keys::PublicKeys;
 use super::{Biscuit, Block};
-use crate::crypto::KeyPair;
+use crate::crypto::{KeyPair, PublicKey};
 use crate::datalog::{self, SymbolTable};
 use crate::error;
 use crate::parser::parse_block_source;
@@ -600,6 +600,13 @@ impl ToTokens for Term {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Scope {
+    Authority,
+    Previous,
+    PublicKey(PublicKey),
+}
+
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -920,10 +927,16 @@ pub struct Rule {
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
     pub parameters: Option<HashMap<String, Option<Term>>>,
+    pub scopes: Vec<Scope>,
 }
 
 impl Rule {
-    pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
+    pub fn new(
+        head: Predicate,
+        body: Vec<Predicate>,
+        expressions: Vec<Expression>,
+        scopes: Vec<Scope>,
+    ) -> Rule {
         let mut parameters = HashMap::new();
         for term in &head.terms {
             if let Term::Parameter(name) = &term {
@@ -952,6 +965,7 @@ impl Rule {
             body,
             expressions,
             parameters: Some(parameters),
+            scopes,
         }
     }
 
@@ -962,6 +976,7 @@ impl Rule {
         let head = r.head.convert(symbols);
         let mut body = vec![];
         let mut expressions = vec![];
+        let mut scopes = vec![];
 
         for p in r.body.iter() {
             body.push(p.convert(symbols));
@@ -971,11 +986,21 @@ impl Rule {
             expressions.push(c.convert(symbols));
         }
 
+        for scope in r.scopes.iter() {
+            scopes.push(match scope {
+                Scope::Authority => crate::token::Scope::Authority,
+                Scope::Previous => crate::token::Scope::Previous,
+                // FIXME: handle the unwrap
+                Scope::PublicKey(key) => {
+                    crate::token::Scope::PublicKey(symbols.public_keys.get(&key).unwrap())
+                }
+            })
+        }
         datalog::Rule {
             head,
             body,
             expressions,
-            scopes: vec![],
+            scopes,
         }
     }
 
@@ -993,6 +1018,18 @@ impl Rule {
                 .map(|c| Expression::convert_from(c, symbols))
                 .collect(),
             parameters: None,
+            scopes: r
+                .scopes
+                .iter()
+                .map(|scope| match scope {
+                    super::Scope::Authority => Scope::Authority,
+                    super::Scope::Previous => Scope::Previous,
+                    super::Scope::PublicKey(key_id) => {
+                        // FIXME: handle the unwrap
+                        Scope::PublicKey(*symbols.public_keys.get_key(*key_id).unwrap())
+                    }
+                })
+                .collect(),
         }
     }
 
@@ -1468,6 +1505,7 @@ pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         Vec::new(),
+        vec![],
     )
 }
 
@@ -1482,6 +1520,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        vec![],
     )
 }
 
@@ -1492,7 +1531,8 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
         queries: vec![Rule::new(
             pred("query", empty_terms),
             predicates.iter().map(|p| p.as_ref().clone()).collect(),
-            Vec::new(),
+            vec![],
+            vec![],
         )],
     }
 }
