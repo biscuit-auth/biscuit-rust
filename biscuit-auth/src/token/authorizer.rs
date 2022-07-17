@@ -131,7 +131,12 @@ impl<'t> Authorizer<'t> {
             }
 
             let rule = rule.translate(&token.symbols, &mut self.symbols);
-            self.world.rules.insert(&origin, rule);
+            if rule.scopes.is_empty() {
+                self.world.rules.insert(&origin, rule);
+            } else {
+                let origin = rule.origins(0, Some(&token.public_key_to_block_id));
+                self.world.rules.insert(&origin, rule);
+            }
         }
 
         blocks.push(authority);
@@ -152,6 +157,7 @@ impl<'t> Authorizer<'t> {
                 self.world.facts.insert(&origin, fact);
             }
 
+            origin.insert(0);
             for rule in block.rules.iter().cloned() {
                 if let Err(_message) = rule.validate_variables(&token.symbols) {
                     return Err(
@@ -160,7 +166,13 @@ impl<'t> Authorizer<'t> {
                 }
                 let rule = rule.translate(&block_symbols, &mut self.symbols);
 
-                self.world.rules.insert(&origin, rule);
+                if rule.scopes.is_empty() {
+                    self.world.rules.insert(&origin, rule);
+                } else {
+                    let origin = rule.origins(i, Some(&token.public_key_to_block_id));
+
+                    self.world.rules.insert(&origin, rule);
+                }
             }
 
             blocks.push(block);
@@ -558,11 +570,13 @@ impl<'t> Authorizer<'t> {
             let mut successful = false;
 
             for query in check.queries.iter() {
-                let res = self.world.query_match(
-                    query.convert(&mut self.symbols),
-                    &origin,
-                    &self.symbols,
-                );
+                let query = query.convert(&mut self.symbols);
+                let origin = if query.scopes.is_empty() {
+                    origin.clone()
+                } else {
+                    query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                };
+                let res = self.world.query_match(query, &origin, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -595,6 +609,11 @@ impl<'t> Authorizer<'t> {
                 let check = c.convert(&mut self.symbols);
 
                 for query in check.queries.iter() {
+                    let origin = if query.scopes.is_empty() {
+                        origin.clone()
+                    } else {
+                        query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                    };
                     let res = self
                         .world
                         .query_match(query.clone(), &origin, &self.symbols);
@@ -622,11 +641,13 @@ impl<'t> Authorizer<'t> {
 
         'policies_test: for (i, policy) in self.policies.iter().enumerate() {
             for query in policy.queries.iter() {
-                let res = self.world.query_match(
-                    query.convert(&mut self.symbols),
-                    &origin,
-                    &self.symbols,
-                );
+                let query = query.convert(&mut self.symbols);
+                let origin = if query.scopes.is_empty() {
+                    origin.clone()
+                } else {
+                    query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                };
+                let res = self.world.query_match(query, &origin, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -667,6 +688,15 @@ impl<'t> Authorizer<'t> {
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
+                        let origin = if query.scopes.is_empty() {
+                            origin.clone()
+                        } else {
+                            query.origins(
+                                i + 1,
+                                self.token.as_ref().map(|t| &t.public_key_to_block_id),
+                            )
+                        };
+
                         let res = self
                             .world
                             .query_match(query.clone(), &origin, &self.symbols);

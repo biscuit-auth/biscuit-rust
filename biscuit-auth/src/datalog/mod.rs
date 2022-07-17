@@ -225,6 +225,31 @@ impl Rule {
                     ))
         }
     }
+
+    pub(crate) fn origins(
+        &self,
+        index: usize,
+        public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
+    ) -> BTreeSet<usize> {
+        let mut origins = BTreeSet::new();
+
+        for scope in &self.scopes {
+            match scope {
+                Scope::Authority => {
+                    origins.insert(0);
+                }
+                Scope::Previous => origins.extend(0..index + 1),
+                Scope::PublicKey(key_id) => {
+                    if let Some(map) = public_key_to_block_id {
+                        if let Some(block_ids) = map.get(&(*key_id as usize)) {
+                            origins.extend(block_ids.iter())
+                        }
+                    }
+                }
+            }
+        }
+        origins
+    }
 }
 
 /// recursive iterator for rule application

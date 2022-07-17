@@ -1,5 +1,5 @@
 //! main structures to interact with Biscuit tokens
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use self::public_keys::PublicKeys;
 use super::crypto::{KeyPair, PublicKey};
