@@ -10,6 +10,7 @@ use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema;
 use authorizer::Authorizer;
 
@@ -70,7 +71,7 @@ pub struct Biscuit {
     pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
     pub(crate) public_keys: PublicKeys,
-    container: SerializedBiscuit,
+    pub(crate) container: SerializedBiscuit,
 }
 
 impl Biscuit {
@@ -187,11 +188,10 @@ impl Biscuit {
 
     /// pretty printer for this token
     pub fn print(&self) -> String {
-        let authority = print_block(&self.symbols, &self.authority);
-        let blocks: Vec<_> = self
-            .blocks
-            .iter()
-            .map(|b| print_block(&self.symbols, b))
+        //FIXME: must handle the unwrap here
+        let authority = print_block(&self.symbols, &self.authorizer_block(0).unwrap());
+        let blocks: Vec<_> = (1..self.block_count())
+            .map(|i| print_block(&self.symbols, &self.authorizer_block(i).unwrap()))
             .collect();
 
         format!(
@@ -205,14 +205,8 @@ impl Biscuit {
 
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Option<String> {
-        let block = if index == 0 {
-            &self.authority
-        } else {
-            match self.blocks.get(index - 1) {
-                None => return None,
-                Some(block) => block,
-            }
-        };
+        //FIXME: must handle the unwrap here
+        let block = self.authorizer_block(index).unwrap();
 
         Some(block.print_source(&self.symbols))
     }
@@ -335,8 +329,7 @@ impl Biscuit {
             public_keys.insert(&key);
         }
         let deser = schema::Block::decode(
-            &self
-                .container
+            &container
                 .blocks
                 .last()
                 .expect("a new block was just added so the list is not empty")
@@ -378,24 +371,44 @@ impl Biscuit {
     pub fn block_count(&self) -> usize {
         1 + self.blocks.len()
     }
+
+    pub(crate) fn authorizer_block(&self, index: usize) -> Result<Block, error::Token> {
+        if index == 0 {
+            proto_block_to_token_block(
+                &self.authority,
+                self.container
+                    .authority
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format)
+        } else {
+            if index > self.blocks.len() + 1 {
+                return Err(error::Token::Format(
+                    error::Format::BlockDeserializationError("invalid block index".to_string()),
+                ));
+            }
+
+            proto_block_to_token_block(
+                &self.blocks[index - 1],
+                self.container.blocks[index - 1]
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format)
+        }
+    }
 }
 
 fn print_block(symbols: &SymbolTable, block: &Block) -> String {
     let facts: Vec<_> = block.facts.iter().map(|f| symbols.print_fact(f)).collect();
-    let rules: Vec<_> = block
-        .rules
-        .iter()
-        .map(|r| {
-            r.1.iter()
-                .map(|r| symbols.print_rule(r))
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
-        .collect();
+    let rules: Vec<_> = block.rules.iter().map(|r| symbols.print_rule(r)).collect();
     let checks: Vec<_> = block
         .checks
         .iter()
-        .map(|r| symbols.print_check(&r.0))
+        .map(|r| symbols.print_check(r))
         .collect();
 
     let facts = if facts.is_empty() {

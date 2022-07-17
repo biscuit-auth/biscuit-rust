@@ -4,7 +4,7 @@ use crate::{
     crypto::PublicKey,
     datalog::SymbolTable,
     error,
-    format::{schema, SerializedBiscuit},
+    format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
     KeyPair,
 };
 use prost::Message;
@@ -92,55 +92,6 @@ impl UnverifiedBiscuit {
         let container = SerializedBiscuit::deserialize(slice)?;
 
         let (authority, blocks, public_keys) = container.extract_blocks(&mut symbols)?;
-        /*let mut public_keys = PublicKeys::new();
-
-        let authority = schema::Block::decode(&container.authority.data[..]).map_err(|e| {
-            error::Token::Format(error::Format::BlockDeserializationError(format!(
-                "error deserializing authority block: {:?}",
-                e
-            )))
-        })?;
-
-        symbols.extend(&SymbolTable::from(authority.symbols));
-
-        //FIXME: should we show an error if a key is already known?
-        for pk in &authority.public_keys {
-            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    pk.algorithm
-                )))
-                .map_err(error::Token::Format);
-            }
-            public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
-        }
-
-        let mut blocks = vec![];
-
-        for block in container.blocks.iter() {
-            let deser = schema::Block::decode(&block.data[..]).map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing block: {:?}",
-                    e
-                )))
-            })?;
-
-            //FIXME: should we show an error if a key is already known?
-            for pk in &deser.public_keys {
-                if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                    return Err(error::Format::DeserializationError(format!(
-                        "deserialization error: unexpected key algorithm {}",
-                        pk.algorithm
-                    )))
-                    .map_err(error::Token::Format);
-                }
-                public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
-            }
-
-            symbols.extend(&SymbolTable::from(deser.symbols));
-
-            blocks.push(deser);
-        }*/
 
         Ok(UnverifiedBiscuit {
             authority,
@@ -234,14 +185,8 @@ impl UnverifiedBiscuit {
 
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Option<String> {
-        let block = if index == 0 {
-            &self.authority
-        } else {
-            match self.blocks.get(index - 1) {
-                None => return None,
-                Some(block) => block,
-            }
-        };
+        //FIXME: must handle the unwrap here
+        let block = self.authorizer_block(index).unwrap();
 
         Some(block.print_source(&self.symbols))
     }
@@ -254,5 +199,34 @@ impl UnverifiedBiscuit {
         let mut token = self.clone();
         token.container = container;
         Ok(token)
+    }
+
+    fn authorizer_block(&self, index: usize) -> Result<Block, error::Token> {
+        if index == 0 {
+            proto_block_to_token_block(
+                &self.authority,
+                self.container
+                    .authority
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format)
+        } else {
+            if index > self.blocks.len() + 1 {
+                return Err(error::Token::Format(
+                    error::Format::BlockDeserializationError("invalid block index".to_string()),
+                ));
+            }
+
+            proto_block_to_token_block(
+                &self.blocks[index - 1],
+                self.container.blocks[index - 1]
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format)
+        }
     }
 }

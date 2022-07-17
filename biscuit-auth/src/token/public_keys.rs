@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::crypto::PublicKey;
 
 #[derive(Clone, Debug)]
-pub(crate) struct PublicKeys {
+pub struct PublicKeys {
     pub(crate) keys: Vec<PublicKey>,
 }
 

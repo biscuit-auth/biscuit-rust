@@ -107,52 +107,6 @@ impl<'t> Authorizer<'t> {
         if self.token.is_some() {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
-
-        let mut origin = BTreeSet::new();
-        origin.insert(0);
-
-        // add authority facts and rules right away to make them available to queries
-        for fact in token.authority.facts.iter().cloned() {
-            let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
-            self.world.facts.insert(&origin, fact);
-        }
-
-        for rule in token.authority.rules.iter().cloned() {
-            if let Err(_message) = rule.validate_variables(&token.symbols) {
-                return Err(
-                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
-                );
-            }
-
-            let rule = rule.translate(&token.symbols, &mut self.symbols);
-        }
-        for (i, block) in token.blocks.iter().enumerate() {
-            // if it is a 3rd party block, it should not affect the main symbol table
-            let block_symbols = if block.external_key.is_none() {
-                &token.symbols
-            } else {
-                &block.symbols
-            };
-
-            let mut origin = BTreeSet::new();
-            origin.insert(i + 1);
-            for fact in block.facts.iter().cloned() {
-                let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
-                self.world.facts.insert(&origin, fact);
-            }
-
-            for rule in block.rules.iter().cloned() {
-                if let Err(_message) = rule.validate_variables(&token.symbols) {
-                    return Err(
-                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
-                    );
-                }
-                let rule = rule.translate(&block_symbols, &mut self.symbols);
-
-                self.world.rules.insert(&origin, rule);
-            }
-        }
-
         self.token = Some(token);
 
         Ok(())
@@ -528,6 +482,65 @@ impl<'t> Authorizer<'t> {
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
+        let mut blocks = Vec::new();
+
+        if let Some(token) = self.token.as_ref() {
+            let mut origin = BTreeSet::new();
+            origin.insert(0);
+
+            let authority = token.authorizer_block(0)?;
+            // add authority facts and rules right away to make them available to queries
+            for fact in authority.facts.iter().cloned() {
+                let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+                self.world.facts.insert(&origin, fact);
+            }
+
+            for rule in authority.rules.iter().cloned() {
+                if let Err(_message) = rule.validate_variables(&token.symbols) {
+                    return Err(
+                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                    );
+                }
+
+                let rule = rule.translate(&token.symbols, &mut self.symbols);
+            }
+
+            blocks.push(authority);
+            //for (i, block) in token.blocks.iter().enumerate() {
+            for i in 1..token.block_count() {
+                let block = token.authorizer_block(i)?;
+
+                // if it is a 3rd party block, it should not affect the main symbol table
+                let block_symbols = if block.external_key.is_none() {
+                    &token.symbols
+                } else {
+                    &block.symbols
+                };
+
+                let mut origin = BTreeSet::new();
+                origin.insert(i + 1);
+                for fact in block.facts.iter().cloned() {
+                    let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
+                    self.world.facts.insert(&origin, fact);
+                }
+
+                for rule in block.rules.iter().cloned() {
+                    if let Err(_message) = rule.validate_variables(&token.symbols) {
+                        return Err(error::Logic::InvalidBlockRule(
+                            0,
+                            token.symbols.print_rule(&rule),
+                        )
+                        .into());
+                    }
+                    let rule = rule.translate(&block_symbols, &mut self.symbols);
+
+                    self.world.rules.insert(&origin, rule);
+                }
+
+                blocks.push(block);
+            }
+        }
+
         //FIXME: the authorizer should be generated with run limits
         // that are "consumed" after each use
         // Note: the authority facts and rules were already inserted
@@ -574,7 +587,7 @@ impl<'t> Authorizer<'t> {
         if let Some(token) = self.token.as_ref() {
             let mut origin = BTreeSet::new();
             origin.insert(0);
-            for (j, check) in token.authority.checks.iter().enumerate() {
+            for (j, check) in blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
 
                 let c = Check::convert_from(check, &token.symbols);
@@ -630,7 +643,7 @@ impl<'t> Authorizer<'t> {
         }
 
         if let Some(token) = self.token.as_ref() {
-            for (i, block) in token.blocks.iter().enumerate() {
+            for (i, block) in (&blocks[1..]).iter().enumerate() {
                 // if it is a 3rd party block, it should not affect the main symbol table
                 let block_symbols = if block.external_key.is_none() {
                     &token.symbols

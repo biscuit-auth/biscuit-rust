@@ -6,6 +6,7 @@ use super::schema;
 use crate::crypto::PublicKey;
 use crate::datalog::*;
 use crate::error;
+use crate::token::public_keys::PublicKeys;
 use crate::token::Scope;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 
@@ -36,6 +37,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .collect(),
         public_keys: input
             .public_keys
+            .keys
             .iter()
             .map(|key| schema::PublicKey {
                 algorithm: schema::public_key::Algorithm::Ed25519 as i32,
@@ -78,19 +80,17 @@ pub fn proto_block_to_token_block(
     let context = input.context.clone();
 
     let symbols = SymbolTable::from(input.symbols.clone());
-    let public_keys: Result<Vec<PublicKey>, _> = input
-        .public_keys
-        .iter()
-        .map(|pk| {
-            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    pk.algorithm
-                )));
-            }
-            Ok(PublicKey::from_bytes(&pk.key)?)
-        })
-        .collect();
+    let mut public_keys = PublicKeys::new();
+
+    for pk in &input.public_keys {
+        if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+            return Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                pk.algorithm
+            )));
+        }
+        public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+    }
 
     let scopes: Result<Vec<Scope>, _> =
         input.scope.iter().map(proto_scope_to_token_scope).collect();
@@ -103,7 +103,7 @@ pub fn proto_block_to_token_block(
         context,
         version,
         external_key,
-        public_keys: public_keys?,
+        public_keys,
         scopes: scopes?,
     })
 }

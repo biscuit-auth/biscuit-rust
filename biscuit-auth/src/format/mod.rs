@@ -197,7 +197,7 @@ impl SerializedBiscuit {
             .map_err(error::Token::Format)
         })*/?;
 
-        symbols.extend(&SymbolTable::from(authority.symbols));
+        symbols.extend(&SymbolTable::from(authority.symbols.clone()));
 
         //FIXME: should we show an error if a key is already known?
         for pk in &authority.public_keys {
@@ -233,7 +233,7 @@ impl SerializedBiscuit {
                 public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
             }
 
-            symbols.extend(&SymbolTable::from(deser.symbols));
+            symbols.extend(&SymbolTable::from(deser.symbols.clone()));
 
             blocks.push(deser);
         }
