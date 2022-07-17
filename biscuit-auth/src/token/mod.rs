@@ -384,7 +384,7 @@ impl Biscuit {
     }
 
     pub(crate) fn authorizer_block(&self, index: usize) -> Result<Block, error::Token> {
-        if index == 0 {
+        let mut block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,
                 self.container
@@ -393,7 +393,7 @@ impl Biscuit {
                     .as_ref()
                     .map(|ex| ex.public_key),
             )
-            .map_err(error::Token::Format)
+            .map_err(error::Token::Format)?
         } else {
             if index > self.blocks.len() + 1 {
                 return Err(error::Token::Format(
@@ -408,8 +408,12 @@ impl Biscuit {
                     .as_ref()
                     .map(|ex| ex.public_key),
             )
-            .map_err(error::Token::Format)
-        }
+            .map_err(error::Token::Format)?
+        };
+        //FIXME: we have to add the entire list of public keys here because
+        // the block's symbol table is used to validate 3rd party tokens
+        block.symbols.public_keys = self.symbols.public_keys.clone();
+        Ok(block)
     }
 }
 
