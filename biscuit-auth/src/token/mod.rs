@@ -10,7 +10,7 @@ use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::format::{convert::proto_block_to_token_block, schema};
+use crate::format::schema;
 use authorizer::Authorizer;
 
 pub mod authorizer;

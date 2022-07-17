@@ -4,7 +4,7 @@ use crate::{
     crypto::PublicKey,
     datalog::SymbolTable,
     error,
-    format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
+    format::{schema, SerializedBiscuit},
     KeyPair,
 };
 use prost::Message;
@@ -90,7 +90,9 @@ impl UnverifiedBiscuit {
     /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::deserialize(slice)?;
-        let mut public_keys = PublicKeys::new();
+
+        let (authority, blocks, public_keys) = container.extract_blocks(&mut symbols)?;
+        /*let mut public_keys = PublicKeys::new();
 
         let authority = schema::Block::decode(&container.authority.data[..]).map_err(|e| {
             error::Token::Format(error::Format::BlockDeserializationError(format!(
@@ -138,7 +140,7 @@ impl UnverifiedBiscuit {
             symbols.extend(&SymbolTable::from(deser.symbols));
 
             blocks.push(deser);
-        }
+        }*/
 
         Ok(UnverifiedBiscuit {
             authority,

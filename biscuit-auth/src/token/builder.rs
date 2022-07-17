@@ -1,4 +1,5 @@
 //! helper functions and structure to create tokens and blocks
+use super::public_keys::PublicKeys;
 use super::{Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable};
@@ -159,7 +160,7 @@ impl BlockBuilder {
             //FIXME
             external_key: None,
             //FIXME
-            public_keys: vec![],
+            public_keys: PublicKeys::new(),
             //FIXME
             scopes: vec![],
         }
@@ -465,7 +466,7 @@ impl<'a> BiscuitBuilder<'a> {
             //FIXME
             external_key: None,
             //FIXME
-            public_keys: vec![],
+            public_keys: PublicKeys::new(),
             //FIXME
             scopes: vec![],
         };

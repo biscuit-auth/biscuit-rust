@@ -15,9 +15,9 @@ pub struct Block {
     /// list of facts provided by this block
     pub facts: Vec<Fact>,
     /// list of rules provided by this block
-    pub rules: HashMap<BTreeSet<usize>, Vec<Rule>>,
+    pub rules: Vec<Rule>,
     /// checks that the token and ambient data must validate
-    pub checks: Vec<(Check, Vec<BTreeSet<usize>>)>,
+    pub checks: Vec<Check>,
     /// contextual information that can be looked up before the verification
     /// (as an example, a user id to query rights into a database)
     pub context: Option<String>,
@@ -45,13 +45,12 @@ impl Block {
         let rules: Vec<_> = self
             .rules
             .iter()
-            .map(|(origin, rules)| rules.iter().map(|r| symbols.print_rule(r)))
-            .flatten()
+            .map(|rule| symbols.print_rule(rule))
             .collect();
         let checks: Vec<_> = self
             .checks
             .iter()
-            .map(|(check, origins)| symbols.print_check(check))
+            .map(|check| symbols.print_check(check))
             .collect();
 
         let mut res = facts.join(";\n");
