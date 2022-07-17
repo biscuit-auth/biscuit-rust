@@ -11,7 +11,10 @@ use prost::Message;
 use super::error;
 use super::token::Block;
 use crate::crypto::ExternalSignature;
+use crate::datalog::SymbolTable;
+use crate::token::public_keys::PublicKeys;
 use ed25519_dalek::Signer;
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
@@ -169,6 +172,73 @@ impl SerializedBiscuit {
         };
 
         Ok(deser)
+    }
+
+    pub(crate) fn extract_blocks(
+        &self,
+        symbols: &mut SymbolTable,
+    ) -> Result<(schema::Block, Vec<schema::Block>, PublicKeys), error::Token> {
+        let mut public_keys = PublicKeys::new();
+
+        let authority = schema::Block::decode(&self.authority.data[..]).map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing authority block: {:?}",
+                e
+            )))
+        })/*.and_then(|b| {
+            proto_block_to_token_block(
+                &b,
+                container
+                    .authority
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format)
+        })*/?;
+
+        symbols.extend(&SymbolTable::from(authority.symbols));
+
+        //FIXME: should we show an error if a key is already known?
+        for pk in &authority.public_keys {
+            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                return Err(error::Format::DeserializationError(format!(
+                    "deserialization error: unexpected key algorithm {}",
+                    pk.algorithm
+                )))
+                .map_err(error::Token::Format);
+            }
+            public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+        }
+
+        let mut blocks = vec![];
+
+        for block in self.blocks.iter() {
+            let deser = schema::Block::decode(&block.data[..]).map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing block: {:?}",
+                    e
+                )))
+            })?;
+
+            //FIXME: should we show an error if a key is already known?
+            for pk in &deser.public_keys {
+                if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+                    return Err(error::Format::DeserializationError(format!(
+                        "deserialization error: unexpected key algorithm {}",
+                        pk.algorithm
+                    )))
+                    .map_err(error::Token::Format);
+                }
+                public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+            }
+
+            symbols.extend(&SymbolTable::from(deser.symbols));
+
+            blocks.push(deser);
+        }
+
+        Ok((authority, blocks, public_keys))
     }
 
     /// serializes the token

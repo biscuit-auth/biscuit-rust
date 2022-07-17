@@ -274,75 +274,7 @@ impl Biscuit {
         container: SerializedBiscuit,
         mut symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
-        let mut public_keys = PublicKeys::new();
-
-        let authority = schema::Block::decode(&container.authority.data[..])
-            .map_err(|e| {
-                error::Token::Format(error::Format::BlockDeserializationError(format!(
-                    "error deserializing authority block: {:?}",
-                    e
-                )))
-            })
-            /*.and_then(|b| {
-                proto_block_to_token_block(
-                    &b,
-                    container
-                        .authority
-                        .external_signature
-                        .as_ref()
-                        .map(|ex| ex.public_key),
-                )
-                .map_err(error::Token::Format)
-            })*/?;
-
-        symbols.extend(&SymbolTable::from(authority.symbols));
-
-        //FIXME: should we show an error if a key is already known?
-        for pk in &authority.public_keys {
-            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    pk.algorithm
-                )))
-                .map_err(error::Token::Format);
-            }
-            public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
-        }
-
-        let mut blocks = vec![];
-
-        for block in container.blocks.iter() {
-            let deser = schema::Block::decode(&block.data[..])
-                .map_err(|e| {
-                    error::Token::Format(error::Format::BlockDeserializationError(format!(
-                        "error deserializing block: {:?}",
-                        e
-                    )))
-                })
-                /*.and_then(|b| {
-                    proto_block_to_token_block(
-                        &b,
-                        block.external_signature.as_ref().map(|ex| ex.public_key),
-                    )
-                    .map_err(error::Token::Format)
-                })*/?;
-
-            //FIXME: should we show an error if a key is already known?
-            for pk in &deser.public_keys {
-                if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                    return Err(error::Format::DeserializationError(format!(
-                        "deserialization error: unexpected key algorithm {}",
-                        pk.algorithm
-                    )))
-                    .map_err(error::Token::Format);
-                }
-                public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
-            }
-
-            symbols.extend(&SymbolTable::from(deser.symbols));
-
-            blocks.push(deser);
-        }
+        let (authority, blocks, public_keys) = container.extract_blocks(&mut symbols)?;
 
         let root_key_id = container.root_key_id;
 
