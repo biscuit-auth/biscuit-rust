@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{default_symbol_table, public_keys::PublicKeys, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
@@ -22,6 +24,7 @@ pub struct UnverifiedBiscuit {
     pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
     pub(crate) public_keys: PublicKeys,
+    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
     container: SerializedBiscuit,
 }
 
@@ -56,6 +59,7 @@ impl UnverifiedBiscuit {
             blocks: self.blocks,
             symbols: self.symbols,
             public_keys: self.public_keys,
+            public_key_to_block_id: self.public_key_to_block_id,
             container: self.container,
         })
     }
@@ -91,13 +95,15 @@ impl UnverifiedBiscuit {
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::deserialize(slice)?;
 
-        let (authority, blocks, public_keys) = container.extract_blocks(&mut symbols)?;
+        let (authority, blocks, public_keys, public_key_to_block_id) =
+            container.extract_blocks(&mut symbols)?;
 
         Ok(UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
             public_keys,
+            public_key_to_block_id,
             container,
         })
     }
@@ -130,6 +136,7 @@ impl UnverifiedBiscuit {
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
         let mut public_keys = self.public_keys.clone();
+        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
         let container = self.container.append(keypair, &block)?;
 
@@ -137,6 +144,17 @@ impl UnverifiedBiscuit {
         //FIXME: should we show an error if a key is already known?
         for key in &block.public_keys.keys {
             public_keys.insert(&key);
+        }
+
+        if let Some(index) = block
+            .external_key
+            .as_ref()
+            .and_then(|pk| public_keys.get(&pk))
+        {
+            public_key_to_block_id
+                .entry(index as usize)
+                .or_default()
+                .push(self.block_count() + 1);
         }
 
         let deser = schema::Block::decode(
@@ -160,6 +178,7 @@ impl UnverifiedBiscuit {
             blocks,
             symbols,
             public_keys,
+            public_key_to_block_id,
             container,
         })
     }

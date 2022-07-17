@@ -72,6 +72,7 @@ pub struct Biscuit {
     pub(crate) symbols: SymbolTable,
     pub(crate) public_keys: PublicKeys,
     pub(crate) container: SerializedBiscuit,
+    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
 }
 
 impl Biscuit {
@@ -251,6 +252,7 @@ impl Biscuit {
             symbols,
             container,
             public_keys: PublicKeys::new(),
+            public_key_to_block_id: HashMap::new(),
         })
     }
 
@@ -268,7 +270,8 @@ impl Biscuit {
         container: SerializedBiscuit,
         mut symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
-        let (authority, blocks, public_keys) = container.extract_blocks(&mut symbols)?;
+        let (authority, blocks, public_keys, public_key_to_block_id) =
+            container.extract_blocks(&mut symbols)?;
 
         let root_key_id = container.root_key_id;
 
@@ -279,6 +282,7 @@ impl Biscuit {
             symbols,
             container,
             public_keys,
+            public_key_to_block_id,
         })
     }
 
@@ -320,6 +324,7 @@ impl Biscuit {
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
         let mut public_keys = self.public_keys.clone();
+        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
         let container = self.container.append(keypair, &block)?;
 
@@ -327,6 +332,17 @@ impl Biscuit {
         //FIXME: should we show an error if a key is already known?
         for key in &block.public_keys.keys {
             public_keys.insert(&key);
+        }
+
+        if let Some(index) = block
+            .external_key
+            .as_ref()
+            .and_then(|pk| public_keys.get(&pk))
+        {
+            public_key_to_block_id
+                .entry(index as usize)
+                .or_default()
+                .push(self.block_count() + 1);
         }
         let deser = schema::Block::decode(
             &container
@@ -350,6 +366,7 @@ impl Biscuit {
             symbols,
             public_keys,
             container,
+            public_key_to_block_id,
         })
     }
 

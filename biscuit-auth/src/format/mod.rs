@@ -177,25 +177,24 @@ impl SerializedBiscuit {
     pub(crate) fn extract_blocks(
         &self,
         symbols: &mut SymbolTable,
-    ) -> Result<(schema::Block, Vec<schema::Block>, PublicKeys), error::Token> {
+    ) -> Result<
+        (
+            schema::Block,
+            Vec<schema::Block>,
+            PublicKeys,
+            HashMap<usize, Vec<usize>>,
+        ),
+        error::Token,
+    > {
         let mut public_keys = PublicKeys::new();
+        let mut block_external_keys = Vec::new();
 
         let authority = schema::Block::decode(&self.authority.data[..]).map_err(|e| {
             error::Token::Format(error::Format::BlockDeserializationError(format!(
                 "error deserializing authority block: {:?}",
                 e
             )))
-        })/*.and_then(|b| {
-            proto_block_to_token_block(
-                &b,
-                container
-                    .authority
-                    .external_signature
-                    .as_ref()
-                    .map(|ex| ex.public_key),
-            )
-            .map_err(error::Token::Format)
-        })*/?;
+        })?;
 
         symbols.extend(&SymbolTable::from(authority.symbols.clone()));
 
@@ -210,6 +209,9 @@ impl SerializedBiscuit {
             }
             public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
         }
+        // the authority block should not have an external key
+        block_external_keys.push(None);
+        //FIXME: return an error if the authority block has an external key
 
         let mut blocks = vec![];
 
@@ -220,6 +222,13 @@ impl SerializedBiscuit {
                     e
                 )))
             })?;
+
+            if let Some(external_signature) = &block.external_signature {
+                public_keys.insert(&external_signature.public_key);
+                block_external_keys.push(Some(external_signature.public_key.clone()));
+            } else {
+                block_external_keys.push(None);
+            }
 
             //FIXME: should we show an error if a key is already known?
             for pk in &deser.public_keys {
@@ -238,7 +247,18 @@ impl SerializedBiscuit {
             blocks.push(deser);
         }
 
-        Ok((authority, blocks, public_keys))
+        let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
+        for (index, opt_key) in block_external_keys.into_iter().enumerate() {
+            if let Some(key) = opt_key {
+                if let Some(key_index) = public_keys.get(&key) {
+                    public_key_to_block_id
+                        .entry(key_index as usize)
+                        .or_default()
+                        .push(index);
+                }
+            }
+        }
+        Ok((authority, blocks, public_keys, public_key_to_block_id))
     }
 
     /// serializes the token
