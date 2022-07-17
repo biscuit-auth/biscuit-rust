@@ -891,6 +891,8 @@ mod tests {
         let keypair3 = KeyPair::new_with_rng(&mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
+            println!("biscuit3: {}", biscuit3.print());
+
             let mut authorizer = biscuit3.authorizer().unwrap();
             authorizer.add_fact("resource(\"file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
@@ -902,6 +904,7 @@ mod tests {
             let authorization_res = authorizer.authorize();
             println!("authorization result: {:?}", authorization_res);
 
+            println!("world:\n{}", authorizer.print_world());
             let res2: Result<Vec<builder::Fact>, crate::error::Token> =
                 authorizer.query_all("key_verif($id) <- key($id)");
             println!("res2: {:?}", res2);
