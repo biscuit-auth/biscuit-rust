@@ -3,11 +3,14 @@ use std::collections::HashSet;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub type SymbolIndex = u64;
+use crate::token::public_keys::PublicKeys;
+
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
     symbols: Vec<String>,
+    pub(crate) public_keys: PublicKeys,
 }
 
 const DEFAULT_SYMBOLS: [&str; 28] = [
@@ -45,16 +48,23 @@ const OFFSET: usize = 1024;
 
 impl SymbolTable {
     pub fn new() -> Self {
-        SymbolTable { symbols: vec![] }
+        SymbolTable {
+            symbols: vec![],
+            public_keys: PublicKeys::new(),
+        }
     }
 
     //FIXME: should check if symbols are already in default
     pub fn from(symbols: Vec<String>) -> Self {
-        SymbolTable { symbols }
+        SymbolTable {
+            symbols,
+            public_keys: PublicKeys::new(),
+        }
     }
 
     pub fn extend(&mut self, other: &SymbolTable) {
         self.symbols.extend(other.symbols.iter().cloned());
+        self.public_keys.extend(&other.public_keys);
     }
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {
@@ -209,7 +219,27 @@ impl SymbolTable {
             format!(", {}", expressions.join(", "))
         };
 
-        format!("{}{}", preds.join(", "), e)
+        let scopes = if r.scopes.is_empty() {
+            String::new()
+        } else {
+            let s: Vec<_> = r
+                .scopes
+                .iter()
+                .map(|scope| match scope {
+                    crate::token::Scope::Authority => "authority".to_string(),
+                    crate::token::Scope::Previous => "previous".to_string(),
+                    crate::token::Scope::PublicKey(key_id) => {
+                        match self.public_keys.get_key(*key_id) {
+                            Some(key) => format!("ed25519/{}", hex::encode(key.to_bytes())),
+                            None => "<unknown public key id>".to_string(),
+                        }
+                    }
+                })
+                .collect();
+            format!(" trusting {}", s.join(", "))
+        };
+
+        format!("{}{}{}", preds.join(", "), e, scopes)
     }
 
     pub fn print_rule(&self, r: &Rule) -> String {

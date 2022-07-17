@@ -181,12 +181,10 @@ impl SerializedBiscuit {
         (
             schema::Block,
             Vec<schema::Block>,
-            PublicKeys,
             HashMap<usize, Vec<usize>>,
         ),
         error::Token,
     > {
-        let mut public_keys = PublicKeys::new();
         let mut block_external_keys = Vec::new();
 
         let authority = schema::Block::decode(&self.authority.data[..]).map_err(|e| {
@@ -207,7 +205,7 @@ impl SerializedBiscuit {
                 )))
                 .map_err(error::Token::Format);
             }
-            public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+            symbols.public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
         }
         // the authority block should not have an external key
         block_external_keys.push(None);
@@ -224,7 +222,7 @@ impl SerializedBiscuit {
             })?;
 
             if let Some(external_signature) = &block.external_signature {
-                public_keys.insert(&external_signature.public_key);
+                symbols.public_keys.insert(&external_signature.public_key);
                 block_external_keys.push(Some(external_signature.public_key.clone()));
             } else {
                 block_external_keys.push(None);
@@ -239,7 +237,7 @@ impl SerializedBiscuit {
                     )))
                     .map_err(error::Token::Format);
                 }
-                public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+                symbols.public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
             }
 
             symbols.extend(&SymbolTable::from(deser.symbols.clone()));
@@ -250,7 +248,7 @@ impl SerializedBiscuit {
         let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
         for (index, opt_key) in block_external_keys.into_iter().enumerate() {
             if let Some(key) = opt_key {
-                if let Some(key_index) = public_keys.get(&key) {
+                if let Some(key_index) = symbols.public_keys.get(&key) {
                     public_key_to_block_id
                         .entry(key_index as usize)
                         .or_default()
@@ -258,7 +256,7 @@ impl SerializedBiscuit {
                 }
             }
         }
-        Ok((authority, blocks, public_keys, public_key_to_block_id))
+        Ok((authority, blocks, public_key_to_block_id))
     }
 
     /// serializes the token

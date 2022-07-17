@@ -70,7 +70,6 @@ pub struct Biscuit {
     pub(crate) authority: schema::Block,
     pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
-    pub(crate) public_keys: PublicKeys,
     pub(crate) container: SerializedBiscuit,
     pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
 }
@@ -198,7 +197,7 @@ impl Biscuit {
         format!(
             "Biscuit {{\n    symbols: {:?}\n    public keys: {:?}\n    authority: {}\n    blocks: [\n        {}\n    ]\n}}",
             self.symbols.strings(),
-            self.public_keys.keys.iter().map(|pk| hex::encode(pk.to_bytes())).collect::<Vec<_>>(),
+            self.symbols.public_keys.keys.iter().map(|pk| hex::encode(pk.to_bytes())).collect::<Vec<_>>(),
             authority,
             blocks.join(",\n\t")
         )
@@ -251,7 +250,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_keys: PublicKeys::new(),
             public_key_to_block_id: HashMap::new(),
         })
     }
@@ -270,8 +268,7 @@ impl Biscuit {
         container: SerializedBiscuit,
         mut symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
-        let (authority, blocks, public_keys, public_key_to_block_id) =
-            container.extract_blocks(&mut symbols)?;
+        let (authority, blocks, public_key_to_block_id) = container.extract_blocks(&mut symbols)?;
 
         let root_key_id = container.root_key_id;
 
@@ -281,7 +278,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_keys,
             public_key_to_block_id,
         })
     }
@@ -323,7 +319,6 @@ impl Biscuit {
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
-        let mut public_keys = self.public_keys.clone();
         let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
         let container = self.container.append(keypair, &block)?;
@@ -331,13 +326,13 @@ impl Biscuit {
         symbols.extend(&block.symbols);
         //FIXME: should we show an error if a key is already known?
         for key in &block.public_keys.keys {
-            public_keys.insert(&key);
+            symbols.public_keys.insert(&key);
         }
 
         if let Some(index) = block
             .external_key
             .as_ref()
-            .and_then(|pk| public_keys.get(&pk))
+            .and_then(|pk| symbols.public_keys.get(&pk))
         {
             public_key_to_block_id
                 .entry(index as usize)
@@ -364,7 +359,6 @@ impl Biscuit {
             authority,
             blocks,
             symbols,
-            public_keys,
             container,
             public_key_to_block_id,
         })

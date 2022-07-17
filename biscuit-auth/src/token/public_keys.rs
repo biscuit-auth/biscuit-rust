@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::crypto::PublicKey;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct PublicKeys {
     pub(crate) keys: Vec<PublicKey>,
 }
