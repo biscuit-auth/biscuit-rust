@@ -240,6 +240,7 @@ impl Rule {
                 }
                 Scope::Previous => origins.extend(0..index + 1),
                 Scope::PublicKey(key_id) => {
+                    origins.insert(index);
                     if let Some(map) = public_key_to_block_id {
                         if let Some(block_ids) = map.get(&(*key_id as usize)) {
                             origins.extend(block_ids.iter())
