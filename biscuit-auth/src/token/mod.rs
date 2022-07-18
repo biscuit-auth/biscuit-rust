@@ -10,6 +10,7 @@ use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::crypto::TokenNext;
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema;
 use authorizer::Authorizer;
@@ -362,6 +363,49 @@ impl Biscuit {
             container,
             public_key_to_block_id,
         })
+    }
+
+    pub fn third_party_request(&self) -> Result<Vec<u8>, error::Token> {
+        if let TokenNext::Secret(private_key) = &self.container.proof {
+            let public_key = private_key.public();
+            let mut public_keys = schema::Block::decode(&self.container.authority.data[..])
+                .map_err(|e| {
+                    error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+                })?
+                .public_keys;
+            for block in &self.container.blocks {
+                public_keys.extend(
+                    schema::Block::decode(&block.data[..])
+                        .map_err(|e| {
+                            error::Format::DeserializationError(format!(
+                                "deserialization error: {:?}",
+                                e
+                            ))
+                        })?
+                        .public_keys
+                        .into_iter(),
+                );
+            }
+
+            let request = schema::ThirdPartyBlockRequest {
+                previous_key: schema::PublicKey {
+                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+                    key: public_key.to_bytes().to_vec(),
+                },
+                public_keys,
+            };
+
+            let mut v = Vec::new();
+
+            request.encode(&mut v).map(|_| v).map_err(|e| {
+                error::Token::Format(error::Format::SerializationError(format!(
+                    "serialization error: {:?}",
+                    e
+                )))
+            })
+        } else {
+            Err(error::Token::AppendOnSealed)
+        }
     }
 
     /// gets the list of symbols from a block
