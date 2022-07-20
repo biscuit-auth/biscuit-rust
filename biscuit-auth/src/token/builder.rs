@@ -133,6 +133,7 @@ impl BlockBuilder {
 
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.current_offset();
+        let public_keys_start = symbols.public_keys.current_offset();
 
         let mut facts = Vec::new();
         for fact in self.facts {
@@ -149,6 +150,7 @@ impl BlockBuilder {
             checks.push(check.convert(&mut symbols));
         }
         let new_syms = symbols.split_at(symbols_start);
+        let public_keys = symbols.public_keys.split_at(public_keys_start);
 
         Block {
             symbols: new_syms,
@@ -160,7 +162,7 @@ impl BlockBuilder {
             //FIXME
             external_key: None,
             //FIXME
-            public_keys: PublicKeys::new(),
+            public_keys,
             //FIXME
             scopes: vec![],
         }

@@ -19,6 +19,7 @@ pub mod authorizer;
 pub(crate) mod block;
 pub mod builder;
 pub(crate) mod public_keys;
+pub(crate) mod third_party;
 pub mod unverified;
 
 pub use block::Block;
