@@ -348,7 +348,12 @@ impl SerializedBiscuit {
     }
 
     /// adds a new block, serializes it and sign a new token
-    pub fn append(&self, next_keypair: &KeyPair, block: &Block) -> Result<Self, error::Token> {
+    pub fn append(
+        &self,
+        next_keypair: &KeyPair,
+        block: &Block,
+        external_signature: Option<ExternalSignature>,
+    ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
         let mut v = Vec::new();
@@ -366,7 +371,35 @@ impl SerializedBiscuit {
             data: v,
             next_key: next_keypair.public(),
             signature,
-            external_signature: None,
+            external_signature,
+        });
+
+        Ok(SerializedBiscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks,
+            proof: TokenNext::Secret(next_keypair.private()),
+        })
+    }
+
+    /// adds a new block, serializes it and sign a new token
+    pub fn append_serialized(
+        &self,
+        next_keypair: &KeyPair,
+        block: Vec<u8>,
+        external_signature: Option<ExternalSignature>,
+    ) -> Result<Self, error::Token> {
+        let keypair = self.proof.keypair()?;
+
+        let signature = crypto::sign(&keypair, next_keypair, &block)?;
+
+        // Add new block
+        let mut blocks = self.blocks.clone();
+        blocks.push(crypto::Block {
+            data: block,
+            next_key: next_keypair.public(),
+            signature,
+            external_signature,
         });
 
         Ok(SerializedBiscuit {

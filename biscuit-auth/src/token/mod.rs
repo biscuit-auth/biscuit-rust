@@ -1,5 +1,6 @@
 //! main structures to interact with Biscuit tokens
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::convert::TryInto;
 
 use self::public_keys::PublicKeys;
 use super::crypto::{KeyPair, PublicKey};
@@ -10,9 +11,9 @@ use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::crypto::TokenNext;
+use crate::crypto::{self, TokenNext};
 use crate::format::convert::proto_block_to_token_block;
-use crate::format::schema;
+use crate::format::schema::{self, ThirdPartyBlockContents};
 use authorizer::Authorizer;
 
 pub mod authorizer;
@@ -323,7 +324,7 @@ impl Biscuit {
         let mut symbols = self.symbols.clone();
         let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
-        let container = self.container.append(keypair, &block)?;
+        let container = self.container.append(keypair, &block, None)?;
 
         symbols.extend(&block.symbols);
         //FIXME: should we show an error if a key is already known?
@@ -407,6 +408,106 @@ impl Biscuit {
         } else {
             Err(error::Token::AppendOnSealed)
         }
+    }
+
+    pub fn append_third_party(
+        &self,
+        external_key: PublicKey,
+        slice: &[u8],
+    ) -> Result<Self, error::Token> {
+        let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+
+        let ThirdPartyBlockContents {
+            payload,
+            external_signature,
+        } = schema::ThirdPartyBlockContents::decode(slice).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+
+        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
+        {
+            return Err(error::Token::Format(error::Format::DeserializationError(
+                format!(
+                    "deserialization error: unexpected key algorithm {}",
+                    external_signature.public_key.algorithm
+                ),
+            )));
+        }
+        let bytes: [u8; 64] = (&external_signature.signature[..])
+            .try_into()
+            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
+
+        let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+            error::Format::BlockSignatureDeserializationError(format!(
+                "block external signature deserialization error: {:?}",
+                e
+            ))
+        })?;
+        let previous_key = self
+            .container
+            .blocks
+            .last()
+            .unwrap_or(&&self.container.authority)
+            .next_key;
+        let mut to_verify = payload.clone();
+        to_verify
+            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&previous_key.to_bytes());
+
+        external_key
+            .0
+            .verify_strict(&to_verify, &signature)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignature)
+            .map_err(error::Format::Signature)?;
+
+        let block = schema::Block::decode(&payload[..]).map_err(|e| {
+            error::Token::Format(error::Format::DeserializationError(format!(
+                "deserialization error: {:?}",
+                e
+            )))
+        })?;
+
+        let external_signature = crypto::ExternalSignature {
+            public_key: external_key,
+            signature,
+        };
+
+        let mut symbols = self.symbols.clone();
+        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
+        let mut blocks = self.blocks.clone();
+
+        let container =
+            self.container
+                .append_serialized(&next_keypair, payload, Some(external_signature))?;
+
+        let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
+        //FIXME: should we show an error if a key is already known?
+        for key in &token_block.public_keys.keys {
+            symbols.public_keys.insert(&key);
+        }
+
+        if let Some(index) = token_block
+            .external_key
+            .as_ref()
+            .and_then(|pk| symbols.public_keys.get(&pk))
+        {
+            public_key_to_block_id
+                .entry(index as usize)
+                .or_default()
+                .push(self.block_count() + 1);
+        }
+
+        blocks.push(block);
+
+        Ok(Biscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks,
+            symbols,
+            container,
+            public_key_to_block_id,
+        })
     }
 
     /// gets the list of symbols from a block
