@@ -133,7 +133,7 @@ impl UnverifiedBiscuit {
         let mut symbols = self.symbols.clone();
         let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
-        let container = self.container.append(keypair, &block)?;
+        let container = self.container.append(keypair, &block, None)?;
 
         symbols.extend(&block.symbols);
         //FIXME: should we show an error if a key is already known?
