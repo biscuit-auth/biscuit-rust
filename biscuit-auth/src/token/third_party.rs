@@ -23,30 +23,12 @@ impl Request {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if data.previous_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Token::Format(error::Format::DeserializationError(
-                format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    data.previous_key.algorithm
-                ),
-            )));
-        }
-
-        let previous_key = PublicKey::from_bytes(&data.previous_key.key)?;
+        let previous_key = PublicKey::from_proto(&data.previous_key)?;
 
         let mut public_keys = PublicKeys::new();
 
         for key in data.public_keys {
-            if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Token::Format(error::Format::DeserializationError(
-                    format!(
-                        "deserialization error: unexpected key algorithm {}",
-                        key.algorithm
-                    ),
-                )));
-            }
-
-            public_keys.insert(&PublicKey::from_bytes(&key.key)?);
+            public_keys.insert(&PublicKey::from_proto(&key)?);
         }
 
         Ok(Request {
@@ -91,10 +73,7 @@ impl Request {
             payload: v,
             external_signature: schema::ExternalSignature {
                 signature: signature.to_bytes().to_vec(),
-                public_key: schema::PublicKey {
-                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                    key: public_key.to_bytes().to_vec(),
-                },
+                public_key: public_key.to_proto(),
             },
         };
 

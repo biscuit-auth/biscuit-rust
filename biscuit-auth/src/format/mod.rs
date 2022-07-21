@@ -56,12 +56,7 @@ impl SerializedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if data.authority.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: unexpected key algorithm {}",
-                data.authority.next_key.algorithm
-            )));
-        }
+        let next_key = PublicKey::from_proto(&data.authority.next_key)?;
 
         let bytes: [u8; 64] = (&data.authority.signature[..])
             .try_into()
@@ -82,19 +77,14 @@ impl SerializedBiscuit {
 
         let authority = crypto::Block {
             data: data.authority.block,
-            next_key: PublicKey::from_bytes(&data.authority.next_key.key)?,
+            next_key,
             signature,
             external_signature: None,
         };
 
         let mut blocks = Vec::new();
         for block in &data.blocks {
-            if block.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    block.next_key.algorithm
-                )));
-            }
+            let next_key = PublicKey::from_proto(&block.next_key)?;
 
             let bytes: [u8; 64] = (&block.signature[..])
                 .try_into()
@@ -108,12 +98,8 @@ impl SerializedBiscuit {
             })?;
 
             let external_signature = if let Some(ex) = block.external_signature.as_ref() {
-                if ex.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                    return Err(error::Format::DeserializationError(format!(
-                        "deserialization error: unexpected key algorithm {}",
-                        ex.public_key.algorithm
-                    )));
-                }
+                let public_key = PublicKey::from_proto(&ex.public_key)?;
+
                 let bytes: [u8; 64] = (&ex.signature[..])
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
@@ -126,7 +112,7 @@ impl SerializedBiscuit {
                 })?;
 
                 Some(ExternalSignature {
-                    public_key: PublicKey::from_bytes(&ex.public_key.key)?,
+                    public_key,
                     signature,
                 })
             } else {
@@ -135,7 +121,7 @@ impl SerializedBiscuit {
 
             blocks.push(crypto::Block {
                 data: block.block.clone(),
-                next_key: PublicKey::from_bytes(&block.next_key.key)?,
+                next_key,
                 signature,
                 external_signature,
             });
@@ -198,14 +184,7 @@ impl SerializedBiscuit {
 
         //FIXME: should we show an error if a key is already known?
         for pk in &authority.public_keys {
-            if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    pk.algorithm
-                )))
-                .map_err(error::Token::Format);
-            }
-            symbols.public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+            symbols.public_keys.insert(&PublicKey::from_proto(&pk)?);
         }
         // the authority block should not have an external key
         block_external_keys.push(None);
@@ -230,14 +209,7 @@ impl SerializedBiscuit {
 
             //FIXME: should we show an error if a key is already known?
             for pk in &deser.public_keys {
-                if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                    return Err(error::Format::DeserializationError(format!(
-                        "deserialization error: unexpected key algorithm {}",
-                        pk.algorithm
-                    )))
-                    .map_err(error::Token::Format);
-                }
-                symbols.public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+                symbols.public_keys.insert(&PublicKey::from_proto(&pk)?);
             }
 
             symbols.extend(&SymbolTable::from(deser.symbols.clone()));
@@ -263,10 +235,7 @@ impl SerializedBiscuit {
     pub fn to_proto(&self) -> schema::Biscuit {
         let authority = schema::SignedBlock {
             block: self.authority.data.clone(),
-            next_key: schema::PublicKey {
-                algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                key: self.authority.next_key.to_bytes().to_vec(),
-            },
+            next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
             external_signature: None,
         };
@@ -275,10 +244,7 @@ impl SerializedBiscuit {
         for block in &self.blocks {
             let b = schema::SignedBlock {
                 block: block.data.clone(),
-                next_key: schema::PublicKey {
-                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                    key: block.next_key.to_bytes().to_vec(),
-                },
+                next_key: block.next_key.to_proto(),
                 signature: block.signature.to_bytes().to_vec(),
                 external_signature: None,
             };

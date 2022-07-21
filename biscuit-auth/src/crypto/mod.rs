@@ -7,7 +7,7 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::error::Format;
+use crate::{error::Format, format::schema};
 
 use super::error;
 use ed25519_dalek::*;
@@ -119,6 +119,24 @@ impl PublicKey {
             .map(PublicKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
+    }
+
+    pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
+        if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+            return Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                key.algorithm
+            )));
+        }
+
+        Ok(PublicKey::from_bytes(&key.key)?)
+    }
+
+    pub fn to_proto(&self) -> schema::PublicKey {
+        schema::PublicKey {
+            algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+            key: self.to_bytes().to_vec(),
+        }
     }
 }
 

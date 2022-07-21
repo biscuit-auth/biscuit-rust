@@ -39,10 +39,7 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .public_keys
             .keys
             .iter()
-            .map(|key| schema::PublicKey {
-                algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                key: key.to_bytes().to_vec(),
-            })
+            .map(|key| key.to_proto())
             .collect(),
     }
 }
@@ -83,13 +80,7 @@ pub fn proto_block_to_token_block(
     let mut public_keys = PublicKeys::new();
 
     for pk in &input.public_keys {
-        if pk.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: unexpected key algorithm {}",
-                pk.algorithm
-            )));
-        }
-        public_keys.insert(&PublicKey::from_bytes(&pk.key)?);
+        public_keys.insert(&PublicKey::from_proto(&pk)?);
     }
 
     let scopes: Result<Vec<Scope>, _> =
