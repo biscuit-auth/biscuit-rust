@@ -388,7 +388,7 @@ fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
 }
 
 fn scopes(i: &str) -> IResult<&str, Vec<Scope>, Error> {
-    if let Ok((i, _)) = tag::<_, _, ()>("trusting ")(i) {
+    if let Ok((i, _)) = preceded(space0, tag::<_, _, ()>("trusting"))(i) {
         separated_list1(preceded(space0, char(',')), preceded(space0, cut(scope)))(i)
     } else {
         Ok((i, vec![]))
