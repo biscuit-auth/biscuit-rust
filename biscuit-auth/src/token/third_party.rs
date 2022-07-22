@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use ed25519_dalek::Signer;
 use prost::Message;
 
@@ -15,6 +17,7 @@ use super::public_keys::PublicKeys;
 pub struct Request {
     previous_key: PublicKey,
     public_keys: PublicKeys,
+    builder: BlockBuilder,
 }
 
 impl Request {
@@ -34,21 +37,14 @@ impl Request {
         Ok(Request {
             previous_key,
             public_keys,
+            builder: BlockBuilder::new(),
         })
     }
 
-    pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new()
-    }
-
-    pub fn create_response(
-        self,
-        private_key: PrivateKey,
-        block: BlockBuilder,
-    ) -> Result<Vec<u8>, error::Token> {
+    pub fn create_response(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
-        let block = block.build(symbols);
+        let block = self.builder.build(symbols);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)
@@ -85,6 +81,20 @@ impl Request {
                 e
             )))
         })
+    }
+}
+
+impl Deref for Request {
+    type Target = BlockBuilder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.builder
+    }
+}
+
+impl DerefMut for Request {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.builder
     }
 }
 
