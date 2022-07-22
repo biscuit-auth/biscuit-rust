@@ -269,7 +269,11 @@ pub mod v2 {
                 .iter()
                 .map(token_expression_to_proto_expression)
                 .collect(),
-            scope: vec![],
+            scope: input
+                .scopes
+                .iter()
+                .map(token_scope_to_proto_scope)
+                .collect(),
         }
     }
 

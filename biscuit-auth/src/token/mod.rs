@@ -500,7 +500,7 @@ impl Biscuit {
             public_key_to_block_id
                 .entry(index as usize)
                 .or_default()
-                .push(self.block_count() + 1);
+                .push(self.block_count());
         }
 
         blocks.push(block);
