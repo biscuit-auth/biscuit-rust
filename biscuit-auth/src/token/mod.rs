@@ -24,6 +24,7 @@ pub(crate) mod third_party;
 pub mod unverified;
 
 pub use block::Block;
+pub use third_party::*;
 
 /// minimum supported version of the serialization format
 pub const MIN_SCHEMA_VERSION: u32 = 3;
@@ -368,8 +369,7 @@ impl Biscuit {
     }
 
     pub fn third_party_request(&self) -> Result<Vec<u8>, error::Token> {
-        if let TokenNext::Secret(private_key) = &self.container.proof {
-            let public_key = private_key.public();
+        if !self.container.proof.is_sealed() {
             let mut public_keys = schema::Block::decode(&self.container.authority.data[..])
                 .map_err(|e| {
                     error::Format::DeserializationError(format!("deserialization error: {:?}", e))
@@ -389,11 +389,16 @@ impl Biscuit {
                 );
             }
 
+            let previous_key = self
+                .container
+                .blocks
+                .last()
+                .unwrap_or(&&self.container.authority)
+                .next_key
+                .to_proto();
+
             let request = schema::ThirdPartyBlockRequest {
-                previous_key: schema::PublicKey {
-                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                    key: public_key.to_bytes().to_vec(),
-                },
+                previous_key,
                 public_keys,
             };
 

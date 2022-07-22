@@ -56,6 +56,7 @@ impl Request {
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
+        let payload = v.clone();
 
         v.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         v.extend(self.previous_key.to_bytes());
@@ -70,7 +71,7 @@ impl Request {
 
         let public_key = keypair.public();
         let content = schema::ThirdPartyBlockContents {
-            payload: v,
+            payload,
             external_signature: schema::ExternalSignature {
                 signature: signature.to_bytes().to_vec(),
                 public_key: public_key.to_proto(),

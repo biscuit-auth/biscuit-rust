@@ -994,7 +994,7 @@ impl Rule {
                 Scope::Previous => crate::token::Scope::Previous,
                 // FIXME: handle the unwrap
                 Scope::PublicKey(key) => {
-                    crate::token::Scope::PublicKey(symbols.public_keys.get(&key).unwrap())
+                    crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
                 }
             })
         }

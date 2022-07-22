@@ -327,6 +327,13 @@ impl TokenNext {
             TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
         }
     }
+
+    pub fn is_sealed(&self) -> bool {
+        match &self {
+            TokenNext::Seal(_) => true,
+            TokenNext::Secret(_) => false,
+        }
+    }
 }
 
 #[cfg(test)]
