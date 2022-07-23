@@ -602,7 +602,7 @@ impl<'t> Authorizer<'t> {
         }
 
         if let Some(token) = self.token.as_ref() {
-            let mut origin = BTreeSet::new();
+            let mut origin = Origin::default();
             origin.insert(0);
             for (j, check) in self.blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
