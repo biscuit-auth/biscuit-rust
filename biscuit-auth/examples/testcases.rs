@@ -101,6 +101,8 @@ fn main() {
 
     results.push(execution_scope(&mut rng, &target, &root, test));
 
+    results.push(third_party(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -508,7 +510,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         let v = load_testcase(target, "test3_invalid_signature_format");
         v
     } else {
-        let serialized = biscuit2.container().unwrap();
+        let serialized = biscuit2.container();
         let mut proto = serialized.to_proto();
         proto.authority.signature.truncate(16);
         let mut data = Vec::new();
@@ -584,7 +586,7 @@ fn random_block<T: Rng + CryptoRng>(
         let v = load_testcase(target, "test4_random_block");
         v
     } else {
-        let serialized = biscuit2.container().unwrap();
+        let serialized = biscuit2.container();
         let mut proto = serialized.to_proto();
         let arr: [u8; 32] = rng.gen();
         proto.blocks[0].block = Vec::from(&arr[..]);
@@ -661,7 +663,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         let v = load_testcase(target, "test5_invalid_signature");
         v
     } else {
-        let serialized = biscuit2.container().unwrap();
+        let serialized = biscuit2.container();
         let mut proto = serialized.to_proto();
         proto.authority.signature[0] = proto.authority.signature[0] + 1;
         let mut data = Vec::new();
@@ -747,7 +749,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
-    let mut serialized = biscuit3.container().unwrap().clone();
+    let mut serialized = biscuit3.container().clone();
     let mut blocks = vec![];
     blocks.push(serialized.blocks[1].clone());
     blocks.push(serialized.blocks[0].clone());
@@ -2090,6 +2092,68 @@ fn execution_scope<T: Rng + CryptoRng>(
     } else {
         let data = biscuit3.to_vec().unwrap();
         write_testcase(target, "test23_execution_scope", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], vec![], vec![], vec![]),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn third_party<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "third party".to_string();
+    let filename = "test24_third_party.bc".to_string();
+    let token;
+
+    let external = KeyPair::new_with_rng(rng);
+    let external_pub = hex::encode(external.public().to_bytes());
+
+    let mut builder = Biscuit::builder(&root);
+
+    builder.add_authority_fact("right(\"read\")").unwrap();
+    builder
+        .add_authority_check(
+            format!("check if group(\"admin\") trusting ed25519/{external_pub}").as_str(),
+        )
+        .unwrap();
+
+    let biscuit1 = builder.build_with_rng(rng).unwrap();
+
+    let serialized_req = biscuit1.third_party_request().unwrap();
+
+    let mut req = biscuit_auth::Request::deserialize(&serialized_req).unwrap();
+    req.add_fact("group(\"admin\")").unwrap();
+    req.add_check("check if right(\"read\")").unwrap();
+    let res = req.create_response(external.private()).unwrap();
+    let biscuit2 = biscuit1
+        .append_third_party(external.public(), &res[..])
+        .unwrap();
+
+    token = print_blocks(&biscuit2);
+
+    let data = if test {
+        let v = load_testcase(target, "test24_third_party");
+        let expected = Biscuit::from(&v[..], |_| root.public()).unwrap();
+        print_diff(&biscuit2.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit2.to_vec().unwrap();
+        write_testcase(target, "test24_third_party", &data[..]);
 
         data
     };
