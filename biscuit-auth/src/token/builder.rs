@@ -282,6 +282,7 @@ pub struct BiscuitBuilder<'a> {
     root_key_id: Option<u32>,
     root: &'a KeyPair,
     pub symbols_start: usize,
+    pub public_keys_start: usize,
     pub symbols: SymbolTable,
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
@@ -295,6 +296,7 @@ impl<'a> BiscuitBuilder<'a> {
             root_key_id: None,
             root,
             symbols_start: base_symbols.current_offset(),
+            public_keys_start: base_symbols.public_keys.current_offset(),
             symbols: base_symbols,
             facts: vec![],
             rules: vec![],
@@ -457,6 +459,7 @@ impl<'a> BiscuitBuilder<'a> {
         rng: &'a mut R,
     ) -> Result<Biscuit, error::Token> {
         let new_syms = self.symbols.split_at(self.symbols_start);
+        let public_keys = self.symbols.public_keys.split_at(self.public_keys_start);
 
         let authority_block = Block {
             symbols: new_syms,
@@ -468,7 +471,7 @@ impl<'a> BiscuitBuilder<'a> {
             //FIXME
             external_key: None,
             //FIXME
-            public_keys: PublicKeys::new(),
+            public_keys,
             //FIXME
             scopes: vec![],
         };

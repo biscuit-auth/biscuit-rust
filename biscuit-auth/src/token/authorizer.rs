@@ -115,10 +115,9 @@ impl<'t> Authorizer<'t> {
 
         let mut blocks = Vec::new();
 
-        let mut origin = Origin::default();
-        origin.insert(0);
+        let authority = token.block(0)?;
+        let origin = authority.origins(0, Some(&token.public_key_to_block_id));
 
-        let authority = token.authorizer_block(0)?;
         // add authority facts and rules right away to make them available to queries
         for fact in authority.facts.iter().cloned() {
             let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
@@ -143,7 +142,7 @@ impl<'t> Authorizer<'t> {
 
         blocks.push(authority);
         for i in 1..token.block_count() {
-            let block = token.authorizer_block(i)?;
+            let block = token.block(i)?;
 
             // if it is a 3rd party block, it should not affect the main symbol table
             let block_symbols = if block.external_key.is_none() {
@@ -152,14 +151,13 @@ impl<'t> Authorizer<'t> {
                 &block.symbols
             };
 
-            let mut origin = Origin::default();
-            origin.insert(i);
+            let origin = block.origins(i, Some(&token.public_key_to_block_id));
+
             for fact in block.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
                 self.world.facts.insert(&origin, fact);
             }
 
-            origin.insert(0);
             for rule in block.rules.iter().cloned() {
                 if let Err(_message) = rule.validate_variables(&token.symbols) {
                     return Err(
@@ -567,6 +565,7 @@ impl<'t> Authorizer<'t> {
 
         let mut origin = Origin::default();
         origin.insert(0);
+
         for (i, check) in self.checks.iter().enumerate() {
             let c = check.convert(&mut self.symbols);
             let mut successful = false;
@@ -602,8 +601,8 @@ impl<'t> Authorizer<'t> {
         }
 
         if let Some(token) = self.token.as_ref() {
-            let mut origin = Origin::default();
-            origin.insert(0);
+            let origin = self.blocks[0].origins(0, Some(&token.public_key_to_block_id));
+
             for (j, check) in self.blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
 
@@ -675,10 +674,7 @@ impl<'t> Authorizer<'t> {
                     &block.symbols
                 };
 
-                //FIXME: get the scope from the token
-                let mut origin = Origin::default();
-                origin.insert(0);
-                origin.insert(i + 1);
+                let origin = block.origins(i, Some(&token.public_key_to_block_id));
 
                 self.world
                     .run_with_limits(&self.symbols, RunLimits::default())

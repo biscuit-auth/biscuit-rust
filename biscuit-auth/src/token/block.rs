@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::{
     crypto::PublicKey,
-    datalog::{Check, Fact, Rule, SymbolTable, Term},
+    datalog::{Check, Fact, Origin, Rule, SymbolTable, Term},
 };
 
 use super::{public_keys::PublicKeys, Scope};
@@ -67,5 +67,31 @@ impl Block {
         }
 
         res
+    }
+
+    pub(crate) fn origins(
+        &self,
+        index: usize,
+        public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
+    ) -> Origin {
+        let mut origins = Origin::default();
+
+        for scope in &self.scopes {
+            match scope {
+                Scope::Authority => {
+                    origins.insert(0);
+                }
+                Scope::Previous => origins.extend(0..index + 1),
+                Scope::PublicKey(key_id) => {
+                    origins.insert(index);
+                    if let Some(map) = public_key_to_block_id {
+                        if let Some(block_ids) = map.get(&(*key_id as usize)) {
+                            origins.extend(block_ids.iter())
+                        }
+                    }
+                }
+            }
+        }
+        origins
     }
 }

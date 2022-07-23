@@ -210,7 +210,7 @@ impl Biscuit {
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Option<String> {
         //FIXME: must handle the unwrap here
-        let block = self.authorizer_block(index).unwrap();
+        let block = self.block(index).unwrap();
 
         Some(block.print_source(&self.symbols))
     }
@@ -534,7 +534,7 @@ impl Biscuit {
         1 + self.blocks.len()
     }
 
-    pub(crate) fn authorizer_block(&self, index: usize) -> Result<Block, error::Token> {
+    pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
         let mut block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,
