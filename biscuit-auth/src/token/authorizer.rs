@@ -1,7 +1,7 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::{Biscuit, Block};
-use crate::datalog::{self, FactSet, RuleSet, RunLimits, SymbolTable};
+use crate::datalog::{self, FactSet, Origin, RuleSet, RunLimits, SymbolTable};
 use crate::error;
 use crate::parser::parse_source;
 use crate::time::Instant;
@@ -75,7 +75,7 @@ impl<'t> Authorizer<'t> {
             policies,
         } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
 
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
         let mut f = FactSet::default();
         let mut r = RuleSet::default();
@@ -115,7 +115,7 @@ impl<'t> Authorizer<'t> {
 
         let mut blocks = Vec::new();
 
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
 
         let authority = token.authorizer_block(0)?;
@@ -152,7 +152,7 @@ impl<'t> Authorizer<'t> {
                 &block.symbols
             };
 
-            let mut origin = BTreeSet::new();
+            let mut origin = Origin::default();
             origin.insert(i);
             for fact in block.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
@@ -233,7 +233,7 @@ impl<'t> Authorizer<'t> {
         let fact = fact.try_into()?;
         fact.validate()?;
 
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
         self.world
             .facts
@@ -248,7 +248,7 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?;
         rule.validate_parameters()?;
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
         self.world
             .rules
@@ -287,7 +287,7 @@ impl<'t> Authorizer<'t> {
 
         let source_result = parse_source(input)?;
 
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
 
         for (_, mut fact) in source_result.facts.into_iter() {
@@ -379,7 +379,7 @@ impl<'t> Authorizer<'t> {
     pub fn query<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-        origin: &BTreeSet<usize>,
+        origin: &Origin,
     ) -> Result<Vec<T>, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
@@ -395,7 +395,7 @@ impl<'t> Authorizer<'t> {
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-        origin: &BTreeSet<usize>,
+        origin: &Origin,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token>
     where
@@ -479,7 +479,7 @@ impl<'t> Authorizer<'t> {
                 .map(|(i, _)| i)
                 .collect()
         } else {
-            [0].into()
+            [0].into_iter().collect()
         };
 
         let res = self.world.query_rule(rule.clone(), &origin, &self.symbols);
@@ -506,7 +506,7 @@ impl<'t> Authorizer<'t> {
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
         let fact = fact("time", &[date(&SystemTime::now())]);
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
         self.world
             .facts
@@ -565,7 +565,7 @@ impl<'t> Authorizer<'t> {
             .map_err(error::Token::RunLimit)?;
         //self.world.rules.clear();
 
-        let mut origin = BTreeSet::new();
+        let mut origin = Origin::default();
         origin.insert(0);
         for (i, check) in self.checks.iter().enumerate() {
             let c = check.convert(&mut self.symbols);
@@ -676,7 +676,7 @@ impl<'t> Authorizer<'t> {
                 };
 
                 //FIXME: get the scope from the token
-                let mut origin = BTreeSet::new();
+                let mut origin = Origin::default();
                 origin.insert(0);
                 origin.insert(i + 1);
 
@@ -1007,7 +1007,10 @@ mod tests {
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
-            .query("data($name, $id) <- user($name, $id)", &[0].into())
+            .query(
+                "data($name, $id) <- user($name, $id)",
+                &[0].into_iter().collect(),
+            )
             .unwrap();
 
         assert_eq!(res.len(), 1);
@@ -1027,7 +1030,7 @@ mod tests {
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer
-            .query("data($name) <- user($name)", &[0].into())
+            .query("data($name) <- user($name)", &[0].into_iter().collect())
             .unwrap();
 
         assert_eq!(res.len(), 1);

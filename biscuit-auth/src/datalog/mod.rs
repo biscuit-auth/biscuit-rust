@@ -8,8 +8,10 @@ use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod expression;
+mod origin;
 mod symbol;
 pub use expression::*;
+pub use origin::*;
 pub use symbol::*;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
@@ -119,11 +121,11 @@ impl Rule {
     pub fn apply<'a, IT>(
         &'a self,
         facts: IT,
-        rule_origin: &'a BTreeSet<usize>,
+        rule_origin: &'a Origin,
         symbols: &'a SymbolTable,
-    ) -> impl Iterator<Item = (BTreeSet<usize>, Fact)> + 'a
+    ) -> impl Iterator<Item = (Origin, Fact)> + 'a
     where
-        IT: Iterator<Item = (&'a BTreeSet<usize>, &'a Fact)> + Clone + 'a,
+        IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
     {
         let head = self.head.clone();
         let variables = MatchedVariables::new(self.variables_set());
@@ -143,16 +145,11 @@ impl Rule {
                 };
             }
 
-            Some((origin.union(rule_origin).cloned().collect(), Fact { predicate: p }))
+            Some((origin.union(rule_origin), Fact { predicate: p }))
         })
     }
 
-    pub fn find_match(
-        &self,
-        facts: &FactSet,
-        origin: &BTreeSet<usize>,
-        symbols: &SymbolTable,
-    ) -> bool {
+    pub fn find_match(&self, facts: &FactSet, origin: &Origin, symbols: &SymbolTable) -> bool {
         let fact_it = facts.iterator(origin);
         let mut it = self.apply(fact_it, origin, symbols);
 
@@ -230,8 +227,8 @@ impl Rule {
         &self,
         index: usize,
         public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
-    ) -> BTreeSet<usize> {
-        let mut origins = BTreeSet::new();
+    ) -> Origin {
+        let mut origins = Origin::default();
 
         for scope in &self.scopes {
             match scope {
@@ -260,13 +257,13 @@ pub struct CombineIt<'a, IT> {
     expressions: &'a [Expression],
     all_facts: IT,
     symbols: &'a SymbolTable,
-    current_facts: Box<dyn Iterator<Item = (&'a BTreeSet<usize>, &'a Fact)> + 'a>,
-    current_it: Option<Box<dyn Iterator<Item = (BTreeSet<usize>, HashMap<u32, Term>)> + 'a>>,
+    current_facts: Box<dyn Iterator<Item = (&'a Origin, &'a Fact)> + 'a>,
+    current_it: Option<Box<dyn Iterator<Item = (Origin, HashMap<u32, Term>)> + 'a>>,
 }
 
 impl<'a, IT> CombineIt<'a, IT>
 where
-    IT: Iterator<Item = (&'a BTreeSet<usize>, &'a Fact)> + Clone + 'a,
+    IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
 {
     pub fn new(
         variables: MatchedVariables,
@@ -275,7 +272,7 @@ where
         facts: IT,
         symbols: &'a SymbolTable,
     ) -> Self {
-        let current_facts: Box<dyn Iterator<Item = (&'a BTreeSet<usize>, &'a Fact)> + 'a> =
+        let current_facts: Box<dyn Iterator<Item = (&'a Origin, &'a Fact)> + 'a> =
             if predicates.is_empty() {
                 Box::new(facts.clone())
             } else {
@@ -301,12 +298,12 @@ where
 
 impl<'a, IT> Iterator for CombineIt<'a, IT>
 where
-    IT: Iterator<Item = (&'a BTreeSet<usize>, &'a Fact)> + Clone + 'a,
+    IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
     Self: 'a,
 {
-    type Item = (BTreeSet<usize>, HashMap<u32, Term>);
+    type Item = (Origin, HashMap<u32, Term>);
 
-    fn next(&mut self) -> Option<(BTreeSet<usize>, HashMap<u32, Term>)> {
+    fn next(&mut self) -> Option<(Origin, HashMap<u32, Term>)> {
         // if we're the last iterator in the recursive chain, stop here
         if self.predicates.is_empty() {
             match self.variables.complete() {
@@ -333,7 +330,7 @@ where
                         // successful calls, we create a set of variables that cannot
                         // possibly be completed, so the next call will fail
                         self.variables = MatchedVariables::new([0].into());
-                        return Some((BTreeSet::new(), variables));
+                        return Some((Origin::default(), variables));
                     } else {
                         return None;
                     }
@@ -412,7 +409,7 @@ where
                                     self.symbols,
                                 )
                                 .map(move |(origin, variables)| {
-                                    (origin.union(current_origin).cloned().collect(), variables)
+                                    (origin.union(current_origin), variables)
                                 }),
                             ));
                         }
@@ -568,11 +565,11 @@ impl World {
         World::default()
     }
 
-    pub fn add_fact(&mut self, origin: &BTreeSet<usize>, fact: Fact) {
+    pub fn add_fact(&mut self, origin: &Origin, fact: Fact) {
         self.facts.insert(origin, fact);
     }
 
-    pub fn add_rule(&mut self, origin: &BTreeSet<usize>, rule: Rule) {
+    pub fn add_rule(&mut self, origin: &Origin, rule: Rule) {
         self.rules.insert(origin, rule);
     }
 
@@ -648,12 +645,7 @@ impl World {
             .collect::<Vec<_>>()
     }*/
 
-    pub fn query_rule(
-        &self,
-        rule: Rule,
-        origin: &BTreeSet<usize>,
-        symbols: &SymbolTable,
-    ) -> FactSet {
+    pub fn query_rule(&self, rule: Rule, origin: &Origin, symbols: &SymbolTable) -> FactSet {
         let mut new_facts = FactSet::default();
         let it = self.facts.iterator(origin);
         new_facts.extend(rule.apply(it, origin, symbols));
@@ -661,7 +653,7 @@ impl World {
         new_facts
     }
 
-    pub fn query_match(&self, rule: Rule, origin: &BTreeSet<usize>, symbols: &SymbolTable) -> bool {
+    pub fn query_match(&self, rule: Rule, origin: &Origin, symbols: &SymbolTable) -> bool {
         rule.find_match(&self.facts, origin, symbols)
     }
 }
@@ -684,11 +676,11 @@ impl std::default::Default for RunLimits {
 
 #[derive(Clone, Debug, Default)]
 pub struct FactSet {
-    pub(crate) inner: HashMap<BTreeSet<usize>, HashSet<Fact>>,
+    pub(crate) inner: HashMap<Origin, HashSet<Fact>>,
 }
 
 impl FactSet {
-    pub fn insert(&mut self, origin: &BTreeSet<usize>, fact: Fact) {
+    pub fn insert(&mut self, origin: &Origin, fact: Fact) {
         match self.inner.get_mut(origin) {
             None => {
                 let mut set = HashSet::new();
@@ -707,8 +699,8 @@ impl FactSet {
 
     pub fn iterator<'a>(
         &'a self,
-        block_ids: &'a BTreeSet<usize>,
-    ) -> impl Iterator<Item = (&BTreeSet<usize>, &Fact)> + Clone {
+        block_ids: &'a Origin,
+    ) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .filter_map(move |(ids, facts)| {
@@ -721,7 +713,7 @@ impl FactSet {
             .flatten()
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&BTreeSet<usize>, &Fact)> + Clone {
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
@@ -736,8 +728,8 @@ impl FactSet {
     }
 }
 
-impl Extend<(BTreeSet<usize>, Fact)> for FactSet {
-    fn extend<T: IntoIterator<Item = (BTreeSet<usize>, Fact)>>(&mut self, iter: T) {
+impl Extend<(Origin, Fact)> for FactSet {
+    fn extend<T: IntoIterator<Item = (Origin, Fact)>>(&mut self, iter: T) {
         for (origin, fact) in iter {
             let entry = self.inner.entry(origin).or_default();
             entry.insert(fact);
@@ -746,9 +738,9 @@ impl Extend<(BTreeSet<usize>, Fact)> for FactSet {
 }
 
 impl IntoIterator for FactSet {
-    type Item = (BTreeSet<usize>, Fact);
+    type Item = (Origin, Fact);
 
-    type IntoIter = Box<dyn Iterator<Item = (BTreeSet<usize>, Fact)>>;
+    type IntoIter = Box<dyn Iterator<Item = (Origin, Fact)>>;
 
     fn into_iter(self) -> Self::IntoIter {
         Box::new(
@@ -762,11 +754,11 @@ impl IntoIterator for FactSet {
 
 #[derive(Clone, Debug, Default)]
 pub struct RuleSet {
-    pub inner: HashMap<BTreeSet<usize>, Vec<Rule>>,
+    pub inner: HashMap<Origin, Vec<Rule>>,
 }
 
 impl RuleSet {
-    pub fn insert(&mut self, origin: &BTreeSet<usize>, rule: Rule) {
+    pub fn insert(&mut self, origin: &Origin, rule: Rule) {
         match self.inner.get_mut(origin) {
             None => {
                 self.inner.insert(origin.clone(), vec![rule]);
@@ -777,7 +769,7 @@ impl RuleSet {
         }
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&BTreeSet<usize>, &Rule)> + Clone {
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Rule)> + Clone {
         self.inner
             .iter()
             .map(move |(ids, rules)| rules.iter().map(move |rule| (ids, rule)))
@@ -802,9 +794,9 @@ mod tests {
         let parent = syms.insert("parent");
         let grandparent = syms.insert("grandparent");
 
-        w.add_fact(&[0].into(), fact(parent, &[&a, &b]));
-        w.add_fact(&[0].into(), fact(parent, &[&b, &c]));
-        w.add_fact(&[0].into(), fact(parent, &[&c, &d]));
+        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&a, &b]));
+        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&b, &c]));
+        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&c, &d]));
 
         let r1 = rule(
             grandparent,
@@ -823,7 +815,7 @@ mod tests {
 
         println!("symbols: {:?}", syms);
         println!("testing r1: {}", syms.print_rule(&r1));
-        let query_rule_result = w.query_rule(r1, &[0].into(), &syms);
+        let query_rule_result = w.query_rule(r1, &[0].into_iter().collect(), &syms);
         println!("grandparents query_rules: {:?}", query_rule_result);
         println!("current facts: {:?}", w.facts);
 
@@ -843,7 +835,7 @@ mod tests {
         );
 
         println!("adding r2: {}", syms.print_rule(&r2));
-        w.add_rule(&[0].into(), r2);
+        w.add_rule(&[0].into_iter().collect(), r2);
 
         w.run(&syms).unwrap();
 
@@ -857,11 +849,11 @@ mod tests {
                     &[var(&mut syms, "parent"), var(&mut syms, "child")],
                 )],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
 
-        for (origin, fact) in res.iterator(&[0].into()) {
+        for (origin, fact) in res.iterator(&[0].into_iter().collect()) {
             println!("\t{:?}\t{}", origin, syms.print_fact(fact));
         }
 
@@ -873,7 +865,7 @@ mod tests {
                     &[&var(&mut syms, "parent"), &b],
                     &[pred(parent, &[&var(&mut syms, "parent"), &b])]
                 ),
-                &[0].into(),
+                &[0].into_iter().collect(),
                 &syms
             )
         );
@@ -888,11 +880,11 @@ mod tests {
                         &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]
                     )]
                 ),
-                &[0].into(),
+                &[0].into_iter().collect(),
                 &syms
             )
         );
-        w.add_fact(&[0].into(), fact(parent, &[&c, &e]));
+        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&c, &e]));
         w.run(&syms).unwrap();
         let mut res = w.query_rule(
             rule::<Term, Predicate>(
@@ -903,7 +895,7 @@ mod tests {
                     &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
                 )],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
         println!("grandparents after inserting parent(C, E): {:?}", res);
@@ -949,15 +941,24 @@ mod tests {
         let t2 = syms.insert("t2");
         let join = syms.insert("join");
 
-        w.add_fact(&[0].into(), fact(t1, &[&int(0), &abc]));
-        w.add_fact(&[0].into(), fact(t1, &[&int(1), &def]));
-        w.add_fact(&[0].into(), fact(t1, &[&int(2), &ghi]));
-        w.add_fact(&[0].into(), fact(t1, &[&int(3), &jkl]));
-        w.add_fact(&[0].into(), fact(t1, &[&int(4), &mno]));
+        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(0), &abc]));
+        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(1), &def]));
+        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(2), &ghi]));
+        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(3), &jkl]));
+        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(4), &mno]));
 
-        w.add_fact(&[0].into(), fact(t2, &[&int(0), &aaa, &int(0)]));
-        w.add_fact(&[0].into(), fact(t2, &[&int(1), &bbb, &int(0)]));
-        w.add_fact(&[0].into(), fact(t2, &[&int(2), &ccc, &int(1)]));
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(t2, &[&int(0), &aaa, &int(0)]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(t2, &[&int(1), &bbb, &int(0)]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(t2, &[&int(2), &ccc, &int(1)]),
+        );
 
         let res = w.query_rule(
             rule(
@@ -975,7 +976,7 @@ mod tests {
                     ),
                 ],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1020,7 +1021,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1054,11 +1055,26 @@ mod tests {
         let www_example = syms.add("www.example.com");
         let mx_example = syms.add("mx.example.com");
 
-        w.add_fact(&[0].into(), fact(route, &[&int(0), &app_0, &example]));
-        w.add_fact(&[0].into(), fact(route, &[&int(1), &app_1, &test_com]));
-        w.add_fact(&[0].into(), fact(route, &[&int(2), &app_2, &test_fr]));
-        w.add_fact(&[0].into(), fact(route, &[&int(3), &app_0, &www_example]));
-        w.add_fact(&[0].into(), fact(route, &[&int(4), &app_1, &mx_example]));
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(route, &[&int(0), &app_0, &example]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(route, &[&int(1), &app_1, &test_com]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(route, &[&int(2), &app_2, &test_fr]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(route, &[&int(3), &app_0, &www_example]),
+        );
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(route, &[&int(4), &app_1, &mx_example]),
+        );
 
         fn test_suffix(
             w: &World,
@@ -1088,7 +1104,7 @@ mod tests {
                         ],
                     }],
                 ),
-                &[0].into(),
+                &[0].into_iter().collect(),
                 &syms,
             )
             .iter_all()
@@ -1143,8 +1159,8 @@ mod tests {
         let before = syms.insert("before");
         let after = syms.insert("after");
 
-        w.add_fact(&[0].into(), fact(x, &[&date(&t1), &abc]));
-        w.add_fact(&[0].into(), fact(x, &[&date(&t3), &def]));
+        w.add_fact(&[0].into_iter().collect(), fact(x, &[&date(&t1), &abc]));
+        w.add_fact(&[0].into_iter().collect(), fact(x, &[&date(&t3), &def]));
 
         let r1 = expressed_rule(
             before,
@@ -1169,7 +1185,7 @@ mod tests {
         );
 
         println!("testing r1: {}", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into(), &syms);
+        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1207,7 +1223,7 @@ mod tests {
         );
 
         println!("testing r2: {}", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &[0].into(), &syms);
+        let res = w.query_rule(r2, &[0].into_iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1238,8 +1254,11 @@ mod tests {
         let hello = syms.add("hello");
         let aaa = syms.add("zzz");
 
-        w.add_fact(&[0].into(), fact(x, &[&abc, &int(0), &test]));
-        w.add_fact(&[0].into(), fact(x, &[&def, &int(2), &hello]));
+        w.add_fact(&[0].into_iter().collect(), fact(x, &[&abc, &int(0), &test]));
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(x, &[&def, &int(2), &hello]),
+        );
 
         let res = w.query_rule(
             expressed_rule(
@@ -1266,7 +1285,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
 
@@ -1314,7 +1333,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
 
@@ -1356,7 +1375,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1389,15 +1408,15 @@ mod tests {
         let check1 = syms.insert("check1");
         let check2 = syms.insert("check2");
 
-        w.add_fact(&[0].into(), fact(resource, &[&file2]));
-        w.add_fact(&[0].into(), fact(operation, &[&write]));
-        w.add_fact(&[0].into(), fact(right, &[&file1, &read]));
-        w.add_fact(&[0].into(), fact(right, &[&file2, &read]));
-        w.add_fact(&[0].into(), fact(right, &[&file1, &write]));
+        w.add_fact(&[0].into_iter().collect(), fact(resource, &[&file2]));
+        w.add_fact(&[0].into_iter().collect(), fact(operation, &[&write]));
+        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file1, &read]));
+        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file2, &read]));
+        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file1, &write]));
 
         let res = w.query_rule(
             rule(check1, &[&file1], &[pred(resource, &[&file1])]),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
 
@@ -1417,7 +1436,7 @@ mod tests {
                     pred(right, &[&Term::Variable(0), &read]),
                 ],
             ),
-            &[0].into(),
+            &[0].into_iter().collect(),
             &syms,
         );
 
@@ -1438,8 +1457,8 @@ mod tests {
         let x = syms.insert("x");
         let less_than = syms.insert("less_than");
 
-        w.add_fact(&[0].into(), fact(x, &[&int(-2), &abc]));
-        w.add_fact(&[0].into(), fact(x, &[&int(0), &def]));
+        w.add_fact(&[0].into_iter().collect(), fact(x, &[&int(-2), &abc]));
+        w.add_fact(&[0].into_iter().collect(), fact(x, &[&int(0), &def]));
 
         let r1 = expressed_rule(
             less_than,
@@ -1460,7 +1479,7 @@ mod tests {
 
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into(), &syms);
+        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1490,7 +1509,7 @@ mod tests {
         let any1 = var(&mut syms, "any1");
         let any2 = var(&mut syms, "any2");
 
-        w.add_fact(&[0].into(), fact(operation, &[&write]));
+        w.add_fact(&[0].into_iter().collect(), fact(operation, &[&write]));
 
         let r1 = rule(
             operation,
@@ -1499,7 +1518,7 @@ mod tests {
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into(), &syms);
+        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
@@ -1511,11 +1530,14 @@ mod tests {
         // operation($unbound, "read") should not have been generated
         // in case it is generated though, verify that rule application
         // will not match it
-        w.add_fact(&[0].into(), fact(operation, &[&unbound, &read]));
+        w.add_fact(
+            &[0].into_iter().collect(),
+            fact(operation, &[&unbound, &read]),
+        );
         let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &[0].into(), &syms);
+        let res = w.query_rule(r2, &[0].into_iter().collect(), &syms);
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
