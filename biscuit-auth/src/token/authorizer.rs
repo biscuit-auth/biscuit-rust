@@ -674,7 +674,7 @@ impl<'t> Authorizer<'t> {
                     &block.symbols
                 };
 
-                let origin = block.origins(i, Some(&token.public_key_to_block_id));
+                let origin = block.origins(i + 1, Some(&token.public_key_to_block_id));
 
                 self.world
                     .run_with_limits(&self.symbols, RunLimits::default())

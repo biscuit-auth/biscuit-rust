@@ -193,9 +193,9 @@ impl Biscuit {
     /// pretty printer for this token
     pub fn print(&self) -> String {
         //FIXME: must handle the unwrap here
-        let authority = print_block(&self.symbols, &self.authorizer_block(0).unwrap());
+        let authority = print_block(&self.symbols, &self.block(0).unwrap());
         let blocks: Vec<_> = (1..self.block_count())
-            .map(|i| print_block(&self.symbols, &self.authorizer_block(i).unwrap()))
+            .map(|i| print_block(&self.symbols, &self.block(i).unwrap()))
             .collect();
 
         format!(
