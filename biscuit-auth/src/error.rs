@@ -141,6 +141,10 @@ pub enum Format {
     SymbolTableOverlap,
     #[error("multiple blocks declare the same public keys")]
     PublicKeyTableOverlap,
+    #[error("the external public key was not recognized")]
+    UnknownExternalKey,
+    #[error("the symbol id was not in the table")]
+    UnknownSymbol(u64),
 }
 
 /// Signature errors

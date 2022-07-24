@@ -92,7 +92,7 @@ impl<'t> Authorizer<'t> {
         let checks = checks
             .drain(..)
             .map(|c| Check::convert_from(&c, &symbols))
-            .collect();
+            .collect::<Result<Vec<_>, error::Format>>()?;
 
         Ok(Authorizer {
             world,
@@ -122,7 +122,7 @@ impl<'t> Authorizer<'t> {
 
         // add authority facts and rules right away to make them available to queries
         for fact in authority.facts.iter().cloned() {
-            let fact = Fact::convert_from(&fact, &token.symbols).convert(&mut self.symbols);
+            let fact = Fact::convert_from(&fact, &token.symbols)?.convert(&mut self.symbols);
             self.world.facts.insert(&origin, fact);
         }
 
@@ -133,7 +133,7 @@ impl<'t> Authorizer<'t> {
                 );
             }
 
-            let rule = rule.translate(&token.symbols, &mut self.symbols);
+            let rule = rule.translate(&token.symbols, &mut self.symbols)?;
             if rule.scopes.is_empty() {
                 self.world.rules.insert(&origin, rule);
             } else {
@@ -156,7 +156,7 @@ impl<'t> Authorizer<'t> {
             let origin = block.origins(i, Some(&token.public_key_to_block_id));
 
             for fact in block.facts.iter().cloned() {
-                let fact = Fact::convert_from(&fact, &block_symbols).convert(&mut self.symbols);
+                let fact = Fact::convert_from(&fact, &block_symbols)?.convert(&mut self.symbols);
                 self.world.facts.insert(&origin, fact);
             }
 
@@ -166,7 +166,7 @@ impl<'t> Authorizer<'t> {
                         error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
                     );
                 }
-                let rule = rule.translate(&block_symbols, &mut self.symbols);
+                let rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
                 if rule.scopes.is_empty() {
                     self.world.rules.insert(&origin, rule);
@@ -415,7 +415,10 @@ impl<'t> Authorizer<'t> {
             .map(|(_, set)| set.into_iter())
             .flatten()
             .map(|f| Fact::convert_from(&f, &self.symbols))
-            .map(|fact| fact.try_into().map_err(Into::into))
+            .map(|fact| {
+                fact.map_err(error::Token::Format)
+                    .and_then(|f| f.try_into().map_err(Into::into))
+            })
             .collect()
     }
 
@@ -487,8 +490,11 @@ impl<'t> Authorizer<'t> {
 
         r.into_iter()
             .map(|f| Fact::convert_from(&f, &self.symbols))
-            .map(|fact| fact.try_into().map_err(Into::into))
-            .collect()
+            .map(|fact| {
+                fact.map_err(error::Token::Format)
+                    .and_then(|f| f.try_into().map_err(Into::into))
+            })
+            .collect::<Result<Vec<T>, _>>()
     }
 
     /// add a check to the authorizer
@@ -607,7 +613,7 @@ impl<'t> Authorizer<'t> {
             for (j, check) in self.blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
 
-                let c = Check::convert_from(check, &token.symbols);
+                let c = Check::convert_from(check, &token.symbols)?;
                 let check = c.convert(&mut self.symbols);
 
                 for query in check.queries.iter() {
@@ -683,7 +689,7 @@ impl<'t> Authorizer<'t> {
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
-                    let c = Check::convert_from(check, &block_symbols);
+                    let c = Check::convert_from(check, &block_symbols)?;
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
@@ -806,7 +812,7 @@ impl<'t> Authorizer<'t> {
             self.token_checks
                 .iter()
                 .flatten()
-                .map(|c| Check::convert_from(c, &self.symbols)),
+                .map(|c| Check::convert_from(c, &self.symbols).unwrap()),
         );
 
         (
@@ -814,11 +820,12 @@ impl<'t> Authorizer<'t> {
                 .facts
                 .iter_all()
                 .map(|f| Fact::convert_from(f.1, &self.symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, error::Format>>()
+                .unwrap(),
             self.world
                 .rules
                 .iter_all()
-                .map(|r| Rule::convert_from(r.1, &self.symbols))
+                .map(|r| Rule::convert_from(r.1, &self.symbols).unwrap())
                 .collect(),
             checks,
             self.policies.clone(),

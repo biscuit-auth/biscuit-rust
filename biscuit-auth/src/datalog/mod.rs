@@ -1,7 +1,7 @@
 //! Logic language implementation for checks
-use crate::builder;
 use crate::time::Instant;
 use crate::token::Scope;
+use crate::{builder, error};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
@@ -165,26 +165,28 @@ impl Rule {
         &self,
         origin_symbols: &SymbolTable,
         target_symbols: &mut SymbolTable,
-    ) -> Self {
-        Rule {
-            head: builder::Predicate::convert_from(&self.head, origin_symbols)
+    ) -> Result<Self, error::Format> {
+        Ok(Rule {
+            head: builder::Predicate::convert_from(&self.head, origin_symbols)?
                 .convert(target_symbols),
             body: self
                 .body
                 .iter()
                 .map(|p| {
-                    builder::Predicate::convert_from(p, origin_symbols).convert(target_symbols)
+                    builder::Predicate::convert_from(p, origin_symbols)
+                        .map(|p| p.convert(target_symbols))
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
             expressions: self
                 .expressions
                 .iter()
                 .map(|c| {
-                    builder::Expression::convert_from(c, origin_symbols).convert(target_symbols)
+                    builder::Expression::convert_from(c, origin_symbols)
+                        .map(|e| e.convert(target_symbols))
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
             scopes: self.scopes.clone(),
-        }
+        })
     }
 
     pub fn validate_variables(&self, symbols: &SymbolTable) -> Result<(), String> {
@@ -216,7 +218,7 @@ impl Rule {
                     "rule head contains variables that are not used in predicates of the rule's body: {}",
                     head_variables
                     .iter()
-                    .map(|s| format!("${}", symbols.print_symbol(*s as u64)))
+                    .map(|s| format!("${}", symbols.print_symbol_default(*s as u64)))
                     .collect::<Vec<_>>()
                     .join(", ")
                     ))

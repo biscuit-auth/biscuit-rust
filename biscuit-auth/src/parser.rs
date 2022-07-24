@@ -292,6 +292,8 @@ impl TryFrom<&str> for builder::BlockBuilder {
                 facts: result.facts.drain(..).map(|(_, fact)| fact).collect(),
                 rules: result.rules.drain(..).map(|(_, rule)| rule).collect(),
                 checks: result.checks.drain(..).map(|(_, check)| check).collect(),
+                //FIXME: parse block level scopes
+                scopes: vec![],
                 context: None,
             }),
             Err(e) => Err(e.into()),

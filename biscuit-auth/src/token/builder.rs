@@ -24,6 +24,7 @@ pub struct BlockBuilder {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
+    pub scopes: Vec<Scope>,
     pub context: Option<String>,
 }
 
@@ -126,6 +127,10 @@ impl BlockBuilder {
         Ok(())
     }
 
+    pub fn add_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope);
+    }
+
     pub fn set_context(&mut self, context: String) {
         self.context = Some(context);
     }
@@ -161,7 +166,11 @@ impl BlockBuilder {
             external_key: None,
             public_keys,
             //FIXME
-            scopes: vec![],
+            scopes: self
+                .scopes
+                .into_iter()
+                .map(|scope| scope.convert(&mut symbols))
+                .collect(),
         }
     }
 
@@ -420,15 +429,18 @@ impl<'a> BiscuitBuilder<'a> {
             self.facts
                 .iter()
                 .map(|f| Fact::convert_from(f, &self.symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             self.rules
                 .iter()
                 .map(|r| Rule::convert_from(r, &self.symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             self.checks
                 .iter()
                 .map(|c| Check::convert_from(c, &self.symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
         )
     }
 
@@ -512,18 +524,20 @@ impl Term {
         }
     }
 
-    pub fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
-        match f {
-            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+    pub fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(match f {
+            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)?),
             datalog::Term::Integer(i) => Term::Integer(*i),
-            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)),
+            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)?),
             datalog::Term::Date(d) => Term::Date(*d),
             datalog::Term::Bytes(s) => Term::Bytes(s.clone()),
             datalog::Term::Bool(b) => Term::Bool(*b),
-            datalog::Term::Set(s) => {
-                Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect())
-            }
-        }
+            datalog::Term::Set(s) => Term::Set(
+                s.iter()
+                    .map(|i| Term::convert_from(i, symbols))
+                    .collect::<Result<BTreeSet<_>, error::Format>>()?,
+            ),
+        })
     }
 }
 
@@ -609,6 +623,34 @@ pub enum Scope {
     PublicKey(PublicKey),
 }
 
+impl Scope {
+    pub fn convert(&self, symbols: &mut SymbolTable) -> super::Scope {
+        match self {
+            Scope::Authority => crate::token::Scope::Authority,
+            Scope::Previous => crate::token::Scope::Previous,
+            Scope::PublicKey(key) => {
+                crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
+            }
+        }
+    }
+
+    pub fn convert_from(
+        scope: &super::Scope,
+        symbols: &SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(match scope {
+            super::Scope::Authority => Scope::Authority,
+            super::Scope::Previous => Scope::Previous,
+            super::Scope::PublicKey(key_id) => Scope::PublicKey(
+                *symbols
+                    .public_keys
+                    .get_key(*key_id)
+                    .ok_or(error::Format::UnknownExternalKey)?,
+            ),
+        })
+    }
+}
+
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -628,15 +670,18 @@ impl Predicate {
         datalog::Predicate { name, terms }
     }
 
-    pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
-        Predicate {
-            name: symbols.print_symbol(p.name),
+    pub fn convert_from(
+        p: &datalog::Predicate,
+        symbols: &SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(Predicate {
+            name: symbols.print_symbol(p.name)?,
             terms: p
                 .terms
                 .iter()
                 .map(|term| Term::convert_from(term, symbols))
-                .collect(),
-        }
+                .collect::<Result<Vec<_>, error::Format>>()?,
+        })
     }
 
     pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Predicate {
@@ -747,11 +792,11 @@ impl Fact {
         }
     }
 
-    pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
-        Fact {
-            predicate: Predicate::convert_from(&f.predicate, symbols),
+    pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Fact {
+            predicate: Predicate::convert_from(&f.predicate, symbols)?,
             parameters: None,
-        }
+        })
     }
 
     /// replace a parameter with the term argument
@@ -847,14 +892,17 @@ impl Expression {
         }
     }
 
-    pub fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
-        Expression {
+    pub fn convert_from(
+        e: &datalog::Expression,
+        symbols: &SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(Expression {
             ops: e
                 .ops
                 .iter()
                 .map(|op| Op::convert_from(op, symbols))
-                .collect(),
-        }
+                .collect::<Result<Vec<_>, error::Format>>()?,
+        })
     }
 }
 
@@ -902,12 +950,12 @@ impl Op {
         }
     }
 
-    pub fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Self {
-        match op {
-            datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)),
+    pub fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(match op {
+            datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
-        }
+        })
     }
 }
 
@@ -1006,33 +1054,26 @@ impl Rule {
         }
     }
 
-    pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule {
-            head: Predicate::convert_from(&r.head, symbols),
+    pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Rule {
+            head: Predicate::convert_from(&r.head, symbols)?,
             body: r
                 .body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
-                .collect(),
+                .collect::<Result<Vec<Predicate>, error::Format>>()?,
             expressions: r
                 .expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, error::Format>>()?,
             parameters: None,
             scopes: r
                 .scopes
                 .iter()
-                .map(|scope| match scope {
-                    super::Scope::Authority => Scope::Authority,
-                    super::Scope::Previous => Scope::Previous,
-                    super::Scope::PublicKey(key_id) => {
-                        // FIXME: handle the unwrap
-                        Scope::PublicKey(*symbols.public_keys.get_key(*key_id).unwrap())
-                    }
-                })
-                .collect(),
-        }
+                .map(|scope| Scope::convert_from(scope, symbols))
+                .collect::<Result<Vec<Scope>, error::Format>>()?,
+        })
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1259,13 +1300,13 @@ impl Check {
         datalog::Check { queries }
     }
 
-    pub fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Self {
+    pub fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Result<Self, error::Format> {
         let mut queries = vec![];
         for q in r.queries.iter() {
-            queries.push(Rule::convert_from(q, symbols));
+            queries.push(Rule::convert_from(q, symbols)?);
         }
 
-        Check { queries }
+        Ok(Check { queries })
     }
 
     /// replace a parameter with the term argument

@@ -138,7 +138,14 @@ impl SymbolTable {
         }
     }
 
-    pub fn print_symbol(&self, i: SymbolIndex) -> String {
+    pub fn print_symbol(&self, i: SymbolIndex) -> Result<String, error::Format> {
+        self.get_symbol(i)
+            .map(|s| s.to_string())
+            .ok_or_else(|| error::Format::UnknownSymbol(i))
+    }
+
+    // infallible symbol printing method
+    pub fn print_symbol_default(&self, i: SymbolIndex) -> String {
         self.get_symbol(i)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("<{}?>", i))
@@ -166,9 +173,9 @@ impl SymbolTable {
 
     pub fn print_term(&self, term: &Term) -> String {
         match term {
-            Term::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
+            Term::Variable(i) => format!("${}", self.print_symbol_default(*i as u64)),
             Term::Integer(i) => i.to_string(),
-            Term::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
+            Term::Str(index) => format!("\"{}\"", self.print_symbol_default(*index as u64)),
             Term::Date(d) => OffsetDateTime::from_unix_timestamp(*d as i64)
                 .ok()
                 .and_then(|t| t.format(&Rfc3339).ok())
