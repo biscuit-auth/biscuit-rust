@@ -245,7 +245,12 @@ impl SerializedBiscuit {
                 block: block.data.clone(),
                 next_key: block.next_key.to_proto(),
                 signature: block.signature.to_bytes().to_vec(),
-                external_signature: None,
+                external_signature: block.external_signature.as_ref().map(|external_signature| {
+                    schema::ExternalSignature {
+                        signature: external_signature.signature.to_bytes().to_vec(),
+                        public_key: external_signature.public_key.to_proto(),
+                    }
+                }),
             };
 
             blocks.push(b);
