@@ -165,7 +165,6 @@ impl BlockBuilder {
             version: super::MAX_SCHEMA_VERSION,
             external_key: None,
             public_keys,
-            //FIXME
             scopes: self
                 .scopes
                 .into_iter()
@@ -293,6 +292,7 @@ pub struct BiscuitBuilder<'a> {
     pub facts: Vec<datalog::Fact>,
     pub rules: Vec<datalog::Rule>,
     pub checks: Vec<datalog::Check>,
+    pub scopes: Vec<Scope>,
     pub context: Option<String>,
 }
 
@@ -307,6 +307,7 @@ impl<'a> BiscuitBuilder<'a> {
             facts: vec![],
             rules: vec![],
             checks: vec![],
+            scopes: vec![],
             context: None,
         }
     }
@@ -414,6 +415,10 @@ impl<'a> BiscuitBuilder<'a> {
         Ok(())
     }
 
+    pub fn add_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope);
+    }
+
     #[cfg(test)]
     pub(crate) fn add_right(&mut self, resource: &str, right: &str) {
         let _ = self.add_authority_fact(fact("right", &[string(resource), string(right)]));
@@ -464,11 +469,17 @@ impl<'a> BiscuitBuilder<'a> {
     }
 
     pub fn build_with_rng<R: RngCore + CryptoRng>(
-        mut self,
+        self,
         rng: &'a mut R,
     ) -> Result<Biscuit, error::Token> {
-        let new_syms = self.symbols.split_at(self.symbols_start);
-        let public_keys = self.symbols.public_keys.split_at(self.public_keys_start);
+        let mut symbols = self.symbols;
+        let scopes = self
+            .scopes
+            .iter()
+            .map(|scope| scope.convert(&mut symbols))
+            .collect();
+        let new_syms = symbols.split_at(self.symbols_start);
+        let public_keys = symbols.public_keys.split_at(self.public_keys_start);
 
         let authority_block = Block {
             symbols: new_syms,
@@ -477,21 +488,12 @@ impl<'a> BiscuitBuilder<'a> {
             checks: self.checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
-            //FIXME
             external_key: None,
-            //FIXME
             public_keys,
-            //FIXME
-            scopes: vec![],
+            scopes,
         };
 
-        Biscuit::new_with_rng(
-            rng,
-            self.root_key_id,
-            self.root,
-            self.symbols,
-            authority_block,
-        )
+        Biscuit::new_with_rng(rng, self.root_key_id, self.root, symbols, authority_block)
     }
 }
 
