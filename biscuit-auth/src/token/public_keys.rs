@@ -55,4 +55,8 @@ impl PublicKeys {
     pub fn get_key(&self, i: u64) -> Option<&PublicKey> {
         self.keys.get(i as usize)
     }
+
+    pub fn into_inner(self) -> Vec<PublicKey> {
+        self.keys
+    }
 }

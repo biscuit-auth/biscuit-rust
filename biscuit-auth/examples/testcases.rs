@@ -145,6 +145,8 @@ struct TestResult {
 #[derive(Debug, Serialize)]
 struct BlockContent {
     pub symbols: Vec<String>,
+    pub public_keys: Vec<String>,
+    pub external_key: Option<String>,
     pub code: String,
 }
 
@@ -172,6 +174,10 @@ impl TestResult {
             }
 
             writeln!(&mut s, "symbols: {:?}\n", block.symbols);
+            writeln!(&mut s, "public keys: {:?}\n", block.public_keys);
+            if let Some(key) = &block.external_key {
+                writeln!(&mut s, "external signature by: {:?}\n", key);
+            }
             writeln!(&mut s, "```\n{}```\n", block.code);
         }
 
@@ -2178,6 +2184,14 @@ fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
         v.push(BlockContent {
             symbols: token.block_symbols(i).unwrap(),
             code: token.print_block_source(i).unwrap(),
+            public_keys: token
+                .block_public_keys(i)
+                .unwrap()
+                .into_inner()
+                .iter()
+                .map(|k| k.print())
+                .collect(),
+            external_key: token.block_external_key(i).unwrap().map(|k| k.print()),
         });
     }
 

@@ -138,6 +138,10 @@ impl PublicKey {
             key: self.to_bytes().to_vec(),
         }
     }
+
+    pub fn print(&self) -> String {
+        format!("ed25519/{}", hex::encode(&self.to_bytes()))
+    }
 }
 
 impl Hash for PublicKey {

@@ -515,17 +515,53 @@ impl Biscuit {
     }
 
     /// gets the list of symbols from a block
-    pub fn block_symbols(&self, index: usize) -> Option<Vec<String>> {
+    pub fn block_symbols(&self, index: usize) -> Result<Vec<String>, error::Token> {
         let block = if index == 0 {
             &self.authority
         } else {
             match self.blocks.get(index - 1) {
-                None => return None,
+                None => return Err(error::Token::Format(error::Format::InvalidBlockId(index))),
                 Some(block) => block,
             }
         };
 
-        Some(block.symbols.clone())
+        Ok(block.symbols.clone())
+    }
+
+    /// gets the list of public keys from a block
+    pub fn block_public_keys(&self, index: usize) -> Result<PublicKeys, error::Token> {
+        let block = if index == 0 {
+            &self.authority
+        } else {
+            match self.blocks.get(index - 1) {
+                None => return Err(error::Token::Format(error::Format::InvalidBlockId(index))),
+                Some(block) => block,
+            }
+        };
+
+        let mut public_keys = PublicKeys::new();
+
+        for pk in &block.public_keys {
+            public_keys.insert(&PublicKey::from_proto(&pk)?);
+        }
+        Ok(public_keys)
+    }
+
+    /// gets the list of public keys from a block
+    pub fn block_external_key(&self, index: usize) -> Result<Option<PublicKey>, error::Token> {
+        let block = if index == 0 {
+            &self.container.authority
+        } else {
+            match self.container.blocks.get(index - 1) {
+                None => return Err(error::Token::Format(error::Format::InvalidBlockId(index))),
+                Some(block) => block,
+            }
+        };
+
+        Ok(block
+            .external_signature
+            .as_ref()
+            .map(|signature| signature.public_key))
     }
 
     /// returns the number of blocks (at least 1)

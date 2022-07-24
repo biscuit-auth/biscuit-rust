@@ -135,6 +135,8 @@ pub enum Format {
     SignatureDeserializationError(String),
     #[error("could not deserialize the block signature")]
     BlockSignatureDeserializationError(String),
+    #[error("invalid block id")]
+    InvalidBlockId(usize),
 }
 
 /// Signature errors
