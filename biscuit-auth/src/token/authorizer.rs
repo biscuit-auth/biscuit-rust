@@ -360,7 +360,6 @@ impl<'t> Authorizer<'t> {
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
-    /// this only sees facts from the authorizer and the authority block
     /// ```rust
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
@@ -371,7 +370,7 @@ impl<'t> Authorizer<'t> {
     /// let biscuit = builder.build().unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
-    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)", &[0].iter().collect()).unwrap();
     /// # assert_eq!(res.len(), 1);
     /// # assert_eq!(res[0].0, "John Doe");
     /// # assert_eq!(res[0].1, 42);
@@ -434,7 +433,7 @@ impl<'t> Authorizer<'t> {
     /// let biscuit = builder.build().unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
-    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)",  &[0].iter().collect()).unwrap();
     /// # assert_eq!(res.len(), 1);
     /// # assert_eq!(res[0].0, "John Doe");
     /// # assert_eq!(res[0].1, 42);
