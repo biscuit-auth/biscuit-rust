@@ -15,12 +15,35 @@ use crate::{
 use super::public_keys::PublicKeys;
 
 pub struct Request {
-    previous_key: PublicKey,
-    public_keys: PublicKeys,
-    builder: BlockBuilder,
+    pub(crate) previous_key: PublicKey,
+    pub(crate) public_keys: PublicKeys,
+    pub(crate) builder: BlockBuilder,
 }
 
 impl Request {
+    pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
+        let public_keys = self
+            .public_keys
+            .keys
+            .iter()
+            .map(|key| key.to_proto())
+            .collect();
+
+        let previous_key = self.previous_key.to_proto();
+
+        let request = schema::ThirdPartyBlockRequest {
+            previous_key,
+            public_keys,
+        };
+        let mut v = Vec::new();
+
+        request.encode(&mut v).map(|_| v).map_err(|e| {
+            error::Token::Format(error::Format::SerializationError(format!(
+                "serialization error: {:?}",
+                e
+            )))
+        })
+    }
     pub fn deserialize(slice: &[u8]) -> Result<Self, error::Token> {
         let data = schema::ThirdPartyBlockRequest::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))

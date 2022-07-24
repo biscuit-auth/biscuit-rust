@@ -2,6 +2,8 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use self::public_keys::PublicKeys;
+
 use super::crypto::{KeyPair, PublicKey};
 use super::datalog::SymbolTable;
 use super::error;
@@ -367,51 +369,44 @@ impl Biscuit {
         })
     }
 
-    pub fn third_party_request(&self) -> Result<Vec<u8>, error::Token> {
-        if !self.container.proof.is_sealed() {
-            let mut public_keys = schema::Block::decode(&self.container.authority.data[..])
+    pub fn third_party_request(&self) -> Result<Request, error::Token> {
+        if self.container.proof.is_sealed() {
+            return Err(error::Token::AppendOnSealed);
+        }
+
+        let mut public_keys = PublicKeys::new();
+
+        for pk in &schema::Block::decode(&self.container.authority.data[..])
+            .map_err(|e| {
+                error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+            })?
+            .public_keys
+        {
+            public_keys.insert(&PublicKey::from_proto(&pk)?);
+        }
+        for block in &self.container.blocks {
+            for pk in &schema::Block::decode(&block.data[..])
                 .map_err(|e| {
                     error::Format::DeserializationError(format!("deserialization error: {:?}", e))
                 })?
-                .public_keys;
-            for block in &self.container.blocks {
-                public_keys.extend(
-                    schema::Block::decode(&block.data[..])
-                        .map_err(|e| {
-                            error::Format::DeserializationError(format!(
-                                "deserialization error: {:?}",
-                                e
-                            ))
-                        })?
-                        .public_keys
-                        .into_iter(),
-                );
+                .public_keys
+            {
+                public_keys.insert(&PublicKey::from_proto(&pk)?);
             }
-
-            let previous_key = self
-                .container
-                .blocks
-                .last()
-                .unwrap_or(&&self.container.authority)
-                .next_key
-                .to_proto();
-
-            let request = schema::ThirdPartyBlockRequest {
-                previous_key,
-                public_keys,
-            };
-
-            let mut v = Vec::new();
-
-            request.encode(&mut v).map(|_| v).map_err(|e| {
-                error::Token::Format(error::Format::SerializationError(format!(
-                    "serialization error: {:?}",
-                    e
-                )))
-            })
-        } else {
-            Err(error::Token::AppendOnSealed)
         }
+
+        let previous_key = self
+            .container
+            .blocks
+            .last()
+            .unwrap_or(&&self.container.authority)
+            .next_key;
+
+        Ok(Request {
+            previous_key,
+            public_keys,
+            builder: BlockBuilder::new(),
+        })
     }
 
     pub fn append_third_party(

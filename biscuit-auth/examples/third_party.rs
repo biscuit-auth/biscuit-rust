@@ -20,7 +20,7 @@ fn main() {
 
     println!("biscuit1: {}", biscuit1.print());
 
-    let serialized_req = biscuit1.third_party_request().unwrap();
+    let serialized_req = biscuit1.third_party_request().unwrap().serialize().unwrap();
 
     let mut req = biscuit_auth::Request::deserialize(&serialized_req).unwrap();
     req.add_fact("external_fact(\"hello\")").unwrap();

@@ -2134,9 +2134,8 @@ fn third_party<T: Rng + CryptoRng>(
 
     let biscuit1 = builder.build_with_rng(rng).unwrap();
 
-    let serialized_req = biscuit1.third_party_request().unwrap();
+    let mut req = biscuit1.third_party_request().unwrap();
 
-    let mut req = biscuit_auth::Request::deserialize(&serialized_req).unwrap();
     req.add_fact("group(\"admin\")").unwrap();
     req.add_check("check if right(\"read\")").unwrap();
     let res = req.create_response(external.private()).unwrap();
