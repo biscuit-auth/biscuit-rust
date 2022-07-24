@@ -1,5 +1,4 @@
 //! helper functions and structure to create tokens and blocks
-use super::public_keys::PublicKeys;
 use super::{Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
 use crate::datalog::{self, SymbolTable};

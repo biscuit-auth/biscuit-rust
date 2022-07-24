@@ -1,4 +1,4 @@
-use biscuit_auth::{format::schema::ThirdPartyBlockRequest, Biscuit, KeyPair};
+use biscuit_auth::{Biscuit, KeyPair};
 use rand::{prelude::StdRng, SeedableRng};
 
 fn main() {

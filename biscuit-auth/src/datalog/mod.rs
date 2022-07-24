@@ -794,9 +794,9 @@ mod tests {
         let parent = syms.insert("parent");
         let grandparent = syms.insert("grandparent");
 
-        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&a, &b]));
-        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&b, &c]));
-        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&c, &d]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&a, &b]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&b, &c]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &d]));
 
         let r1 = rule(
             grandparent,
@@ -815,7 +815,7 @@ mod tests {
 
         println!("symbols: {:?}", syms);
         println!("testing r1: {}", syms.print_rule(&r1));
-        let query_rule_result = w.query_rule(r1, &[0].into_iter().collect(), &syms);
+        let query_rule_result = w.query_rule(r1, &[0].iter().collect(), &syms);
         println!("grandparents query_rules: {:?}", query_rule_result);
         println!("current facts: {:?}", w.facts);
 
@@ -835,7 +835,7 @@ mod tests {
         );
 
         println!("adding r2: {}", syms.print_rule(&r2));
-        w.add_rule(&[0].into_iter().collect(), r2);
+        w.add_rule(&[0].iter().collect(), r2);
 
         w.run(&syms).unwrap();
 
@@ -849,11 +849,11 @@ mod tests {
                     &[var(&mut syms, "parent"), var(&mut syms, "child")],
                 )],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
 
-        for (origin, fact) in res.iterator(&[0].into_iter().collect()) {
+        for (origin, fact) in res.iterator(&[0].iter().collect()) {
             println!("\t{:?}\t{}", origin, syms.print_fact(fact));
         }
 
@@ -865,7 +865,7 @@ mod tests {
                     &[&var(&mut syms, "parent"), &b],
                     &[pred(parent, &[&var(&mut syms, "parent"), &b])]
                 ),
-                &[0].into_iter().collect(),
+                &[0].iter().collect(),
                 &syms
             )
         );
@@ -880,13 +880,13 @@ mod tests {
                         &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]
                     )]
                 ),
-                &[0].into_iter().collect(),
+                &[0].iter().collect(),
                 &syms
             )
         );
-        w.add_fact(&[0].into_iter().collect(), fact(parent, &[&c, &e]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &e]));
         w.run(&syms).unwrap();
-        let mut res = w.query_rule(
+        let res = w.query_rule(
             rule::<Term, Predicate>(
                 grandparent,
                 &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
@@ -895,7 +895,7 @@ mod tests {
                     &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
                 )],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
         println!("grandparents after inserting parent(C, E): {:?}", res);
@@ -941,24 +941,15 @@ mod tests {
         let t2 = syms.insert("t2");
         let join = syms.insert("join");
 
-        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(0), &abc]));
-        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(1), &def]));
-        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(2), &ghi]));
-        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(3), &jkl]));
-        w.add_fact(&[0].into_iter().collect(), fact(t1, &[&int(4), &mno]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(0), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(1), &def]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(2), &ghi]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(3), &jkl]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(4), &mno]));
 
-        w.add_fact(
-            &[0].into_iter().collect(),
-            fact(t2, &[&int(0), &aaa, &int(0)]),
-        );
-        w.add_fact(
-            &[0].into_iter().collect(),
-            fact(t2, &[&int(1), &bbb, &int(0)]),
-        );
-        w.add_fact(
-            &[0].into_iter().collect(),
-            fact(t2, &[&int(2), &ccc, &int(1)]),
-        );
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(0), &aaa, &int(0)]));
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(1), &bbb, &int(0)]));
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(2), &ccc, &int(1)]));
 
         let res = w.query_rule(
             rule(
@@ -976,7 +967,7 @@ mod tests {
                     ),
                 ],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1021,7 +1012,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1056,23 +1047,23 @@ mod tests {
         let mx_example = syms.add("mx.example.com");
 
         w.add_fact(
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             fact(route, &[&int(0), &app_0, &example]),
         );
         w.add_fact(
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             fact(route, &[&int(1), &app_1, &test_com]),
         );
         w.add_fact(
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             fact(route, &[&int(2), &app_2, &test_fr]),
         );
         w.add_fact(
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             fact(route, &[&int(3), &app_0, &www_example]),
         );
         w.add_fact(
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             fact(route, &[&int(4), &app_1, &mx_example]),
         );
 
@@ -1104,7 +1095,7 @@ mod tests {
                         ],
                     }],
                 ),
-                &[0].into_iter().collect(),
+                &[0].iter().collect(),
                 &syms,
             )
             .iter_all()
@@ -1159,8 +1150,8 @@ mod tests {
         let before = syms.insert("before");
         let after = syms.insert("after");
 
-        w.add_fact(&[0].into_iter().collect(), fact(x, &[&date(&t1), &abc]));
-        w.add_fact(&[0].into_iter().collect(), fact(x, &[&date(&t3), &def]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&date(&t1), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&date(&t3), &def]));
 
         let r1 = expressed_rule(
             before,
@@ -1185,7 +1176,7 @@ mod tests {
         );
 
         println!("testing r1: {}", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1223,7 +1214,7 @@ mod tests {
         );
 
         println!("testing r2: {}", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &[0].into_iter().collect(), &syms);
+        let res = w.query_rule(r2, &[0].iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1254,11 +1245,8 @@ mod tests {
         let hello = syms.add("hello");
         let aaa = syms.add("zzz");
 
-        w.add_fact(&[0].into_iter().collect(), fact(x, &[&abc, &int(0), &test]));
-        w.add_fact(
-            &[0].into_iter().collect(),
-            fact(x, &[&def, &int(2), &hello]),
-        );
+        w.add_fact(&[0].iter().collect(), fact(x, &[&abc, &int(0), &test]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&def, &int(2), &hello]));
 
         let res = w.query_rule(
             expressed_rule(
@@ -1285,7 +1273,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
 
@@ -1333,7 +1321,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
 
@@ -1375,7 +1363,7 @@ mod tests {
                     ],
                 }],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
         for (_, fact) in res.iter_all() {
@@ -1408,15 +1396,15 @@ mod tests {
         let check1 = syms.insert("check1");
         let check2 = syms.insert("check2");
 
-        w.add_fact(&[0].into_iter().collect(), fact(resource, &[&file2]));
-        w.add_fact(&[0].into_iter().collect(), fact(operation, &[&write]));
-        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file1, &read]));
-        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file2, &read]));
-        w.add_fact(&[0].into_iter().collect(), fact(right, &[&file1, &write]));
+        w.add_fact(&[0].iter().collect(), fact(resource, &[&file2]));
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&write]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file1, &read]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file2, &read]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file1, &write]));
 
         let res = w.query_rule(
             rule(check1, &[&file1], &[pred(resource, &[&file1])]),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
 
@@ -1436,7 +1424,7 @@ mod tests {
                     pred(right, &[&Term::Variable(0), &read]),
                 ],
             ),
-            &[0].into_iter().collect(),
+            &[0].iter().collect(),
             &syms,
         );
 
@@ -1457,8 +1445,8 @@ mod tests {
         let x = syms.insert("x");
         let less_than = syms.insert("less_than");
 
-        w.add_fact(&[0].into_iter().collect(), fact(x, &[&int(-2), &abc]));
-        w.add_fact(&[0].into_iter().collect(), fact(x, &[&int(0), &def]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&int(-2), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&int(0), &def]));
 
         let r1 = expressed_rule(
             less_than,
@@ -1479,7 +1467,7 @@ mod tests {
 
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1509,7 +1497,7 @@ mod tests {
         let any1 = var(&mut syms, "any1");
         let any2 = var(&mut syms, "any2");
 
-        w.add_fact(&[0].into_iter().collect(), fact(operation, &[&write]));
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&write]));
 
         let r1 = rule(
             operation,
@@ -1518,7 +1506,7 @@ mod tests {
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &[0].into_iter().collect(), &syms);
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
@@ -1530,14 +1518,11 @@ mod tests {
         // operation($unbound, "read") should not have been generated
         // in case it is generated though, verify that rule application
         // will not match it
-        w.add_fact(
-            &[0].into_iter().collect(),
-            fact(operation, &[&unbound, &read]),
-        );
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&unbound, &read]));
         let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &[0].into_iter().collect(), &syms);
+        let res = w.query_rule(r2, &[0].iter().collect(), &syms);
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {

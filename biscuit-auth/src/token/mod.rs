@@ -1,8 +1,7 @@
 //! main structures to interact with Biscuit tokens
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryInto;
 
-use self::public_keys::PublicKeys;
 use super::crypto::{KeyPair, PublicKey};
 use super::datalog::SymbolTable;
 use super::error;
@@ -11,7 +10,7 @@ use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::crypto::{self, TokenNext};
+use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
 use authorizer::Authorizer;
@@ -1090,7 +1089,7 @@ mod tests {
             );
 
             let res1: Result<Vec<builder::Fact>, crate::error::Token> =
-                other_authorizer.query("key_verif($id) <- key($id)", &[0].into_iter().collect());
+                other_authorizer.query("key_verif($id) <- key($id)", &[0].iter().collect());
             println!("res1: {:?}", res1);
             assert_eq!(
                 res1.unwrap()
@@ -1227,7 +1226,7 @@ mod tests {
         res.unwrap();
 
         let res: Vec<(Vec<u8>,)> = authorizer
-            .query("data($0) <- bytes($0)", &[0].into_iter().collect())
+            .query("data($0) <- bytes($0)", &[0].iter().collect())
             .unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);

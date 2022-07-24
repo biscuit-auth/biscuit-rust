@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{default_symbol_table, public_keys::PublicKeys, Biscuit, Block};
+use super::{default_symbol_table, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
     crypto::PublicKey,

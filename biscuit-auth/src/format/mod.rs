@@ -12,7 +12,6 @@ use super::error;
 use super::token::Block;
 use crate::crypto::ExternalSignature;
 use crate::datalog::SymbolTable;
-use crate::token::public_keys::PublicKeys;
 use ed25519_dalek::Signer;
 use std::collections::HashMap;
 use std::convert::TryInto;

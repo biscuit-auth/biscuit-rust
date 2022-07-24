@@ -6,7 +6,7 @@ use prost::Message;
 use crate::{
     builder::BlockBuilder,
     crypto::PublicKey,
-    datalog::{SymbolIndex, SymbolTable},
+    datalog::SymbolTable,
     error,
     format::{convert::token_block_to_proto_block, schema},
     KeyPair, PrivateKey,

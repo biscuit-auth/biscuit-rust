@@ -1,12 +1,12 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::{Biscuit, Block};
-use crate::datalog::{self, FactSet, Origin, RuleSet, RunLimits, SymbolTable};
+use crate::datalog::{self, FactSet, Origin, RuleSet, RunLimits};
 use crate::error;
 use crate::parser::parse_source;
 use crate::time::Instant;
 use prost::Message;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
@@ -477,7 +477,7 @@ impl<'t> Authorizer<'t> {
                 .map(|(i, _)| i)
                 .collect()
         } else {
-            [0].into_iter().collect()
+            [0].iter().collect()
         };
 
         let res = self.world.query_rule(rule.clone(), &origin, &self.symbols);
@@ -1005,7 +1005,7 @@ mod tests {
         let res: Vec<(String, i64)> = authorizer
             .query(
                 "data($name, $id) <- user($name, $id)",
-                &[0].into_iter().collect(),
+                &[0].iter().collect(),
             )
             .unwrap();
 
@@ -1026,7 +1026,7 @@ mod tests {
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer
-            .query("data($name) <- user($name)", &[0].into_iter().collect())
+            .query("data($name) <- user($name)", &[0].iter().collect())
             .unwrap();
 
         assert_eq!(res.len(), 1);
