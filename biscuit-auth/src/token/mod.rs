@@ -193,10 +193,18 @@ impl Biscuit {
 
     /// pretty printer for this token
     pub fn print(&self) -> String {
-        //FIXME: must handle the unwrap here
-        let authority = print_block(&self.symbols, &self.block(0).unwrap());
+        let authority = self
+            .block(0)
+            .as_ref()
+            .map(|block| print_block(&self.symbols, block))
+            .unwrap_or_else(|_| String::new());
         let blocks: Vec<_> = (1..self.block_count())
-            .map(|i| print_block(&self.symbols, &self.block(i).unwrap()))
+            .map(|i| {
+                self.block(i)
+                    .as_ref()
+                    .map(|block| print_block(&self.symbols, block))
+                    .unwrap_or_else(|_| String::new())
+            })
             .collect();
 
         format!(
@@ -209,11 +217,9 @@ impl Biscuit {
     }
 
     /// prints the content of a block as Datalog source code
-    pub fn print_block_source(&self, index: usize) -> Option<String> {
-        //FIXME: must handle the unwrap here
-        let block = self.block(index).unwrap();
-
-        Some(block.print_source(&self.symbols))
+    pub fn print_block_source(&self, index: usize) -> Result<String, error::Token> {
+        self.block(index)
+            .map(|block| block.print_source(&self.symbols))
     }
 
     /// create the first block's builder, sing a provided symbol table
