@@ -242,6 +242,11 @@ impl Biscuit {
         let next_keypair = KeyPair::new_with_rng(rng);
         let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
 
+        //FIXME: should we show an error if a key is already known?
+        for key in &authority.public_keys.keys {
+            symbols.public_keys.insert(&key);
+        }
+
         let authority = schema::Block::decode(&container.authority.data[..]).map_err(|e| {
             error::Token::Format(error::Format::BlockDeserializationError(format!(
                 "error deserializing block: {:?}",
