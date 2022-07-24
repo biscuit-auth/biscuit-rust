@@ -179,7 +179,7 @@ impl SerializedBiscuit {
             )))
         })?;
 
-        symbols.extend(&SymbolTable::from(authority.symbols.clone()));
+        symbols.extend(&SymbolTable::from(authority.symbols.clone())?)?;
 
         //FIXME: should we show an error if a key is already known?
         for pk in &authority.public_keys {
@@ -204,14 +204,13 @@ impl SerializedBiscuit {
                 block_external_keys.push(Some(external_signature.public_key.clone()));
             } else {
                 block_external_keys.push(None);
+                symbols.extend(&SymbolTable::from(deser.symbols.clone())?)?;
             }
 
             //FIXME: should we show an error if a key is already known?
             for pk in &deser.public_keys {
                 symbols.public_keys.insert(&PublicKey::from_proto(&pk)?);
             }
-
-            symbols.extend(&SymbolTable::from(deser.symbols.clone()));
 
             blocks.push(deser);
         }

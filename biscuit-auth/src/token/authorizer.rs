@@ -111,7 +111,9 @@ impl<'t> Authorizer<'t> {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
         //FIXME: can the authorizer already have a set of known public keys?
-        self.symbols.public_keys.extend(&token.symbols.public_keys);
+        self.symbols
+            .public_keys
+            .extend(&token.symbols.public_keys)?;
 
         let mut blocks = Vec::new();
 

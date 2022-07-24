@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::crypto::PublicKey;
+use crate::{crypto::PublicKey, error};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct PublicKeys {
@@ -12,13 +12,16 @@ impl PublicKeys {
         PublicKeys { keys: vec![] }
     }
 
-    //FIXME: should check if symbols are already in default
     pub fn from(keys: Vec<PublicKey>) -> Self {
         PublicKeys { keys }
     }
 
-    pub fn extend(&mut self, other: &PublicKeys) {
+    pub fn extend(&mut self, other: &PublicKeys) -> Result<(), error::Format> {
+        if !self.is_disjoint(&other) {
+            return Err(error::Format::PublicKeyTableOverlap);
+        }
         self.keys.extend(other.keys.iter().cloned());
+        Ok(())
     }
 
     pub fn insert(&mut self, k: &PublicKey) -> u64 {

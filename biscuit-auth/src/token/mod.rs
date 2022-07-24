@@ -232,20 +232,17 @@ impl Biscuit {
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
         if !symbols.is_disjoint(&authority.symbols) {
-            return Err(error::Token::SymbolTableOverlap);
+            return Err(error::Token::Format(error::Format::SymbolTableOverlap));
         }
 
-        symbols.extend(&authority.symbols);
+        symbols.extend(&authority.symbols)?;
 
         let blocks = vec![];
 
         let next_keypair = KeyPair::new_with_rng(rng);
         let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
 
-        //FIXME: should we show an error if a key is already known?
-        for key in &authority.public_keys.keys {
-            symbols.public_keys.insert(&key);
-        }
+        symbols.public_keys.extend(&authority.public_keys)?;
 
         let authority = schema::Block::decode(&container.authority.data[..]).map_err(|e| {
             error::Token::Format(error::Format::BlockDeserializationError(format!(
@@ -323,7 +320,7 @@ impl Biscuit {
         let block = block_builder.build(self.symbols.clone());
 
         if !self.symbols.is_disjoint(&block.symbols) {
-            return Err(error::Token::SymbolTableOverlap);
+            return Err(error::Token::Format(error::Format::SymbolTableOverlap));
         }
 
         let authority = self.authority.clone();
@@ -333,11 +330,8 @@ impl Biscuit {
 
         let container = self.container.append(keypair, &block, None)?;
 
-        symbols.extend(&block.symbols);
-        //FIXME: should we show an error if a key is already known?
-        for key in &block.public_keys.keys {
-            symbols.public_keys.insert(&key);
-        }
+        symbols.extend(&block.symbols)?;
+        symbols.public_keys.extend(&block.public_keys)?;
 
         if let Some(index) = block
             .external_key
@@ -486,7 +480,6 @@ impl Biscuit {
                 .append_serialized(&next_keypair, payload, Some(external_signature))?;
 
         let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
-        //FIXME: should we show an error if a key is already known?
         for key in &token_block.public_keys.keys {
             symbols.public_keys.insert(&key);
         }
@@ -596,6 +589,7 @@ impl Biscuit {
             )
             .map_err(error::Token::Format)?
         };
+
         //FIXME: we have to add the entire list of public keys here because
         // the block's symbol table is used to validate 3rd party tokens
         block.symbols.public_keys = self.symbols.public_keys.clone();

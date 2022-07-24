@@ -76,7 +76,7 @@ pub fn proto_block_to_token_block(
 
     let context = input.context.clone();
 
-    let symbols = SymbolTable::from(input.symbols.clone());
+    let symbols = SymbolTable::from(input.symbols.clone())?;
     let mut public_keys = PublicKeys::new();
 
     for pk in &input.public_keys {
@@ -141,7 +141,7 @@ pub fn proto_authorizer_to_authorizer(
         });
     }
 
-    let symbols = SymbolTable::from(input.symbols.clone());
+    let symbols = SymbolTable::from(input.symbols.clone())?;
 
     let mut facts = vec![];
     let mut rules = vec![];

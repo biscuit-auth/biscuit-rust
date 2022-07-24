@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub type SymbolIndex = u64;
-use crate::token::public_keys::PublicKeys;
+use crate::{error, token::public_keys::PublicKeys};
 
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
@@ -54,17 +54,27 @@ impl SymbolTable {
         }
     }
 
-    //FIXME: should check if symbols are already in default
-    pub fn from(symbols: Vec<String>) -> Self {
-        SymbolTable {
+    pub fn from(symbols: Vec<String>) -> Result<Self, error::Format> {
+        let h1 = DEFAULT_SYMBOLS.iter().map(|s| *s).collect::<HashSet<_>>();
+        let h2 = symbols.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Format::SymbolTableOverlap);
+        }
+
+        Ok(SymbolTable {
             symbols,
             public_keys: PublicKeys::new(),
-        }
+        })
     }
 
-    pub fn extend(&mut self, other: &SymbolTable) {
+    pub fn extend(&mut self, other: &SymbolTable) -> Result<(), error::Format> {
+        if !self.is_disjoint(&other) {
+            return Err(error::Format::SymbolTableOverlap);
+        }
         self.symbols.extend(other.symbols.iter().cloned());
-        self.public_keys.extend(&other.public_keys);
+        self.public_keys.extend(&other.public_keys)?;
+        Ok(())
     }
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {

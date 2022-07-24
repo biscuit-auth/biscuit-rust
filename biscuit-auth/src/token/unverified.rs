@@ -125,7 +125,7 @@ impl UnverifiedBiscuit {
         let block = block_builder.build(self.symbols.clone());
 
         if !self.symbols.is_disjoint(&block.symbols) {
-            return Err(error::Token::SymbolTableOverlap);
+            return Err(error::Token::Format(error::Format::SymbolTableOverlap));
         }
 
         let authority = self.authority.clone();
@@ -135,11 +135,8 @@ impl UnverifiedBiscuit {
 
         let container = self.container.append(keypair, &block, None)?;
 
-        symbols.extend(&block.symbols);
-        //FIXME: should we show an error if a key is already known?
-        for key in &block.public_keys.keys {
-            symbols.public_keys.insert(&key);
-        }
+        symbols.extend(&block.symbols)?;
+        symbols.public_keys.extend(&block.public_keys)?;
 
         if let Some(index) = block
             .external_key

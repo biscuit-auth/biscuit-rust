@@ -158,9 +158,7 @@ impl BlockBuilder {
             checks,
             context: self.context,
             version: super::MAX_SCHEMA_VERSION,
-            //FIXME
             external_key: None,
-            //FIXME
             public_keys,
             //FIXME
             scopes: vec![],
