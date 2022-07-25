@@ -292,8 +292,7 @@ impl TryFrom<&str> for builder::BlockBuilder {
                 facts: result.facts.drain(..).map(|(_, fact)| fact).collect(),
                 rules: result.rules.drain(..).map(|(_, rule)| rule).collect(),
                 checks: result.checks.drain(..).map(|(_, check)| check).collect(),
-                //FIXME: parse block level scopes
-                scopes: vec![],
+                scopes: result.scopes,
                 context: None,
             }),
             Err(e) => Err(e.into()),
@@ -766,6 +765,7 @@ fn multiline_comment(i: &str) -> IResult<&str, (), Error> {
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SourceResult<'a> {
+    pub scopes: Vec<Scope>,
     pub facts: Vec<(&'a str, builder::Fact)>,
     pub rules: Vec<(&'a str, builder::Rule)>,
     pub checks: Vec<(&'a str, builder::Check)>,
@@ -866,6 +866,44 @@ pub fn parse_block_source(mut i: &str) -> Result<SourceResult, Vec<Error>> {
     let mut result = SourceResult::default();
     let mut errors = Vec::new();
 
+    match opt(terminated(consumed(scopes), sep))(i) {
+        Ok((i2, opt_scopes)) => {
+            if let Some((_, scopes)) = opt_scopes {
+                i = i2;
+                result.scopes = scopes;
+            }
+        }
+        Err(nom::Err::Incomplete(_)) => panic!(),
+        Err(nom::Err::Error(mut e)) => {
+            if let Some(index) = e.input.find(|c| c == ';') {
+                e.input = &(e.input)[..index];
+            }
+
+            let offset = i.offset(e.input);
+            if let Some(index) = &i[offset..].find(|c| c == ';') {
+                i = &i[offset + index + 1..];
+            } else {
+                i = &i[i.len()..];
+            }
+
+            errors.push(e);
+        }
+        Err(nom::Err::Failure(mut e)) => {
+            if let Some(index) = e.input.find(|c| c == ';') {
+                e.input = &(e.input)[..index];
+            }
+
+            let offset = i.offset(e.input);
+            if let Some(index) = &i[offset..].find(|c| c == ';') {
+                i = &i[offset + index + 1..];
+            } else {
+                i = &i[i.len()..];
+            }
+
+            errors.push(e);
+        }
+    }
+
     loop {
         if i.is_empty() {
             if errors.is_empty() {
@@ -958,7 +996,7 @@ impl<'a> ParseError<&'a str> for Error<'a> {
     }
 }
 
-//FIXME: poperly handle other errors
+//FIXME: properly handle other errors
 impl<'a, E> FromExternalError<&'a str, E> for Error<'a> {
     fn from_external_error(input: &'a str, kind: ErrorKind, _e: E) -> Self {
         Self {
