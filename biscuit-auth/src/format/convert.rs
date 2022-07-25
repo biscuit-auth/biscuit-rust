@@ -80,7 +80,7 @@ pub fn proto_block_to_token_block(
     let mut public_keys = PublicKeys::new();
 
     for pk in &input.public_keys {
-        public_keys.insert(&PublicKey::from_proto(&pk)?);
+        public_keys.insert_fallible(&PublicKey::from_proto(&pk)?)?;
     }
 
     let scopes: Result<Vec<Scope>, _> =

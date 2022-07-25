@@ -487,7 +487,7 @@ impl Biscuit {
 
         let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
         for key in &token_block.public_keys.keys {
-            symbols.public_keys.insert(&key);
+            symbols.public_keys.insert_fallible(&key)?;
         }
 
         if let Some(index) = token_block
@@ -596,8 +596,8 @@ impl Biscuit {
             .map_err(error::Token::Format)?
         };
 
-        //FIXME: we have to add the entire list of public keys here because
-        // the block's symbol table is used to validate 3rd party tokens
+        // we have to add the entire list of public keys here because
+        // they are used to validate 3rd party tokens
         block.symbols.public_keys = self.symbols.public_keys.clone();
         Ok(block)
     }

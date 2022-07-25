@@ -181,9 +181,10 @@ impl SerializedBiscuit {
 
         symbols.extend(&SymbolTable::from(authority.symbols.clone())?)?;
 
-        //FIXME: should we show an error if a key is already known?
         for pk in &authority.public_keys {
-            symbols.public_keys.insert(&PublicKey::from_proto(&pk)?);
+            symbols
+                .public_keys
+                .insert_fallible(&PublicKey::from_proto(&pk)?)?;
         }
         // the authority block should not have an external key
         block_external_keys.push(None);
@@ -207,9 +208,10 @@ impl SerializedBiscuit {
                 symbols.extend(&SymbolTable::from(deser.symbols.clone())?)?;
             }
 
-            //FIXME: should we show an error if a key is already known?
             for pk in &deser.public_keys {
-                symbols.public_keys.insert(&PublicKey::from_proto(&pk)?);
+                symbols
+                    .public_keys
+                    .insert_fallible(&PublicKey::from_proto(&pk)?)?;
             }
 
             blocks.push(deser);

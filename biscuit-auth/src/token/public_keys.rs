@@ -34,6 +34,16 @@ impl PublicKeys {
         }
     }
 
+    pub fn insert_fallible(&mut self, k: &PublicKey) -> Result<u64, error::Format> {
+        match self.keys.iter().position(|key| key == k) {
+            Some(_) => Err(error::Format::PublicKeyTableOverlap),
+            None => {
+                self.keys.push(*k);
+                Ok((self.keys.len() - 1) as u64)
+            }
+        }
+    }
+
     pub fn get(&self, k: &PublicKey) -> Option<u64> {
         self.keys.iter().position(|key| key == k).map(|i| i as u64)
     }

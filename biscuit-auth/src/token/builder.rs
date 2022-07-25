@@ -1042,7 +1042,6 @@ impl Rule {
             scopes.push(match scope {
                 Scope::Authority => crate::token::Scope::Authority,
                 Scope::Previous => crate::token::Scope::Previous,
-                // FIXME: handle the unwrap
                 Scope::PublicKey(key) => {
                     crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
                 }
