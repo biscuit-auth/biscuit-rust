@@ -194,11 +194,10 @@ impl UnverifiedBiscuit {
     }
 
     /// prints the content of a block as Datalog source code
-    pub fn print_block_source(&self, index: usize) -> Option<String> {
-        //FIXME: must handle the unwrap here
-        let block = self.authorizer_block(index).unwrap();
+    pub fn print_block_source(&self, index: usize) -> Result<String, error::Token> {
+        let block = self.authorizer_block(index)?;
 
-        Some(block.print_source(&self.symbols))
+        Ok(block.print_source(&self.symbols))
     }
 
     /// creates a sealed version of the token
