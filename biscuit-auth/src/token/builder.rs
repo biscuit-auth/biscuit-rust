@@ -65,7 +65,7 @@ impl BlockBuilder {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new())
+        self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
@@ -74,6 +74,7 @@ impl BlockBuilder {
         &mut self,
         source: T,
         params: HashMap<String, Term>,
+        scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
@@ -98,6 +99,17 @@ impl BlockBuilder {
         for (_, mut rule) in source_result.rules.into_iter() {
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            for (name, value) in &scope_params {
+                let res = match rule.set_scope(&name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(error::LanguageError::Parameters {
                         missing_parameters,
@@ -321,15 +333,18 @@ impl BiscuitBuilder {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.inner.add_code_with_params(source, HashMap::new())
+        self.inner
+            .add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     pub fn add_code_with_params<T: AsRef<str>>(
         &mut self,
         source: T,
         params: HashMap<String, Term>,
+        scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
-        self.inner.add_code_with_params(source, params)
+        self.inner
+            .add_code_with_params(source, params, scope_params)
     }
 
     pub fn add_scope(&mut self, scope: Scope) {
@@ -522,6 +537,7 @@ pub enum Scope {
     Authority,
     Previous,
     PublicKey(PublicKey),
+    Parameter(String),
 }
 
 impl Scope {
@@ -532,6 +548,9 @@ impl Scope {
             Scope::PublicKey(key) => {
                 crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
             }
+            // The error is caught in the `add_xxx` functions, so this should
+            // not happen™
+            Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
         }
     }
 
@@ -549,6 +568,38 @@ impl Scope {
                     .ok_or(error::Format::UnknownExternalKey)?,
             ),
         })
+    }
+}
+
+impl ToTokens for Scope {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            Scope::Authority => quote! { ::biscuit_auth::builder::Scope::Authority},
+            Scope::Previous => quote! { ::biscuit_auth::builder::Scope::Previous},
+            Scope::PublicKey(_pk) => {
+                // rustc complains about `pk` not being used (I guess because of the quote! macro)
+                // so it's named _pk to silence the warning.
+                quote! { ::biscuit_auth::builder::Scope::PublicKey(
+                  ::biscuit_auth::crypto::PublicKey.from_bytes(#(_pk.to_bytes())).unwrap()
+                )}
+            }
+            Scope::Parameter(v) => {
+                quote! { ::biscuit_auth::builder::Scope::Parameter(#v.to_string())}
+            }
+        })
+    }
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scope::Authority => write!(f, "authority"),
+            Scope::Previous => write!(f, "previous"),
+            Scope::PublicKey(pk) => write!(f, "ed25519/{}", hex::encode(pk.to_bytes())),
+            Scope::Parameter(s) => {
+                write!(f, "{{{}}}", s)
+            }
+        }
     }
 }
 
@@ -741,6 +792,18 @@ impl Fact {
         }
     }
 
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(_) => Ok(()),
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.predicate.terms = self
@@ -883,6 +946,7 @@ pub struct Rule {
     pub expressions: Vec<Expression>,
     pub parameters: Option<HashMap<String, Option<Term>>>,
     pub scopes: Vec<Scope>,
+    pub scope_parameters: Option<HashMap<String, Option<PublicKey>>>,
 }
 
 impl Rule {
@@ -893,6 +957,7 @@ impl Rule {
         scopes: Vec<Scope>,
     ) -> Rule {
         let mut parameters = HashMap::new();
+        let mut scope_parameters = HashMap::new();
         for term in &head.terms {
             if let Term::Parameter(name) = &term {
                 parameters.insert(name.to_string(), None);
@@ -915,12 +980,19 @@ impl Rule {
             }
         }
 
+        for scope in &scopes {
+            if let Scope::Parameter(name) = &scope {
+                scope_parameters.insert(name.to_string(), None);
+            }
+        }
+
         Rule {
             head,
             body,
             expressions,
             parameters: Some(parameters),
             scopes,
+            scope_parameters: Some(scope_parameters),
         }
     }
 
@@ -948,6 +1020,9 @@ impl Rule {
                 Scope::PublicKey(key) => {
                     crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
                 }
+                // The error is caught in the `add_xxx` functions, so this should
+                // not happen™
+                Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
             })
         }
         datalog::Rule {
@@ -977,36 +1052,54 @@ impl Rule {
                 .iter()
                 .map(|scope| Scope::convert_from(scope, symbols))
                 .collect::<Result<Vec<Scope>, error::Format>>()?,
+            scope_parameters: None,
         })
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
-        match &self.parameters {
-            None => Ok(()),
-            Some(parameters) => {
-                let invalid_parameters = parameters
-                    .iter()
-                    .filter_map(
-                        |(name, opt_term)| {
-                            if opt_term.is_none() {
-                                Some(name)
-                            } else {
-                                None
-                            }
-                        },
-                    )
-                    .map(|name| name.to_string())
-                    .collect::<Vec<_>>();
+        let mut invalid_parameters = match &self.parameters {
+            None => vec![],
+            Some(parameters) => parameters
+                .iter()
+                .filter_map(
+                    |(name, opt_term)| {
+                        if opt_term.is_none() {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>(),
+        };
+        let mut invalid_scope_parameters = match &self.scope_parameters {
+            None => vec![],
+            Some(parameters) => parameters
+                .iter()
+                .filter_map(
+                    |(name, opt_key)| {
+                        if opt_key.is_none() {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>(),
+        };
+        let mut all_invalid_parameters = vec![];
+        all_invalid_parameters.append(&mut invalid_parameters);
+        all_invalid_parameters.append(&mut invalid_scope_parameters);
 
-                if invalid_parameters.is_empty() {
-                    Ok(())
-                } else {
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters: invalid_parameters,
-                        unused_parameters: vec![],
-                    }))
-                }
-            }
+        if all_invalid_parameters.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: all_invalid_parameters,
+                unused_parameters: vec![],
+            }))
         }
     }
 
@@ -1086,6 +1179,58 @@ impl Rule {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        if let Some(parameters) = self.scope_parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Err(error::Token::Language(error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                })),
+                Some(v) => {
+                    *v = Some(pubkey);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
+        }
+    }
+
+    /// replace a scope parameter with the public key argument, without raising an error if the
+    /// parameter is not present in the rule scope
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        if let Some(parameters) = self.scope_parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(pubkey);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
+        }
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(pubkey) => self.set_scope_lenient(name, pubkey),
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.head.terms = self
@@ -1132,6 +1277,21 @@ impl Rule {
                     .collect();
             }
         }
+
+        if let Some(parameters) = self.scope_parameters.clone() {
+            self.scopes = self
+                .scopes
+                .drain(..)
+                .map(|scope| {
+                    if let Scope::Parameter(name) = &scope {
+                        if let Some(Some(pubkey)) = parameters.get(name) {
+                            return Scope::PublicKey(pubkey.clone());
+                        }
+                    }
+                    scope
+                })
+                .collect();
+        }
     }
 }
 
@@ -1162,6 +1322,15 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         }
     }
 
+    if !rule.scopes.is_empty() {
+        write!(f, " trusting {}", rule.scopes[0])?;
+        if rule.scopes.len() > 1 {
+            for i in 1..rule.scopes.len() {
+                write!(f, ", {}", rule.scopes[i])?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1182,11 +1351,13 @@ impl ToTokens for Rule {
         let head = &self.head;
         let body = self.body.iter();
         let expressions = self.expressions.iter();
+        let scopes = self.scopes.iter();
         tokens.extend(quote! {
           ::biscuit_auth::builder::Rule::new(
             #head,
             <[::biscuit_auth::builder::Predicate]>::into_vec(Box::new([#(#body),*])),
-            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*]))
+            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*])),
+            <[::biscuit_auth::builder::Scope]>::into_vec(Box::new([#(#scopes),*]))
           )
         });
     }
@@ -1241,6 +1412,25 @@ impl Check {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set_scope(name, pubkey).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
+        }
+    }
+
     /// replace a parameter with the term argument, without raising an error if the
     /// parameter is not present in the check
     pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
@@ -1249,6 +1439,27 @@ impl Check {
             query.set_lenient(name, term.clone())?;
         }
         Ok(())
+    }
+
+    /// replace a scope parameter with the term argument, without raising an error if the
+    /// parameter is not present in the check
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        for query in &mut self.queries {
+            query.set_scope_lenient(name, pubkey)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(p) => self.set_scope_lenient(name, p),
+        }
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1373,6 +1584,25 @@ impl Policy {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set_scope(name, pubkey).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
+        }
+    }
+
     /// replace a parameter with the term argument, ignoring unknown parameters
     pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
@@ -1380,6 +1610,26 @@ impl Policy {
             query.set_lenient(name, term.clone())?;
         }
         Ok(())
+    }
+
+    /// replace a scope parameter with the pubkey argument, ignoring unknown parameters
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        for query in &mut self.queries {
+            query.set_scope_lenient(name, pubkey)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(p) => self.set_scope_lenient(name, p),
+        }
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1538,9 +1788,27 @@ pub fn parameter(p: &str) -> Term {
     Term::Parameter(p.to_string())
 }
 
+#[cfg(feature = "datalog-macro")]
+pub enum AnyParam {
+    Term(Term),
+    PublicKey(PublicKey),
+}
+
+#[cfg(feature = "datalog-macro")]
+pub trait ToAnyParam {
+    fn to_any_param(&self) -> AnyParam;
+}
+
 impl From<i64> for Term {
     fn from(i: i64) -> Self {
         Term::Integer(i)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for i64 {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self as i64).into())
     }
 }
 
@@ -1563,6 +1831,13 @@ impl From<bool> for Term {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for bool {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self as bool).into())
+    }
+}
+
 impl TryFrom<Term> for bool {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -1582,9 +1857,23 @@ impl From<String> for Term {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for String {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl From<&str> for Term {
     fn from(s: &str) -> Self {
         Term::Str(s.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for &str {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.to_string().into())
     }
 }
 
@@ -1607,9 +1896,10 @@ impl From<Vec<u8>> for Term {
     }
 }
 
-impl From<&[u8]> for Term {
-    fn from(v: &[u8]) -> Self {
-        Term::Bytes(v.into())
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Vec<u8> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
     }
 }
 
@@ -1626,10 +1916,30 @@ impl TryFrom<Term> for Vec<u8> {
     }
 }
 
+impl From<&[u8]> for Term {
+    fn from(v: &[u8]) -> Self {
+        Term::Bytes(v.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for &[u8] {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl From<SystemTime> for Term {
     fn from(t: SystemTime) -> Self {
         let dur = t.duration_since(UNIX_EPOCH).unwrap();
         Term::Date(dur.as_secs())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for SystemTime {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
     }
 }
 
@@ -1707,6 +2017,13 @@ macro_rules! tuple_try_from_impl(
 
 tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for PublicKey {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::PublicKey(self.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1726,6 +2043,26 @@ mod tests {
     }
 
     #[test]
+    fn set_rule_scope_parameters() {
+        let pubkey = PublicKey::from_bytes(
+            &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
+                .unwrap(),
+        )
+        .unwrap();
+        let mut rule = Rule::try_from(
+            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2}) trusting {pk}",
+        )
+        .unwrap();
+        rule.set("p2", "hello").unwrap();
+        rule.set("p4", 0i64).unwrap();
+        rule.set("p4", 1i64).unwrap();
+        rule.set_scope("pk", pubkey).unwrap();
+
+        let s = rule.to_string();
+        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\") trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db");
+    }
+
+    #[test]
     fn set_code_parameters() {
         let mut builder = BlockBuilder::new();
         let mut params = HashMap::new();
@@ -1740,6 +2077,7 @@ mod tests {
              check if {p3};
             "#,
                 params,
+                HashMap::new(),
             )
             .unwrap();
         assert_eq!(
@@ -1803,6 +2141,7 @@ check if true;
              check if {p3};
             "#,
             params,
+            HashMap::new(),
         );
 
         assert_eq!(
