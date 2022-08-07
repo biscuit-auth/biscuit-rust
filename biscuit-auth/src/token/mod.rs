@@ -70,7 +70,7 @@ impl Biscuit {
     ///
     /// call [`builder::BiscuitBuilder::build`] to create the token
     pub fn builder() -> BiscuitBuilder {
-        Biscuit::builder()
+        BiscuitBuilder::new()
     }
 
     /// deserializes a token and validates the signature using the root public key
