@@ -42,6 +42,7 @@ time = {version = "0.3.7", features = ["formatting", "parsing"]}
 quote = { version = "1.0.14", optional = true }
 
 [dev-dependencies]
+bencher = "0.1.5"
 rand = "0.7"
 colored-diff = "0.2"
 serde = { version = "1.0.130", features = ["derive"] }
@@ -71,3 +72,7 @@ include = [
 name = "testcases"
 required-features = ["serde-error"]
 path = "examples/testcases.rs"
+
+[[bench]]
+name = "token"
+harness = false

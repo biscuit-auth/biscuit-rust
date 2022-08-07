@@ -1,13 +1,12 @@
-#![feature(test)]
-extern crate test;
+#[macro_use]
+extern crate bencher;
 
 extern crate biscuit_auth as biscuit;
 
+use bencher::Bencher;
 use biscuit::{builder::*, datalog::SymbolTable, Biscuit, KeyPair, UnverifiedBiscuit};
 use rand::rngs::OsRng;
-use test::Bencher;
 
-#[bench]
 fn create_block_1(b: &mut Bencher) {
     let mut rng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -37,7 +36,6 @@ fn create_block_1(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn append_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -73,7 +71,6 @@ fn append_block_2(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn append_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -128,7 +125,6 @@ fn append_block_5(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn unverified_append_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -164,7 +160,6 @@ fn unverified_append_block_2(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn unverified_append_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -219,7 +214,6 @@ fn unverified_append_block_5(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn verify_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -262,7 +256,6 @@ fn verify_block_2(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn verify_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -332,7 +325,6 @@ fn verify_block_5(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn check_signature_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -370,7 +362,6 @@ fn check_signature_2(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn check_signature_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
@@ -434,8 +425,7 @@ fn check_signature_5(b: &mut Bencher) {
     });
 }
 
-#[bench]
-fn caveats_block_2(b: &mut Bencher) {
+fn checks_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
     let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -477,8 +467,7 @@ fn caveats_block_2(b: &mut Bencher) {
     });
 }
 
-#[bench]
-fn caveats_block_create_verifier2(b: &mut Bencher) {
+fn checks_block_create_verifier2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
     let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -516,8 +505,7 @@ fn caveats_block_create_verifier2(b: &mut Bencher) {
     });
 }
 
-#[bench]
-fn caveats_block_verify_only2(b: &mut Bencher) {
+fn checks_block_verify_only2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
     let root = KeyPair::new_with_rng(&mut rng);
     let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -557,3 +545,20 @@ fn caveats_block_verify_only2(b: &mut Bencher) {
         verifier.authorize().unwrap();
     });
 }
+
+benchmark_group!(
+    benchmarks,
+    create_block_1,
+    append_block_2,
+    append_block_5,
+    unverified_append_block_2,
+    unverified_append_block_5,
+    verify_block_2,
+    verify_block_5,
+    check_signature_2,
+    check_signature_5,
+    checks_block_2,
+    checks_block_create_verifier2,
+    checks_block_verify_only2
+);
+benchmark_main!(benchmarks);
