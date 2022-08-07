@@ -41,13 +41,13 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // first we define the authority block for global data,
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
-///   let mut builder = Biscuit::builder(&root);
-///   builder.add_authority_fact(fact("right", &[string("/a/file1.txt"), string("read")]));
+///   let mut builder = Biscuit::builder();
+///   builder.add_fact(fact("right", &[string("/a/file1.txt"), string("read")]));
 ///
 ///   // facts and rules can also be parsed from a string
-///   builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
+///   builder.add_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
 ///
-///   let token1 = builder.build().unwrap();
+///   let token1 = builder.build(None, &root).unwrap();
 ///
 ///   // we can create a new block builder from that token
 ///   let mut builder2 = token1.create_block();
