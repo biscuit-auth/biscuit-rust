@@ -325,21 +325,12 @@ impl BiscuitBuilder {
         self.inner.set_context(context);
     }
 
-    /*/// returns all of the datalog loaded in the biscuit builder
+    /// returns all of the datalog loaded in the biscuit builder
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
         (
-            self.facts
-                .iter()
-                .map(|f| Fact::convert_from(f, &self.symbols))
-                .collect(),
-            self.rules
-                .iter()
-                .map(|r| Rule::convert_from(r, &self.symbols))
-                .collect(),
-            self.checks
-                .iter()
-                .map(|c| Check::convert_from(c, &self.symbols))
-                .collect(),
+            self.inner.facts.clone(),
+            self.inner.rules.clone(),
+            self.inner.checks.clone(),
         )
     }
 
@@ -356,7 +347,7 @@ impl BiscuitBuilder {
             f.push_str(&format!("{};\n", &check));
         }
         f
-    }*/
+    }
 
     pub fn build(
         self,
