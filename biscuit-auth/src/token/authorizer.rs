@@ -885,12 +885,10 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder(&keypair);
-        builder
-            .add_authority_fact("user(\"John Doe\", 42)")
-            .unwrap();
+        let mut builder = Biscuit::builder();
+        builder.add_fact("user(\"John Doe\", 42)").unwrap();
 
-        let biscuit = builder.build().unwrap();
+        let biscuit = builder.build(None, &keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -907,10 +905,10 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder(&keypair);
-        builder.add_authority_fact("user(\"John Doe\")").unwrap();
+        let mut builder = Biscuit::builder();
+        builder.add_fact("user(\"John Doe\")").unwrap();
 
-        let biscuit = builder.build().unwrap();
+        let biscuit = builder.build(None, &keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
