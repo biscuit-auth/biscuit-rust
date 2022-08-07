@@ -5,6 +5,7 @@ extern crate biscuit_auth as biscuit;
 use biscuit::error;
 use biscuit::KeyPair;
 use biscuit::{builder::*, Biscuit};
+use biscuit_auth::datalog::SymbolTable;
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
@@ -328,19 +329,21 @@ fn basic_token<T: Rng + CryptoRng>(
     let filename = "test1_basic.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -406,13 +409,15 @@ fn different_root_key<T: Rng + CryptoRng>(
     let token;
 
     let root2 = KeyPair::new_with_rng(rng);
-    let mut builder = Biscuit::builder(&root2);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root2, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -472,19 +477,21 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     let filename = "test3_invalid_signature_format.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -547,19 +554,21 @@ fn random_block<T: Rng + CryptoRng>(
     let filename = "test4_random_block.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -625,19 +634,21 @@ fn invalid_signature<T: Rng + CryptoRng>(
     let filename = "test5_invalid_signature.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -702,19 +713,21 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let filename = "test6_reordered_blocks.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -792,16 +805,18 @@ fn scoped_rules<T: Rng + CryptoRng>(
     let filename = "test7_scoped_rules.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("user_id", &[string("alice")]))
+        .add_fact(fact("user_id", &[string("alice")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("owner", &[string("alice"), string("file1")]))
+        .add_fact(fact("owner", &[string("alice"), string("file1")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -886,13 +901,15 @@ fn scoped_checks<T: Rng + CryptoRng>(
     let filename = "test8_scoped_checks.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -966,8 +983,10 @@ fn expired_token<T: Rng + CryptoRng>(
     let filename = "test9_expired_token.bc".to_string();
     let token;
 
-    let builder = Biscuit::builder(&root);
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let builder = Biscuit::builder();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1042,13 +1061,15 @@ fn authorizer_scope<T: Rng + CryptoRng>(
     let filename = "test10_authorizer_scope.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1112,13 +1133,15 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     let filename = "test11_authorizer_authority_caveats.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -1173,17 +1196,19 @@ fn authority_checks<T: Rng + CryptoRng>(
     let filename = "test12_authority_caveats.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_check(rule(
+        .add_check(rule(
             "check1",
             &[string("file1")],
             &[pred("resource", &[string("file1")])],
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -1244,15 +1269,17 @@ fn block_rules<T: Rng + CryptoRng>(
     let filename = "test13_block_rules.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1401,10 +1428,10 @@ fn regex_constraint<T: Rng + CryptoRng>(
     let filename = "test14_regex_constraint.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_check(constrained_rule(
+        .add_check(constrained_rule(
             "resource_match",
             &[variable("0")],
             &[pred("resource", &[variable("0")])],
@@ -1418,7 +1445,9 @@ fn regex_constraint<T: Rng + CryptoRng>(
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -1472,17 +1501,19 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
     let filename = "test15_multi_queries_caveats.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact(
+        .add_fact(fact(
             "must_be_present",
             &[string("hello")],
             //&[string("hello")],
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -1537,17 +1568,19 @@ fn check_head_name<T: Rng + CryptoRng>(
     let filename = "test16_caveat_head_name.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_check(rule(
+        .add_check(rule(
             "check1",
             &[string("test")],
             &[pred("resource", &[string("hello")])],
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     //println!("biscuit1 (authority): {}", biscuit1.print());
 
@@ -1592,111 +1625,103 @@ fn expressions<T: Rng + CryptoRng>(
     let filename = "test17_expressions.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     //boolean true
-    builder.add_authority_check("check if true").unwrap();
+    builder.add_check("check if true").unwrap();
     //boolean false and negation
-    builder.add_authority_check("check if !false").unwrap();
+    builder.add_check("check if !false").unwrap();
     //boolean and
-    builder
-        .add_authority_check("check if !false && true")
-        .unwrap();
+    builder.add_check("check if !false && true").unwrap();
     //boolean or
-    builder
-        .add_authority_check("check if false or true")
-        .unwrap();
+    builder.add_check("check if false or true").unwrap();
     //boolean parens
     builder
-        .add_authority_check("check if (true || false) && true")
+        .add_check("check if (true || false) && true")
         .unwrap();
 
     //integer less than
-    builder.add_authority_check("check if 1 < 2").unwrap();
+    builder.add_check("check if 1 < 2").unwrap();
     //integer greater than
-    builder.add_authority_check("check if 2 > 1").unwrap();
+    builder.add_check("check if 2 > 1").unwrap();
     //integer less or equal
-    builder.add_authority_check("check if 1 <= 2").unwrap();
-    builder.add_authority_check("check if 1 <= 1").unwrap();
+    builder.add_check("check if 1 <= 2").unwrap();
+    builder.add_check("check if 1 <= 1").unwrap();
     //integer greater or equal
-    builder.add_authority_check("check if 2 >= 1").unwrap();
-    builder.add_authority_check("check if 2 >= 2").unwrap();
+    builder.add_check("check if 2 >= 1").unwrap();
+    builder.add_check("check if 2 >= 2").unwrap();
     //integer equal
-    builder.add_authority_check("check if 3 == 3").unwrap();
+    builder.add_check("check if 3 == 3").unwrap();
     //integer add sub mul div
-    builder
-        .add_authority_check("check if 1 + 2 * 3 - 4 /2 == 5")
-        .unwrap();
+    builder.add_check("check if 1 + 2 * 3 - 4 /2 == 5").unwrap();
 
     // string prefix and suffix
-    builder.add_authority_check(
+    builder.add_check(
         "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
     ).unwrap();
     // string regex
     builder
-        .add_authority_check("check if \"aaabde\".matches(\"a*c?.e\")")
+        .add_check("check if \"aaabde\".matches(\"a*c?.e\")")
         .unwrap();
     // string contains
     builder
-        .add_authority_check("check if \"aaabde\".contains(\"abd\")")
+        .add_check("check if \"aaabde\".contains(\"abd\")")
         .unwrap();
     // string concatenation
     builder
-        .add_authority_check("check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"")
+        .add_check("check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"")
         .unwrap();
     // string equal
     builder
-        .add_authority_check("check if \"abcD12\" == \"abcD12\"")
+        .add_check("check if \"abcD12\" == \"abcD12\"")
         .unwrap();
 
     //date less than
     builder
-        .add_authority_check("check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00")
+        .add_check("check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00")
         .unwrap();
     //date greater than
     builder
-        .add_authority_check("check if 2020-12-04T09:46:41+00:00 > 2019-12-04T09:46:41+00:00")
+        .add_check("check if 2020-12-04T09:46:41+00:00 > 2019-12-04T09:46:41+00:00")
         .unwrap();
     //date less or equal
     builder
-        .add_authority_check("check if 2019-12-04T09:46:41+00:00 <= 2020-12-04T09:46:41+00:00")
+        .add_check("check if 2019-12-04T09:46:41+00:00 <= 2020-12-04T09:46:41+00:00")
         .unwrap();
     builder
-        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
+        .add_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
         .unwrap();
     //date greater or equal
     builder
-        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00")
+        .add_check("check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00")
         .unwrap();
     builder
-        .add_authority_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
+        .add_check("check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00")
         .unwrap();
     //date equal
     builder
-        .add_authority_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00")
+        .add_check("check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00")
         .unwrap();
 
     //bytes equal
-    builder
-        .add_authority_check("check if hex:12ab == hex:12ab")
-        .unwrap();
+    builder.add_check("check if hex:12ab == hex:12ab").unwrap();
 
     // set contains
+    builder.add_check("check if [1, 2].contains(2)").unwrap();
+    builder.add_check("check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00)").unwrap();
     builder
-        .add_authority_check("check if [1, 2].contains(2)")
-        .unwrap();
-    builder.add_authority_check("check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00)").unwrap();
-    builder
-        .add_authority_check("check if [true, false, true].contains(true)")
+        .add_check("check if [true, false, true].contains(true)")
         .unwrap();
     builder
-        .add_authority_check("check if [\"abc\", \"def\"].contains(\"abc\")")
+        .add_check("check if [\"abc\", \"def\"].contains(\"abc\")")
         .unwrap();
     builder
-        .add_authority_check("check if [hex:12ab, hex:34de].contains(hex:34de)")
+        .add_check("check if [hex:12ab, hex:34de].contains(hex:34de)")
         .unwrap();
 
-    let biscuit = builder.build_with_rng(rng).unwrap();
+    let biscuit = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit);
 
     let data = if test {
@@ -1734,16 +1759,18 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     let filename = "test18_unbound_variables_in_rule.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
     builder
-        .add_authority_check(rule(
+        .add_check(rule(
             "check1",
             &[string("test")],
             &[pred("operation", &[string("read")])],
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1800,16 +1827,18 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     let filename = "test19_generating_ambient_from_variables.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
     builder
-        .add_authority_check(rule(
+        .add_check(rule(
             "check1",
             &[string("test")],
             &[pred("operation", &[string("read")])],
         ))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1869,19 +1898,21 @@ fn sealed_token<T: Rng + CryptoRng>(
     let filename = "test20_sealed.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("read")]))
+        .add_fact(fact("right", &[string("file1"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file2"), string("read")]))
+        .add_fact(fact("right", &[string("file2"), string("read")]))
         .unwrap();
     builder
-        .add_authority_fact(fact("right", &[string("file1"), string("write")]))
+        .add_fact(fact("right", &[string("file1"), string("write")]))
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
@@ -1949,13 +1980,13 @@ fn parsing<T: Rng + CryptoRng>(
     let filename = "test21_parsing.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
-    builder
-        .add_authority_fact("ns::fact_123(\"hello é\t😁\")")
+    builder.add_fact("ns::fact_123(\"hello é\t😁\")").unwrap();
+
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
         .unwrap();
-
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -2003,7 +2034,7 @@ fn default_symbols<T: Rng + CryptoRng>(
     let filename = "test22_default_symbols.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     builder
         .add_code(
@@ -2015,7 +2046,9 @@ fn default_symbols<T: Rng + CryptoRng>(
         )
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
     token = print_blocks(&biscuit1);
 
     let data = if test {
@@ -2060,11 +2093,13 @@ fn execution_scope<T: Rng + CryptoRng>(
     let filename = "test23_execution_scope.bc".to_string();
     let token;
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
-    builder.add_authority_fact("authority_fact(1)").unwrap();
+    builder.add_fact("authority_fact(1)").unwrap();
 
-    let biscuit1 = builder.build_with_rng(rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .unwrap();
 
     let mut block2 = biscuit1.create_block();
 
