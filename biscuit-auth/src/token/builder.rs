@@ -379,12 +379,10 @@ impl BiscuitBuilder {
         self,
         root_key_id: Option<u32>,
         root: &KeyPair,
-        mut symbols: SymbolTable,
+        symbols: SymbolTable,
         rng: &mut R,
     ) -> Result<Biscuit, error::Token> {
         let authority_block = self.inner.build(symbols.clone());
-        symbols.extend(&authority_block.symbols);
-
         Biscuit::new_with_rng(rng, root_key_id, root, symbols, authority_block)
     }
 }
