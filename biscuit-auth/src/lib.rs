@@ -48,7 +48,7 @@
 //!     builder.add_fact("right(\"/b/file3.txt\", \"write\")")?;
 //!
 //!     // we can now create the token
-//!     let biscuit = builder.build(None, &root)?;
+//!     let biscuit = builder.build(&root)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?

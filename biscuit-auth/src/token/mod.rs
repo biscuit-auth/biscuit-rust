@@ -47,7 +47,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // facts and rules can also be parsed from a string
 ///   builder.add_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
 ///
-///   let token1 = builder.build(None, &root).unwrap();
+///   let token1 = builder.build(&root).unwrap();
 ///
 ///   // we can create a new block builder from that token
 ///   let mut builder2 = token1.create_block();
@@ -505,7 +505,7 @@ mod tests {
             builder.add_fact("right(\"file1\", \"write\")").unwrap();
 
             let biscuit1 = builder
-                .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+                .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
             println!("biscuit1 (authority): {}", biscuit1.print());
@@ -666,7 +666,7 @@ mod tests {
         builder.add_right("/folder2/file3", "read");
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -741,7 +741,7 @@ mod tests {
         builder.add_right("file2", "read");
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -796,7 +796,7 @@ mod tests {
         builder.add_right("/folder2/file3", "read");
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -862,7 +862,7 @@ mod tests {
             .unwrap();
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
         println!("{}", biscuit1.print());
 
@@ -901,7 +901,7 @@ mod tests {
         builder.add_fact("key(0000)").unwrap();
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -976,7 +976,7 @@ mod tests {
             .unwrap();
 
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -1070,7 +1070,7 @@ mod tests {
         let mut builder = Biscuit::builder();
         builder.add_fact("bytes(hex:0102AB)").unwrap();
         let biscuit1 = builder
-            .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1.print());
@@ -1117,7 +1117,7 @@ mod tests {
             builder.add_check("check if operation(\"read\")").unwrap();
 
             let biscuit1 = builder
-                .build_with_rng(None, &root, default_symbol_table(), &mut rng)
+                .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
             println!("biscuit1 (authority): {}", biscuit1.print());

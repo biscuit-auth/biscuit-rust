@@ -1,6 +1,5 @@
 extern crate biscuit_auth;
 extern crate biscuit_quote;
-use biscuit_auth::KeyPair;
 use biscuit_quote::{authorizer, biscuit, block};
 
 #[test]

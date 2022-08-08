@@ -274,12 +274,14 @@ impl fmt::Display for BlockBuilder {
 #[derive(Clone)]
 pub struct BiscuitBuilder {
     inner: BlockBuilder,
+    root_key_id: Option<u32>,
 }
 
 impl BiscuitBuilder {
     pub fn new() -> BiscuitBuilder {
         BiscuitBuilder {
             inner: BlockBuilder::new(),
+            root_key_id: None,
         }
     }
 
@@ -325,6 +327,10 @@ impl BiscuitBuilder {
         self.inner.set_context(context);
     }
 
+    pub fn set_root_key_id(&mut self, root_key_id: u32) {
+        self.root_key_id = Some(root_key_id);
+    }
+
     /// returns all of the datalog loaded in the biscuit builder
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
         (
@@ -349,32 +355,26 @@ impl BiscuitBuilder {
         f
     }
 
-    pub fn build(
-        self,
-        root_key_id: Option<u32>,
-        root_key: &KeyPair,
-    ) -> Result<Biscuit, error::Token> {
-        self.build_with_symbols(root_key_id, root_key, default_symbol_table())
+    pub fn build(self, root_key: &KeyPair) -> Result<Biscuit, error::Token> {
+        self.build_with_symbols(root_key, default_symbol_table())
     }
 
     pub fn build_with_symbols(
         self,
-        root_key_id: Option<u32>,
         root_key: &KeyPair,
         symbols: SymbolTable,
     ) -> Result<Biscuit, error::Token> {
-        self.build_with_rng(root_key_id, root_key, symbols, &mut rand::rngs::OsRng)
+        self.build_with_rng(root_key, symbols, &mut rand::rngs::OsRng)
     }
 
     pub fn build_with_rng<R: RngCore + CryptoRng>(
         self,
-        root_key_id: Option<u32>,
         root: &KeyPair,
         symbols: SymbolTable,
         rng: &mut R,
     ) -> Result<Biscuit, error::Token> {
         let authority_block = self.inner.build(symbols.clone());
-        Biscuit::new_with_rng(rng, root_key_id, root, symbols, authority_block)
+        Biscuit::new_with_rng(rng, self.root_key_id, root, symbols, authority_block)
     }
 }
 

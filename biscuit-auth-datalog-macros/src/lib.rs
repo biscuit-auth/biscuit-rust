@@ -13,7 +13,7 @@
 //!   right({user_id}, "file1", "read");
 //!   "#,
 //!   user_id = "1234",
-//! ).build(None, &root).expect("Failed to create biscuit");
+//! ).build(&root).expect("Failed to create biscuit");
 //!
 //! biscuit.append(block!(
 //!   r#"
@@ -403,7 +403,7 @@ impl Parse for ParsedBiscuitQuery {
 ///   "#,
 ///   user_id = "1234",
 ///   expiration = SystemTime::now() + Duration::from_secs(86_400)
-/// ).build(None, &root);
+/// ).build(&root);
 /// ```
 #[proc_macro]
 pub fn biscuit(input: TokenStream) -> TokenStream {

@@ -288,7 +288,7 @@ impl<'t> Authorizer<'t> {
     /// let mut builder = Biscuit::builder();
     /// builder.add_fact("user(\"John Doe\", 42)");
     ///
-    /// let biscuit = builder.build(None, &keypair).unwrap();
+    /// let biscuit = builder.build(&keypair).unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
@@ -345,7 +345,7 @@ impl<'t> Authorizer<'t> {
     /// let mut builder = Biscuit::builder();
     /// builder.add_fact("user(\"John Doe\", 42)");
     ///
-    /// let biscuit = builder.build(None, &keypair).unwrap();
+    /// let biscuit = builder.build(&keypair).unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
@@ -888,7 +888,7 @@ mod tests {
         let mut builder = Biscuit::builder();
         builder.add_fact("user(\"John Doe\", 42)").unwrap();
 
-        let biscuit = builder.build(None, &keypair).unwrap();
+        let biscuit = builder.build(&keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -908,7 +908,7 @@ mod tests {
         let mut builder = Biscuit::builder();
         builder.add_fact("user(\"John Doe\")").unwrap();
 
-        let biscuit = builder.build(None, &keypair).unwrap();
+        let biscuit = builder.build(&keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();

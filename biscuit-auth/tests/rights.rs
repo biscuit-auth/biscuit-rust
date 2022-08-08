@@ -27,7 +27,7 @@ fn main() {
     ));
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     println!("{}", biscuit1.print());
 
