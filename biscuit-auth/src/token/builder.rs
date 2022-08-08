@@ -1,5 +1,5 @@
 //! helper functions and structure to create tokens and blocks
-use super::{Biscuit, Block};
+use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
 use crate::datalog::{self, SymbolTable};
 use crate::error;
@@ -286,76 +286,42 @@ impl fmt::Display for BlockBuilder {
 
 /// creates a Biscuit
 #[derive(Clone)]
-pub struct BiscuitBuilder<'a> {
+pub struct BiscuitBuilder {
+    inner: BlockBuilder,
     root_key_id: Option<u32>,
-    root: &'a KeyPair,
-    pub symbols_start: usize,
-    pub public_keys_start: usize,
-    pub symbols: SymbolTable,
-    pub facts: Vec<datalog::Fact>,
-    pub rules: Vec<datalog::Rule>,
-    pub checks: Vec<datalog::Check>,
-    pub scopes: Vec<Scope>,
-    pub context: Option<String>,
 }
 
-impl<'a> BiscuitBuilder<'a> {
-    pub fn new(root: &'a KeyPair, base_symbols: SymbolTable) -> BiscuitBuilder<'a> {
+impl BiscuitBuilder {
+    pub fn new() -> BiscuitBuilder {
         BiscuitBuilder {
+            inner: BlockBuilder::new(),
             root_key_id: None,
-            root,
-            symbols_start: base_symbols.current_offset(),
-            public_keys_start: base_symbols.public_keys.current_offset(),
-            symbols: base_symbols,
-            facts: vec![],
-            rules: vec![],
-            checks: vec![],
-            scopes: vec![],
-            context: None,
         }
     }
 
-    /// hints for the authorizer side to decide which key to use for signature verification
-    pub fn set_root_key_id(&mut self, id: u32) {
-        self.root_key_id = Some(id);
-    }
-
-    pub fn add_authority_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        let fact = fact.try_into()?;
-        fact.validate()?;
-
-        let f = fact.convert(&mut self.symbols);
-        self.facts.push(f);
-        Ok(())
+        self.inner.add_fact(fact)
     }
 
-    pub fn add_authority_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
+    pub fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
-        let rule = rule.try_into()?;
-        rule.validate_parameters()?;
-
-        let r = rule.convert(&mut self.symbols);
-        self.rules.push(r);
-        Ok(())
+        self.inner.add_rule(rule)
     }
 
-    pub fn add_authority_check<C: TryInto<Check>>(&mut self, rule: C) -> Result<(), error::Token>
+    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        let check: Check = rule.try_into()?;
-        let c = check.convert(&mut self.symbols);
-        self.checks.push(c);
-        Ok(())
+        self.inner.add_check(check)
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new())
+        self.inner.add_code_with_params(source, HashMap::new())
     }
 
     pub fn add_code_with_params<T: AsRef<str>>(
@@ -363,95 +329,32 @@ impl<'a> BiscuitBuilder<'a> {
         source: T,
         params: HashMap<String, Term>,
     ) -> Result<(), error::Token> {
-        let input = source.as_ref();
-
-        let source_result = parse_block_source(input)?;
-
-        for (_, mut fact) in source_result.facts.into_iter() {
-            for (name, value) in &params {
-                let res = match fact.set(&name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            fact.validate()?;
-            let f = fact.convert(&mut self.symbols);
-            self.facts.push(f);
-        }
-
-        for (_, mut rule) in source_result.rules.into_iter() {
-            for (name, value) in &params {
-                let res = match rule.set(&name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            rule.validate_parameters()?;
-            let r = rule.convert(&mut self.symbols);
-            self.rules.push(r);
-        }
-
-        for (_, mut check) in source_result.checks.into_iter() {
-            for (name, value) in &params {
-                let res = match check.set(&name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            check.validate_parameters()?;
-            let c = check.convert(&mut self.symbols);
-            self.checks.push(c);
-        }
-
-        Ok(())
+        self.inner.add_code_with_params(source, params)
     }
 
     pub fn add_scope(&mut self, scope: Scope) {
-        self.scopes.push(scope);
+        self.inner.add_scope(scope);
     }
 
     #[cfg(test)]
     pub(crate) fn add_right(&mut self, resource: &str, right: &str) {
-        let _ = self.add_authority_fact(fact("right", &[string(resource), string(right)]));
+        let _ = self.add_fact(fact("right", &[string(resource), string(right)]));
     }
 
     pub fn set_context(&mut self, context: String) {
-        self.context = Some(context);
+        self.inner.set_context(context);
+    }
+
+    pub fn set_root_key_id(&mut self, root_key_id: u32) {
+        self.root_key_id = Some(root_key_id);
     }
 
     /// returns all of the datalog loaded in the biscuit builder
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
         (
-            self.facts
-                .iter()
-                .map(|f| Fact::convert_from(f, &self.symbols))
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap(),
-            self.rules
-                .iter()
-                .map(|r| Rule::convert_from(r, &self.symbols))
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap(),
-            self.checks
-                .iter()
-                .map(|c| Check::convert_from(c, &self.symbols))
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap(),
+            self.inner.facts.clone(),
+            self.inner.rules.clone(),
+            self.inner.checks.clone(),
         )
     }
 
@@ -470,36 +373,26 @@ impl<'a> BiscuitBuilder<'a> {
         f
     }
 
-    pub fn build(self) -> Result<Biscuit, error::Token> {
-        self.build_with_rng(&mut rand::rngs::OsRng)
+    pub fn build(self, root_key: &KeyPair) -> Result<Biscuit, error::Token> {
+        self.build_with_symbols(root_key, default_symbol_table())
+    }
+
+    pub fn build_with_symbols(
+        self,
+        root_key: &KeyPair,
+        symbols: SymbolTable,
+    ) -> Result<Biscuit, error::Token> {
+        self.build_with_rng(root_key, symbols, &mut rand::rngs::OsRng)
     }
 
     pub fn build_with_rng<R: RngCore + CryptoRng>(
         self,
-        rng: &'a mut R,
+        root: &KeyPair,
+        symbols: SymbolTable,
+        rng: &mut R,
     ) -> Result<Biscuit, error::Token> {
-        let mut symbols = self.symbols;
-        let scopes = self
-            .scopes
-            .iter()
-            .map(|scope| scope.convert(&mut symbols))
-            .collect();
-        let new_syms = symbols.split_at(self.symbols_start);
-        let public_keys = symbols.public_keys.split_at(self.public_keys_start);
-
-        let authority_block = Block {
-            symbols: new_syms,
-            facts: self.facts,
-            rules: self.rules,
-            checks: self.checks,
-            context: self.context,
-            version: super::MAX_SCHEMA_VERSION,
-            external_key: None,
-            public_keys,
-            scopes,
-        };
-
-        Biscuit::new_with_rng(rng, self.root_key_id, self.root, symbols, authority_block)
+        let authority_block = self.inner.build(symbols.clone());
+        Biscuit::new_with_rng(rng, self.root_key_id, root, symbols, authority_block)
     }
 }
 

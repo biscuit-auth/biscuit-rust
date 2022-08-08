@@ -368,10 +368,10 @@ impl<'t> Authorizer<'t> {
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
     /// let keypair = KeyPair::new();
-    /// let mut builder = Biscuit::builder(&keypair);
-    /// builder.add_authority_fact("user(\"John Doe\", 42)");
+    /// let mut builder = Biscuit::builder();
+    /// builder.add_fact("user(\"John Doe\", 42)");
     ///
-    /// let biscuit = builder.build().unwrap();
+    /// let biscuit = builder.build(&keypair).unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)", &[0].iter().collect()).unwrap();
@@ -434,10 +434,10 @@ impl<'t> Authorizer<'t> {
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
     /// let keypair = KeyPair::new();
-    /// let mut builder = Biscuit::builder(&keypair);
-    /// builder.add_authority_fact("user(\"John Doe\", 42)");
+    /// let mut builder = Biscuit::builder();
+    /// builder.add_fact("user(\"John Doe\", 42)");
     ///
-    /// let biscuit = builder.build().unwrap();
+    /// let biscuit = builder.build(&keypair).unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)",  &[0].iter().collect()).unwrap();
@@ -1011,12 +1011,10 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder(&keypair);
-        builder
-            .add_authority_fact("user(\"John Doe\", 42)")
-            .unwrap();
+        let mut builder = Biscuit::builder();
+        builder.add_fact("user(\"John Doe\", 42)").unwrap();
 
-        let biscuit = builder.build().unwrap();
+        let biscuit = builder.build(&keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -1036,10 +1034,10 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder(&keypair);
-        builder.add_authority_fact("user(\"John Doe\")").unwrap();
+        let mut builder = Biscuit::builder();
+        builder.add_fact("user(\"John Doe\")").unwrap();
 
-        let biscuit = builder.build().unwrap();
+        let biscuit = builder.build(&keypair).unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer

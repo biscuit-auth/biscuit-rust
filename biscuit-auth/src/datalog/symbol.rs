@@ -3,11 +3,12 @@ use std::collections::HashSet;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub type SymbolIndex = u64;
+use crate::token::default_symbol_table;
 use crate::{error, token::public_keys::PublicKeys};
 
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     symbols: Vec<String>,
     pub(crate) public_keys: PublicKeys,
@@ -273,6 +274,12 @@ impl SymbolTable {
             .collect::<Vec<_>>();
 
         format!("check if {}", queries.join(" or "))
+    }
+}
+
+impl Default for SymbolTable {
+    fn default() -> Self {
+        default_symbol_table()
     }
 }
 

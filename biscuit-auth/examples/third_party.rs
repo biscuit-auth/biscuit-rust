@@ -1,4 +1,4 @@
-use biscuit_auth::{Biscuit, KeyPair};
+use biscuit_auth::{datalog::SymbolTable, Biscuit, KeyPair};
 use rand::{prelude::StdRng, SeedableRng};
 
 fn main() {
@@ -6,17 +6,19 @@ fn main() {
     let root = KeyPair::new_with_rng(&mut rng);
     let external = KeyPair::new_with_rng(&mut rng);
 
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     let external_pub = hex::encode(external.public().to_bytes());
 
     builder
-        .add_authority_check(
+        .add_check(
             format!("check if external_fact(\"hello\") trusting ed25519/{external_pub}").as_str(),
         )
         .unwrap();
 
-    let biscuit1 = builder.build_with_rng(&mut rng).unwrap();
+    let biscuit1 = builder
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
+        .unwrap();
 
     println!("biscuit1: {}", biscuit1.print());
 
