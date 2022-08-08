@@ -342,7 +342,7 @@ fn basic_token<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -416,7 +416,7 @@ fn different_root_key<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root2, SymbolTable::default(), rng)
+        .build_with_rng(&root2, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -490,7 +490,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -567,7 +567,7 @@ fn random_block<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -647,7 +647,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -726,7 +726,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -815,7 +815,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -908,7 +908,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -985,7 +985,7 @@ fn expired_token<T: Rng + CryptoRng>(
 
     let builder = Biscuit::builder();
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1068,7 +1068,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1140,7 +1140,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1207,7 +1207,7 @@ fn authority_checks<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1278,7 +1278,7 @@ fn block_rules<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1446,7 +1446,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1512,7 +1512,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1579,7 +1579,7 @@ fn check_head_name<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     //println!("biscuit1 (authority): {}", biscuit1.print());
@@ -1720,7 +1720,7 @@ fn expressions<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit);
 
@@ -1769,7 +1769,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1837,7 +1837,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1911,7 +1911,7 @@ fn sealed_token<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
@@ -1985,7 +1985,7 @@ fn parsing<T: Rng + CryptoRng>(
     builder.add_fact("ns::fact_123(\"hello é\t😁\")").unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -2047,7 +2047,7 @@ fn default_symbols<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -2098,7 +2098,7 @@ fn execution_scope<T: Rng + CryptoRng>(
     builder.add_fact("authority_fact(1)").unwrap();
 
     let biscuit1 = builder
-        .build_with_rng(None, &root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
     let mut block2 = biscuit1.create_block();
