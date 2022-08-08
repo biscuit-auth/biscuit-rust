@@ -398,6 +398,21 @@ pub unsafe extern "C" fn biscuit_builder_set_context(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn biscuit_builder_set_root_key_id(
+    builder: Option<&mut BiscuitBuilder>,
+    root_key_id: u32,
+) -> bool {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+    let builder = builder.unwrap();
+
+    builder.0.set_root_key_id(root_key_id);
+    true
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn biscuit_builder_add_fact(
     builder: Option<&mut BiscuitBuilder>,
     fact: *const c_char,
@@ -507,7 +522,7 @@ pub unsafe extern "C" fn biscuit_builder_build(
     (*builder)
         .0
         .clone()
-        .build_with_rng(None, &key_pair.0, SymbolTable::default(), &mut rng)
+        .build_with_rng(&key_pair.0, SymbolTable::default(), &mut rng)
         .map(Biscuit)
         .map(Box::new)
         .ok()

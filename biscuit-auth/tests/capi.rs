@@ -17,13 +17,13 @@ mod capi {
                 printf("key_pair creation error? %s\n", error_message());
                 PublicKey* root = key_pair_public(root_kp);
 
-                BiscuitBuilder* b = biscuit_builder(root_kp);
+                BiscuitBuilder* b = biscuit_builder();
                 printf("builder creation error? %s\n", error_message());
-                biscuit_builder_add_authority_fact(b, "right(\"file1\", \"read\")");
+                biscuit_builder_add_fact(b, "right(\"file1\", \"read\")");
 
                 printf("builder add authority error? %s\n", error_message());
 
-                Biscuit * biscuit = biscuit_builder_build(b, (const uint8_t * ) seed, strlen(seed));
+                Biscuit * biscuit = biscuit_builder_build(b, root_kp, (const uint8_t * ) seed, strlen(seed));
                 printf("biscuit creation error? %s\n", error_message());
 
                 BlockBuilder* bb = biscuit_create_block(biscuit);
