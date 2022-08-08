@@ -83,9 +83,10 @@ impl BlockBuilder {
             for (name, value) in &params {
                 let res = match fact.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -98,9 +99,10 @@ impl BlockBuilder {
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -113,9 +115,10 @@ impl BlockBuilder {
             for (name, value) in &params {
                 let res = match check.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -368,9 +371,10 @@ impl<'a> BiscuitBuilder<'a> {
             for (name, value) in &params {
                 let res = match fact.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -384,9 +388,10 @@ impl<'a> BiscuitBuilder<'a> {
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -400,9 +405,10 @@ impl<'a> BiscuitBuilder<'a> {
             for (name, value) in &params {
                 let res = match check.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::UnknownParameter(_))) => {
-                        Ok(())
-                    }
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -775,8 +781,9 @@ impl Fact {
                 if invalid_parameters.is_empty() {
                     Ok(())
                 } else {
-                    Err(error::Token::Language(error::LanguageError::Builder {
-                        invalid_parameters,
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters: invalid_parameters,
+                        unused_parameters: vec![],
                     }))
                 }
             }
@@ -805,18 +812,20 @@ impl Fact {
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(parameters) = self.parameters.as_mut() {
             match parameters.get_mut(name) {
-                None => Err(error::Token::Language(
-                    error::LanguageError::UnknownParameter(name.to_string()),
-                )),
+                None => Err(error::Token::Language(error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                })),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -832,9 +841,10 @@ impl Fact {
                 }
             }
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -1098,8 +1108,9 @@ impl Rule {
                 if invalid_parameters.is_empty() {
                     Ok(())
                 } else {
-                    Err(error::Token::Language(error::LanguageError::Builder {
-                        invalid_parameters,
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters: invalid_parameters,
+                        unused_parameters: vec![],
                     }))
                 }
             }
@@ -1146,18 +1157,20 @@ impl Rule {
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(parameters) = self.parameters.as_mut() {
             match parameters.get_mut(name) {
-                None => Err(error::Token::Language(
-                    error::LanguageError::UnknownParameter(name.to_string()),
-                )),
+                None => Err(error::Token::Language(error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                })),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -1173,9 +1186,10 @@ impl Rule {
                 }
             }
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -1327,9 +1341,10 @@ impl Check {
         if found {
             Ok(())
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -1458,9 +1473,10 @@ impl Policy {
         if found {
             Ok(())
         } else {
-            Err(error::Token::Language(
-                error::LanguageError::UnknownParameter(name.to_string()),
-            ))
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec![],
+                unused_parameters: vec![name.to_string()],
+            }))
         }
     }
 
@@ -1851,8 +1867,9 @@ check if true;
         let res = builder.add_fact(fact);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Builder {
-                invalid_parameters: vec!["p4".to_string()]
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
             }))
         );
         let mut rule = Rule::try_from(
@@ -1863,8 +1880,9 @@ check if true;
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Builder {
-                invalid_parameters: vec!["p4".to_string()]
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
             }))
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
@@ -1872,8 +1890,9 @@ check if true;
         let res = builder.add_check(check);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Builder {
-                invalid_parameters: vec!["p4".to_string()]
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
             }))
         );
     }
@@ -1895,8 +1914,9 @@ check if true;
 
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Builder {
-                invalid_parameters: vec!["p3".to_string()]
+            Err(error::Token::Language(error::LanguageError::Parameters {
+                missing_parameters: vec!["p3".to_string()],
+                unused_parameters: vec![],
             }))
         )
     }
