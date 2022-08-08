@@ -6,6 +6,8 @@ use std::{
     os::raw::c_char,
 };
 
+use crate::datalog::SymbolTable;
+
 enum Error {
     Biscuit(crate::error::Token),
     InvalidArgument,
@@ -263,7 +265,7 @@ pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
 pub struct Biscuit(crate::token::Biscuit);
 pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
-pub struct BiscuitBuilder<'a>(crate::token::builder::BiscuitBuilder<'a>);
+pub struct BiscuitBuilder(crate::token::builder::BiscuitBuilder);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
 pub struct Authorizer<'t>(crate::token::authorizer::Authorizer<'t>);
 
@@ -366,22 +368,13 @@ pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<B
 pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder<'a>(
-    key_pair: Option<&'a KeyPair>,
-) -> Option<Box<BiscuitBuilder<'a>>> {
-    if key_pair.is_none() {
-        update_last_error(Error::InvalidArgument);
-    }
-    let key_pair = key_pair?;
-
-    Some(Box::new(BiscuitBuilder(crate::token::Biscuit::builder(
-        &key_pair.0,
-    ))))
+pub unsafe extern "C" fn biscuit_builder() -> Option<Box<BiscuitBuilder>> {
+    Some(Box::new(BiscuitBuilder(crate::token::Biscuit::builder())))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_set_authority_context<'a>(
-    builder: Option<&mut BiscuitBuilder<'a>>,
+pub unsafe extern "C" fn biscuit_builder_set_context(
+    builder: Option<&mut BiscuitBuilder>,
     context: *const c_char,
 ) -> bool {
     if builder.is_none() {
@@ -405,8 +398,23 @@ pub unsafe extern "C" fn biscuit_builder_set_authority_context<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_add_authority_fact<'a>(
-    builder: Option<&mut BiscuitBuilder<'a>>,
+pub unsafe extern "C" fn biscuit_builder_set_root_key_id(
+    builder: Option<&mut BiscuitBuilder>,
+    root_key_id: u32,
+) -> bool {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return false;
+    }
+    let builder = builder.unwrap();
+
+    builder.0.set_root_key_id(root_key_id);
+    true
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_builder_add_fact(
+    builder: Option<&mut BiscuitBuilder>,
     fact: *const c_char,
 ) -> bool {
     if builder.is_none() {
@@ -424,7 +432,7 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_fact<'a>(
 
     builder
         .0
-        .add_authority_fact(s.unwrap())
+        .add_fact(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
@@ -432,8 +440,8 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_fact<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_add_authority_rule<'a>(
-    builder: Option<&mut BiscuitBuilder<'a>>,
+pub unsafe extern "C" fn biscuit_builder_add_rule(
+    builder: Option<&mut BiscuitBuilder>,
     rule: *const c_char,
 ) -> bool {
     if builder.is_none() {
@@ -451,7 +459,7 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_rule<'a>(
 
     builder
         .0
-        .add_authority_rule(s.unwrap())
+        .add_rule(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
@@ -459,8 +467,8 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_rule<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_add_authority_check<'a>(
-    builder: Option<&mut BiscuitBuilder<'a>>,
+pub unsafe extern "C" fn biscuit_builder_add_check(
+    builder: Option<&mut BiscuitBuilder>,
     check: *const c_char,
 ) -> bool {
     if builder.is_none() {
@@ -478,7 +486,7 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_check<'a>(
 
     builder
         .0
-        .add_authority_check(s.unwrap())
+        .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
@@ -486,8 +494,9 @@ pub unsafe extern "C" fn biscuit_builder_add_authority_check<'a>(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_build<'a>(
-    builder: Option<&BiscuitBuilder<'a>>,
+pub unsafe extern "C" fn biscuit_builder_build(
+    builder: Option<&BiscuitBuilder>,
+    key_pair: Option<&KeyPair>,
     seed_ptr: *const u8,
     seed_len: usize,
 ) -> Option<Box<Biscuit>> {
@@ -495,6 +504,11 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
         update_last_error(Error::InvalidArgument);
     }
     let builder = builder?;
+
+    if key_pair.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let key_pair = key_pair?;
 
     let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
     if slice.len() != 32 {
@@ -508,14 +522,14 @@ pub unsafe extern "C" fn biscuit_builder_build<'a>(
     (*builder)
         .0
         .clone()
-        .build_with_rng(&mut rng)
+        .build_with_rng(&key_pair.0, SymbolTable::default(), &mut rng)
         .map(Biscuit)
         .map(Box::new)
         .ok()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_builder_free<'a>(_builder: Option<Box<BiscuitBuilder<'a>>>) {}
+pub unsafe extern "C" fn biscuit_builder_free<'a>(_builder: Option<Box<BiscuitBuilder>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_from<'a>(

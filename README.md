@@ -32,17 +32,17 @@ fn main() -> Result<(), error::Token> {
   let token1 = {
     // the first block of the token is the authority block. It contains global
     // information like which operation types are available
-    let mut builder = Biscuit::builder(&root);
+    let mut builder = Biscuit::builder();
 
     // let's define some access rights
     // every fact added to the authority block must have the authority fact
-    builder.add_authority_fact("right(\"/a/file1.txt\", \"read\")")?;
-    builder.add_authority_fact("right(\"/a/file1.txt\", \"write\")")?;
-    builder.add_authority_fact("right(\"/a/file2.txt\", \"read\")")?;
-    builder.add_authority_fact("right(\"/b/file3.txt\", \"write\")")?;
+    builder.add_fact("right(\"/a/file1.txt\", \"read\")")?;
+    builder.add_fact("right(\"/a/file1.txt\", \"write\")")?;
+    builder.add_fact("right(\"/a/file2.txt\", \"read\")")?;
+    builder.add_fact("right(\"/b/file3.txt\", \"write\")")?;
 
     // we can now create the token
-    let biscuit = builder.build()?;
+    let biscuit = builder.build(&root)?;
     println!("biscuit (authority): {}", biscuit.print());
 
     biscuit.to_vec()?
