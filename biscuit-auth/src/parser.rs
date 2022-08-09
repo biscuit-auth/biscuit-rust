@@ -404,6 +404,9 @@ fn scope(i: &str) -> IResult<&str, Scope, Error> {
             //FIXME: handle the unwrap()
             Scope::PublicKey(PublicKey::from_bytes(&bytes).unwrap())
         }),
+        map(delimited(char('{'), name, char('}')), |n| {
+            Scope::Parameter(n.to_string())
+        }),
     ))(i)
 }
 

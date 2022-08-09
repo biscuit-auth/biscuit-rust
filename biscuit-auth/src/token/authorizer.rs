@@ -1,6 +1,7 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::{Biscuit, Block};
+use crate::crypto::PublicKey;
 use crate::datalog::{self, FactSet, Origin, RuleSet, RunLimits};
 use crate::error;
 use crate::parser::parse_source;
@@ -275,13 +276,14 @@ impl<'t> Authorizer<'t> {
     /// "#).expect("should parse correctly");
     /// ```
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new())
+        self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     pub fn add_code_with_params<T: AsRef<str>>(
         &mut self,
         source: T,
         params: HashMap<String, Term>,
+        scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
@@ -321,6 +323,17 @@ impl<'t> Authorizer<'t> {
                 };
                 res?;
             }
+            for (name, value) in &scope_params {
+                let res = match rule.set_scope(&name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             rule.validate_parameters()?;
             self.world
                 .rules
@@ -339,6 +352,17 @@ impl<'t> Authorizer<'t> {
                 };
                 res?;
             }
+            for (name, value) in &scope_params {
+                let res = match check.set_scope(&name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             check.validate_parameters()?;
             self.checks.push(check);
         }
@@ -346,6 +370,17 @@ impl<'t> Authorizer<'t> {
         for (_, mut policy) in source_result.policies.into_iter() {
             for (name, value) in &params {
                 let res = match policy.set(&name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(error::LanguageError::Parameters {
+                        missing_parameters,
+                        ..
+                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            for (name, value) in &scope_params {
+                let res = match policy.set_scope(&name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(error::LanguageError::Parameters {
                         missing_parameters,
@@ -918,15 +953,25 @@ mod tests {
         params.insert("p1".to_string(), "value".into());
         params.insert("p2".to_string(), 0i64.into());
         params.insert("p3".to_string(), true.into());
+        let mut scope_params = HashMap::new();
+        scope_params.insert(
+            "pk".to_string(),
+            PublicKey::from_bytes(
+                &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
+                    .unwrap(),
+            )
+            .unwrap(),
+        );
         authorizer
             .add_code_with_params(
                 r#"
                   fact({p1}, "value");
                   rule($var, {p2}) <- fact($var, {p2});
                   check if {p3};
-                  allow if {p3};
+                  allow if {p3} trusting {pk};
               "#,
                 params,
+                scope_params,
             )
             .unwrap();
     }
@@ -995,6 +1040,7 @@ mod tests {
              allow if {p3};
             "#,
             params,
+            HashMap::new(),
         );
 
         assert_eq!(
