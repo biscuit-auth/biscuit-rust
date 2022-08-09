@@ -1,6 +1,7 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::Biscuit;
+use crate::builder::Convert;
 use crate::datalog::{self, RunLimits};
 use crate::error;
 use crate::parser::parse_source;

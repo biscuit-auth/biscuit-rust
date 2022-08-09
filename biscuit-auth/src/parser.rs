@@ -1005,7 +1005,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::Error;
-    use crate::{datalog, token::builder};
+    use crate::{builder::Convert, datalog, token::builder};
     use nom::error::ErrorKind;
 
     #[test]

@@ -378,6 +378,11 @@ impl BiscuitBuilder {
     }
 }
 
+pub trait Convert<T> {
+    fn convert(&self, symbols: &mut SymbolTable) -> T;
+    fn convert_from(f: &T, symbols: &SymbolTable) -> Self;
+}
+
 /// Builder for a Datalog value
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
@@ -391,8 +396,8 @@ pub enum Term {
     Parameter(String),
 }
 
-impl Term {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Term {
+impl Convert<datalog::Term> for Term {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Term {
         match self {
             Term::Variable(s) => datalog::Term::Variable(symbols.insert(s) as u32),
             Term::Integer(i) => datalog::Term::Integer(*i),
@@ -407,7 +412,7 @@ impl Term {
         }
     }
 
-    pub fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
+    fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
         match f {
             datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
             datalog::Term::Integer(i) => Term::Integer(*i),
@@ -505,7 +510,16 @@ pub struct Predicate {
 }
 
 impl Predicate {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Predicate {
+    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Predicate {
+        Predicate {
+            name,
+            terms: terms.into(),
+        }
+    }
+}
+
+impl Convert<datalog::Predicate> for Predicate {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Predicate {
         let name = symbols.insert(&self.name);
         let mut terms = vec![];
 
@@ -516,7 +530,7 @@ impl Predicate {
         datalog::Predicate { name, terms }
     }
 
-    pub fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
+    fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
         Predicate {
             name: symbols.print_symbol(p.name),
             terms: p
@@ -524,13 +538,6 @@ impl Predicate {
                 .iter()
                 .map(|term| Term::convert_from(term, symbols))
                 .collect(),
-        }
-    }
-
-    pub fn new<T: Into<Vec<Term>>>(name: String, terms: T) -> Predicate {
-        Predicate {
-            name,
-            terms: terms.into(),
         }
     }
 }
@@ -624,24 +631,6 @@ impl Fact {
             }
         }
     }
-}
-
-impl Fact {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
-        let mut fact = self.clone();
-        fact.apply_parameters();
-
-        datalog::Fact {
-            predicate: fact.predicate.convert(symbols),
-        }
-    }
-
-    pub fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
-        Fact {
-            predicate: Predicate::convert_from(&f.predicate, symbols),
-            parameters: None,
-        }
-    }
 
     /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
@@ -702,6 +691,24 @@ impl Fact {
     }
 }
 
+impl Convert<datalog::Fact> for Fact {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Fact {
+        let mut fact = self.clone();
+        fact.apply_parameters();
+
+        datalog::Fact {
+            predicate: fact.predicate.convert(symbols),
+        }
+    }
+
+    fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
+        Fact {
+            predicate: Predicate::convert_from(&f.predicate, symbols),
+            parameters: None,
+        }
+    }
+}
+
 impl fmt::Display for Fact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fact = self.clone();
@@ -732,14 +739,14 @@ pub struct Expression {
 }
 // todo track parameters
 
-impl Expression {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Expression {
+impl Convert<datalog::Expression> for Expression {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Expression {
         datalog::Expression {
             ops: self.ops.iter().map(|op| op.convert(symbols)).collect(),
         }
     }
 
-    pub fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
+    fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
         Expression {
             ops: e
                 .ops
@@ -785,8 +792,8 @@ pub enum Op {
     Binary(Binary),
 }
 
-impl Op {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Op {
+impl Convert<datalog::Op> for Op {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Op {
         match self {
             Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
             Op::Unary(u) => datalog::Op::Unary(u.clone()),
@@ -794,7 +801,7 @@ impl Op {
         }
     }
 
-    pub fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Self {
+    fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Self {
         match op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
@@ -853,46 +860,6 @@ impl Rule {
             body,
             expressions,
             parameters: Some(parameters),
-        }
-    }
-
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
-        let mut r = self.clone();
-        r.apply_parameters();
-
-        let head = r.head.convert(symbols);
-        let mut body = vec![];
-        let mut expressions = vec![];
-
-        for p in r.body.iter() {
-            body.push(p.convert(symbols));
-        }
-
-        for c in r.expressions.iter() {
-            expressions.push(c.convert(symbols));
-        }
-
-        datalog::Rule {
-            head,
-            body,
-            expressions,
-        }
-    }
-
-    pub fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule {
-            head: Predicate::convert_from(&r.head, symbols),
-            body: r
-                .body
-                .iter()
-                .map(|p| Predicate::convert_from(p, symbols))
-                .collect(),
-            expressions: r
-                .expressions
-                .iter()
-                .map(|c| Expression::convert_from(c, symbols))
-                .collect(),
-            parameters: None,
         }
     }
 
@@ -1051,6 +1018,48 @@ impl Rule {
     }
 }
 
+impl Convert<datalog::Rule> for Rule {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Rule {
+        let mut r = self.clone();
+        r.apply_parameters();
+
+        let head = r.head.convert(symbols);
+        let mut body = vec![];
+        let mut expressions = vec![];
+
+        for p in r.body.iter() {
+            body.push(p.convert(symbols));
+        }
+
+        for c in r.expressions.iter() {
+            expressions.push(c.convert(symbols));
+        }
+
+        datalog::Rule {
+            head,
+            body,
+            expressions,
+        }
+    }
+
+    fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
+        Rule {
+            head: Predicate::convert_from(&r.head, symbols),
+            body: r
+                .body
+                .iter()
+                .map(|p| Predicate::convert_from(p, symbols))
+                .collect(),
+            expressions: r
+                .expressions
+                .iter()
+                .map(|c| Expression::convert_from(c, symbols))
+                .collect(),
+            parameters: None,
+        }
+    }
+}
+
 fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut rule = r.clone();
     rule.apply_parameters();
@@ -1115,24 +1124,6 @@ pub struct Check {
 }
 
 impl Check {
-    pub fn convert(&self, symbols: &mut SymbolTable) -> datalog::Check {
-        let mut queries = vec![];
-        for q in self.queries.iter() {
-            queries.push(q.convert(symbols));
-        }
-
-        datalog::Check { queries }
-    }
-
-    pub fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Self {
-        let mut queries = vec![];
-        for q in r.queries.iter() {
-            queries.push(Rule::convert_from(q, symbols));
-        }
-
-        Check { queries }
-    }
-
     /// replace a parameter with the term argument
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
@@ -1179,6 +1170,26 @@ impl Check {
         for rule in self.queries.iter_mut() {
             rule.apply_parameters();
         }
+    }
+}
+
+impl Convert<datalog::Check> for Check {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Check {
+        let mut queries = vec![];
+        for q in self.queries.iter() {
+            queries.push(q.convert(symbols));
+        }
+
+        datalog::Check { queries }
+    }
+
+    fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Self {
+        let mut queries = vec![];
+        for q in r.queries.iter() {
+            queries.push(Rule::convert_from(q, symbols));
+        }
+
+        Check { queries }
     }
 }
 
