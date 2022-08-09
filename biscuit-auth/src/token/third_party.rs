@@ -8,7 +8,7 @@ use crate::{
     crypto::PublicKey,
     datalog::SymbolTable,
     error,
-    format::{convert::token_block_to_proto_block, schema},
+    format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
     KeyPair, PrivateKey,
 };
 
@@ -21,6 +21,44 @@ pub struct Request {
 }
 
 impl Request {
+    pub fn from_container(container: &SerializedBiscuit) -> Result<Request, error::Token> {
+        if container.proof.is_sealed() {
+            return Err(error::Token::AppendOnSealed);
+        }
+
+        let mut public_keys = PublicKeys::new();
+
+        for pk in &schema::Block::decode(&container.authority.data[..])
+            .map_err(|e| {
+                error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+            })?
+            .public_keys
+        {
+            public_keys.insert(&PublicKey::from_proto(&pk)?);
+        }
+        for block in &container.blocks {
+            for pk in &schema::Block::decode(&block.data[..])
+                .map_err(|e| {
+                    error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+                })?
+                .public_keys
+            {
+                public_keys.insert(&PublicKey::from_proto(&pk)?);
+            }
+        }
+
+        let previous_key = container
+            .blocks
+            .last()
+            .unwrap_or(&&container.authority)
+            .next_key;
+
+        Ok(Request {
+            previous_key,
+            public_keys,
+            builder: BlockBuilder::new(),
+        })
+    }
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
         let public_keys = self
             .public_keys

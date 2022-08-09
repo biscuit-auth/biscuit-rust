@@ -370,43 +370,7 @@ impl Biscuit {
     }
 
     pub fn third_party_request(&self) -> Result<Request, error::Token> {
-        if self.container.proof.is_sealed() {
-            return Err(error::Token::AppendOnSealed);
-        }
-
-        let mut public_keys = PublicKeys::new();
-
-        for pk in &schema::Block::decode(&self.container.authority.data[..])
-            .map_err(|e| {
-                error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-            })?
-            .public_keys
-        {
-            public_keys.insert(&PublicKey::from_proto(&pk)?);
-        }
-        for block in &self.container.blocks {
-            for pk in &schema::Block::decode(&block.data[..])
-                .map_err(|e| {
-                    error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-                })?
-                .public_keys
-            {
-                public_keys.insert(&PublicKey::from_proto(&pk)?);
-            }
-        }
-
-        let previous_key = self
-            .container
-            .blocks
-            .last()
-            .unwrap_or(&&self.container.authority)
-            .next_key;
-
-        Ok(Request {
-            previous_key,
-            public_keys,
-            builder: BlockBuilder::new(),
-        })
+        Request::from_container(&self.container)
     }
 
     pub fn append_third_party(
