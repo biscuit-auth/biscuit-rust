@@ -177,8 +177,8 @@ impl Biscuit {
 
     /// returns a list of revocation identifiers for each block, in order
     ///
-    /// if a token is generated with the same keys and the same content,
-    /// those identifiers will stay the same
+    /// revocation identifiers are unique: tokens generated separately with
+    /// the same contents will have different revocation ids
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         let mut res = Vec::new();
 
@@ -186,6 +186,26 @@ impl Biscuit {
 
         for block in self.container.blocks.iter() {
             res.push(block.signature.to_bytes().to_vec());
+        }
+
+        res
+    }
+
+    /// returns a list of external key for each block, in order
+    ///
+    /// Blocks carrying an external public key are _third-party blocks_
+    /// and their contents can be trusted as coming from the holder of
+    /// the corresponding private key
+    pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
+        let mut res = vec![None];
+
+        for block in self.container.blocks.iter() {
+            res.push(
+                block
+                    .external_signature
+                    .as_ref()
+                    .map(|sig| sig.public_key.to_bytes().to_vec()),
+            );
         }
 
         res
