@@ -191,6 +191,26 @@ impl UnverifiedBiscuit {
         res
     }
 
+    /// returns a list of external key for each block, in order
+    ///
+    /// Blocks carrying an external public key are _third-party blocks_
+    /// and their contents can be trusted as coming from the holder of
+    /// the corresponding private key
+    pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
+        let mut res = vec![None];
+
+        for block in self.container.blocks.iter() {
+            res.push(
+                block
+                    .external_signature
+                    .as_ref()
+                    .map(|sig| sig.public_key.to_bytes().to_vec()),
+            );
+        }
+
+        res
+    }
+
     /// returns the number of blocks (at least 1)
     pub fn block_count(&self) -> usize {
         1 + self.container.blocks.len()
