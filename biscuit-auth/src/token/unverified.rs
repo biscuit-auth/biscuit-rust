@@ -246,11 +246,7 @@ impl UnverifiedBiscuit {
         Request::from_container(&self.container)
     }
 
-    pub fn append_third_party(
-        &self,
-        external_key: PublicKey,
-        slice: &[u8],
-    ) -> Result<Self, error::Token> {
+    pub fn append_third_party(&self, slice: &[u8]) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
         let ThirdPartyBlockContents {
@@ -269,6 +265,14 @@ impl UnverifiedBiscuit {
                 ),
             )));
         }
+        let external_key =
+            PublicKey::from_bytes(&external_signature.public_key.key).map_err(|e| {
+                error::Format::BlockSignatureDeserializationError(format!(
+                    "block external public key deserialization error: {:?}",
+                    e
+                ))
+            })?;
+
         let bytes: [u8; 64] = (&external_signature.signature[..])
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
@@ -289,13 +293,6 @@ impl UnverifiedBiscuit {
         to_verify
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
-
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
@@ -342,5 +339,13 @@ impl UnverifiedBiscuit {
             container,
             public_key_to_block_id,
         })
+    }
+
+    pub fn append_third_party_base64<T>(&self, slice: T) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+    {
+        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        self.append_third_party(&decoded)
     }
 }

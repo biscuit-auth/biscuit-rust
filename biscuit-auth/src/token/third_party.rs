@@ -82,6 +82,11 @@ impl Request {
             )))
         })
     }
+
+    pub fn serialize_base64(&self) -> Result<Vec<u8>, error::Token> {
+        Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE).into_bytes())
+    }
+
     pub fn deserialize(slice: &[u8]) -> Result<Self, error::Token> {
         let data = schema::ThirdPartyBlockRequest::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
@@ -100,6 +105,14 @@ impl Request {
             public_keys,
             builder: BlockBuilder::new(),
         })
+    }
+
+    pub fn deserialize_base64<T>(slice: T) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+    {
+        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        Self::deserialize(&decoded)
     }
 
     pub fn create_response(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
@@ -142,6 +155,13 @@ impl Request {
                 e
             )))
         })
+    }
+
+    pub fn create_response_base64(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
+        Ok(
+            base64::encode_config(self.create_response(private_key)?, base64::URL_SAFE)
+                .into_bytes(),
+        )
     }
 }
 
