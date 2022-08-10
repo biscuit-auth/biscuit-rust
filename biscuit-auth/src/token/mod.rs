@@ -177,8 +177,8 @@ impl Biscuit {
 
     /// returns a list of revocation identifiers for each block, in order
     ///
-    /// if a token is generated with the same keys and the same content,
-    /// those identifiers will stay the same
+    /// revocation identifiers are unique: tokens generated separately with
+    /// the same contents will have different revocation ids
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         let mut res = Vec::new();
 
