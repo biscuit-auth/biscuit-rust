@@ -17,9 +17,6 @@ use std::{
 // reexport those because the builder uses the same definitions
 pub use crate::datalog::{Binary, Unary};
 
-#[cfg(feature = "datalog-macro")]
-use quote::{quote, ToTokens};
-
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
 pub struct BlockBuilder {
@@ -512,24 +509,6 @@ impl fmt::Display for Term {
     }
 }
 
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Term {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        tokens.extend(match self {
-            Term::Variable(v) => quote! { ::biscuit_auth::builder::Term::Variable(#v.to_string()) },
-            Term::Integer(v) => quote! { ::biscuit_auth::builder::Term::Integer(#v) },
-            Term::Str(v) => quote! { ::biscuit_auth::builder::Term::Str(#v.to_string()) },
-            Term::Date(v) => quote! { ::biscuit_auth::builder::Term::Date(#v) },
-            Term::Bool(v) => quote! { ::biscuit_auth::builder::Term::Bool(#v) },
-            Term::Parameter(v) => quote! { ::biscuit_auth::builder::Term::Parameter(#v.to_string()) },
-            Term::Bytes(v) => quote! { ::biscuit_auth::builder::Term::Bytes(<[u8]>::into_vec(Box::new([ #(#v),*]))) },
-            Term::Set(v) => {
-                quote! { ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) }
-            }
-        })
-    }
-}
-
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -590,20 +569,6 @@ impl fmt::Display for Predicate {
             }
         }
         write!(f, ")")
-    }
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Predicate {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let name = &self.name;
-        let terms = self.terms.iter();
-        tokens.extend(quote! {
-            ::biscuit_auth::builder::Predicate::new(
-              #name.to_string(),
-              <[::biscuit_auth::builder::Term]>::into_vec(Box::new([#(#terms),*]))
-            )
-        })
     }
 }
 
@@ -777,20 +742,6 @@ impl From<biscuit_parser::builder::Fact> for Fact {
     }
 }
 
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Fact {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let name = &self.predicate.name;
-        let terms = self.predicate.terms.iter();
-        tokens.extend(quote! {
-            ::biscuit_auth::builder::Fact::new(
-              #name.to_string(),
-              <[::biscuit_auth::builder::Term]>::into_vec(Box::new([#(#terms),*]))
-            )
-        })
-    }
-}
-
 /// Builder for a Datalog expression
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
@@ -831,18 +782,6 @@ impl fmt::Display for Expression {
     }
 }
 
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Expression {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let ops = self.ops.iter();
-        tokens.extend(quote! {
-          ::biscuit_auth::builder::Expression {
-            ops: <[::biscuit_auth::builder::Op]>::into_vec(Box::new([#(#ops),*]))
-          }
-        });
-    }
-}
-
 impl From<biscuit_parser::builder::Expression> for Expression {
     fn from(e: biscuit_parser::builder::Expression) -> Self {
         Expression {
@@ -874,17 +813,6 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
         }
-    }
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Op {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        tokens.extend(match self {
-            Op::Value(t) => quote! { ::biscuit_auth::builder::Op::Value(#t) },
-            Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
-            Op::Binary(b) => quote! { ::biscuit_auth::builder::Op::Binary(#b) },
-        });
     }
 }
 
@@ -1220,22 +1148,6 @@ impl fmt::Display for Rule {
     }
 }
 
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Rule {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let head = &self.head;
-        let body = self.body.iter();
-        let expressions = self.expressions.iter();
-        tokens.extend(quote! {
-          ::biscuit_auth::builder::Rule::new(
-            #head,
-            <[::biscuit_auth::builder::Predicate]>::into_vec(Box::new([#(#body),*])),
-            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*]))
-          )
-        });
-    }
-}
-
 impl From<biscuit_parser::builder::Rule> for Rule {
     fn from(r: biscuit_parser::builder::Rule) -> Self {
         Rule {
@@ -1380,36 +1292,10 @@ impl From<biscuit_parser::builder::Check> for Check {
     }
 }
 
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Check {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let queries = self.queries.iter();
-        tokens.extend(quote! {
-          ::biscuit_auth::builder::Check {
-            queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
-          }
-        });
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum PolicyKind {
     Allow,
     Deny,
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for PolicyKind {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        tokens.extend(match self {
-            PolicyKind::Allow => quote! {
-              ::biscuit_auth::builder::PolicyKind::Allow
-            },
-            PolicyKind::Deny => quote! {
-              ::biscuit_auth::builder::PolicyKind::Deny
-            },
-        });
-    }
 }
 
 /// Builder for a Biscuit policy
@@ -1502,20 +1388,6 @@ impl From<biscuit_parser::builder::Policy> for Policy {
                 biscuit_parser::builder::PolicyKind::Deny => PolicyKind::Deny,
             },
         }
-    }
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Policy {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let queries = self.queries.iter();
-        let kind = &self.kind;
-        tokens.extend(quote! {
-          ::biscuit_auth::builder::Policy{
-            kind: #kind,
-            queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
-          }
-        });
     }
 }
 

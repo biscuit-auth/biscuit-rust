@@ -1,11 +1,7 @@
 //! helper functions and structure to create tokens and blocks
-//use crate::error;
-use crate::parser::parse_block_source;
 use std::{
     collections::{BTreeSet, HashMap},
-    convert::{TryFrom, TryInto},
-    fmt,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(feature = "datalog-macro")]
@@ -45,43 +41,6 @@ impl AsRef<Term> for Term {
     }
 }
 
-impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        panic!()
-        /*match self {
-            Term::Variable(i) => write!(f, "${}", i),
-            Term::Integer(i) => write!(f, "{}", i),
-            Term::Str(s) => write!(f, "\"{}\"", s),
-            Term::Date(d) => {
-                let date = time::OffsetDateTime::from_unix_timestamp(*d as i64)
-                    .ok()
-                    .and_then(|t| {
-                        t.format(&time::format_description::well_known::Rfc3339)
-                            .ok()
-                    })
-                    .unwrap_or_else(|| "<invalid date>".to_string());
-
-                write!(f, "{}", date)
-            }
-            Term::Bytes(s) => write!(f, "hex:{}", hex::encode(s)),
-            Term::Bool(b) => {
-                if *b {
-                    write!(f, "true")
-                } else {
-                    write!(f, "false")
-                }
-            }
-            Term::Set(s) => {
-                let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
-                write!(f, "[ {}]", terms.join(", "))
-            }
-            Term::Parameter(s) => {
-                write!(f, "{{{}}}", s)
-            }
-        }*/
-    }
-}
-
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Term {
     fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
@@ -113,23 +72,6 @@ impl Predicate {
             name,
             terms: terms.into(),
         }
-    }
-}
-
-impl fmt::Display for Predicate {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}(", self.name)?;
-
-        if !self.terms.is_empty() {
-            write!(f, "{}", self.terms[0])?;
-
-            if self.terms.len() > 1 {
-                for i in 1..self.terms.len() {
-                    write!(f, ", {}", self.terms[i])?;
-                }
-            }
-        }
-        write!(f, ")")
     }
 }
 
@@ -170,13 +112,6 @@ impl Fact {
         }
     }
 }
-impl fmt::Display for Fact {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut fact = self.clone();
-
-        fact.predicate.fmt(f)
-    }
-}
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Fact {
@@ -197,16 +132,6 @@ impl ToTokens for Fact {
 pub struct Expression {
     pub ops: Vec<Op>,
 }
-// todo track parameters
-
-/*impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut syms = super::default_symbol_table();
-        let expr = self.convert(&mut syms);
-        let s = expr.print(&syms).unwrap();
-        write!(f, "{}", s)
-    }
-}*/
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Expression {
@@ -382,46 +307,6 @@ impl Rule {
     }
 }
 
-fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut rule = r.clone();
-    if !rule.body.is_empty() {
-        write!(f, "{}", rule.body[0])?;
-
-        if rule.body.len() > 1 {
-            for i in 1..rule.body.len() {
-                write!(f, ", {}", rule.body[i])?;
-            }
-        }
-    }
-
-    if !rule.expressions.is_empty() {
-        if !rule.body.is_empty() {
-            write!(f, ", ")?;
-        }
-
-        panic!()
-        /*write!(f, "{}", rule.expressions[0])?;
-
-        if rule.expressions.len() > 1 {
-            for i in 1..rule.expressions.len() {
-                write!(f, ", {}", rule.expressions[i])?;
-            }
-        }*/
-    }
-
-    Ok(())
-}
-
-impl fmt::Display for Rule {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let r = self.clone();
-
-        write!(f, "{} <- ", r.head)?;
-
-        display_rule_body(&r, f)
-    }
-}
-
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Rule {
     fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
@@ -442,27 +327,6 @@ impl ToTokens for Rule {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Check {
     pub queries: Vec<Rule>,
-}
-
-impl fmt::Display for Check {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "check if ")?;
-
-        if !self.queries.is_empty() {
-            let q0 = self.queries[0].clone();
-            display_rule_body(&q0, f)?;
-
-            if self.queries.len() > 1 {
-                for i in 1..self.queries.len() {
-                    write!(f, " or ")?;
-                    let qn = self.queries[i].clone();
-                    display_rule_body(&qn, f)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -502,35 +366,6 @@ impl ToTokens for PolicyKind {
 pub struct Policy {
     pub queries: Vec<Rule>,
     pub kind: PolicyKind,
-}
-
-impl fmt::Display for Policy {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if !self.queries.is_empty() {
-            match self.kind {
-                PolicyKind::Allow => write!(f, "allow if ")?,
-                PolicyKind::Deny => write!(f, "deny if ")?,
-            }
-
-            if !self.queries.is_empty() {
-                display_rule_body(&self.queries[0], f)?;
-
-                if self.queries.len() > 1 {
-                    for i in 1..self.queries.len() {
-                        write!(f, " or ")?;
-                        display_rule_body(&self.queries[i], f)?;
-                    }
-                }
-            }
-        } else {
-            match self.kind {
-                PolicyKind::Allow => write!(f, "allow")?,
-                PolicyKind::Deny => write!(f, "deny")?,
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(feature = "datalog-macro")]
