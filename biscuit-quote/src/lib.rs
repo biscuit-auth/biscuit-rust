@@ -43,7 +43,7 @@
 
 extern crate proc_macro;
 extern crate proc_macro_error;
-use biscuit_auth::{
+use biscuit_parser::{
     builder::{Check, Fact, Policy, Rule},
     error,
     parser::{parse_block_source, parse_source},
@@ -138,7 +138,7 @@ impl BlockBuilderWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let mut facts = vec![];
         let mut rules = vec![];
@@ -194,10 +194,10 @@ impl BlockBuilderWithParams {
                 .difference(&macro_parameters)
                 .map(|k| k.to_string())
                 .collect();
-            Err(error::Token::Language(error::LanguageError::Parameters {
+            Err(error::LanguageError::Parameters {
                 missing_parameters,
                 unused_parameters,
-            }))
+            })
         }
     }
 }
@@ -250,7 +250,7 @@ impl AuthorizerWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_source(input)?;
         let mut facts = Vec::new();
@@ -441,7 +441,7 @@ impl BiscuitWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_block_source(input)?;
         let mut facts = Vec::new();

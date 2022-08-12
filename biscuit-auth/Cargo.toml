@@ -40,6 +40,7 @@ serde = { version = "1.0.132", optional = true, features = ["derive"] }
 getrandom = { version = "0.1.16" }
 time = {version = "0.3.7", features = ["formatting", "parsing"]}
 quote = { version = "1.0.14", optional = true }
+biscuit-parser = { version = "0.1", path = "../biscuit-parser" }
 
 [dev-dependencies]
 bencher = "0.1.5"

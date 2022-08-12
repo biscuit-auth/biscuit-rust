@@ -3,8 +3,10 @@ use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable};
 use crate::error;
-use crate::parser::parse_block_source;
+use biscuit_parser::parser::parse_block_source;
+use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
+use std::str::FromStr;
 use std::{
     collections::{BTreeSet, HashMap},
     convert::{TryFrom, TryInto},
@@ -76,16 +78,21 @@ impl BlockBuilder {
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
-        let source_result = parse_block_source(input)?;
+        let source_result = parse_block_source(input).map_err(|e| {
+            let e2: biscuit_parser::error::LanguageError = e.into();
+            e2
+        })?;
 
-        for (_, mut fact) in source_result.facts.into_iter() {
+        for (_, fact) in source_result.facts.into_iter() {
+            let mut fact: Fact = fact.into();
             for (name, value) in &params {
                 let res = match fact.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -94,14 +101,16 @@ impl BlockBuilder {
             self.facts.push(fact);
         }
 
-        for (_, mut rule) in source_result.rules.into_iter() {
+        for (_, rule) in source_result.rules.into_iter() {
+            let mut rule: Rule = rule.into();
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -110,14 +119,16 @@ impl BlockBuilder {
             self.rules.push(rule);
         }
 
-        for (_, mut check) in source_result.checks.into_iter() {
+        for (_, check) in source_result.checks.into_iter() {
+            let mut check: Check = check.into();
             for (name, value) in &params {
                 let res = match check.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -442,6 +453,23 @@ impl From<&Term> for Term {
     }
 }
 
+impl From<biscuit_parser::builder::Term> for Term {
+    fn from(t: biscuit_parser::builder::Term) -> Self {
+        match t {
+            biscuit_parser::builder::Term::Variable(v) => Term::Variable(v.clone()),
+            biscuit_parser::builder::Term::Integer(i) => Term::Integer(i),
+            biscuit_parser::builder::Term::Str(s) => Term::Str(s.clone()),
+            biscuit_parser::builder::Term::Date(d) => Term::Date(d),
+            biscuit_parser::builder::Term::Bytes(s) => Term::Bytes(s.clone()),
+            biscuit_parser::builder::Term::Bool(b) => Term::Bool(b),
+            biscuit_parser::builder::Term::Set(s) => {
+                Term::Set(s.into_iter().map(|t| t.into()).collect())
+            }
+            biscuit_parser::builder::Term::Parameter(ref p) => Term::Parameter(p.clone()),
+        }
+    }
+}
+
 impl AsRef<Term> for Term {
     fn as_ref(&self) -> &Term {
         self
@@ -579,6 +607,15 @@ impl ToTokens for Predicate {
     }
 }
 
+impl From<biscuit_parser::builder::Predicate> for Predicate {
+    fn from(p: biscuit_parser::builder::Predicate) -> Self {
+        Predicate {
+            name: p.name,
+            terms: p.terms.into_iter().map(|t| t.into()).collect(),
+        }
+    }
+}
+
 /// Builder for a Datalog fact
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fact {
@@ -623,10 +660,12 @@ impl Fact {
                 if invalid_parameters.is_empty() {
                     Ok(())
                 } else {
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters: invalid_parameters,
-                        unused_parameters: vec![],
-                    }))
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters: invalid_parameters,
+                            unused_parameters: vec![],
+                        },
+                    ))
                 }
             }
         }
@@ -636,20 +675,24 @@ impl Fact {
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(parameters) = self.parameters.as_mut() {
             match parameters.get_mut(name) {
-                None => Err(error::Token::Language(error::LanguageError::Parameters {
-                    missing_parameters: vec![],
-                    unused_parameters: vec![name.to_string()],
-                })),
+                None => Err(error::Token::Language(
+                    biscuit_parser::error::LanguageError::Parameters {
+                        missing_parameters: vec![],
+                        unused_parameters: vec![name.to_string()],
+                    },
+                )),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -665,10 +708,12 @@ impl Fact {
                 }
             }
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -715,6 +760,20 @@ impl fmt::Display for Fact {
         fact.apply_parameters();
 
         fact.predicate.fmt(f)
+    }
+}
+
+impl From<biscuit_parser::builder::Fact> for Fact {
+    fn from(f: biscuit_parser::builder::Fact) -> Self {
+        Fact {
+            predicate: f.predicate.into(),
+            //    pub parameters: Option<HashMap<String, Option<Term>>>,
+            parameters: f.parameters.map(|h| {
+                h.into_iter()
+                    .map(|(k, v)| (k, v.map(|term| term.into())))
+                    .collect()
+            }),
+        }
     }
 }
 
@@ -784,6 +843,14 @@ impl ToTokens for Expression {
     }
 }
 
+impl From<biscuit_parser::builder::Expression> for Expression {
+    fn from(e: biscuit_parser::builder::Expression) -> Self {
+        Expression {
+            ops: e.ops.into_iter().map(|op| op.into()).collect(),
+        }
+    }
+}
+
 /// Builder for an expression operation
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
@@ -818,6 +885,50 @@ impl ToTokens for Op {
             Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
             Op::Binary(b) => quote! { ::biscuit_auth::builder::Op::Binary(#b) },
         });
+    }
+}
+
+impl From<biscuit_parser::builder::Op> for Op {
+    fn from(op: biscuit_parser::builder::Op) -> Self {
+        match op {
+            biscuit_parser::builder::Op::Value(t) => Op::Value(t.into()),
+            biscuit_parser::builder::Op::Unary(u) => Op::Unary(u.into()),
+            biscuit_parser::builder::Op::Binary(b) => Op::Binary(b.into()),
+        }
+    }
+}
+
+impl From<biscuit_parser::builder::Unary> for Unary {
+    fn from(unary: biscuit_parser::builder::Unary) -> Self {
+        match unary {
+            biscuit_parser::builder::Unary::Negate => Unary::Negate,
+            biscuit_parser::builder::Unary::Parens => Unary::Parens,
+            biscuit_parser::builder::Unary::Length => Unary::Length,
+        }
+    }
+}
+
+impl From<biscuit_parser::builder::Binary> for Binary {
+    fn from(binary: biscuit_parser::builder::Binary) -> Self {
+        match binary {
+            biscuit_parser::builder::Binary::LessThan => Binary::LessThan,
+            biscuit_parser::builder::Binary::GreaterThan => Binary::GreaterThan,
+            biscuit_parser::builder::Binary::LessOrEqual => Binary::LessOrEqual,
+            biscuit_parser::builder::Binary::GreaterOrEqual => Binary::GreaterOrEqual,
+            biscuit_parser::builder::Binary::Equal => Binary::Equal,
+            biscuit_parser::builder::Binary::Contains => Binary::Contains,
+            biscuit_parser::builder::Binary::Prefix => Binary::Prefix,
+            biscuit_parser::builder::Binary::Suffix => Binary::Suffix,
+            biscuit_parser::builder::Binary::Regex => Binary::Regex,
+            biscuit_parser::builder::Binary::Add => Binary::Add,
+            biscuit_parser::builder::Binary::Sub => Binary::Sub,
+            biscuit_parser::builder::Binary::Mul => Binary::Mul,
+            biscuit_parser::builder::Binary::Div => Binary::Div,
+            biscuit_parser::builder::Binary::And => Binary::And,
+            biscuit_parser::builder::Binary::Or => Binary::Or,
+            biscuit_parser::builder::Binary::Intersection => Binary::Intersection,
+            biscuit_parser::builder::Binary::Union => Binary::Union,
+        }
     }
 }
 
@@ -884,10 +995,12 @@ impl Rule {
                 if invalid_parameters.is_empty() {
                     Ok(())
                 } else {
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters: invalid_parameters,
-                        unused_parameters: vec![],
-                    }))
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters: invalid_parameters,
+                            unused_parameters: vec![],
+                        },
+                    ))
                 }
             }
         }
@@ -933,20 +1046,24 @@ impl Rule {
     pub fn set<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         if let Some(parameters) = self.parameters.as_mut() {
             match parameters.get_mut(name) {
-                None => Err(error::Token::Language(error::LanguageError::Parameters {
-                    missing_parameters: vec![],
-                    unused_parameters: vec![name.to_string()],
-                })),
+                None => Err(error::Token::Language(
+                    biscuit_parser::error::LanguageError::Parameters {
+                        missing_parameters: vec![],
+                        unused_parameters: vec![name.to_string()],
+                    },
+                )),
                 Some(v) => {
                     *v = Some(term.into());
                     Ok(())
                 }
             }
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -962,10 +1079,12 @@ impl Rule {
                 }
             }
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -1117,6 +1236,21 @@ impl ToTokens for Rule {
     }
 }
 
+impl From<biscuit_parser::builder::Rule> for Rule {
+    fn from(r: biscuit_parser::builder::Rule) -> Self {
+        Rule {
+            head: r.head.into(),
+            body: r.body.into_iter().map(|p| p.into()).collect(),
+            expressions: r.expressions.into_iter().map(|e| e.into()).collect(),
+            parameters: r.parameters.map(|h| {
+                h.into_iter()
+                    .map(|(k, v)| (k, v.map(|term| term.into())))
+                    .collect()
+            }),
+        }
+    }
+}
+
 /// Builder for a Biscuit check
 #[derive(Debug, Clone, PartialEq)]
 pub struct Check {
@@ -1141,10 +1275,12 @@ impl Check {
         if found {
             Ok(())
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -1236,6 +1372,14 @@ impl fmt::Display for Check {
     }
 }
 
+impl From<biscuit_parser::builder::Check> for Check {
+    fn from(c: biscuit_parser::builder::Check) -> Self {
+        Check {
+            queries: c.queries.into_iter().map(|q| q.into()).collect(),
+        }
+    }
+}
+
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Check {
     fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
@@ -1293,10 +1437,12 @@ impl Policy {
         if found {
             Ok(())
         } else {
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec![],
-                unused_parameters: vec![name.to_string()],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
         }
     }
 
@@ -1344,6 +1490,18 @@ impl fmt::Display for Policy {
         }
 
         Ok(())
+    }
+}
+
+impl From<biscuit_parser::builder::Policy> for Policy {
+    fn from(p: biscuit_parser::builder::Policy) -> Self {
+        Policy {
+            queries: p.queries.into_iter().map(|q| q.into()).collect(),
+            kind: match p.kind {
+                biscuit_parser::builder::PolicyKind::Allow => PolicyKind::Allow,
+                biscuit_parser::builder::PolicyKind::Deny => PolicyKind::Deny,
+            },
+        }
     }
 }
 
@@ -1631,6 +1789,94 @@ macro_rules! tuple_try_from_impl(
 
 tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
 
+impl TryFrom<&str> for Fact {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::fact(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl TryFrom<&str> for Rule {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::rule(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl FromStr for Fact {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::fact(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl FromStr for Rule {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::rule(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl TryFrom<&str> for Check {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::check(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl FromStr for Check {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::check(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl TryFrom<&str> for Policy {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::policy(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl FromStr for Policy {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::policy(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1684,10 +1930,12 @@ check if true;
         let res = builder.add_fact(fact);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
@@ -1697,20 +1945,24 @@ check if true;
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
         let res = builder.add_check(check);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
     }
 
@@ -1731,10 +1983,12 @@ check if true;
 
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p3".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p3".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         )
     }
 }
