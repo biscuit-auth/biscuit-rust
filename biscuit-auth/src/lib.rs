@@ -236,3 +236,8 @@ mod capi;
 pub use capi::*;
 
 mod time;
+
+#[cfg(feature = "datalog-macro")]
+pub mod macros {
+    pub use biscuit_quote::*;
+}
