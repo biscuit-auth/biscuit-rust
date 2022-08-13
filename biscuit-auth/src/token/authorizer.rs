@@ -1,10 +1,11 @@
 //! Authorizer structure and associated functions
 use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
 use super::Biscuit;
+use crate::builder::Convert;
 use crate::datalog::{self, RunLimits};
 use crate::error;
-use crate::parser::parse_source;
 use crate::time::Instant;
+use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::{
     collections::{HashMap, HashSet},
@@ -209,16 +210,21 @@ impl<'t> Authorizer<'t> {
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
-        let source_result = parse_source(input)?;
+        let source_result = parse_source(input).map_err(|e| {
+            let e2: biscuit_parser::error::LanguageError = e.into();
+            e2
+        })?;
 
-        for (_, mut fact) in source_result.facts.into_iter() {
+        for (_, fact) in source_result.facts.into_iter() {
+            let mut fact: Fact = fact.into();
             for (name, value) in &params {
                 let res = match fact.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -227,14 +233,16 @@ impl<'t> Authorizer<'t> {
             self.world.facts.insert(fact.convert(&mut self.symbols));
         }
 
-        for (_, mut rule) in source_result.rules.into_iter() {
+        for (_, rule) in source_result.rules.into_iter() {
+            let mut rule: Rule = rule.into();
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -243,14 +251,16 @@ impl<'t> Authorizer<'t> {
             self.world.rules.push(rule.convert(&mut self.symbols));
         }
 
-        for (_, mut check) in source_result.checks.into_iter() {
+        for (_, check) in source_result.checks.into_iter() {
+            let mut check: Check = check.into();
             for (name, value) in &params {
                 let res = match check.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -259,14 +269,16 @@ impl<'t> Authorizer<'t> {
             self.checks.push(check);
         }
 
-        for (_, mut policy) in source_result.policies.into_iter() {
+        for (_, policy) in source_result.policies.into_iter() {
+            let mut policy: Policy = policy.into();
             for (name, value) in &params {
                 let res = match policy.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -814,10 +826,12 @@ mod tests {
         let res = builder.add_fact(fact);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
@@ -827,20 +841,24 @@ mod tests {
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
         let res = builder.add_check(check);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
         policy.set("p3", true).unwrap();
@@ -848,10 +866,12 @@ mod tests {
         let res = builder.add_policy(policy);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
     }
 
@@ -873,10 +893,12 @@ mod tests {
 
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p3".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p3".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         )
     }
 

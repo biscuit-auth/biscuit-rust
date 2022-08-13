@@ -1,0 +1,18 @@
+[package]
+name = "biscuit-parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex = "0.4.3"
+nom = "7.1.1"
+quote = "1.0.21"
+serde = { version = "1.0.132", optional = true, features = ["derive"] }
+thiserror = "1.0.32"
+time = {version = "0.3.7", features = ["formatting", "parsing"]}
+
+[features]
+datalog-macro = []
+serde-error = ["serde"]

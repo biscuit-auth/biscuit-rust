@@ -43,8 +43,8 @@
 
 extern crate proc_macro;
 extern crate proc_macro_error;
-use biscuit_auth::{
-    builder::{BlockBuilder, Check, Fact, Policy, Rule},
+use biscuit_parser::{
+    builder::{Check, Fact, Policy, Rule},
     error,
     parser::{parse_block_source, parse_source},
 };
@@ -128,7 +128,9 @@ impl Parse for ParsedQuery {
 
 #[derive(Clone, Debug)]
 struct BlockBuilderWithParams {
-    pub builder: BlockBuilder,
+    pub facts: Vec<Fact>,
+    pub rules: Vec<Rule>,
+    pub checks: Vec<Check>,
     pub parameters: HashMap<String, Expr>,
 }
 
@@ -136,11 +138,13 @@ impl BlockBuilderWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
+        let mut facts = vec![];
+        let mut rules = vec![];
+        let mut checks = vec![];
         let mut datalog_parameters = HashSet::new();
         let macro_parameters = HashSet::from_iter(parameters.keys().map(|k| k.to_string()));
-        let mut builder = BlockBuilder::new();
         let source_result = parse_block_source(input)?;
 
         for (_, fact) in source_result.facts.into_iter() {
@@ -151,7 +155,7 @@ impl BlockBuilderWithParams {
                 }
             }
 
-            builder.facts.push(fact);
+            facts.push(fact);
         }
         for (_, rule) in source_result.rules.into_iter() {
             if let Some(params) = &rule.parameters.clone() {
@@ -160,7 +164,7 @@ impl BlockBuilderWithParams {
                     datalog_parameters.insert(p);
                 }
             }
-            builder.rules.push(rule);
+            rules.push(rule);
         }
         for (_, check) in source_result.checks.into_iter() {
             for query in check.queries.iter() {
@@ -171,12 +175,14 @@ impl BlockBuilderWithParams {
                     }
                 }
             }
-            builder.checks.push(check);
+            checks.push(check);
         }
 
         if datalog_parameters == macro_parameters {
             Ok(BlockBuilderWithParams {
-                builder,
+                facts,
+                rules,
+                checks,
                 parameters: parameters.clone(),
             })
         } else {
@@ -188,10 +194,10 @@ impl BlockBuilderWithParams {
                 .difference(&macro_parameters)
                 .map(|k| k.to_string())
                 .collect();
-            Err(error::Token::Language(error::LanguageError::Parameters {
+            Err(error::LanguageError::Parameters {
                 missing_parameters,
                 unused_parameters,
-            }))
+            })
         }
     }
 }
@@ -200,21 +206,21 @@ impl ToTokens for BlockBuilderWithParams {
     fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
         let param_names: Vec<String> = self.parameters.clone().into_keys().collect();
         let param_values: Vec<Expr> = self.parameters.clone().into_values().collect();
-        let facts_quote = self.builder.facts.iter().map(|f| {
+        let facts_quote = self.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
                 #(fact.set_lenient(#param_names, #param_values).unwrap();)*
                 builder.add_fact(fact).unwrap();
             }
         });
-        let rules_quote = self.builder.rules.iter().map(|r| {
+        let rules_quote = self.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
                 #(rule.set_lenient(#param_names, #param_values).unwrap();)*
                 builder.add_rule(rule).unwrap();
             }
         });
-        let checks_quote = self.builder.checks.iter().map(|c| {
+        let checks_quote = self.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
                 #(check.set_lenient(#param_names, #param_values).unwrap();)*
@@ -244,7 +250,7 @@ impl AuthorizerWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_source(input)?;
         let mut facts = Vec::new();
@@ -435,7 +441,7 @@ impl BiscuitWithParams {
     pub fn from_code<T: AsRef<str>>(
         source: T,
         parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::Token> {
+    ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_block_source(input)?;
         let mut facts = Vec::new();

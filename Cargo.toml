@@ -1,2 +1,2 @@
 [workspace]
-members = ["biscuit-auth/", "biscuit-auth-datalog-macros/"]
+members = ["biscuit-auth", "biscuit-quote", "biscuit-parser"]
