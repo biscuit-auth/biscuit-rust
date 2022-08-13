@@ -27,7 +27,7 @@
 //! ```rust
 //! extern crate biscuit_auth as biscuit;
 //!
-//! use biscuit::{KeyPair, Biscuit, Authorizer, builder::*, error};
+//! use biscuit::{KeyPair, Biscuit, Authorizer, builder::*, error, macros::*};
 //!
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
@@ -39,16 +39,14 @@
 //!   let token1 = {
 //!     // the first block of the token is the authority block. It contains global
 //!     // information like which operation types are available
-//!     let mut builder = Biscuit::builder();
+//!     let biscuit = biscuit!(r#"
+//!           right("/a/file1.txt", "read");
+//!           right("/a/file1.txt", "write");
+//!           right("/a/file2.txt", "read");
+//!           right("/b/file3.txt", "write");
+//!     "#)
+//!       .build(&root)?; // the first block is signed
 //!
-//!     // let's define some access rights
-//!     builder.add_fact("right(\"/a/file1.txt\", \"read\")")?;
-//!     builder.add_fact("right(\"/a/file1.txt\", \"write\")")?;
-//!     builder.add_fact("right(\"/a/file2.txt\", \"read\")")?;
-//!     builder.add_fact("right(\"/b/file3.txt\", \"write\")")?;
-//!
-//!     // we can now create the token
-//!     let biscuit = builder.build(&root)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?
@@ -63,14 +61,15 @@
 //!     // the token is deserialized, the signature is verified
 //!     let deser = Biscuit::from(&token1,  |_| root.public())?;
 //!
-//!     let mut builder = deser.create_block();
+//!     // biscuits can be attenuated by appending checks
+//!     let biscuit = deser.append(block!(r#"
+//!       // checks are implemented as logic rules. If the rule produces something,
+//!       // the check is successful
+//!       // here we verify the presence of a `resource` fact with a path set to "/a/file1.txt"
+//!       // and a read operation
+//!       check if resource("/a/file1.txt"), operation("read");
+//!     "#))?;
 //!
-//!     // checks are implemented as logic rules. If the rule produces something,
-//!     // the check is successful
-//!     builder.add_check("check if resource(\"/a/file1.txt\"), operation(\"read\")")?;
-//!
-//!     // we can now create a new token
-//!     let biscuit = deser.append(builder)?;
 //!     println!("biscuit (authority): {}", biscuit.print());
 //!
 //!     biscuit.to_vec()?
@@ -89,35 +88,39 @@
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let mut v1 = biscuit2.authorizer()?;
-//!   v1.add_fact("resource(\"/a/file1.txt\")")?;
-//!   v1.add_fact("operation(\"read\")")?;
-//!   // we will check that the token has the corresponding right
-//!   v1.add_check("check if right(\"/a/file1.txt\", \"read\")")?;
+//!   let v1 = authorizer!(r#"
+//!      resource("/a/file1.txt");
+//!      operation("read");
+//!      
+//!      // a verifier can come with allow/deny policies. While checks are all tested
+//!      // and must all succeeed, allow/deny policies are tried one by one in order,
+//!      // and we stop verification on the first that matches
+//!      //
+//!      // here we will check that the token has the corresponding right
+//!      allow if right("/a/file1.txt", "read");
+//!      // explicit catch-all deny. here it is not necessary: if no policy
+//!      // matches, a default deny applies
+//!      deny if true;
+//!   "#);
 //!
-//!   // we choose if we want to allow or deny access
-//!   // we can define a serie of allow/deny policies in the same
-//!   // format as checks
-//!   v1.allow();
+//!   let mut v2 = authorizer!(r#"
+//!      resource("/a/file1.txt");
+//!      operation("write");
+//!      allow if right("/a/file1.txt", "write");
+//!   "#);
+//!   
+//!   let mut v3 = authorizer!(r#"
+//!      resource("/a/file2.txt");
+//!      operation("read");
+//!      allow if right("/a/file2.txt", "read");
+//!   "#);
 //!
 //!   // the token restricts to read operations:
-//!   assert!(v1.authorize().is_ok());
-//!
-//!   let mut v2 = biscuit2.authorizer()?;
-//!   v2.add_fact("resource(\"/a/file1.txt\")")?;
-//!   v2.add_fact("operation(\"write\")")?;
-//!   v2.add_check("check if right(\"/a/file1.txt\", \"write\")")?;
-//!
-//!   // the second authorizer requested a read operation
-//!   assert!(v2.authorize().is_err());
-//!
-//!   let mut v3 = biscuit2.authorizer()?;
-//!   v3.add_fact("resource(\"/a/file2.txt\")")?;
-//!   v3.add_fact("operation(\"read\")")?;
-//!   v3.add_check("check if right(\"/a/file2.txt\", \"read\")")?;
-//!
-//!   // the third authorizer requests /a/file2.txt
-//!   assert!(v3.authorize().is_err());
+//!   assert!(biscuit2.authorize(&v1).is_ok());
+//!   // the second verifier requested a read operation
+//!   assert!(biscuit2.authorize(&v2).is_err());
+//!   // the third verifier requests /a/file2.txt
+//!   assert!(biscuit2.authorize(&v3).is_err());
 //!
 //!   Ok(())
 //! }
@@ -226,6 +229,7 @@ mod token;
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
 pub use token::authorizer::{Authorizer, AuthorizerLimits};
 pub use token::builder;
+pub use token::builder_ext;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
 

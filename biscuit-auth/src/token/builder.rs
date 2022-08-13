@@ -3,6 +3,7 @@ use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::KeyPair;
 use crate::datalog::{self, SymbolTable};
 use crate::error;
+use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
@@ -29,6 +30,21 @@ pub struct BlockBuilder {
 impl BlockBuilder {
     pub fn new() -> BlockBuilder {
         BlockBuilder::default()
+    }
+
+    pub fn append(&mut self, other: BlockBuilder) {
+        for fact in other.facts {
+            self.facts.push(fact);
+        }
+        for rule in other.rules {
+            self.rules.push(rule);
+        }
+        for check in other.checks {
+            self.checks.push(check);
+        }
+        if let Some(c) = other.context {
+            self.set_context(c);
+        }
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
@@ -185,79 +201,6 @@ impl BlockBuilder {
 
         let _ = self.add_check(check);
     }
-
-    /// checks the presence of a fact `resource($resource)`
-    pub fn check_resource(&mut self, resource: &str) {
-        let check = rule(
-            "resource_check",
-            &[string("resource_check")],
-            &[pred("resource", &[string(resource)])],
-        );
-
-        let _ = self.add_check(check);
-    }
-
-    /// checks the presence of a fact `operation($operation)`
-    pub fn check_operation(&mut self, operation: &str) {
-        let check = rule(
-            "operation_check",
-            &[string("operation_check")],
-            &[pred("operation", &[string(operation)])],
-        );
-
-        let _ = self.add_check(check);
-    }
-
-    pub fn resource_prefix(&mut self, prefix: &str) {
-        let check = constrained_rule(
-            "prefix",
-            &[var("resource")],
-            &[pred("resource", &[var("resource")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("resource")),
-                    Op::Value(string(prefix)),
-                    Op::Binary(Binary::Prefix),
-                ],
-            }],
-        );
-
-        let _ = self.add_check(check);
-    }
-
-    pub fn resource_suffix(&mut self, suffix: &str) {
-        let check = constrained_rule(
-            "suffix",
-            &[var("resource")],
-            &[pred("resource", &[var("resource")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("resource")),
-                    Op::Value(string(suffix)),
-                    Op::Binary(Binary::Suffix),
-                ],
-            }],
-        );
-
-        let _ = self.add_check(check);
-    }
-
-    pub fn expiration_date(&mut self, exp: SystemTime) {
-        let check = constrained_rule(
-            "expiration",
-            &[var("date")],
-            &[pred("time", &[var("date")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("date")),
-                    Op::Value(date(&exp)),
-                    Op::Binary(Binary::LessOrEqual),
-                ],
-            }],
-        );
-
-        let _ = self.add_check(check);
-    }
 }
 
 impl fmt::Display for BlockBuilder {
@@ -291,6 +234,10 @@ impl BiscuitBuilder {
             inner: BlockBuilder::new(),
             root_key_id: None,
         }
+    }
+
+    pub fn append(&mut self, other: BlockBuilder) {
+        self.inner.append(other)
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
@@ -1746,6 +1693,113 @@ impl FromStr for Policy {
             .finish()
             .map(|(_, o)| o.into())
             .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+    }
+}
+
+impl BuilderExt for BlockBuilder {
+    fn add_resource(&mut self, name: &str) {
+        self.facts.push(fact("resource", &[string(name)]));
+    }
+    fn check_resource(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "resource_check",
+                &[string("resource_check")],
+                &[pred("resource", &[string(name)])],
+            )],
+        });
+    }
+    fn add_operation(&mut self, name: &str) {
+        self.facts.push(fact("operation", &[string(name)]));
+    }
+    fn check_operation(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "operation_check",
+                &[string("operation_check")],
+                &[pred("operation", &[string(name)])],
+            )],
+        });
+    }
+    fn check_resource_prefix(&mut self, prefix: &str) {
+        let check = constrained_rule(
+            "prefix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(prefix)),
+                    Op::Binary(Binary::Prefix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_resource_suffix(&mut self, suffix: &str) {
+        let check = constrained_rule(
+            "suffix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(suffix)),
+                    Op::Binary(Binary::Suffix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_expiration_date(&mut self, exp: SystemTime) {
+        let check = constrained_rule(
+            "expiration",
+            &[var("date")],
+            &[pred("time", &[var("date")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("date")),
+                    Op::Value(date(&exp)),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+}
+
+impl BuilderExt for BiscuitBuilder {
+    fn add_resource(&mut self, name: &str) {
+        self.inner.add_resource(name);
+    }
+    fn check_resource(&mut self, name: &str) {
+        self.inner.check_resource(name);
+    }
+    fn check_resource_prefix(&mut self, prefix: &str) {
+        self.inner.check_resource_prefix(prefix);
+    }
+    fn check_resource_suffix(&mut self, suffix: &str) {
+        self.inner.check_resource_suffix(suffix);
+    }
+    fn add_operation(&mut self, name: &str) {
+        self.inner.add_operation(name);
+    }
+    fn check_operation(&mut self, name: &str) {
+        self.inner.check_operation(name);
+    }
+    fn check_expiration_date(&mut self, date: SystemTime) {
+        self.inner.check_expiration_date(date);
     }
 }
 

@@ -906,15 +906,8 @@ pub unsafe extern "C" fn biscuit_block_context(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_create_block(
-    biscuit: Option<&Biscuit>,
-) -> Option<Box<BlockBuilder>> {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-    }
-    let biscuit = biscuit?;
-
-    Some(Box::new(BlockBuilder(biscuit.0.create_block())))
+pub unsafe extern "C" fn create_block() -> Box<BlockBuilder> {
+    Box::new(BlockBuilder(crate::token::builder::BlockBuilder::new()))
 }
 
 #[no_mangle]

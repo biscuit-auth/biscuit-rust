@@ -26,8 +26,7 @@ mod capi {
                 Biscuit * biscuit = biscuit_builder_build(b, root_kp, (const uint8_t * ) seed, strlen(seed));
                 printf("biscuit creation error? %s\n", error_message());
 
-                BlockBuilder* bb = biscuit_create_block(biscuit);
-                printf("block builder creation error? %s\n", error_message());
+                BlockBuilder* bb = create_block();
                 block_builder_add_check(bb, "check if operation(\"read\")");
                 block_builder_add_fact(bb, "hello(\"world\")");
                 printf("builder add check error? %s\n", error_message());
@@ -100,7 +99,6 @@ mod capi {
 builder creation error? (null)
 builder add authority error? (null)
 biscuit creation error? (null)
-block builder creation error? (null)
 builder add check error? (null)
 biscuit append error? (null)
 authorizer creation error? (null)
