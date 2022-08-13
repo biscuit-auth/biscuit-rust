@@ -8,6 +8,7 @@ use crate::datalog::*;
 use crate::error;
 use crate::token::public_keys::PublicKeys;
 use crate::token::Scope;
+use crate::token::MIN_SCHEMA_VERSION;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
@@ -60,18 +61,16 @@ pub fn proto_block_to_token_block(
     let mut facts = vec![];
     let mut rules = vec![];
     let mut checks = vec![];
-    if version == crate::token::MIN_SCHEMA_VERSION {
-        for fact in input.facts_v2.iter() {
-            facts.push(v2::proto_fact_to_token_fact(fact)?);
-        }
+    for fact in input.facts_v2.iter() {
+        facts.push(v2::proto_fact_to_token_fact(fact)?);
+    }
 
-        for rule in input.rules_v2.iter() {
-            rules.push(v2::proto_rule_to_token_rule(rule)?.0);
-        }
+    for rule in input.rules_v2.iter() {
+        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
+    }
 
-        for check in input.checks_v2.iter() {
-            checks.push(v2::proto_check_to_token_check(check)?);
-        }
+    for check in input.checks_v2.iter() {
+        checks.push(v2::proto_check_to_token_check(check, version)?);
     }
 
     let context = input.context.clone();
@@ -81,6 +80,12 @@ pub fn proto_block_to_token_block(
 
     for pk in &input.public_keys {
         public_keys.insert_fallible(&PublicKey::from_proto(&pk)?)?;
+    }
+
+    if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: v3 blocks must not have scopes".to_string(),
+        ));
     }
 
     let scopes: Result<Vec<Scope>, _> =
@@ -153,15 +158,15 @@ pub fn proto_authorizer_to_authorizer(
     }
 
     for rule in input.rules.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule)?.0);
+        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
     }
 
     for check in input.checks.iter() {
-        checks.push(v2::proto_check_to_token_check(check)?);
+        checks.push(v2::proto_check_to_token_check(check, version)?);
     }
 
     for policy in input.policies.iter() {
-        policies.push(v2::proto_policy_to_policy(policy, &symbols)?);
+        policies.push(v2::proto_policy_to_policy(policy, &symbols, version)?);
     }
 
     Ok(AuthorizerPolicies {
@@ -179,6 +184,7 @@ pub mod v2 {
     use crate::datalog::*;
     use crate::error;
     use crate::token::Scope;
+    use crate::token::MIN_SCHEMA_VERSION;
     use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
@@ -199,11 +205,14 @@ pub mod v2 {
         }
     }
 
-    pub fn proto_check_to_token_check(input: &schema::CheckV2) -> Result<Check, error::Format> {
+    pub fn proto_check_to_token_check(
+        input: &schema::CheckV2,
+        version: u32,
+    ) -> Result<Check, error::Format> {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            queries.push(proto_rule_to_token_rule(q)?.0);
+            queries.push(proto_rule_to_token_rule(q, version)?.0);
         }
 
         Ok(Check { queries })
@@ -230,12 +239,13 @@ pub mod v2 {
     pub fn proto_policy_to_policy(
         input: &schema::Policy,
         symbols: &SymbolTable,
+        version: u32,
     ) -> Result<crate::token::builder::Policy, error::Format> {
         use schema::policy::Kind;
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            let (c, scopes) = proto_rule_to_token_rule(q)?;
+            let (c, scopes) = proto_rule_to_token_rule(q, version)?;
             let c = crate::token::builder::Rule::convert_from(&c, symbols)?;
             queries.push(c);
         }
@@ -279,6 +289,7 @@ pub mod v2 {
 
     pub fn proto_rule_to_token_rule(
         input: &schema::RuleV2,
+        version: u32,
     ) -> Result<(Rule, Vec<Scope>), error::Format> {
         let mut body = vec![];
 
@@ -290,6 +301,12 @@ pub mod v2 {
 
         for c in input.expressions.iter() {
             expressions.push(proto_expression_to_token_expression(c)?);
+        }
+
+        if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
+            return Err(error::Format::DeserializationError(
+                "deserialization error: v3 blocks must not have scopes".to_string(),
+            ));
         }
 
         let scopes: Result<Vec<_>, _> =
