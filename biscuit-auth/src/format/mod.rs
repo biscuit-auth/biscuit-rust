@@ -6,6 +6,7 @@
 //! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{self, KeyPair, PrivateKey, PublicKey, TokenNext};
 
+use ed25519_dalek::ed25519::signature::Signature;
 use prost::Message;
 
 use super::error;
@@ -333,6 +334,9 @@ impl SerializedBiscuit {
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
+        if let Some(signature) = &external_signature {
+            v.extend_from_slice(signature.signature.as_bytes());
+        }
 
         let signature = crypto::sign(&keypair, next_keypair, &v)?;
 
@@ -362,7 +366,12 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
-        let signature = crypto::sign(&keypair, next_keypair, &block)?;
+        let mut v = block.clone();
+        if let Some(signature) = &external_signature {
+            v.extend_from_slice(signature.signature.as_bytes());
+        }
+
+        let signature = crypto::sign(&keypair, next_keypair, &v)?;
 
         // Add new block
         let mut blocks = self.blocks.clone();

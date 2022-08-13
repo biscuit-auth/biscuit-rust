@@ -199,8 +199,14 @@ pub fn sign(
 }
 
 pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
+    use ed25519_dalek::ed25519::signature::Signature;
+
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
+
+    if let Some(signature) = block.external_signature.as_ref() {
+        to_verify.extend_from_slice(signature.signature.as_bytes());
+    }
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
