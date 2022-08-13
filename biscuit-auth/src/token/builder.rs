@@ -32,6 +32,21 @@ impl BlockBuilder {
         BlockBuilder::default()
     }
 
+    pub fn append(&mut self, other: BlockBuilder) {
+        for fact in other.facts {
+            self.facts.push(fact);
+        }
+        for rule in other.rules {
+            self.rules.push(rule);
+        }
+        for check in other.checks {
+            self.checks.push(check);
+        }
+        if let Some(c) = other.context {
+            self.set_context(c);
+        }
+    }
+
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
@@ -219,6 +234,10 @@ impl BiscuitBuilder {
             inner: BlockBuilder::new(),
             root_key_id: None,
         }
+    }
+
+    pub fn append(&mut self, other: BlockBuilder) {
+        self.inner.append(other)
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
