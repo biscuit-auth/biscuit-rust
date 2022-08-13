@@ -118,7 +118,8 @@ impl Request {
     pub fn create_response(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
-        let block = self.builder.build(symbols);
+        let mut block = self.builder.build(symbols);
+        block.version = super::MAX_SCHEMA_VERSION;
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)

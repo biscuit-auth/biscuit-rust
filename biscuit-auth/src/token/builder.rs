@@ -160,16 +160,22 @@ impl BlockBuilder {
         }
 
         let mut rules = Vec::new();
-        for rule in self.rules {
+        for rule in &self.rules {
             rules.push(rule.convert(&mut symbols));
         }
 
         let mut checks = Vec::new();
-        for check in self.checks {
+        for check in &self.checks {
             checks.push(check.convert(&mut symbols));
         }
         let new_syms = symbols.split_at(symbols_start);
         let public_keys = symbols.public_keys.split_at(public_keys_start);
+
+        let needs_scopes = !self.scopes.is_empty()
+            || (&self.rules).iter().any(|r: &Rule| !r.scopes.is_empty())
+            || (&self.checks)
+                .iter()
+                .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
         Block {
             symbols: new_syms,
@@ -177,7 +183,11 @@ impl BlockBuilder {
             rules,
             checks,
             context: self.context,
-            version: super::MAX_SCHEMA_VERSION,
+            version: if needs_scopes {
+                super::MAX_SCHEMA_VERSION
+            } else {
+                super::MIN_SCHEMA_VERSION
+            },
             external_key: None,
             public_keys,
             scopes: self
