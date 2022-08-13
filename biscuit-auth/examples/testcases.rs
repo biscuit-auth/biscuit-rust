@@ -4,7 +4,7 @@ extern crate biscuit_auth as biscuit;
 
 use biscuit::error;
 use biscuit::KeyPair;
-use biscuit::{builder::*, Biscuit};
+use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit_auth::datalog::SymbolTable;
 use prost::Message;
 use rand::prelude::*;
@@ -998,7 +998,7 @@ fn expired_token<T: Rng + CryptoRng>(
         ))
         .unwrap();
     // January 1 2019
-    block2.expiration_date(
+    block2.check_expiration_date(
         UNIX_EPOCH
             .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
             .unwrap(),

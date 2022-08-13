@@ -1,5 +1,9 @@
 //! Authorizer structure and associated functions
-use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
+use super::builder::{
+    constrained_rule, date, fact, pred, rule, string, var, Binary, Check, Expression, Fact, Op,
+    Policy, PolicyKind, Rule, Term,
+};
+use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::Biscuit;
 use crate::builder::Convert;
 use crate::datalog::{self, RunLimits};
@@ -783,6 +787,100 @@ impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
             max_iterations: limits.max_iterations,
             max_time: limits.max_time,
         }
+    }
+}
+
+impl BuilderExt for Authorizer<'_> {
+    fn add_resource(&mut self, name: &str) {
+        let f = fact("resource", &[string(name)]);
+        self.world.facts.insert(f.convert(&mut self.symbols));
+    }
+    fn check_resource(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "resource_check",
+                &[string("resource_check")],
+                &[pred("resource", &[string(name)])],
+            )],
+        });
+    }
+    fn add_operation(&mut self, name: &str) {
+        let f = fact("operation", &[string(name)]);
+        self.world.facts.insert(f.convert(&mut self.symbols));
+    }
+    fn check_operation(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "operation_check",
+                &[string("operation_check")],
+                &[pred("operation", &[string(name)])],
+            )],
+        });
+    }
+    fn check_resource_prefix(&mut self, prefix: &str) {
+        let check = constrained_rule(
+            "prefix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(prefix)),
+                    Op::Binary(Binary::Prefix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_resource_suffix(&mut self, suffix: &str) {
+        let check = constrained_rule(
+            "suffix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(suffix)),
+                    Op::Binary(Binary::Suffix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_expiration_date(&mut self, exp: SystemTime) {
+        let check = constrained_rule(
+            "expiration",
+            &[var("date")],
+            &[pred("time", &[var("date")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("date")),
+                    Op::Value(date(&exp)),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+}
+
+impl AuthorizerExt for Authorizer<'_> {
+    fn add_allow_all(&mut self) {
+        self.add_policy("allow if true").unwrap();
+    }
+    fn add_deny_all(&mut self) {
+        self.add_policy("deny if true").unwrap();
     }
 }
 

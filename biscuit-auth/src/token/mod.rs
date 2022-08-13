@@ -12,6 +12,7 @@ use authorizer::Authorizer;
 
 pub mod authorizer;
 pub mod builder;
+pub mod builder_ext;
 pub mod unverified;
 
 /// minimum supported version of the serialization format
@@ -33,7 +34,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// ```rust
 /// extern crate biscuit_auth as biscuit;
 ///
-/// use biscuit::{KeyPair, Biscuit, builder::*};
+/// use biscuit::{KeyPair, Biscuit, builder::*, builder_ext::*};
 ///
 /// fn main() {
 ///   let root = KeyPair::new();
@@ -481,6 +482,7 @@ impl Block {
 #[cfg(test)]
 mod tests {
     use super::builder::{check, fact, pred, rule, string, var};
+    use super::builder_ext::BuilderExt;
     use super::*;
     use crate::crypto::KeyPair;
     use crate::error::*;
@@ -668,7 +670,7 @@ mod tests {
 
         let mut block2 = BlockBuilder::new();
 
-        block2.resource_prefix("/folder1/");
+        block2.check_resource_prefix("/folder1/");
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -743,7 +745,7 @@ mod tests {
 
         let mut block2 = BlockBuilder::new();
 
-        block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
+        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -798,7 +800,7 @@ mod tests {
 
         let mut block2 = BlockBuilder::new();
 
-        block2.resource_prefix("/folder1/");
+        block2.check_resource_prefix("/folder1/");
         block2.check_right("read");
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -903,7 +905,7 @@ mod tests {
 
         let mut block2 = BlockBuilder::new();
 
-        block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
+        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -911,7 +913,7 @@ mod tests {
 
         let mut block3 = BlockBuilder::new();
 
-        block3.expiration_date(SystemTime::now() + Duration::from_secs(10));
+        block3.check_expiration_date(SystemTime::now() + Duration::from_secs(10));
         block3.add_fact("key(5678)").unwrap();
 
         let keypair3 = KeyPair::new_with_rng(&mut rng);
