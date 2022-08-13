@@ -63,7 +63,7 @@
 //!     // the token is deserialized, the signature is verified
 //!     let deser = Biscuit::from(&token1,  |_| root.public())?;
 //!
-//!     let mut builder = deser.create_block();
+//!     let mut builder = BlockBuilder::new();
 //!
 //!     // checks are implemented as logic rules. If the rule produces something,
 //!     // the check is successful

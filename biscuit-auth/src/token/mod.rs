@@ -50,7 +50,7 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   let token1 = builder.build(&root).unwrap();
 ///
 ///   // we can create a new block builder from that token
-///   let mut builder2 = token1.create_block();
+///   let mut builder2 = BlockBuilder::new();
 ///   builder2.check_operation("read");
 ///
 ///   let token2 = token1.append(builder2).unwrap();
@@ -145,11 +145,6 @@ impl Biscuit {
         let mut a = authorizer.clone();
         a.add_token(self)?;
         a.authorize()
-    }
-
-    /// creates a new block builder
-    pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new()
     }
 
     /// adds a new block to the token
@@ -522,7 +517,7 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, root.public).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = biscuit1_deser.create_block();
+            let mut block2 = BlockBuilder::new();
 
             block2.add_check(&rule(
                 "check1",
@@ -550,7 +545,7 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = biscuit1_deser.create_block();
+            let mut block2 = BlockBuilder::new();
 
             block2
                 .add_check(rule(
@@ -581,7 +576,7 @@ mod tests {
             let biscuit2_deser = Biscuit::from(&serialized2, |_| root.public()).unwrap();
 
             // new check: can only access file1
-            let mut block3 = biscuit2_deser.create_block();
+            let mut block3 = BlockBuilder::new();
 
             block3
                 .add_check(rule(
@@ -671,7 +666,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
 
         block2.resource_prefix("/folder1/");
         block2.check_right("read");
@@ -746,7 +741,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
 
         block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
@@ -801,7 +796,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
 
         block2.resource_prefix("/folder1/");
         block2.check_right("read");
@@ -906,7 +901,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
 
         block2.expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
@@ -914,7 +909,7 @@ mod tests {
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut block3 = biscuit2.create_block();
+        let mut block3 = BlockBuilder::new();
 
         block3.expiration_date(SystemTime::now() + Duration::from_secs(10));
         block3.add_fact("key(5678)").unwrap();
@@ -982,7 +977,7 @@ mod tests {
         println!("biscuit1 (authority): {}", biscuit1.print());
 
         // new check: can only have read access1
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
         block2.add_fact(fact("check1", &[string("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -1047,7 +1042,7 @@ mod tests {
             ])))
         );
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
         block2.add_fact(fact("name", &[string("test")])).unwrap();
 
         let keypair2 = KeyPair::new_with_rng(&mut rng);
@@ -1075,7 +1070,7 @@ mod tests {
 
         println!("biscuit1 (authority): {}", biscuit1.print());
 
-        let mut block2 = biscuit1.create_block();
+        let mut block2 = BlockBuilder::new();
         block2
             .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
@@ -1133,7 +1128,7 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, |_| root.public()).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = biscuit1_deser.create_block();
+            let mut block2 = BlockBuilder::new();
 
             // Bypass `check if operation("read")` from authority block
             block2
