@@ -17,7 +17,7 @@ fn create_block_1(b: &mut Bencher) {
     builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     let data = token.to_vec().unwrap();
 
@@ -30,7 +30,7 @@ fn create_block_1(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let data = token.to_vec().unwrap();
     });
@@ -47,11 +47,11 @@ fn append_block_2(b: &mut Bencher) {
     builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     let base_data = token.to_vec().unwrap();
 
-    let mut block_builder = token.create_block();
+    let mut block_builder = BlockBuilder::new();
     block_builder.check_resource("file1");
     block_builder.check_operation("read");
 
@@ -62,7 +62,7 @@ fn append_block_2(b: &mut Bencher) {
     assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token = Biscuit::from(&base_data, |_| root.public()).unwrap();
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -85,11 +85,11 @@ fn append_block_5(b: &mut Bencher) {
     builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     let base_data = token.to_vec().unwrap();
 
-    let mut block_builder = token.create_block();
+    let mut block_builder = BlockBuilder::new();
     block_builder.check_resource("file1");
     block_builder.check_operation("read");
 
@@ -100,7 +100,7 @@ fn append_block_5(b: &mut Bencher) {
     assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token2 = Biscuit::from(&data, |_| root.public()).unwrap();
-        let mut b = token2.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -108,7 +108,7 @@ fn append_block_5(b: &mut Bencher) {
         let data = token3.to_vec().unwrap();
 
         let token3 = Biscuit::from(&data, |_| root.public()).unwrap();
-        let mut b = token3.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -116,7 +116,7 @@ fn append_block_5(b: &mut Bencher) {
         let data = token4.to_vec().unwrap();
 
         let token4 = Biscuit::from(&data, |_| root.public()).unwrap();
-        let mut b = token4.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -136,11 +136,11 @@ fn unverified_append_block_2(b: &mut Bencher) {
     builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     let base_data = token.to_vec().unwrap();
 
-    let mut block_builder = token.create_block();
+    let mut block_builder = BlockBuilder::new();
     block_builder.check_resource("file1");
     block_builder.check_operation("read");
 
@@ -151,7 +151,7 @@ fn unverified_append_block_2(b: &mut Bencher) {
     assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token = UnverifiedBiscuit::from(&base_data).unwrap();
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -174,11 +174,11 @@ fn unverified_append_block_5(b: &mut Bencher) {
     builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
     let token = builder
-        .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     let base_data = token.to_vec().unwrap();
 
-    let mut block_builder = token.create_block();
+    let mut block_builder = BlockBuilder::new();
     block_builder.check_resource("file1");
     block_builder.check_operation("read");
 
@@ -189,7 +189,7 @@ fn unverified_append_block_5(b: &mut Bencher) {
     assert_eq!(b.bytes, 189);
     b.iter(|| {
         let token2 = UnverifiedBiscuit::from(&data).unwrap();
-        let mut b = token2.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -197,7 +197,7 @@ fn unverified_append_block_5(b: &mut Bencher) {
         let data = token3.to_vec().unwrap();
 
         let token3 = UnverifiedBiscuit::from(&data).unwrap();
-        let mut b = token3.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -205,7 +205,7 @@ fn unverified_append_block_5(b: &mut Bencher) {
         let data = token4.to_vec().unwrap();
 
         let token4 = UnverifiedBiscuit::from(&data).unwrap();
-        let mut b = token4.create_block();
+        let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
 
@@ -226,11 +226,11 @@ fn verify_block_2(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -271,17 +271,17 @@ fn verify_block_5(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
         let token2 = token.append_with_keypair(&keypair2, block_builder).unwrap();
 
-        let mut block_builder = token2.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -289,7 +289,7 @@ fn verify_block_5(b: &mut Bencher) {
             .append_with_keypair(&keypair3, block_builder)
             .unwrap();
 
-        let mut block_builder = token3.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -297,7 +297,7 @@ fn verify_block_5(b: &mut Bencher) {
             .append_with_keypair(&keypair4, block_builder)
             .unwrap();
 
-        let mut block_builder = token4.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -337,11 +337,11 @@ fn check_signature_2(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -377,16 +377,16 @@ fn check_signature_5(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
         let token2 = token.append_with_keypair(&keypair2, block_builder).unwrap();
-        let mut block_builder = token2.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -394,7 +394,7 @@ fn check_signature_5(b: &mut Bencher) {
             .append_with_keypair(&keypair3, block_builder)
             .unwrap();
 
-        let mut block_builder = token3.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -402,7 +402,7 @@ fn check_signature_5(b: &mut Bencher) {
             .append_with_keypair(&keypair4, block_builder)
             .unwrap();
 
-        let mut block_builder = token4.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -437,11 +437,11 @@ fn checks_block_2(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -479,11 +479,11 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 
@@ -517,11 +517,11 @@ fn checks_block_verify_only2(b: &mut Bencher) {
         builder.add_fact(fact("right", &[string("file1"), string("write")]));
 
         let token = builder
-            .build_with_rng(None, &root, SymbolTable::default(), &mut rng)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
         let base_data = token.to_vec().unwrap();
 
-        let mut block_builder = token.create_block();
+        let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
 

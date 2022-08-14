@@ -1,11 +1,16 @@
 //! Authorizer structure and associated functions
-use super::builder::{date, fact, Check, Fact, Policy, PolicyKind, Rule, Term};
+use super::builder::{
+    constrained_rule, date, fact, pred, rule, string, var, Binary, Check, Expression, Fact, Op,
+    Policy, PolicyKind, Rule, Term,
+};
+use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
+use crate::builder::Convert;
 use crate::crypto::PublicKey;
 use crate::datalog::{self, FactSet, Origin, RuleSet, RunLimits};
 use crate::error;
-use crate::parser::parse_source;
 use crate::time::Instant;
+use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
 use std::{
@@ -287,19 +292,25 @@ impl<'t> Authorizer<'t> {
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
-        let source_result = parse_source(input)?;
+        let source_result = parse_source(input).map_err(|e| {
+            let e2: biscuit_parser::error::LanguageError = e.into();
+            e2
+        })?;
 
         let mut origin = Origin::default();
         origin.insert(0);
 
-        for (_, mut fact) in source_result.facts.into_iter() {
+        for (_, fact) in source_result.facts.into_iter() {
+            let mut fact: Fact = fact.into();
+
             for (name, value) in &params {
                 let res = match fact.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -311,14 +322,16 @@ impl<'t> Authorizer<'t> {
                 .insert(&origin, fact.convert(&mut self.symbols));
         }
 
-        for (_, mut rule) in source_result.rules.into_iter() {
+        for (_, rule) in source_result.rules.into_iter() {
+            let mut rule: Rule = rule.into();
             for (name, value) in &params {
                 let res = match rule.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -326,10 +339,11 @@ impl<'t> Authorizer<'t> {
             for (name, value) in &scope_params {
                 let res = match rule.set_scope(&name, *value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -340,14 +354,16 @@ impl<'t> Authorizer<'t> {
                 .insert(&origin, rule.convert(&mut self.symbols));
         }
 
-        for (_, mut check) in source_result.checks.into_iter() {
+        for (_, check) in source_result.checks.into_iter() {
+            let mut check: Check = check.into();
             for (name, value) in &params {
                 let res = match check.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -355,10 +371,11 @@ impl<'t> Authorizer<'t> {
             for (name, value) in &scope_params {
                 let res = match check.set_scope(&name, *value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -367,14 +384,16 @@ impl<'t> Authorizer<'t> {
             self.checks.push(check);
         }
 
-        for (_, mut policy) in source_result.policies.into_iter() {
+        for (_, policy) in source_result.policies.into_iter() {
+            let mut policy: Policy = policy.into();
             for (name, value) in &params {
                 let res = match policy.set(&name, value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -382,10 +401,11 @@ impl<'t> Authorizer<'t> {
             for (name, value) in &scope_params {
                 let res = match policy.set_scope(&name, *value) {
                     Ok(_) => Ok(()),
-                    Err(error::Token::Language(error::LanguageError::Parameters {
-                        missing_parameters,
-                        ..
-                    })) if missing_parameters.is_empty() => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
                     Err(e) => Err(e),
                 };
                 res?;
@@ -935,6 +955,108 @@ impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
     }
 }
 
+impl BuilderExt for Authorizer<'_> {
+    fn add_resource(&mut self, name: &str) {
+        let f = fact("resource", &[string(name)]);
+        let mut origin = Origin::default();
+        origin.insert(0);
+        self.world
+            .facts
+            .insert(&origin, f.convert(&mut self.symbols));
+    }
+    fn check_resource(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "resource_check",
+                &[string("resource_check")],
+                &[pred("resource", &[string(name)])],
+            )],
+        });
+    }
+    fn add_operation(&mut self, name: &str) {
+        let f = fact("operation", &[string(name)]);
+        let mut origin = Origin::default();
+        origin.insert(0);
+        self.world
+            .facts
+            .insert(&origin, f.convert(&mut self.symbols));
+    }
+    fn check_operation(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "operation_check",
+                &[string("operation_check")],
+                &[pred("operation", &[string(name)])],
+            )],
+        });
+    }
+    fn check_resource_prefix(&mut self, prefix: &str) {
+        let check = constrained_rule(
+            "prefix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(prefix)),
+                    Op::Binary(Binary::Prefix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_resource_suffix(&mut self, suffix: &str) {
+        let check = constrained_rule(
+            "suffix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(suffix)),
+                    Op::Binary(Binary::Suffix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+
+    fn check_expiration_date(&mut self, exp: SystemTime) {
+        let check = constrained_rule(
+            "expiration",
+            &[var("date")],
+            &[pred("time", &[var("date")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("date")),
+                    Op::Value(date(&exp)),
+                    Op::Binary(Binary::LessOrEqual),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+        });
+    }
+}
+
+impl AuthorizerExt for Authorizer<'_> {
+    fn add_allow_all(&mut self) {
+        self.add_policy("allow if true").unwrap();
+    }
+    fn add_deny_all(&mut self) {
+        self.add_policy("deny if true").unwrap();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -985,10 +1107,12 @@ mod tests {
         let res = builder.add_fact(fact);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
@@ -998,20 +1122,24 @@ mod tests {
         let res = builder.add_rule(rule);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
         let res = builder.add_check(check);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
         let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
         policy.set("p3", true).unwrap();
@@ -1019,10 +1147,12 @@ mod tests {
         let res = builder.add_policy(policy);
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p4".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p4".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         );
     }
 
@@ -1045,10 +1175,12 @@ mod tests {
 
         assert_eq!(
             res,
-            Err(error::Token::Language(error::LanguageError::Parameters {
-                missing_parameters: vec!["p3".to_string()],
-                unused_parameters: vec![],
-            }))
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec!["p3".to_string()],
+                    unused_parameters: vec![],
+                }
+            ))
         )
     }
 

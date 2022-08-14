@@ -1,4 +1,4 @@
-extern crate biscuit_auth;
+//extern crate biscuit_auth;
 extern crate biscuit_quote;
 use biscuit_quote::{authorizer, biscuit, block};
 

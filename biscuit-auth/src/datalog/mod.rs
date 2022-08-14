@@ -1,4 +1,5 @@
 //! Logic language implementation for checks
+use crate::builder::Convert;
 use crate::time::Instant;
 use crate::token::Scope;
 use crate::{builder, error};

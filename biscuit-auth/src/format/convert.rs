@@ -181,6 +181,7 @@ pub fn proto_authorizer_to_authorizer(
 
 pub mod v2 {
     use super::schema;
+    use crate::builder::Convert;
     use crate::datalog::*;
     use crate::error;
     use crate::token::Scope;

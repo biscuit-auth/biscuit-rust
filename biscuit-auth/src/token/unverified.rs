@@ -87,11 +87,6 @@ impl UnverifiedBiscuit {
             .map(|v| base64::encode_config(v, base64::URL_SAFE))
     }
 
-    /// creates a new block builder
-    pub fn create_block(&self) -> BlockBuilder {
-        BlockBuilder::new()
-    }
-
     /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
         let container = SerializedBiscuit::deserialize(slice)?;

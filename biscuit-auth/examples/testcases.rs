@@ -4,7 +4,7 @@ extern crate biscuit_auth as biscuit;
 
 use biscuit::error;
 use biscuit::KeyPair;
-use biscuit::{builder::*, Biscuit};
+use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit_auth::datalog::SymbolTable;
 use prost::Message;
 use rand::prelude::*;
@@ -353,7 +353,7 @@ fn basic_token<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -427,7 +427,7 @@ fn different_root_key<T: Rng + CryptoRng>(
         .build_with_rng(&root2, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -501,7 +501,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -578,7 +578,7 @@ fn random_block<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -658,7 +658,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -737,7 +737,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -754,7 +754,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-    let mut block3 = biscuit2.create_block();
+    let mut block3 = BlockBuilder::new();
 
     block3
         .add_check(rule(
@@ -826,7 +826,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_rule(rule(
@@ -854,7 +854,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-    let mut block3 = biscuit2.create_block();
+    let mut block3 = BlockBuilder::new();
 
     block3
         .add_fact(fact("owner", &[string("alice"), string("file2")]))
@@ -919,7 +919,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -936,7 +936,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-    let mut block3 = biscuit2.create_block();
+    let mut block3 = BlockBuilder::new();
 
     block3
         .add_fact(fact("right", &[string("file2"), string("read")]))
@@ -996,7 +996,7 @@ fn expired_token<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -1006,7 +1006,7 @@ fn expired_token<T: Rng + CryptoRng>(
         ))
         .unwrap();
     // January 1 2019
-    block2.expiration_date(
+    block2.check_expiration_date(
         UNIX_EPOCH
             .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
             .unwrap(),
@@ -1079,7 +1079,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_fact(fact("right", &[string("file2"), string("read")]))
@@ -1289,7 +1289,7 @@ fn block_rules<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     // timestamp for Thursday, December 31, 2030 12:59:59 PM UTC
     let date1 = SystemTime::UNIX_EPOCH + Duration::from_secs(1924952399);
@@ -1592,7 +1592,7 @@ fn check_head_name<T: Rng + CryptoRng>(
 
     //println!("biscuit1 (authority): {}", biscuit1.print());
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
     block2.add_fact(fact("check1", &[string("test")])).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -1780,7 +1780,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_rule(rule(
@@ -1848,7 +1848,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_rule(rule(
@@ -1922,7 +1922,7 @@ fn sealed_token<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2
         .add_check(rule(
@@ -2109,14 +2109,14 @@ fn execution_scope<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = biscuit1.create_block();
+    let mut block2 = BlockBuilder::new();
 
     block2.add_fact("block1_fact(1)").unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-    let mut block3 = biscuit2.create_block();
+    let mut block3 = BlockBuilder::new();
 
     block3.add_check("check if authority_fact($var)").unwrap();
     block3.add_check("check if block1_fact($var)").unwrap();

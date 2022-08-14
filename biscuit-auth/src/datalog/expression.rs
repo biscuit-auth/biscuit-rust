@@ -3,9 +3,6 @@ use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::HashMap;
 
-#[cfg(feature = "datalog-macro")]
-use quote::{quote, ToTokens};
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
     pub ops: Vec<Op>,
@@ -48,17 +45,6 @@ impl Unary {
             Unary::Parens => format!("({})", value),
             Unary::Length => format!("{}.length()", value),
         }
-    }
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Unary {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        tokens.extend(match self {
-            Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
-            Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
-            Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
-        });
     }
 }
 
@@ -220,31 +206,6 @@ impl Binary {
             Binary::Intersection => format!("{}.intersection({})", left, right),
             Binary::Union => format!("{}.union({})", left, right),
         }
-    }
-}
-
-#[cfg(feature = "datalog-macro")]
-impl ToTokens for Binary {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        tokens.extend(match self {
-            Binary::LessThan => quote! { ::biscuit_auth::datalog::Binary::LessThan  },
-            Binary::GreaterThan => quote! { ::biscuit_auth::datalog::Binary::GreaterThan  },
-            Binary::LessOrEqual => quote! { ::biscuit_auth::datalog::Binary::LessOrEqual  },
-            Binary::GreaterOrEqual => quote! { ::biscuit_auth::datalog::Binary::GreaterOrEqual  },
-            Binary::Equal => quote! { ::biscuit_auth::datalog::Binary::Equal  },
-            Binary::Contains => quote! { ::biscuit_auth::datalog::Binary::Contains  },
-            Binary::Prefix => quote! { ::biscuit_auth::datalog::Binary::Prefix  },
-            Binary::Suffix => quote! { ::biscuit_auth::datalog::Binary::Suffix  },
-            Binary::Regex => quote! { ::biscuit_auth::datalog::Binary::Regex  },
-            Binary::Add => quote! { ::biscuit_auth::datalog::Binary::Add  },
-            Binary::Sub => quote! { ::biscuit_auth::datalog::Binary::Sub  },
-            Binary::Mul => quote! { ::biscuit_auth::datalog::Binary::Mul  },
-            Binary::Div => quote! { ::biscuit_auth::datalog::Binary::Div  },
-            Binary::And => quote! { ::biscuit_auth::datalog::Binary::And  },
-            Binary::Or => quote! { ::biscuit_auth::datalog::Binary::Or  },
-            Binary::Intersection => quote! { ::biscuit_auth::datalog::Binary::Intersection  },
-            Binary::Union => quote! { ::biscuit_auth::datalog::Binary::Union  },
-        });
     }
 }
 
