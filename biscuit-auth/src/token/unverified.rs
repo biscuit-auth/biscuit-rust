@@ -148,8 +148,7 @@ impl UnverifiedBiscuit {
         }
 
         let deser = schema::Block::decode(
-            &self
-                .container
+            &container
                 .blocks
                 .last()
                 .expect("a new block was just added so the list is not empty")
