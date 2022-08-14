@@ -178,9 +178,9 @@ impl<'t> Authorizer<'t> {
             }
 
             for rule in block.rules.iter().cloned() {
-                if let Err(_message) = rule.validate_variables(&token.symbols) {
+                if let Err(_message) = rule.validate_variables(&block_symbols) {
                     return Err(
-                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(&rule)).into(),
                     );
                 }
                 let rule = rule.translate(&block_symbols, &mut self.symbols)?;
