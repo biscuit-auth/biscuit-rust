@@ -213,8 +213,13 @@ impl UnverifiedBiscuit {
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Result<String, error::Token> {
         let block = self.authorizer_block(index)?;
+        let symbols = if block.external_key.is_some() {
+            &block.symbols
+        } else {
+            &self.symbols
+        };
 
-        Ok(block.print_source(&self.symbols))
+        Ok(block.print_source(symbols))
     }
 
     /// creates a sealed version of the token
