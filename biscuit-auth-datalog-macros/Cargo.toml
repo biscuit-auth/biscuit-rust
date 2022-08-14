@@ -11,6 +11,7 @@ proc-macro = true
 
 [dependencies]
 biscuit-auth = { path = "../biscuit-auth", features = ["datalog-macro"], version = "2.2.0" }
+hex = "0.4"
 quote = "1.0.14"
 syn = { version = "1.0.85", features = ["full", "extra-traits"] }
 proc-macro-error = "1.0"
