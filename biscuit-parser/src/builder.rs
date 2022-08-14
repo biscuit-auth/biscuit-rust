@@ -74,12 +74,9 @@ impl ToTokens for Scope {
             Scope::Authority => quote! { ::biscuit_auth::builder::Scope::Authority},
             Scope::Previous => quote! { ::biscuit_auth::builder::Scope::Previous},
             Scope::PublicKey(pk) => {
-                // we go through
-                //let encoded = hex::encode(pk);
-                // rustc complains about `pk` not being used (I guess because of the quote! macro)
-                // so it's named _pk to silence the warning.
+                let bytes = pk.iter();
                 quote! { ::biscuit_auth::builder::Scope::PublicKey(
-                  ::biscuit_auth::crypto::PublicKey.from_bytes(#(_pk.to_bytes())).unwrap()
+                  ::biscuit_auth::PublicKey::from_bytes(&[#(#bytes),*]).unwrap()
                 )}
             }
             Scope::Parameter(v) => {
