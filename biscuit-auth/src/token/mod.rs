@@ -234,8 +234,14 @@ impl Biscuit {
 
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Result<String, error::Token> {
-        self.block(index)
-            .map(|block| block.print_source(&self.symbols))
+        self.block(index).map(|block| {
+            let symbols = if block.external_key.is_some() {
+                &block.symbols
+            } else {
+                &self.symbols
+            };
+            block.print_source(symbols)
+        })
     }
 
     /// creates a new token, using a provided CSPRNG
