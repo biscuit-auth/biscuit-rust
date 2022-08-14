@@ -186,7 +186,14 @@ impl Rule {
                         .map(|e| e.convert(target_symbols))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            scopes: self.scopes.clone(),
+            scopes: self
+                .scopes
+                .iter()
+                .map(|s| {
+                    builder::Scope::convert_from(s, origin_symbols)
+                        .map(|s| s.convert(target_symbols))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 
