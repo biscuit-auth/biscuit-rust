@@ -4,7 +4,9 @@ extern crate bencher;
 extern crate biscuit_auth as biscuit;
 
 use bencher::Bencher;
-use biscuit::{builder::*, datalog::SymbolTable, Biscuit, KeyPair, UnverifiedBiscuit};
+use biscuit::{
+    builder::*, builder_ext::BuilderExt, datalog::SymbolTable, Biscuit, KeyPair, UnverifiedBiscuit,
+};
 use rand::rngs::OsRng;
 
 fn create_block_1(b: &mut Bencher) {
