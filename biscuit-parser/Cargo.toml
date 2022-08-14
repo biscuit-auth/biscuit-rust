@@ -1,9 +1,14 @@
 [package]
 name = "biscuit-parser"
-version = "0.1.0"
+version = "0.1.0-alpha1"
 edition = "2021"
+authors = ["Clément Delafargue <clement@delafargue.name>", "Geoffroy Couprie <contact@geoffroycouprie.com>"]
+description = "Datalog parser used in the biscuit-auth and biscuit-quote crates"
+license = "Apache-2.0"
+documentation = "https://docs.rs/biscuit-auth"
+homepage = "https://github.com/biscuit-auth/biscuit"
+repository = "https://github.com/biscuit-auth/biscuit-rust"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 hex = "0.4.3"
