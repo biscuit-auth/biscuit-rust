@@ -32,6 +32,7 @@ pub struct Authorizer<'t> {
     policies: Vec<Policy>,
     token: Option<&'t Biscuit>,
     blocks: Vec<Block>,
+    public_key_to_block_id: HashMap<usize, Vec<usize>>,
 }
 
 impl<'t> Authorizer<'t> {
@@ -63,6 +64,7 @@ impl<'t> Authorizer<'t> {
             policies: vec![],
             token: None,
             blocks: vec![],
+            public_key_to_block_id: HashMap::new(),
         })
     }
 
@@ -108,6 +110,7 @@ impl<'t> Authorizer<'t> {
             policies,
             token: None,
             blocks: vec![],
+            public_key_to_block_id: HashMap::new(),
         })
     }
 
@@ -116,15 +119,23 @@ impl<'t> Authorizer<'t> {
         if self.token.is_some() {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
-        //FIXME: can the authorizer already have a set of known public keys?
-        self.symbols
-            .public_keys
-            .extend(&token.symbols.public_keys)?;
+
+        for (key_id, block_ids) in &token.public_key_to_block_id {
+            let key = token
+                .symbols
+                .public_keys
+                .get_key(*key_id as u64)
+                .ok_or(error::Format::UnknownExternalKey)?;
+            let new_key_id = self.symbols.public_keys.insert(key);
+
+            self.public_key_to_block_id
+                .insert(new_key_id as usize, block_ids.clone());
+        }
 
         let mut blocks = Vec::new();
 
         let authority = token.block(0)?;
-        let origin = authority.origins(0, Some(&token.public_key_to_block_id));
+        let origin = authority.origins(0, Some(&self.public_key_to_block_id));
 
         // add authority facts and rules right away to make them available to queries
         for fact in authority.facts.iter().cloned() {
@@ -143,7 +154,7 @@ impl<'t> Authorizer<'t> {
             if rule.scopes.is_empty() {
                 self.world.rules.insert(&origin, rule);
             } else {
-                let origin = rule.origins(0, Some(&token.public_key_to_block_id));
+                let origin = rule.origins(0, Some(&self.public_key_to_block_id));
                 self.world.rules.insert(&origin, rule);
             }
         }
@@ -159,7 +170,7 @@ impl<'t> Authorizer<'t> {
                 &block.symbols
             };
 
-            let origin = block.origins(i, Some(&token.public_key_to_block_id));
+            let origin = block.origins(i, Some(&self.public_key_to_block_id));
 
             for fact in block.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &block_symbols)?.convert(&mut self.symbols);
@@ -167,9 +178,9 @@ impl<'t> Authorizer<'t> {
             }
 
             for rule in block.rules.iter().cloned() {
-                if let Err(_message) = rule.validate_variables(&token.symbols) {
+                if let Err(_message) = rule.validate_variables(&block_symbols) {
                     return Err(
-                        error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(&rule)).into(),
                     );
                 }
                 let rule = rule.translate(&block_symbols, &mut self.symbols)?;
@@ -177,7 +188,7 @@ impl<'t> Authorizer<'t> {
                 if rule.scopes.is_empty() {
                     self.world.rules.insert(&origin, rule);
                 } else {
-                    let origin = rule.origins(i, Some(&token.public_key_to_block_id));
+                    let origin = rule.origins(i, Some(&self.public_key_to_block_id));
 
                     self.world.rules.insert(&origin, rule);
                 }
@@ -641,7 +652,7 @@ impl<'t> Authorizer<'t> {
                 let origin = if query.scopes.is_empty() {
                     origin.clone()
                 } else {
-                    query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                    query.origins(0, Some(&self.public_key_to_block_id))
                 };
                 let res = self.world.query_match(query, &origin, &self.symbols);
 
@@ -667,7 +678,7 @@ impl<'t> Authorizer<'t> {
         }
 
         if let Some(token) = self.token.as_ref() {
-            let origin = self.blocks[0].origins(0, Some(&token.public_key_to_block_id));
+            let origin = self.blocks[0].origins(0, Some(&self.public_key_to_block_id));
 
             for (j, check) in self.blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
@@ -679,7 +690,7 @@ impl<'t> Authorizer<'t> {
                     let origin = if query.scopes.is_empty() {
                         origin.clone()
                     } else {
-                        query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                        query.origins(0, Some(&self.public_key_to_block_id))
                     };
                     let res = self
                         .world
@@ -712,7 +723,7 @@ impl<'t> Authorizer<'t> {
                 let origin = if query.scopes.is_empty() {
                     origin.clone()
                 } else {
-                    query.origins(0, self.token.as_ref().map(|t| &t.public_key_to_block_id))
+                    query.origins(0, Some(&self.public_key_to_block_id))
                 };
                 let res = self.world.query_match(query, &origin, &self.symbols);
 
@@ -740,7 +751,7 @@ impl<'t> Authorizer<'t> {
                     &block.symbols
                 };
 
-                let origin = block.origins(i + 1, Some(&token.public_key_to_block_id));
+                let origin = block.origins(i + 1, Some(&self.public_key_to_block_id));
 
                 self.world
                     .run_with_limits(&self.symbols, RunLimits::default())
@@ -755,10 +766,7 @@ impl<'t> Authorizer<'t> {
                         let origin = if query.scopes.is_empty() {
                             origin.clone()
                         } else {
-                            query.origins(
-                                i + 1,
-                                self.token.as_ref().map(|t| &t.public_key_to_block_id),
-                            )
+                            query.origins(i + 1, Some(&self.public_key_to_block_id))
                         };
 
                         let res = self
@@ -1059,6 +1067,8 @@ impl AuthorizerExt for Authorizer<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::KeyPair;
+
     use super::*;
 
     #[test]
@@ -1224,5 +1234,52 @@ mod tests {
 
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].0, "John Doe");
+    }
+
+    #[test]
+    fn authorizer_with_scopes() {
+        let root = KeyPair::new();
+        let external = KeyPair::new();
+        let external_pub = hex::encode(external.public().to_bytes());
+
+        let mut builder = Biscuit::builder();
+
+        builder.add_fact("right(\"read\")").unwrap();
+        builder
+            .add_check(
+                format!("check if group(\"admin\") trusting ed25519/{external_pub}").as_str(),
+            )
+            .unwrap();
+
+        let biscuit1 = builder.build(&root).unwrap();
+
+        let mut req = biscuit1.third_party_request().unwrap();
+
+        req.add_fact("group(\"admin\")").unwrap();
+        req.add_check("check if right(\"read\")").unwrap();
+        let res = req.create_response(external.private()).unwrap();
+        let biscuit2 = biscuit1
+            .append_third_party(external.public(), &res[..])
+            .unwrap();
+
+        let mut authorizer = Authorizer::new().unwrap();
+        let external2 = KeyPair::new();
+        let external2_pub = hex::encode(external2.public().to_bytes());
+        authorizer
+            .add_rule(
+                format!("right($right) <- has($right) trusting ed25519/{external2_pub}").as_str(),
+            )
+            .unwrap();
+
+        authorizer.add_token(&biscuit2).unwrap();
+
+        authorizer.add_allow_all();
+        println!("token:\n{}", biscuit2.print());
+        println!("world:\n{}", authorizer.print_world());
+
+        let res = authorizer.authorize();
+        println!("world after:\n{}", authorizer.print_world());
+
+        res.unwrap();
     }
 }
