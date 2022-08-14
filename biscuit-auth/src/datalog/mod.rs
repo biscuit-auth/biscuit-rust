@@ -1,13 +1,18 @@
 //! Logic language implementation for checks
+use crate::builder::Convert;
 use crate::time::Instant;
+use crate::token::Scope;
+use crate::{builder, error};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod expression;
+mod origin;
 mod symbol;
 pub use expression::*;
+pub use origin::*;
 pub use symbol::*;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
@@ -75,11 +80,12 @@ impl Fact {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
+    pub scopes: Vec<Scope>,
 }
 
 impl AsRef<Expression> for Expression {
@@ -113,15 +119,19 @@ impl Rule {
             .collect::<HashSet<_>>()
     }
 
-    pub fn apply<'a>(
+    pub fn apply<'a, IT>(
         &'a self,
-        facts: &'a HashSet<Fact>,
+        facts: IT,
+        rule_origin: &'a Origin,
         symbols: &'a SymbolTable,
-    ) -> impl Iterator<Item = Fact> + 'a {
+    ) -> impl Iterator<Item = (Origin, Fact)> + 'a
+    where
+        IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
+    {
         let head = self.head.clone();
         let variables = MatchedVariables::new(self.variables_set());
 
-        CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(move |h| {
+        CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(move |(origin,h)| {
             let mut p = head.clone();
             for index in 0..p.terms.len() {
                 match &p.terms[index] {
@@ -136,47 +146,146 @@ impl Rule {
                 };
             }
 
-            Some(Fact { predicate: p })
+            Some((origin.union(rule_origin), Fact { predicate: p }))
         })
     }
 
-    pub fn find_match(&self, facts: &HashSet<Fact>, symbols: &SymbolTable) -> bool {
-        let mut it = self.apply(facts, symbols);
+    pub fn find_match(&self, facts: &FactSet, origin: &Origin, symbols: &SymbolTable) -> bool {
+        let fact_it = facts.iterator(origin);
+        let mut it = self.apply(fact_it, origin, symbols);
 
         let next = it.next();
         next.is_some()
     }
+
+    // use this to translate rules and checks from token to authorizer world without translating
+    // to a builder Rule first, because the builder Rule can contain a public key, so we would
+    // need to loo up then retranslate that key, while the datalog rule does not need to know about
+    // the key (the scope is driven by the authorizer's side)
+    pub fn translate(
+        &self,
+        origin_symbols: &SymbolTable,
+        target_symbols: &mut SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(Rule {
+            head: builder::Predicate::convert_from(&self.head, origin_symbols)?
+                .convert(target_symbols),
+            body: self
+                .body
+                .iter()
+                .map(|p| {
+                    builder::Predicate::convert_from(p, origin_symbols)
+                        .map(|p| p.convert(target_symbols))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            expressions: self
+                .expressions
+                .iter()
+                .map(|c| {
+                    builder::Expression::convert_from(c, origin_symbols)
+                        .map(|e| e.convert(target_symbols))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            scopes: self.scopes.clone(),
+        })
+    }
+
+    pub fn validate_variables(&self, symbols: &SymbolTable) -> Result<(), String> {
+        let mut head_variables: std::collections::HashSet<u32> = self
+            .head
+            .terms
+            .iter()
+            .filter_map(|term| match term {
+                Term::Variable(s) => Some(*s),
+                _ => None,
+            })
+            .collect();
+
+        for predicate in self.body.iter() {
+            for term in predicate.terms.iter() {
+                if let Term::Variable(v) = term {
+                    head_variables.remove(v);
+                    if head_variables.is_empty() {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        if head_variables.is_empty() {
+            Ok(())
+        } else {
+            Err(format!(
+                    "rule head contains variables that are not used in predicates of the rule's body: {}",
+                    head_variables
+                    .iter()
+                    .map(|s| format!("${}", symbols.print_symbol_default(*s as u64)))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    ))
+        }
+    }
+
+    pub(crate) fn origins(
+        &self,
+        index: usize,
+        public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
+    ) -> Origin {
+        let mut origins = Origin::default();
+
+        for scope in &self.scopes {
+            match scope {
+                Scope::Authority => {
+                    origins.insert(0);
+                }
+                Scope::Previous => origins.extend(0..index + 1),
+                Scope::PublicKey(key_id) => {
+                    origins.insert(index);
+                    if let Some(map) = public_key_to_block_id {
+                        if let Some(block_ids) = map.get(&(*key_id as usize)) {
+                            origins.extend(block_ids.iter())
+                        }
+                    }
+                }
+            }
+        }
+        origins
+    }
 }
 
 /// recursive iterator for rule application
-pub struct CombineIt<'a> {
+pub struct CombineIt<'a, IT> {
     variables: MatchedVariables,
     predicates: &'a [Predicate],
     expressions: &'a [Expression],
-    all_facts: &'a HashSet<Fact>,
+    all_facts: IT,
     symbols: &'a SymbolTable,
-    current_facts: Box<dyn Iterator<Item = &'a Fact> + 'a>,
-    current_it: Option<Box<CombineIt<'a>>>,
+    current_facts: Box<dyn Iterator<Item = (&'a Origin, &'a Fact)> + 'a>,
+    current_it: Option<Box<dyn Iterator<Item = (Origin, HashMap<u32, Term>)> + 'a>>,
 }
 
-impl<'a> CombineIt<'a> {
+impl<'a, IT> CombineIt<'a, IT>
+where
+    IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
+{
     pub fn new(
         variables: MatchedVariables,
         predicates: &'a [Predicate],
         expressions: &'a [Expression],
-        facts: &'a HashSet<Fact>,
+        facts: IT,
         symbols: &'a SymbolTable,
     ) -> Self {
-        let current_facts: Box<dyn Iterator<Item = &'a Fact> + 'a> = if predicates.is_empty() {
-            Box::new(facts.iter())
-        } else {
-            let p = predicates[0].clone();
-            Box::new(
-                facts
-                    .iter()
-                    .filter(move |fact| match_preds(&p, &fact.predicate)),
-            )
-        };
+        let current_facts: Box<dyn Iterator<Item = (&'a Origin, &'a Fact)> + 'a> =
+            if predicates.is_empty() {
+                Box::new(facts.clone())
+            } else {
+                let p = predicates[0].clone();
+                Box::new(
+                    facts
+                        .clone()
+                        .filter(move |fact| match_preds(&p, &fact.1.predicate)),
+                )
+            };
 
         CombineIt {
             variables,
@@ -190,14 +299,16 @@ impl<'a> CombineIt<'a> {
     }
 }
 
-impl<'a> Iterator for CombineIt<'a> {
-    type Item = HashMap<u32, Term>;
+impl<'a, IT> Iterator for CombineIt<'a, IT>
+where
+    IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
+    Self: 'a,
+{
+    type Item = (Origin, HashMap<u32, Term>);
 
-    fn next(&mut self) -> Option<HashMap<u32, Term>> {
+    fn next(&mut self) -> Option<(Origin, HashMap<u32, Term>)> {
         // if we're the last iterator in the recursive chain, stop here
         if self.predicates.is_empty() {
-            //return None;
-            //return self.variables.complete();
             match self.variables.complete() {
                 None => return None,
                 // we got a complete set of variables, let's test the expressions
@@ -217,7 +328,12 @@ impl<'a> Iterator for CombineIt<'a> {
                     }
 
                     if valid {
-                        return Some(variables);
+                        // if there were no predicates and expressions evaluated to true,
+                        // we should return a value, but only once. To prevent further
+                        // successful calls, we create a set of variables that cannot
+                        // possibly be completed, so the next call will fail
+                        self.variables = MatchedVariables::new([0].into());
+                        return Some((Origin::default(), variables));
                     } else {
                         return None;
                     }
@@ -231,7 +347,7 @@ impl<'a> Iterator for CombineIt<'a> {
                 let pred = &self.predicates[0];
 
                 loop {
-                    if let Some(current_fact) = self.current_facts.next() {
+                    if let Some((current_origin, current_fact)) = self.current_facts.next() {
                         // create a new MatchedVariables in which we fix variables we could unify
                         // from our first predicate and the current fact
                         let mut vars = self.variables.clone();
@@ -278,7 +394,7 @@ impl<'a> Iterator for CombineIt<'a> {
                                     }
 
                                     if valid {
-                                        return Some(variables);
+                                        return Some((current_origin.clone(), variables));
                                     } else {
                                         continue;
                                     }
@@ -287,13 +403,18 @@ impl<'a> Iterator for CombineIt<'a> {
                         } else {
                             // create a new iterator with the matched variables, the rest of the predicates,
                             // and all of the facts
-                            self.current_it = Some(Box::new(CombineIt::new(
-                                vars,
-                                &self.predicates[1..],
-                                self.expressions,
-                                self.all_facts,
-                                self.symbols,
-                            )));
+                            self.current_it = Some(Box::new(
+                                CombineIt::new(
+                                    vars,
+                                    &self.predicates[1..],
+                                    self.expressions,
+                                    self.all_facts.clone(),
+                                    self.symbols,
+                                )
+                                .map(move |(origin, variables)| {
+                                    (origin.union(current_origin), variables)
+                                }),
+                            ));
                         }
                         break;
                     } else {
@@ -306,8 +427,8 @@ impl<'a> Iterator for CombineIt<'a> {
                 break None;
             }
 
-            if let Some(val) = self.current_it.as_mut().and_then(|it| it.next()) {
-                break Some(val);
+            if let Some((origin, variables)) = self.current_it.as_mut().and_then(|it| it.next()) {
+                break Some((origin, variables));
             } else {
                 self.current_it = None;
             }
@@ -316,17 +437,21 @@ impl<'a> Iterator for CombineIt<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MatchedVariables(pub HashMap<u32, Option<Term>>);
+pub struct MatchedVariables {
+    pub variables: HashMap<u32, Option<Term>>,
+}
 
 impl MatchedVariables {
     pub fn new(import: HashSet<u32>) -> Self {
-        MatchedVariables(import.iter().map(|key| (*key, None)).collect())
+        MatchedVariables {
+            variables: import.iter().map(|key| (*key, None)).collect(),
+        }
     }
 
     pub fn insert(&mut self, key: u32, value: &Term) -> bool {
-        match self.0.get(&key) {
+        match self.variables.get(&key) {
             Some(None) => {
-                self.0.insert(key, Some(value.clone()));
+                self.variables.insert(key, Some(value.clone()));
                 true
             }
             Some(Some(v)) => value == v,
@@ -335,12 +460,12 @@ impl MatchedVariables {
     }
 
     pub fn is_complete(&self) -> bool {
-        self.0.values().all(|v| v.is_some())
+        self.variables.values().all(|v| v.is_some())
     }
 
     pub fn complete(&self) -> Option<HashMap<u32, Term>> {
         let mut result = HashMap::new();
-        for (k, v) in self.0.iter() {
+        for (k, v) in self.variables.iter() {
             match v {
                 Some(value) => result.insert(*k, value.clone()),
                 None => return None,
@@ -375,6 +500,7 @@ pub fn rule<I: AsRef<Term>, P: AsRef<Predicate>>(
         head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: Vec::new(),
+        scopes: vec![],
     }
 }
 
@@ -388,6 +514,7 @@ pub fn expressed_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Expression>>
         head: pred(head_name, head_terms),
         body: predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions: expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        scopes: vec![],
     }
 }
 
@@ -430,10 +557,10 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
             })
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct World {
-    pub facts: HashSet<Fact>,
-    pub rules: Vec<Rule>,
+    pub facts: FactSet,
+    pub rules: RuleSet,
 }
 
 impl World {
@@ -441,12 +568,12 @@ impl World {
         World::default()
     }
 
-    pub fn add_fact(&mut self, fact: Fact) {
-        self.facts.insert(fact);
+    pub fn add_fact(&mut self, origin: &Origin, fact: Fact) {
+        self.facts.insert(origin, fact);
     }
 
-    pub fn add_rule(&mut self, rule: Rule) {
-        self.rules.push(rule);
+    pub fn add_rule(&mut self, origin: &Origin, rule: Rule) {
+        self.rules.insert(origin, rule);
     }
 
     pub fn run(&mut self, symbols: &SymbolTable) -> Result<(), crate::error::RunLimit> {
@@ -463,15 +590,18 @@ impl World {
         let mut index = 0;
 
         loop {
-            let mut new_facts: Vec<Fact> = Vec::new();
+            let mut new_facts = FactSet::default();
 
-            for rule in self.rules.iter() {
-                new_facts.extend(rule.apply(&self.facts, symbols));
-                //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
+            for (origin, rules) in self.rules.inner.iter() {
+                let it = self.facts.iterator(origin);
+                for rule in rules {
+                    new_facts.extend(rule.apply(it.clone(), origin, symbols));
+                    //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
+                }
             }
 
             let len = self.facts.len();
-            self.facts.extend(new_facts.drain(..));
+            self.facts.merge(new_facts);
             if self.facts.len() == len {
                 break;
             }
@@ -494,7 +624,7 @@ impl World {
         Ok(())
     }
 
-    pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
+    /*pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
         self.facts
             .iter()
             .filter(|f| {
@@ -516,16 +646,18 @@ impl World {
                     })
             })
             .collect::<Vec<_>>()
-    }
+    }*/
 
-    pub fn query_rule(&self, rule: Rule, symbols: &SymbolTable) -> Vec<Fact> {
-        let mut new_facts: Vec<Fact> = Vec::new();
-        new_facts.extend(rule.apply(&self.facts, symbols));
+    pub fn query_rule(&self, rule: Rule, origin: &Origin, symbols: &SymbolTable) -> FactSet {
+        let mut new_facts = FactSet::default();
+        let it = self.facts.iterator(origin);
+        new_facts.extend(rule.apply(it, origin, symbols));
+
         new_facts
     }
 
-    pub fn query_match(&self, rule: Rule, symbols: &SymbolTable) -> bool {
-        rule.find_match(&self.facts, symbols)
+    pub fn query_match(&self, rule: Rule, origin: &Origin, symbols: &SymbolTable) -> bool {
+        rule.find_match(&self.facts, origin, symbols)
     }
 }
 
@@ -542,6 +674,109 @@ impl std::default::Default for RunLimits {
             max_iterations: 100,
             max_time: Duration::from_millis(1),
         }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FactSet {
+    pub(crate) inner: HashMap<Origin, HashSet<Fact>>,
+}
+
+impl FactSet {
+    pub fn insert(&mut self, origin: &Origin, fact: Fact) {
+        match self.inner.get_mut(origin) {
+            None => {
+                let mut set = HashSet::new();
+                set.insert(fact);
+                self.inner.insert(origin.clone(), set);
+            }
+            Some(set) => {
+                set.insert(fact);
+            }
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.values().fold(0, |acc, set| acc + set.len())
+    }
+
+    pub fn iterator<'a>(
+        &'a self,
+        block_ids: &'a Origin,
+    ) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+        self.inner
+            .iter()
+            .filter_map(move |(ids, facts)| {
+                if block_ids.is_superset(ids) {
+                    Some(facts.iter().map(move |fact| (ids, fact)))
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+        self.inner
+            .iter()
+            .map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
+            .flatten()
+    }
+
+    pub fn merge(&mut self, other: FactSet) {
+        for (origin, facts) in other.inner {
+            let entry = self.inner.entry(origin).or_default();
+            entry.extend(facts.into_iter());
+        }
+    }
+}
+
+impl Extend<(Origin, Fact)> for FactSet {
+    fn extend<T: IntoIterator<Item = (Origin, Fact)>>(&mut self, iter: T) {
+        for (origin, fact) in iter {
+            let entry = self.inner.entry(origin).or_default();
+            entry.insert(fact);
+        }
+    }
+}
+
+impl IntoIterator for FactSet {
+    type Item = (Origin, Fact);
+
+    type IntoIter = Box<dyn Iterator<Item = (Origin, Fact)>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(
+            self.inner
+                .into_iter()
+                .map(move |(ids, facts)| facts.into_iter().map(move |fact| (ids.clone(), fact)))
+                .flatten(),
+        )
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RuleSet {
+    pub inner: HashMap<Origin, Vec<Rule>>,
+}
+
+impl RuleSet {
+    pub fn insert(&mut self, origin: &Origin, rule: Rule) {
+        match self.inner.get_mut(origin) {
+            None => {
+                self.inner.insert(origin.clone(), vec![rule]);
+            }
+            Some(set) => {
+                set.push(rule);
+            }
+        }
+    }
+
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Rule)> + Clone {
+        self.inner
+            .iter()
+            .map(move |(ids, rules)| rules.iter().map(move |rule| (ids, rule)))
+            .flatten()
     }
 }
 
@@ -562,9 +797,9 @@ mod tests {
         let parent = syms.insert("parent");
         let grandparent = syms.insert("grandparent");
 
-        w.add_fact(fact(parent, &[&a, &b]));
-        w.add_fact(fact(parent, &[&b, &c]));
-        w.add_fact(fact(parent, &[&c, &d]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&a, &b]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&b, &c]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &d]));
 
         let r1 = rule(
             grandparent,
@@ -583,7 +818,7 @@ mod tests {
 
         println!("symbols: {:?}", syms);
         println!("testing r1: {}", syms.print_rule(&r1));
-        let query_rule_result = w.query_rule(r1, &syms);
+        let query_rule_result = w.query_rule(r1, &[0].iter().collect(), &syms);
         println!("grandparents query_rules: {:?}", query_rule_result);
         println!("current facts: {:?}", w.facts);
 
@@ -603,39 +838,76 @@ mod tests {
         );
 
         println!("adding r2: {}", syms.print_rule(&r2));
-        w.add_rule(r2);
+        w.add_rule(&[0].iter().collect(), r2);
 
         w.run(&syms).unwrap();
 
         println!("parents:");
-        let res = w.query(pred(
-            parent,
-            &[var(&mut syms, "parent"), var(&mut syms, "child")],
-        ));
-        for fact in res {
-            println!("\t{}", syms.print_fact(fact));
+        let res = w.query_rule(
+            rule::<Term, Predicate>(
+                parent,
+                &[var(&mut syms, "parent"), var(&mut syms, "child")],
+                &[pred(
+                    parent,
+                    &[var(&mut syms, "parent"), var(&mut syms, "child")],
+                )],
+            ),
+            &[0].iter().collect(),
+            &syms,
+        );
+
+        for (origin, fact) in res.iterator(&[0].iter().collect()) {
+            println!("\t{:?}\t{}", origin, syms.print_fact(fact));
         }
 
         println!(
             "parents of B: {:?}",
-            w.query(pred(parent, &[&var(&mut syms, "parent"), &b]))
+            w.query_rule(
+                rule::<&Term, Predicate>(
+                    parent,
+                    &[&var(&mut syms, "parent"), &b],
+                    &[pred(parent, &[&var(&mut syms, "parent"), &b])]
+                ),
+                &[0].iter().collect(),
+                &syms
+            )
         );
         println!(
             "grandparents: {:?}",
-            w.query(pred(
-                grandparent,
-                &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]
-            ))
+            w.query_rule(
+                rule::<Term, Predicate>(
+                    grandparent,
+                    &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
+                    &[pred(
+                        grandparent,
+                        &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")]
+                    )]
+                ),
+                &[0].iter().collect(),
+                &syms
+            )
         );
-        w.add_fact(fact(parent, &[&c, &e]));
+        w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &e]));
         w.run(&syms).unwrap();
-        let mut res = w.query(pred(
-            grandparent,
-            &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
-        ));
+        let res = w.query_rule(
+            rule::<Term, Predicate>(
+                grandparent,
+                &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
+                &[pred(
+                    grandparent,
+                    &[var(&mut syms, "grandparent"), var(&mut syms, "grandchild")],
+                )],
+            ),
+            &[0].iter().collect(),
+            &syms,
+        );
         println!("grandparents after inserting parent(C, E): {:?}", res);
 
-        let res = res.drain(..).cloned().collect::<HashSet<_>>();
+        let res = res
+            .iter_all()
+            .map(|(_origin, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![
             fact(grandparent, &[&a, &c]),
             fact(grandparent, &[&b, &d]),
@@ -672,15 +944,15 @@ mod tests {
         let t2 = syms.insert("t2");
         let join = syms.insert("join");
 
-        w.add_fact(fact(t1, &[&int(0), &abc]));
-        w.add_fact(fact(t1, &[&int(1), &def]));
-        w.add_fact(fact(t1, &[&int(2), &ghi]));
-        w.add_fact(fact(t1, &[&int(3), &jkl]));
-        w.add_fact(fact(t1, &[&int(4), &mno]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(0), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(1), &def]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(2), &ghi]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(3), &jkl]));
+        w.add_fact(&[0].iter().collect(), fact(t1, &[&int(4), &mno]));
 
-        w.add_fact(fact(t2, &[&int(0), &aaa, &int(0)]));
-        w.add_fact(fact(t2, &[&int(1), &bbb, &int(0)]));
-        w.add_fact(fact(t2, &[&int(2), &ccc, &int(1)]));
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(0), &aaa, &int(0)]));
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(1), &bbb, &int(0)]));
+        w.add_fact(&[0].iter().collect(), fact(t2, &[&int(2), &ccc, &int(1)]));
 
         let res = w.query_rule(
             rule(
@@ -698,13 +970,18 @@ mod tests {
                     ),
                 ],
             ),
+            &[0].iter().collect(),
             &syms,
         );
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_origin, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![
             fact(join, &[&abc, &aaa]),
             fact(join, &[&abc, &bbb]),
@@ -738,13 +1015,18 @@ mod tests {
                     ],
                 }],
             ),
+            &[0].iter().collect(),
             &syms,
         );
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_origin, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(join, &[&abc, &aaa]), fact(join, &[&abc, &bbb])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -767,11 +1049,26 @@ mod tests {
         let www_example = syms.add("www.example.com");
         let mx_example = syms.add("mx.example.com");
 
-        w.add_fact(fact(route, &[&int(0), &app_0, &example]));
-        w.add_fact(fact(route, &[&int(1), &app_1, &test_com]));
-        w.add_fact(fact(route, &[&int(2), &app_2, &test_fr]));
-        w.add_fact(fact(route, &[&int(3), &app_0, &www_example]));
-        w.add_fact(fact(route, &[&int(4), &app_1, &mx_example]));
+        w.add_fact(
+            &[0].iter().collect(),
+            fact(route, &[&int(0), &app_0, &example]),
+        );
+        w.add_fact(
+            &[0].iter().collect(),
+            fact(route, &[&int(1), &app_1, &test_com]),
+        );
+        w.add_fact(
+            &[0].iter().collect(),
+            fact(route, &[&int(2), &app_2, &test_fr]),
+        );
+        w.add_fact(
+            &[0].iter().collect(),
+            fact(route, &[&int(3), &app_0, &www_example]),
+        );
+        w.add_fact(
+            &[0].iter().collect(),
+            fact(route, &[&int(4), &app_1, &mx_example]),
+        );
 
         fn test_suffix(
             w: &World,
@@ -801,8 +1098,12 @@ mod tests {
                         ],
                     }],
                 ),
+                &[0].iter().collect(),
                 &syms,
             )
+            .iter_all()
+            .map(|(_, fact)| fact.clone())
+            .collect()
         }
 
         let res = test_suffix(&w, &mut syms, suff, route, ".fr");
@@ -852,8 +1153,8 @@ mod tests {
         let before = syms.insert("before");
         let after = syms.insert("after");
 
-        w.add_fact(fact(x, &[&date(&t1), &abc]));
-        w.add_fact(fact(x, &[&date(&t3), &def]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&date(&t1), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&date(&t3), &def]));
 
         let r1 = expressed_rule(
             before,
@@ -878,12 +1179,16 @@ mod tests {
         );
 
         println!("testing r1: {}", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &syms);
-        for fact in &res {
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_origin, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(before, &[&date(&t1), &abc])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -912,12 +1217,16 @@ mod tests {
         );
 
         println!("testing r2: {}", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &syms);
-        for fact in &res {
+        let res = w.query_rule(r2, &[0].iter().collect(), &syms);
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(after, &[&date(&t3), &def])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -939,8 +1248,8 @@ mod tests {
         let hello = syms.add("hello");
         let aaa = syms.add("zzz");
 
-        w.add_fact(fact(x, &[&abc, &int(0), &test]));
-        w.add_fact(fact(x, &[&def, &int(2), &hello]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&abc, &int(0), &test]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&def, &int(2), &hello]));
 
         let res = w.query_rule(
             expressed_rule(
@@ -967,14 +1276,19 @@ mod tests {
                     ],
                 }],
             ),
+            &[0].iter().collect(),
             &syms,
         );
 
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(int_set, &[&abc, &test])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -1010,14 +1324,19 @@ mod tests {
                     ],
                 }],
             ),
+            &[0].iter().collect(),
             &syms,
         );
 
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(symbol_set, &[&def, &int(2), &hello])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -1047,13 +1366,18 @@ mod tests {
                     ],
                 }],
             ),
+            &[0].iter().collect(),
             &syms,
         );
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         let compared = (vec![fact(string_set, &[&abc, &int(0), &test])])
             .drain(..)
             .collect::<HashSet<_>>();
@@ -1075,19 +1399,23 @@ mod tests {
         let check1 = syms.insert("check1");
         let check2 = syms.insert("check2");
 
-        w.add_fact(fact(resource, &[&file2]));
-        w.add_fact(fact(operation, &[&write]));
-        w.add_fact(fact(right, &[&file1, &read]));
-        w.add_fact(fact(right, &[&file2, &read]));
-        w.add_fact(fact(right, &[&file1, &write]));
+        w.add_fact(&[0].iter().collect(), fact(resource, &[&file2]));
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&write]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file1, &read]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file2, &read]));
+        w.add_fact(&[0].iter().collect(), fact(right, &[&file1, &write]));
 
-        let res = w.query_rule(rule(check1, &[&file1], &[pred(resource, &[&file1])]), &syms);
+        let res = w.query_rule(
+            rule(check1, &[&file1], &[pred(resource, &[&file1])]),
+            &[0].iter().collect(),
+            &syms,
+        );
 
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.is_empty());
+        assert!(res.len() == 0);
 
         let res = w.query_rule(
             rule(
@@ -1099,14 +1427,15 @@ mod tests {
                     pred(right, &[&Term::Variable(0), &read]),
                 ],
             ),
+            &[0].iter().collect(),
             &syms,
         );
 
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.is_empty());
+        assert!(res.len() == 0);
     }
 
     #[test]
@@ -1119,8 +1448,8 @@ mod tests {
         let x = syms.insert("x");
         let less_than = syms.insert("less_than");
 
-        w.add_fact(fact(x, &[&int(-2), &abc]));
-        w.add_fact(fact(x, &[&int(0), &def]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&int(-2), &abc]));
+        w.add_fact(&[0].iter().collect(), fact(x, &[&int(0), &def]));
 
         let r1 = expressed_rule(
             less_than,
@@ -1141,18 +1470,21 @@ mod tests {
 
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &syms);
-        for fact in &res {
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        let res2 = res.iter().cloned().collect::<HashSet<_>>();
+        let res2 = res
+            .iter_all()
+            .map(|(_, fact)| fact)
+            .cloned()
+            .collect::<HashSet<_>>();
         println!("got res: {:?}", res2);
         let compared = (vec![fact(less_than, &[&int(0), &def])])
             .drain(..)
             .collect::<HashSet<_>>();
         assert_eq!(res2, compared);
-        //panic!();
     }
 
     #[test]
@@ -1168,7 +1500,7 @@ mod tests {
         let any1 = var(&mut syms, "any1");
         let any2 = var(&mut syms, "any2");
 
-        w.add_fact(fact(operation, &[&write]));
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&write]));
 
         let r1 = rule(
             operation,
@@ -1177,28 +1509,28 @@ mod tests {
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, &syms);
+        let res = w.query_rule(r1, &[0].iter().collect(), &syms);
 
         println!("generated facts:");
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.is_empty());
+        assert!(res.len() == 0);
 
         // operation($unbound, "read") should not have been generated
         // in case it is generated though, verify that rule application
         // will not match it
-        w.add_fact(fact(operation, &[&unbound, &read]));
+        w.add_fact(&[0].iter().collect(), fact(operation, &[&unbound, &read]));
         let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
-        let res = w.query_rule(r2, &syms);
+        let res = w.query_rule(r2, &[0].iter().collect(), &syms);
 
         println!("generated facts:");
-        for fact in &res {
+        for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
-        assert!(res.is_empty());
+        assert!(res.len() == 0);
     }
 }

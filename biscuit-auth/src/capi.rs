@@ -22,6 +22,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl From<crate::error::Token> for Error {
+    fn from(error: crate::error::Token) -> Self {
+        Error::Biscuit(error)
+    }
+}
+
 thread_local! {
     static LAST_ERROR: RefCell<Option<Error>> = RefCell::new(None);
 }
@@ -67,7 +73,12 @@ pub enum ErrorKind {
     FormatBlockDeserializationError,
     FormatBlockSerializationError,
     FormatVersion,
-    SymbolTableOverlap,
+    FormatInvalidBlockId,
+    FormatExistingPublicKey,
+    FormatSymbolTableOverlap,
+    FormatPublicKeyTableOverlap,
+    FormatUnknownExternalKey,
+    FormatUnknownSymbol,
     AppendOnSealed,
     LogicInvalidBlockRule,
     LogicUnauthorized,
@@ -132,7 +143,20 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::Format(Format::BlockSignatureDeserializationError(_)) => {
                         ErrorKind::FormatBlockSignatureDeserializationError
                     }
-                    Token::SymbolTableOverlap => ErrorKind::SymbolTableOverlap,
+                    Token::Format(Format::InvalidBlockId(_)) => ErrorKind::FormatInvalidBlockId,
+                    Token::Format(Format::ExistingPublicKey(_)) => {
+                        ErrorKind::FormatExistingPublicKey
+                    }
+                    Token::Format(Format::SymbolTableOverlap) => {
+                        ErrorKind::FormatSymbolTableOverlap
+                    }
+                    Token::Format(Format::PublicKeyTableOverlap) => {
+                        ErrorKind::FormatPublicKeyTableOverlap
+                    }
+                    Token::Format(Format::UnknownExternalKey) => {
+                        ErrorKind::FormatUnknownExternalKey
+                    }
+                    Token::Format(Format::UnknownSymbol(_)) => ErrorKind::FormatUnknownSymbol,
                     Token::AppendOnSealed => ErrorKind::AppendOnSealed,
                     Token::AlreadySealed => ErrorKind::AlreadySealed,
                     Token::Language(_) => ErrorKind::LanguageError,
@@ -684,17 +708,15 @@ pub unsafe extern "C" fn biscuit_block_fact_count(
 
     let biscuit = biscuit.unwrap();
 
-    if block_index == 0 {
-        biscuit.0.authority.facts.len()
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b.facts.len(),
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return 0;
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return 0;
         }
-    }
+    };
+
+    block.facts.len()
 }
 
 #[no_mangle]
@@ -709,17 +731,15 @@ pub unsafe extern "C" fn biscuit_block_rule_count(
 
     let biscuit = biscuit.unwrap();
 
-    if block_index == 0 {
-        biscuit.0.authority.rules.len()
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b.rules.len(),
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return 0;
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return 0;
         }
-    }
+    };
+
+    block.rules.len()
 }
 
 #[no_mangle]
@@ -734,17 +754,15 @@ pub unsafe extern "C" fn biscuit_block_check_count(
 
     let biscuit = biscuit.unwrap();
 
-    if block_index == 0 {
-        biscuit.0.authority.checks.len()
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b.checks.len(),
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return 0;
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return 0;
         }
-    }
+    };
+
+    block.checks.len()
 }
 
 #[no_mangle]
@@ -760,15 +778,11 @@ pub unsafe extern "C" fn biscuit_block_fact(
 
     let biscuit = biscuit.unwrap();
 
-    let block = if block_index == 0 {
-        &biscuit.0.authority
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b,
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return std::ptr::null_mut();
         }
     };
 
@@ -800,15 +814,11 @@ pub unsafe extern "C" fn biscuit_block_rule(
 
     let biscuit = biscuit.unwrap();
 
-    let block = if block_index == 0 {
-        &biscuit.0.authority
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b,
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return std::ptr::null_mut();
         }
     };
 
@@ -840,15 +850,11 @@ pub unsafe extern "C" fn biscuit_block_check(
 
     let biscuit = biscuit.unwrap();
 
-    let block = if block_index == 0 {
-        &biscuit.0.authority
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b,
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
+    let block = match biscuit.0.block(block_index as usize) {
+        Ok(block) => block,
+        Err(e) => {
+            update_last_error(e.into());
+            return std::ptr::null_mut();
         }
     };
 

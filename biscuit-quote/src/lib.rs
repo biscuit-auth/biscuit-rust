@@ -209,21 +209,21 @@ impl ToTokens for BlockBuilderWithParams {
         let facts_quote = self.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
-                #(fact.set_lenient(#param_names, #param_values).unwrap();)*
+                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_fact(fact).unwrap();
             }
         });
         let rules_quote = self.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
-                #(rule.set_lenient(#param_names, #param_values).unwrap();)*
+                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_rule(rule).unwrap();
             }
         });
         let checks_quote = self.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
-                #(check.set_lenient(#param_names, #param_values).unwrap();)*
+                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_check(check).unwrap();
             }
         });
@@ -288,28 +288,28 @@ impl ToTokens for AuthorizerWithParams {
         let facts_quote = self.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
-                #(fact.set_lenient(#param_names, #param_values).unwrap();)*
+                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_fact(fact).unwrap();
             }
         });
         let rules_quote = self.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
-                #(rule.set_lenient(#param_names, #param_values).unwrap();)*
+                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_rule(rule).unwrap();
             }
         });
         let checks_quote = self.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
-                #(check.set_lenient(#param_names, #param_values).unwrap();)*
+                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_check(check).unwrap();
             }
         });
         let policies_quote = self.policies.iter().map(|p| {
             quote! {
                 let mut policy = #p;
-                #(policy.set_lenient(#param_names, #param_values).unwrap();)*
+                #(policy.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_policy(policy).unwrap();
             }
         });
@@ -474,21 +474,21 @@ impl ToTokens for BiscuitWithParams {
         let facts_quote = self.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
-                #(fact.set_lenient(#param_names, #param_values).unwrap();)*
+                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_fact(fact).unwrap();
             }
         });
         let rules_quote = self.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
-                #(rule.set_lenient(#param_names, #param_values).unwrap();)*
+                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_rule(rule).unwrap();
             }
         });
         let checks_quote = self.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
-                #(check.set_lenient(#param_names, #param_values).unwrap();)*
+                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
                 builder.add_check(check).unwrap();
             }
         });

@@ -59,6 +59,33 @@ impl ToTokens for Term {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Scope {
+    Authority,
+    Previous,
+    PublicKey(PublicKey),
+    Parameter(String),
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for Scope {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            Scope::Authority => quote! { ::biscuit_auth::builder::Scope::Authority},
+            Scope::Previous => quote! { ::biscuit_auth::builder::Scope::Previous},
+            Scope::PublicKey(pk) => {
+                let bytes = pk.iter();
+                quote! { ::biscuit_auth::builder::Scope::PublicKey(
+                  ::biscuit_auth::PublicKey::from_bytes(&[#(#bytes),*]).unwrap()
+                )}
+            }
+            Scope::Parameter(v) => {
+                quote! { ::biscuit_auth::builder::Scope::Parameter(#v.to_string())}
+            }
+        })
+    }
+}
+
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -228,6 +255,8 @@ impl ToTokens for Binary {
     }
 }
 
+pub type PublicKey = Vec<u8>;
+
 /// Builder for a Datalog rule
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule {
@@ -235,11 +264,20 @@ pub struct Rule {
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
     pub parameters: Option<HashMap<String, Option<Term>>>,
+    pub scopes: Vec<Scope>,
+    pub scope_parameters: Option<HashMap<String, Option<PublicKey>>>,
 }
 
 impl Rule {
-    pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
+    pub fn new(
+        head: Predicate,
+        body: Vec<Predicate>,
+        expressions: Vec<Expression>,
+        scopes: Vec<Scope>,
+    ) -> Rule {
         let mut parameters = HashMap::new();
+        let mut scope_parameters = HashMap::new();
+
         for term in &head.terms {
             if let Term::Parameter(name) = &term {
                 parameters.insert(name.to_string(), None);
@@ -262,11 +300,19 @@ impl Rule {
             }
         }
 
+        for scope in &scopes {
+            if let Scope::Parameter(name) = &scope {
+                scope_parameters.insert(name.to_string(), None);
+            }
+        }
+
         Rule {
             head,
             body,
             expressions,
             parameters: Some(parameters),
+            scopes,
+            scope_parameters: Some(scope_parameters),
         }
     }
 
@@ -313,11 +359,13 @@ impl ToTokens for Rule {
         let head = &self.head;
         let body = self.body.iter();
         let expressions = self.expressions.iter();
+        let scopes = self.scopes.iter();
         tokens.extend(quote! {
           ::biscuit_auth::builder::Rule::new(
             #head,
             <[::biscuit_auth::builder::Predicate]>::into_vec(Box::new([#(#body),*])),
-            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*]))
+            <[::biscuit_auth::builder::Expression]>::into_vec(Box::new([#(#expressions),*])),
+            <[::biscuit_auth::builder::Scope]>::into_vec(Box::new([#(#scopes),*]))
           )
         });
     }
@@ -406,6 +454,7 @@ pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         Vec::new(),
+        vec![],
     )
 }
 
@@ -420,6 +469,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        vec![],
     )
 }
 
@@ -430,7 +480,8 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
         queries: vec![Rule::new(
             pred("query", empty_terms),
             predicates.iter().map(|p| p.as_ref().clone()).collect(),
-            Vec::new(),
+            vec![],
+            vec![],
         )],
     }
 }

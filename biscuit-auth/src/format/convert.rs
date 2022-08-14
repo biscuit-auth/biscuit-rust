@@ -1,8 +1,14 @@
 //! helper functions for conversion between internal structures and Protobuf
 
+use self::v2::proto_scope_to_token_scope;
+
 use super::schema;
+use crate::crypto::PublicKey;
 use crate::datalog::*;
 use crate::error;
+use crate::token::public_keys::PublicKeys;
+use crate::token::Scope;
+use crate::token::MIN_SCHEMA_VERSION;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
@@ -25,10 +31,24 @@ pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
             .iter()
             .map(v2::token_check_to_proto_check)
             .collect(),
+        scope: input
+            .scopes
+            .iter()
+            .map(v2::token_scope_to_proto_scope)
+            .collect(),
+        public_keys: input
+            .public_keys
+            .keys
+            .iter()
+            .map(|key| key.to_proto())
+            .collect(),
     }
 }
 
-pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error::Format> {
+pub fn proto_block_to_token_block(
+    input: &schema::Block,
+    external_key: Option<PublicKey>,
+) -> Result<Block, error::Format> {
     let version = input.version.unwrap_or(0);
     if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
         return Err(error::Format::Version {
@@ -41,23 +61,35 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
     let mut facts = vec![];
     let mut rules = vec![];
     let mut checks = vec![];
-    if version == crate::token::MIN_SCHEMA_VERSION {
-        for fact in input.facts_v2.iter() {
-            facts.push(v2::proto_fact_to_token_fact(fact)?);
-        }
+    for fact in input.facts_v2.iter() {
+        facts.push(v2::proto_fact_to_token_fact(fact)?);
+    }
 
-        for rule in input.rules_v2.iter() {
-            rules.push(v2::proto_rule_to_token_rule(rule)?);
-        }
+    for rule in input.rules_v2.iter() {
+        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
+    }
 
-        for check in input.checks_v2.iter() {
-            checks.push(v2::proto_check_to_token_check(check)?);
-        }
+    for check in input.checks_v2.iter() {
+        checks.push(v2::proto_check_to_token_check(check, version)?);
     }
 
     let context = input.context.clone();
 
-    let symbols = SymbolTable::from(input.symbols.clone());
+    let symbols = SymbolTable::from(input.symbols.clone())?;
+    let mut public_keys = PublicKeys::new();
+
+    for pk in &input.public_keys {
+        public_keys.insert_fallible(&PublicKey::from_proto(&pk)?)?;
+    }
+
+    if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: v3 blocks must not have scopes".to_string(),
+        ));
+    }
+
+    let scopes: Result<Vec<Scope>, _> =
+        input.scope.iter().map(proto_scope_to_token_scope).collect();
 
     Ok(Block {
         symbols,
@@ -66,6 +98,9 @@ pub fn proto_block_to_token_block(input: &schema::Block) -> Result<Block, error:
         checks,
         context,
         version,
+        external_key,
+        public_keys,
+        scopes: scopes?,
     })
 }
 
@@ -111,7 +146,7 @@ pub fn proto_authorizer_to_authorizer(
         });
     }
 
-    let symbols = SymbolTable::from(input.symbols.clone());
+    let symbols = SymbolTable::from(input.symbols.clone())?;
 
     let mut facts = vec![];
     let mut rules = vec![];
@@ -123,15 +158,15 @@ pub fn proto_authorizer_to_authorizer(
     }
 
     for rule in input.rules.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule)?);
+        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
     }
 
     for check in input.checks.iter() {
-        checks.push(v2::proto_check_to_token_check(check)?);
+        checks.push(v2::proto_check_to_token_check(check, version)?);
     }
 
     for policy in input.policies.iter() {
-        policies.push(v2::proto_policy_to_policy(policy, &symbols)?);
+        policies.push(v2::proto_policy_to_policy(policy, &symbols, version)?);
     }
 
     Ok(AuthorizerPolicies {
@@ -149,6 +184,8 @@ pub mod v2 {
     use crate::builder::Convert;
     use crate::datalog::*;
     use crate::error;
+    use crate::token::Scope;
+    use crate::token::MIN_SCHEMA_VERSION;
     use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
@@ -169,11 +206,14 @@ pub mod v2 {
         }
     }
 
-    pub fn proto_check_to_token_check(input: &schema::CheckV2) -> Result<Check, error::Format> {
+    pub fn proto_check_to_token_check(
+        input: &schema::CheckV2,
+        version: u32,
+    ) -> Result<Check, error::Format> {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            queries.push(proto_rule_to_token_rule(q)?);
+            queries.push(proto_rule_to_token_rule(q, version)?.0);
         }
 
         Ok(Check { queries })
@@ -200,13 +240,14 @@ pub mod v2 {
     pub fn proto_policy_to_policy(
         input: &schema::Policy,
         symbols: &SymbolTable,
+        version: u32,
     ) -> Result<crate::token::builder::Policy, error::Format> {
         use schema::policy::Kind;
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            let c = proto_rule_to_token_rule(q)?;
-            let c = crate::token::builder::Rule::convert_from(&c, symbols);
+            let (c, scopes) = proto_rule_to_token_rule(q, version)?;
+            let c = crate::token::builder::Rule::convert_from(&c, symbols)?;
             queries.push(c);
         }
 
@@ -239,10 +280,18 @@ pub mod v2 {
                 .iter()
                 .map(token_expression_to_proto_expression)
                 .collect(),
+            scope: input
+                .scopes
+                .iter()
+                .map(token_scope_to_proto_scope)
+                .collect(),
         }
     }
 
-    pub fn proto_rule_to_token_rule(input: &schema::RuleV2) -> Result<Rule, error::Format> {
+    pub fn proto_rule_to_token_rule(
+        input: &schema::RuleV2,
+        version: u32,
+    ) -> Result<(Rule, Vec<Scope>), error::Format> {
         let mut body = vec![];
 
         for p in input.body.iter() {
@@ -255,11 +304,25 @@ pub mod v2 {
             expressions.push(proto_expression_to_token_expression(c)?);
         }
 
-        Ok(Rule {
-            head: proto_predicate_to_token_predicate(&input.head)?,
-            body,
-            expressions,
-        })
+        if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
+            return Err(error::Format::DeserializationError(
+                "deserialization error: v3 blocks must not have scopes".to_string(),
+            ));
+        }
+
+        let scopes: Result<Vec<_>, _> =
+            input.scope.iter().map(proto_scope_to_token_scope).collect();
+        let scopes = scopes?;
+
+        Ok((
+            Rule {
+                head: proto_predicate_to_token_predicate(&input.head)?,
+                body,
+                expressions,
+                scopes: scopes.clone(),
+            },
+            scopes,
+        ))
     }
 
     pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV2 {
@@ -481,5 +544,45 @@ pub mod v2 {
         }
 
         Ok(Expression { ops })
+    }
+
+    pub fn token_scope_to_proto_scope(input: &Scope) -> schema::Scope {
+        schema::Scope {
+            content: Some(match input {
+                crate::token::Scope::Authority => {
+                    schema::scope::Content::ScopeType(schema::scope::ScopeType::Authority as i32)
+                }
+                crate::token::Scope::Previous => {
+                    schema::scope::Content::ScopeType(schema::scope::ScopeType::Previous as i32)
+                }
+                crate::token::Scope::PublicKey(i) => schema::scope::Content::PublicKey(*i as i64),
+            }),
+        }
+    }
+
+    pub fn proto_scope_to_token_scope(input: &schema::Scope) -> Result<Scope, error::Format> {
+        //FIXME: check that the referenced public key index exists in the public key table
+        match input.content.as_ref() {
+            Some(content) => match content {
+                schema::scope::Content::ScopeType(i) => {
+                    if *i == schema::scope::ScopeType::Authority as i32 {
+                        Ok(Scope::Authority)
+                    } else if *i == schema::scope::ScopeType::Previous as i32 {
+                        Ok(Scope::Previous)
+                    } else {
+                        Err(error::Format::DeserializationError(format!(
+                            "deserialization error: unexpected value `{}` for scope type",
+                            i
+                        )))
+                    }
+                }
+                schema::scope::Content::PublicKey(i) => Ok(Scope::PublicKey(*i as u64)),
+            },
+            None => {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: expected `content` field in Scope".to_string(),
+                ));
+            }
+        }
     }
 }

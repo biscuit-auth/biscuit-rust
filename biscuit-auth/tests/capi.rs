@@ -104,16 +104,30 @@ biscuit append error? (null)
 authorizer creation error? (null)
 authorizer add check error? (null)
 authorizer add policy error? (null)
-authorizer error(code = 16): authorization failed
+authorizer error(code = 21): authorization failed
 failed checks (2):
   Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")
 authorizer world:
 World {
-  facts: [
-    "right(\"file1\", \"read\")",
-]
-  rules: []
+  facts: {
+    Origin {
+        inner: {
+            0,
+        },
+    }: [
+        "right(\"file1\", \"read\")",
+    ],
+    Origin {
+        inner: {
+            0,
+            1,
+        },
+    }: [
+        "hello(\"world\")",
+    ],
+}
+  rules: {}
   checks: [
     "Authorizer[0]: check if right(\"efgh\")",
 ]

@@ -4,12 +4,14 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub type SymbolIndex = u64;
 use crate::token::default_symbol_table;
+use crate::{error, token::public_keys::PublicKeys};
 
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     symbols: Vec<String>,
+    pub(crate) public_keys: PublicKeys,
 }
 
 const DEFAULT_SYMBOLS: [&str; 28] = [
@@ -47,16 +49,33 @@ const OFFSET: usize = 1024;
 
 impl SymbolTable {
     pub fn new() -> Self {
-        SymbolTable { symbols: vec![] }
+        SymbolTable {
+            symbols: vec![],
+            public_keys: PublicKeys::new(),
+        }
     }
 
-    //FIXME: should check if symbols are already in default
-    pub fn from(symbols: Vec<String>) -> Self {
-        SymbolTable { symbols }
+    pub fn from(symbols: Vec<String>) -> Result<Self, error::Format> {
+        let h1 = DEFAULT_SYMBOLS.iter().map(|s| *s).collect::<HashSet<_>>();
+        let h2 = symbols.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
+
+        if !h1.is_disjoint(&h2) {
+            return Err(error::Format::SymbolTableOverlap);
+        }
+
+        Ok(SymbolTable {
+            symbols,
+            public_keys: PublicKeys::new(),
+        })
     }
 
-    pub fn extend(&mut self, other: &SymbolTable) {
+    pub fn extend(&mut self, other: &SymbolTable) -> Result<(), error::Format> {
+        if !self.is_disjoint(&other) {
+            return Err(error::Format::SymbolTableOverlap);
+        }
         self.symbols.extend(other.symbols.iter().cloned());
+        self.public_keys.extend(&other.public_keys)?;
+        Ok(())
     }
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {
@@ -111,14 +130,23 @@ impl SymbolTable {
     }
 
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
-        if i >= 1024 {
-            self.symbols.get((i - 1024) as usize).map(|s| s.as_str())
+        if i >= OFFSET as u64 {
+            self.symbols
+                .get((i - OFFSET as u64) as usize)
+                .map(|s| s.as_str())
         } else {
             DEFAULT_SYMBOLS.get(i as usize).map(|s| *s)
         }
     }
 
-    pub fn print_symbol(&self, i: SymbolIndex) -> String {
+    pub fn print_symbol(&self, i: SymbolIndex) -> Result<String, error::Format> {
+        self.get_symbol(i)
+            .map(|s| s.to_string())
+            .ok_or_else(|| error::Format::UnknownSymbol(i))
+    }
+
+    // infallible symbol printing method
+    pub fn print_symbol_default(&self, i: SymbolIndex) -> String {
         self.get_symbol(i)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("<{}?>", i))
@@ -127,12 +155,18 @@ impl SymbolTable {
     pub fn print_world(&self, w: &World) -> String {
         let facts = w
             .facts
+            .inner
             .iter()
+            .map(|facts| facts.1.iter())
+            .flatten()
             .map(|f| self.print_fact(f))
             .collect::<Vec<_>>();
         let rules = w
             .rules
+            .inner
             .iter()
+            .map(|rules| rules.1.iter())
+            .flatten()
             .map(|r| self.print_rule(r))
             .collect::<Vec<_>>();
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
@@ -140,9 +174,9 @@ impl SymbolTable {
 
     pub fn print_term(&self, term: &Term) -> String {
         match term {
-            Term::Variable(i) => format!("${}", self.print_symbol(*i as u64)),
+            Term::Variable(i) => format!("${}", self.print_symbol_default(*i as u64)),
             Term::Integer(i) => i.to_string(),
-            Term::Str(index) => format!("\"{}\"", self.print_symbol(*index as u64)),
+            Term::Str(index) => format!("\"{}\"", self.print_symbol_default(*index as u64)),
             Term::Date(d) => OffsetDateTime::from_unix_timestamp(*d as i64)
                 .ok()
                 .and_then(|t| t.format(&Rfc3339).ok())
@@ -203,7 +237,27 @@ impl SymbolTable {
             format!(", {}", expressions.join(", "))
         };
 
-        format!("{}{}", preds.join(", "), e)
+        let scopes = if r.scopes.is_empty() {
+            String::new()
+        } else {
+            let s: Vec<_> = r
+                .scopes
+                .iter()
+                .map(|scope| match scope {
+                    crate::token::Scope::Authority => "authority".to_string(),
+                    crate::token::Scope::Previous => "previous".to_string(),
+                    crate::token::Scope::PublicKey(key_id) => {
+                        match self.public_keys.get_key(*key_id) {
+                            Some(key) => format!("ed25519/{}", hex::encode(key.to_bytes())),
+                            None => "<unknown public key id>".to_string(),
+                        }
+                    }
+                })
+                .collect();
+            format!(" trusting {}", s.join(", "))
+        };
+
+        format!("{}{}{}", preds.join(", "), e, scopes)
     }
 
     pub fn print_rule(&self, r: &Rule) -> String {

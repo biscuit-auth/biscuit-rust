@@ -7,12 +7,12 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::error::Format;
+use crate::{error::Format, format::schema};
 
 use super::error;
 use ed25519_dalek::*;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, ops::Drop};
+use std::{convert::TryInto, hash::Hash, ops::Drop};
 use zeroize::Zeroize;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -120,6 +120,35 @@ impl PublicKey {
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
     }
+
+    pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
+        if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
+            return Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                key.algorithm
+            )));
+        }
+
+        Ok(PublicKey::from_bytes(&key.key)?)
+    }
+
+    pub fn to_proto(&self) -> schema::PublicKey {
+        schema::PublicKey {
+            algorithm: schema::public_key::Algorithm::Ed25519 as i32,
+            key: self.to_bytes().to_vec(),
+        }
+    }
+
+    pub fn print(&self) -> String {
+        format!("ed25519/{}", hex::encode(&self.to_bytes()))
+    }
+}
+
+impl Hash for PublicKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
+        self.0.to_bytes().hash(state);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +156,13 @@ pub struct Block {
     pub(crate) data: Vec<u8>,
     pub(crate) next_key: PublicKey,
     pub signature: ed25519_dalek::Signature,
+    pub external_signature: Option<ExternalSignature>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExternalSignature {
+    pub(crate) public_key: PublicKey,
+    pub(crate) signature: ed25519_dalek::Signature,
 }
 
 #[derive(Clone, Debug)]
@@ -163,8 +199,14 @@ pub fn sign(
 }
 
 pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
+    use ed25519_dalek::ed25519::signature::Signature;
+
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
+
+    if let Some(signature) = block.external_signature.as_ref() {
+        to_verify.extend_from_slice(signature.signature.as_bytes());
+    }
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
@@ -174,6 +216,21 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
         .map_err(|s| s.to_string())
         .map_err(error::Signature::InvalidSignature)
         .map_err(error::Format::Signature)?;
+
+    if let Some(external_signature) = block.external_signature.as_ref() {
+        let mut to_verify = block.data.to_vec();
+        to_verify
+            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&public_key.to_bytes());
+
+        external_signature
+            .public_key
+            .0
+            .verify_strict(&to_verify, &external_signature.signature)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignature)
+            .map_err(error::Format::Signature)?;
+    }
 
     Ok(())
 }
@@ -191,6 +248,7 @@ impl Token {
             data: message.to_vec(),
             next_key: next_key.public(),
             signature,
+            external_signature: None,
         };
 
         Ok(Token {
@@ -205,6 +263,7 @@ impl Token {
         &self,
         next_key: &KeyPair,
         message: &[u8],
+        external_signature: Option<ExternalSignature>,
     ) -> Result<Self, error::Token> {
         let keypair = match self.next.keypair() {
             Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
@@ -217,6 +276,7 @@ impl Token {
             data: message.to_vec(),
             next_key: next_key.public(),
             signature,
+            external_signature,
         };
 
         let mut t = Token {
@@ -275,6 +335,13 @@ impl TokenNext {
         match &self {
             TokenNext::Seal(_) => Err(error::Token::AlreadySealed),
             TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
+        }
+    }
+
+    pub fn is_sealed(&self) -> bool {
+        match &self {
+            TokenNext::Seal(_) => true,
+            TokenNext::Secret(_) => false,
         }
     }
 }

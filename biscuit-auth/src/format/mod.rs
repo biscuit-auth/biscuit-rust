@@ -6,15 +6,19 @@
 //! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{self, KeyPair, PrivateKey, PublicKey, TokenNext};
 
+use ed25519_dalek::ed25519::signature::Signature;
 use prost::Message;
 
 use super::error;
 use super::token::Block;
+use crate::crypto::ExternalSignature;
+use crate::datalog::SymbolTable;
 use ed25519_dalek::Signer;
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
-pub mod schema; /* {
+pub mod schema; /*{
                     include!(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs"));
                 }*/
 
@@ -52,12 +56,7 @@ impl SerializedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if data.authority.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: unexpected key algorithm {}",
-                data.authority.next_key.algorithm
-            )));
-        }
+        let next_key = PublicKey::from_proto(&data.authority.next_key)?;
 
         let bytes: [u8; 64] = (&data.authority.signature[..])
             .try_into()
@@ -70,20 +69,22 @@ impl SerializedBiscuit {
             ))
         })?;
 
+        if data.authority.external_signature.is_some() {
+            return Err(error::Format::DeserializationError(
+                "the authority block must not contain an external signature".to_string(),
+            ));
+        }
+
         let authority = crypto::Block {
             data: data.authority.block,
-            next_key: PublicKey::from_bytes(&data.authority.next_key.key)?,
+            next_key,
             signature,
+            external_signature: None,
         };
 
         let mut blocks = Vec::new();
         for block in &data.blocks {
-            if block.next_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-                return Err(error::Format::DeserializationError(format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    block.next_key.algorithm
-                )));
-            }
+            let next_key = PublicKey::from_proto(&block.next_key)?;
 
             let bytes: [u8; 64] = (&block.signature[..])
                 .try_into()
@@ -95,10 +96,34 @@ impl SerializedBiscuit {
                     e
                 ))
             })?;
+
+            let external_signature = if let Some(ex) = block.external_signature.as_ref() {
+                let public_key = PublicKey::from_proto(&ex.public_key)?;
+
+                let bytes: [u8; 64] = (&ex.signature[..])
+                    .try_into()
+                    .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
+
+                let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
+                    error::Format::BlockSignatureDeserializationError(format!(
+                        "block external signature deserialization error: {:?}",
+                        e
+                    ))
+                })?;
+
+                Some(ExternalSignature {
+                    public_key,
+                    signature,
+                })
+            } else {
+                None
+            };
+
             blocks.push(crypto::Block {
                 data: block.block.clone(),
-                next_key: PublicKey::from_bytes(&block.next_key.key)?,
+                next_key,
                 signature,
+                external_signature,
             });
         }
 
@@ -135,26 +160,99 @@ impl SerializedBiscuit {
         Ok(deser)
     }
 
+    pub(crate) fn extract_blocks(
+        &self,
+        symbols: &mut SymbolTable,
+    ) -> Result<
+        (
+            schema::Block,
+            Vec<schema::Block>,
+            HashMap<usize, Vec<usize>>,
+        ),
+        error::Token,
+    > {
+        let mut block_external_keys = Vec::new();
+
+        let authority = schema::Block::decode(&self.authority.data[..]).map_err(|e| {
+            error::Token::Format(error::Format::BlockDeserializationError(format!(
+                "error deserializing authority block: {:?}",
+                e
+            )))
+        })?;
+
+        symbols.extend(&SymbolTable::from(authority.symbols.clone())?)?;
+
+        for pk in &authority.public_keys {
+            symbols
+                .public_keys
+                .insert_fallible(&PublicKey::from_proto(&pk)?)?;
+        }
+        // the authority block should not have an external key
+        block_external_keys.push(None);
+        //FIXME: return an error if the authority block has an external key
+
+        let mut blocks = vec![];
+
+        for block in self.blocks.iter() {
+            let deser = schema::Block::decode(&block.data[..]).map_err(|e| {
+                error::Token::Format(error::Format::BlockDeserializationError(format!(
+                    "error deserializing block: {:?}",
+                    e
+                )))
+            })?;
+
+            if let Some(external_signature) = &block.external_signature {
+                symbols.public_keys.insert(&external_signature.public_key);
+                block_external_keys.push(Some(external_signature.public_key.clone()));
+            } else {
+                block_external_keys.push(None);
+                symbols.extend(&SymbolTable::from(deser.symbols.clone())?)?;
+            }
+
+            for pk in &deser.public_keys {
+                symbols
+                    .public_keys
+                    .insert_fallible(&PublicKey::from_proto(&pk)?)?;
+            }
+
+            blocks.push(deser);
+        }
+
+        let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
+        for (index, opt_key) in block_external_keys.into_iter().enumerate() {
+            if let Some(key) = opt_key {
+                if let Some(key_index) = symbols.public_keys.get(&key) {
+                    public_key_to_block_id
+                        .entry(key_index as usize)
+                        .or_default()
+                        .push(index);
+                }
+            }
+        }
+        Ok((authority, blocks, public_key_to_block_id))
+    }
+
     /// serializes the token
     pub fn to_proto(&self) -> schema::Biscuit {
         let authority = schema::SignedBlock {
             block: self.authority.data.clone(),
-            next_key: schema::PublicKey {
-                algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                key: self.authority.next_key.to_bytes().to_vec(),
-            },
+            next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
+            external_signature: None,
         };
 
         let mut blocks = Vec::new();
         for block in &self.blocks {
             let b = schema::SignedBlock {
                 block: block.data.clone(),
-                next_key: schema::PublicKey {
-                    algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-                    key: block.next_key.to_bytes().to_vec(),
-                },
+                next_key: block.next_key.to_proto(),
                 signature: block.signature.to_bytes().to_vec(),
+                external_signature: block.external_signature.as_ref().map(|external_signature| {
+                    schema::ExternalSignature {
+                        signature: external_signature.signature.to_bytes().to_vec(),
+                        public_key: external_signature.public_key.to_proto(),
+                    }
+                }),
             };
 
             blocks.push(b);
@@ -214,6 +312,7 @@ impl SerializedBiscuit {
                 data: v,
                 next_key: next_keypair.public(),
                 signature,
+                external_signature: None,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -221,7 +320,12 @@ impl SerializedBiscuit {
     }
 
     /// adds a new block, serializes it and sign a new token
-    pub fn append(&self, next_keypair: &KeyPair, block: &Block) -> Result<Self, error::Token> {
+    pub fn append(
+        &self,
+        next_keypair: &KeyPair,
+        block: &Block,
+        external_signature: Option<ExternalSignature>,
+    ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
         let mut v = Vec::new();
@@ -230,6 +334,9 @@ impl SerializedBiscuit {
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
+        if let Some(signature) = &external_signature {
+            v.extend_from_slice(signature.signature.as_bytes());
+        }
 
         let signature = crypto::sign(&keypair, next_keypair, &v)?;
 
@@ -239,6 +346,40 @@ impl SerializedBiscuit {
             data: v,
             next_key: next_keypair.public(),
             signature,
+            external_signature,
+        });
+
+        Ok(SerializedBiscuit {
+            root_key_id: self.root_key_id,
+            authority: self.authority.clone(),
+            blocks,
+            proof: TokenNext::Secret(next_keypair.private()),
+        })
+    }
+
+    /// adds a new block, serializes it and sign a new token
+    pub fn append_serialized(
+        &self,
+        next_keypair: &KeyPair,
+        block: Vec<u8>,
+        external_signature: Option<ExternalSignature>,
+    ) -> Result<Self, error::Token> {
+        let keypair = self.proof.keypair()?;
+
+        let mut v = block.clone();
+        if let Some(signature) = &external_signature {
+            v.extend_from_slice(signature.signature.as_bytes());
+        }
+
+        let signature = crypto::sign(&keypair, next_keypair, &v)?;
+
+        // Add new block
+        let mut blocks = self.blocks.clone();
+        blocks.push(crypto::Block {
+            data: block,
+            next_key: next_keypair.public(),
+            signature,
+            external_signature,
         });
 
         Ok(SerializedBiscuit {

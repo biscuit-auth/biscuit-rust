@@ -1,6 +1,6 @@
 //! helper functions and structure to create tokens and blocks
 use super::{default_symbol_table, Biscuit, Block};
-use crate::crypto::KeyPair;
+use crate::crypto::{KeyPair, PublicKey};
 use crate::datalog::{self, SymbolTable};
 use crate::error;
 use crate::token::builder_ext::BuilderExt;
@@ -24,6 +24,7 @@ pub struct BlockBuilder {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
+    pub scopes: Vec<Scope>,
     pub context: Option<String>,
 }
 
@@ -79,7 +80,7 @@ impl BlockBuilder {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new())
+        self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
@@ -88,6 +89,7 @@ impl BlockBuilder {
         &mut self,
         source: T,
         params: HashMap<String, Term>,
+        scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
         let input = source.as_ref();
 
@@ -128,6 +130,18 @@ impl BlockBuilder {
                 };
                 res?;
             }
+            for (name, value) in &scope_params {
+                let res = match rule.set_scope(&name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             rule.validate_parameters()?;
             self.rules.push(rule);
         }
@@ -153,12 +167,17 @@ impl BlockBuilder {
         Ok(())
     }
 
+    pub fn add_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope);
+    }
+
     pub fn set_context(&mut self, context: String) {
         self.context = Some(context);
     }
 
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
         let symbols_start = symbols.current_offset();
+        let public_keys_start = symbols.public_keys.current_offset();
 
         let mut facts = Vec::new();
         for fact in self.facts {
@@ -166,15 +185,22 @@ impl BlockBuilder {
         }
 
         let mut rules = Vec::new();
-        for rule in self.rules {
+        for rule in &self.rules {
             rules.push(rule.convert(&mut symbols));
         }
 
         let mut checks = Vec::new();
-        for check in self.checks {
+        for check in &self.checks {
             checks.push(check.convert(&mut symbols));
         }
         let new_syms = symbols.split_at(symbols_start);
+        let public_keys = symbols.public_keys.split_at(public_keys_start);
+
+        let needs_scopes = !self.scopes.is_empty()
+            || (&self.rules).iter().any(|r: &Rule| !r.scopes.is_empty())
+            || (&self.checks)
+                .iter()
+                .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
         Block {
             symbols: new_syms,
@@ -182,7 +208,18 @@ impl BlockBuilder {
             rules,
             checks,
             context: self.context,
-            version: super::MAX_SCHEMA_VERSION,
+            version: if needs_scopes {
+                super::MAX_SCHEMA_VERSION
+            } else {
+                super::MIN_SCHEMA_VERSION
+            },
+            external_key: None,
+            public_keys,
+            scopes: self
+                .scopes
+                .into_iter()
+                .map(|scope| scope.convert(&mut symbols))
+                .collect(),
         }
     }
 
@@ -262,15 +299,22 @@ impl BiscuitBuilder {
     }
 
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.inner.add_code_with_params(source, HashMap::new())
+        self.inner
+            .add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     pub fn add_code_with_params<T: AsRef<str>>(
         &mut self,
         source: T,
         params: HashMap<String, Term>,
+        scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
-        self.inner.add_code_with_params(source, params)
+        self.inner
+            .add_code_with_params(source, params, scope_params)
+    }
+
+    pub fn add_scope(&mut self, scope: Scope) {
+        self.inner.add_scope(scope);
     }
 
     #[cfg(test)]
@@ -333,9 +377,9 @@ impl BiscuitBuilder {
     }
 }
 
-pub trait Convert<T> {
+pub trait Convert<T>: Sized {
     fn convert(&self, symbols: &mut SymbolTable) -> T;
-    fn convert_from(f: &T, symbols: &SymbolTable) -> Self;
+    fn convert_from(f: &T, symbols: &SymbolTable) -> Result<Self, error::Format>;
 }
 
 /// Builder for a Datalog value
@@ -367,18 +411,20 @@ impl Convert<datalog::Term> for Term {
         }
     }
 
-    fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Self {
-        match f {
-            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)),
+    fn convert_from(f: &datalog::Term, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(match f {
+            datalog::Term::Variable(s) => Term::Variable(symbols.print_symbol(*s as u64)?),
             datalog::Term::Integer(i) => Term::Integer(*i),
-            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)),
+            datalog::Term::Str(s) => Term::Str(symbols.print_symbol(*s)?),
             datalog::Term::Date(d) => Term::Date(*d),
             datalog::Term::Bytes(s) => Term::Bytes(s.clone()),
             datalog::Term::Bool(b) => Term::Bool(*b),
-            datalog::Term::Set(s) => {
-                Term::Set(s.iter().map(|i| Term::convert_from(i, symbols)).collect())
-            }
-        }
+            datalog::Term::Set(s) => Term::Set(
+                s.iter()
+                    .map(|i| Term::convert_from(i, symbols))
+                    .collect::<Result<BTreeSet<_>, error::Format>>()?,
+            ),
+        })
     }
 }
 
@@ -456,6 +502,68 @@ impl fmt::Display for Term {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Scope {
+    Authority,
+    Previous,
+    PublicKey(PublicKey),
+    Parameter(String),
+}
+
+impl Convert<super::Scope> for Scope {
+    fn convert(&self, symbols: &mut SymbolTable) -> super::Scope {
+        match self {
+            Scope::Authority => crate::token::Scope::Authority,
+            Scope::Previous => crate::token::Scope::Previous,
+            Scope::PublicKey(key) => {
+                crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
+            }
+            // The error is caught in the `add_xxx` functions, so this should
+            // not happen™
+            Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
+        }
+    }
+
+    fn convert_from(scope: &super::Scope, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(match scope {
+            super::Scope::Authority => Scope::Authority,
+            super::Scope::Previous => Scope::Previous,
+            super::Scope::PublicKey(key_id) => Scope::PublicKey(
+                *symbols
+                    .public_keys
+                    .get_key(*key_id)
+                    .ok_or(error::Format::UnknownExternalKey)?,
+            ),
+        })
+    }
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scope::Authority => write!(f, "authority"),
+            Scope::Previous => write!(f, "previous"),
+            Scope::PublicKey(pk) => write!(f, "ed25519/{}", hex::encode(pk.to_bytes())),
+            Scope::Parameter(s) => {
+                write!(f, "{{{}}}", s)
+            }
+        }
+    }
+}
+
+impl From<biscuit_parser::builder::Scope> for Scope {
+    fn from(scope: biscuit_parser::builder::Scope) -> Self {
+        match scope {
+            biscuit_parser::builder::Scope::Authority => Scope::Authority,
+            biscuit_parser::builder::Scope::Previous => Scope::Previous,
+            biscuit_parser::builder::Scope::PublicKey(pk) => {
+                Scope::PublicKey(PublicKey::from_bytes(&pk).expect("invalid public key"))
+            }
+            biscuit_parser::builder::Scope::Parameter(s) => Scope::Parameter(s),
+        }
+    }
+}
+
 /// Builder for a Datalog dicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
@@ -484,15 +592,15 @@ impl Convert<datalog::Predicate> for Predicate {
         datalog::Predicate { name, terms }
     }
 
-    fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Self {
-        Predicate {
-            name: symbols.print_symbol(p.name),
+    fn convert_from(p: &datalog::Predicate, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Predicate {
+            name: symbols.print_symbol(p.name)?,
             terms: p
                 .terms
                 .iter()
                 .map(|term| Term::convert_from(term, symbols))
-                .collect(),
-        }
+                .collect::<Result<Vec<_>, error::Format>>()?,
+        })
     }
 }
 
@@ -629,6 +737,18 @@ impl Fact {
         }
     }
 
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(_) => Ok(()),
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.predicate.terms = self
@@ -658,11 +778,11 @@ impl Convert<datalog::Fact> for Fact {
         }
     }
 
-    fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Self {
-        Fact {
-            predicate: Predicate::convert_from(&f.predicate, symbols),
+    fn convert_from(f: &datalog::Fact, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Fact {
+            predicate: Predicate::convert_from(&f.predicate, symbols)?,
             parameters: None,
-        }
+        })
     }
 }
 
@@ -703,14 +823,14 @@ impl Convert<datalog::Expression> for Expression {
         }
     }
 
-    fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Self {
-        Expression {
+    fn convert_from(e: &datalog::Expression, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Expression {
             ops: e
                 .ops
                 .iter()
                 .map(|op| Op::convert_from(op, symbols))
-                .collect(),
-        }
+                .collect::<Result<Vec<_>, error::Format>>()?,
+        })
     }
 }
 
@@ -754,12 +874,12 @@ impl Convert<datalog::Op> for Op {
         }
     }
 
-    fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Self {
-        match op {
-            datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)),
+    fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(match op {
+            datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
-        }
+        })
     }
 }
 
@@ -814,11 +934,19 @@ pub struct Rule {
     pub body: Vec<Predicate>,
     pub expressions: Vec<Expression>,
     pub parameters: Option<HashMap<String, Option<Term>>>,
+    pub scopes: Vec<Scope>,
+    pub scope_parameters: Option<HashMap<String, Option<PublicKey>>>,
 }
 
 impl Rule {
-    pub fn new(head: Predicate, body: Vec<Predicate>, expressions: Vec<Expression>) -> Rule {
+    pub fn new(
+        head: Predicate,
+        body: Vec<Predicate>,
+        expressions: Vec<Expression>,
+        scopes: Vec<Scope>,
+    ) -> Rule {
         let mut parameters = HashMap::new();
+        let mut scope_parameters = HashMap::new();
         for term in &head.terms {
             if let Term::Parameter(name) = &term {
                 parameters.insert(name.to_string(), None);
@@ -841,43 +969,68 @@ impl Rule {
             }
         }
 
+        for scope in &scopes {
+            if let Scope::Parameter(name) = &scope {
+                scope_parameters.insert(name.to_string(), None);
+            }
+        }
+
         Rule {
             head,
             body,
             expressions,
             parameters: Some(parameters),
+            scopes,
+            scope_parameters: Some(scope_parameters),
         }
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
-        match &self.parameters {
-            None => Ok(()),
-            Some(parameters) => {
-                let invalid_parameters = parameters
-                    .iter()
-                    .filter_map(
-                        |(name, opt_term)| {
-                            if opt_term.is_none() {
-                                Some(name)
-                            } else {
-                                None
-                            }
-                        },
-                    )
-                    .map(|name| name.to_string())
-                    .collect::<Vec<_>>();
+        let mut invalid_parameters = match &self.parameters {
+            None => vec![],
+            Some(parameters) => parameters
+                .iter()
+                .filter_map(
+                    |(name, opt_term)| {
+                        if opt_term.is_none() {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>(),
+        };
+        let mut invalid_scope_parameters = match &self.scope_parameters {
+            None => vec![],
+            Some(parameters) => parameters
+                .iter()
+                .filter_map(
+                    |(name, opt_key)| {
+                        if opt_key.is_none() {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>(),
+        };
+        let mut all_invalid_parameters = vec![];
+        all_invalid_parameters.append(&mut invalid_parameters);
+        all_invalid_parameters.append(&mut invalid_scope_parameters);
 
-                if invalid_parameters.is_empty() {
-                    Ok(())
-                } else {
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters: invalid_parameters,
-                            unused_parameters: vec![],
-                        },
-                    ))
-                }
-            }
+        if all_invalid_parameters.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: all_invalid_parameters,
+                    unused_parameters: vec![],
+                },
+            ))
         }
     }
 
@@ -963,6 +1116,64 @@ impl Rule {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        if let Some(parameters) = self.scope_parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Err(error::Token::Language(
+                    biscuit_parser::error::LanguageError::Parameters {
+                        missing_parameters: vec![],
+                        unused_parameters: vec![name.to_string()],
+                    },
+                )),
+                Some(v) => {
+                    *v = Some(pubkey);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
+        }
+    }
+
+    /// replace a scope parameter with the public key argument, without raising an error if the
+    /// parameter is not present in the rule scope
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        if let Some(parameters) = self.scope_parameters.as_mut() {
+            match parameters.get_mut(name) {
+                None => Ok(()),
+                Some(v) => {
+                    *v = Some(pubkey);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
+        }
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(pubkey) => self.set_scope_lenient(name, pubkey),
+        }
+    }
+
     fn apply_parameters(&mut self) {
         if let Some(parameters) = self.parameters.clone() {
             self.head.terms = self
@@ -1009,6 +1220,21 @@ impl Rule {
                     .collect();
             }
         }
+
+        if let Some(parameters) = self.scope_parameters.clone() {
+            self.scopes = self
+                .scopes
+                .drain(..)
+                .map(|scope| {
+                    if let Scope::Parameter(name) = &scope {
+                        if let Some(Some(pubkey)) = parameters.get(name) {
+                            return Scope::PublicKey(pubkey.clone());
+                        }
+                    }
+                    scope
+                })
+                .collect();
+        }
     }
 }
 
@@ -1020,6 +1246,7 @@ impl Convert<datalog::Rule> for Rule {
         let head = r.head.convert(symbols);
         let mut body = vec![];
         let mut expressions = vec![];
+        let mut scopes = vec![];
 
         for p in r.body.iter() {
             body.push(p.convert(symbols));
@@ -1029,28 +1256,47 @@ impl Convert<datalog::Rule> for Rule {
             expressions.push(c.convert(symbols));
         }
 
+        for scope in r.scopes.iter() {
+            scopes.push(match scope {
+                Scope::Authority => crate::token::Scope::Authority,
+                Scope::Previous => crate::token::Scope::Previous,
+                Scope::PublicKey(key) => {
+                    crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
+                }
+                // The error is caught in the `add_xxx` functions, so this should
+                // not happen™
+                Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
+            })
+        }
         datalog::Rule {
             head,
             body,
             expressions,
+            scopes,
         }
     }
 
-    fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Self {
-        Rule {
-            head: Predicate::convert_from(&r.head, symbols),
+    fn convert_from(r: &datalog::Rule, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        Ok(Rule {
+            head: Predicate::convert_from(&r.head, symbols)?,
             body: r
                 .body
                 .iter()
                 .map(|p| Predicate::convert_from(p, symbols))
-                .collect(),
+                .collect::<Result<Vec<Predicate>, error::Format>>()?,
             expressions: r
                 .expressions
                 .iter()
                 .map(|c| Expression::convert_from(c, symbols))
-                .collect(),
+                .collect::<Result<Vec<_>, error::Format>>()?,
             parameters: None,
-        }
+            scopes: r
+                .scopes
+                .iter()
+                .map(|scope| Scope::convert_from(scope, symbols))
+                .collect::<Result<Vec<Scope>, error::Format>>()?,
+            scope_parameters: None,
+        })
     }
 }
 
@@ -1081,6 +1327,15 @@ fn display_rule_body(r: &Rule, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         }
     }
 
+    if !rule.scopes.is_empty() {
+        write!(f, " trusting {}", rule.scopes[0])?;
+        if rule.scopes.len() > 1 {
+            for i in 1..rule.scopes.len() {
+                write!(f, ", {}", rule.scopes[i])?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1104,6 +1359,19 @@ impl From<biscuit_parser::builder::Rule> for Rule {
             parameters: r.parameters.map(|h| {
                 h.into_iter()
                     .map(|(k, v)| (k, v.map(|term| term.into())))
+                    .collect()
+            }),
+            scopes: r.scopes.into_iter().map(|s| s.into()).collect(),
+            scope_parameters: r.scope_parameters.map(|h| {
+                h.into_iter()
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            v.map(|bytes| {
+                                PublicKey::from_bytes(&bytes).expect("invalid public key")
+                            }),
+                        )
+                    })
                     .collect()
             }),
         }
@@ -1143,6 +1411,27 @@ impl Check {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set_scope(name, pubkey).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
+        }
+    }
+
     /// replace a parameter with the term argument, without raising an error if the
     /// parameter is not present in the check
     pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
@@ -1151,6 +1440,27 @@ impl Check {
             query.set_lenient(name, term.clone())?;
         }
         Ok(())
+    }
+
+    /// replace a scope parameter with the term argument, without raising an error if the
+    /// parameter is not present in the check
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        for query in &mut self.queries {
+            query.set_scope_lenient(name, pubkey)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(p) => self.set_scope_lenient(name, p),
+        }
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1178,13 +1488,13 @@ impl Convert<datalog::Check> for Check {
         datalog::Check { queries }
     }
 
-    fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Self {
+    fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Result<Self, error::Format> {
         let mut queries = vec![];
         for q in r.queries.iter() {
-            queries.push(Rule::convert_from(q, symbols));
+            queries.push(Rule::convert_from(q, symbols)?);
         }
 
-        Check { queries }
+        Ok(Check { queries })
     }
 }
 
@@ -1279,6 +1589,27 @@ impl Policy {
         }
     }
 
+    /// replace a scope parameter with the pubkey argument
+    pub fn set_scope(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        let mut found = false;
+        for query in &mut self.queries {
+            if query.set_scope(name, pubkey).is_ok() {
+                found = true;
+            }
+        }
+
+        if found {
+            Ok(())
+        } else {
+            Err(error::Token::Language(
+                biscuit_parser::error::LanguageError::Parameters {
+                    missing_parameters: vec![],
+                    unused_parameters: vec![name.to_string()],
+                },
+            ))
+        }
+    }
+
     /// replace a parameter with the term argument, ignoring unknown parameters
     pub fn set_lenient<T: Into<Term>>(&mut self, name: &str, term: T) -> Result<(), error::Token> {
         let term = term.into();
@@ -1286,6 +1617,26 @@ impl Policy {
             query.set_lenient(name, term.clone())?;
         }
         Ok(())
+    }
+
+    /// replace a scope parameter with the pubkey argument, ignoring unknown parameters
+    pub fn set_scope_lenient(&mut self, name: &str, pubkey: PublicKey) -> Result<(), error::Token> {
+        for query in &mut self.queries {
+            query.set_scope_lenient(name, pubkey)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "datalog-macro")]
+    pub fn set_macro_param<T: ToAnyParam>(
+        &mut self,
+        name: &str,
+        param: T,
+    ) -> Result<(), error::Token> {
+        match param.to_any_param() {
+            AnyParam::Term(t) => self.set_lenient(name, t),
+            AnyParam::PublicKey(p) => self.set_scope_lenient(name, p),
+        }
     }
 
     pub fn validate_parameters(&self) -> Result<(), error::Token> {
@@ -1362,6 +1713,7 @@ pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         Vec::new(),
+        vec![],
     )
 }
 
@@ -1376,6 +1728,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
         pred(head_name, head_terms),
         predicates.iter().map(|p| p.as_ref().clone()).collect(),
         expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        vec![],
     )
 }
 
@@ -1386,7 +1739,8 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
         queries: vec![Rule::new(
             pred("query", empty_terms),
             predicates.iter().map(|p| p.as_ref().clone()).collect(),
-            Vec::new(),
+            vec![],
+            vec![],
         )],
     }
 }
@@ -1439,9 +1793,27 @@ pub fn parameter(p: &str) -> Term {
     Term::Parameter(p.to_string())
 }
 
+#[cfg(feature = "datalog-macro")]
+pub enum AnyParam {
+    Term(Term),
+    PublicKey(PublicKey),
+}
+
+#[cfg(feature = "datalog-macro")]
+pub trait ToAnyParam {
+    fn to_any_param(&self) -> AnyParam;
+}
+
 impl From<i64> for Term {
     fn from(i: i64) -> Self {
         Term::Integer(i)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for i64 {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self as i64).into())
     }
 }
 
@@ -1464,6 +1836,13 @@ impl From<bool> for Term {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for bool {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self as bool).into())
+    }
+}
+
 impl TryFrom<Term> for bool {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -1483,9 +1862,23 @@ impl From<String> for Term {
     }
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for String {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl From<&str> for Term {
     fn from(s: &str) -> Self {
         Term::Str(s.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for &str {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.to_string().into())
     }
 }
 
@@ -1508,9 +1901,10 @@ impl From<Vec<u8>> for Term {
     }
 }
 
-impl From<&[u8]> for Term {
-    fn from(v: &[u8]) -> Self {
-        Term::Bytes(v.into())
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Vec<u8> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
     }
 }
 
@@ -1527,10 +1921,30 @@ impl TryFrom<Term> for Vec<u8> {
     }
 }
 
+impl From<&[u8]> for Term {
+    fn from(v: &[u8]) -> Self {
+        Term::Bytes(v.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for &[u8] {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl From<SystemTime> for Term {
     fn from(t: SystemTime) -> Self {
         let dur = t.duration_since(UNIX_EPOCH).unwrap();
         Term::Date(dur.as_secs())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for SystemTime {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
     }
 }
 
@@ -1607,6 +2021,13 @@ macro_rules! tuple_try_from_impl(
     );
 
 tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for PublicKey {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::PublicKey(self.clone())
+    }
+}
 
 impl TryFrom<&str> for Fact {
     type Error = error::Token;
@@ -1822,6 +2243,26 @@ mod tests {
     }
 
     #[test]
+    fn set_rule_scope_parameters() {
+        let pubkey = PublicKey::from_bytes(
+            &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
+                .unwrap(),
+        )
+        .unwrap();
+        let mut rule = Rule::try_from(
+            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2}) trusting {pk}",
+        )
+        .unwrap();
+        rule.set("p2", "hello").unwrap();
+        rule.set("p4", 0i64).unwrap();
+        rule.set("p4", 1i64).unwrap();
+        rule.set_scope("pk", pubkey).unwrap();
+
+        let s = rule.to_string();
+        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\") trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db");
+    }
+
+    #[test]
     fn set_code_parameters() {
         let mut builder = BlockBuilder::new();
         let mut params = HashMap::new();
@@ -1836,6 +2277,7 @@ mod tests {
              check if {p3};
             "#,
                 params,
+                HashMap::new(),
             )
             .unwrap();
         assert_eq!(
@@ -1905,6 +2347,7 @@ check if true;
              check if {p3};
             "#,
             params,
+            HashMap::new(),
         );
 
         assert_eq!(

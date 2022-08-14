@@ -137,14 +137,15 @@ pub fn check_body(i: &str) -> IResult<&str, Vec<builder::Rule>, Error> {
 
     let queries = queries
         .drain(..)
-        .map(|rule_body| {
+        .map(|(predicates, expressions, scopes)| {
             builder::Rule::new(
                 builder::Predicate {
                     name: "query".to_string(),
                     terms: Vec::new(),
                 },
-                rule_body.0,
-                rule_body.1,
+                predicates,
+                expressions,
+                scopes,
             )
         })
         .collect();
@@ -176,9 +177,9 @@ pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
 
     let (i, _) = tag("<-")(i)?;
 
-    let (i, (body, expressions)) = cut(rule_body)(i)?;
+    let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
 
-    let rule = builder::Rule::new(head, body, expressions);
+    let rule = builder::Rule::new(head, body, expressions, scopes);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Failure(Error {
@@ -306,7 +307,15 @@ fn rule_head(i: &str) -> IResult<&str, builder::Predicate, Error> {
 /// parse a Datalog rule body
 pub fn rule_body(
     i: &str,
-) -> IResult<&str, (Vec<builder::Predicate>, Vec<builder::Expression>), Error> {
+) -> IResult<
+    &str,
+    (
+        Vec<builder::Predicate>,
+        Vec<builder::Expression>,
+        Vec<builder::Scope>,
+    ),
+    Error,
+> {
     let (i, mut elements) = separated_list1(
         preceded(space0, char(',')),
         preceded(space0, cut(predicate_or_expression)),
@@ -326,7 +335,9 @@ pub fn rule_body(
         }
     }
 
-    Ok((i, (predicates, expressions)))
+    let (i, scopes) = scopes(i)?;
+
+    Ok((i, (predicates, expressions, scopes)))
 }
 
 enum PredOrExpr {
@@ -339,6 +350,27 @@ fn predicate_or_expression(i: &str) -> IResult<&str, PredOrExpr, Error> {
         alt((map(predicate, PredOrExpr::P), map(expr, PredOrExpr::E))),
         ",;",
     )(i)
+}
+
+fn scopes(i: &str) -> IResult<&str, Vec<builder::Scope>, Error> {
+    if let Ok((i, _)) = preceded(space0, tag::<_, _, ()>("trusting"))(i) {
+        separated_list1(preceded(space0, char(',')), preceded(space0, cut(scope)))(i)
+    } else {
+        Ok((i, vec![]))
+    }
+}
+
+fn scope(i: &str) -> IResult<&str, builder::Scope, Error> {
+    alt((
+        map(tag("authority"), |_| builder::Scope::Authority),
+        map(tag("previous"), |_| builder::Scope::Previous),
+        map(preceded(tag("ed25519/"), parse_hex), |bytes| {
+            builder::Scope::PublicKey(bytes)
+        }),
+        map(delimited(char('{'), name, char('}')), |n| {
+            builder::Scope::Parameter(n.to_string())
+        }),
+    ))(i)
 }
 
 #[derive(Debug, PartialEq)]
@@ -569,17 +601,16 @@ fn date(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn parse_bytes(i: &str) -> IResult<&str, Vec<u8>, Error> {
-    preceded(
-        tag("hex:"),
-        map_res(
-            take_while1(|c| {
-                let c = c as u8;
-                (b'0'..=b'9').contains(&c)
-                    || (b'a'..=b'f').contains(&c)
-                    || (b'A'..=b'F').contains(&c)
-            }),
-            hex::decode,
-        ),
+    preceded(tag("hex:"), parse_hex)(i)
+}
+
+fn parse_hex(i: &str) -> IResult<&str, Vec<u8>, Error> {
+    map_res(
+        take_while1(|c| {
+            let c = c as u8;
+            (b'0'..=b'9').contains(&c) || (b'a'..=b'f').contains(&c) || (b'A'..=b'F').contains(&c)
+        }),
+        hex::decode,
     )(i)
 }
 
@@ -700,6 +731,7 @@ fn multiline_comment(i: &str) -> IResult<&str, (), Error> {
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SourceResult<'a> {
+    pub scopes: Vec<builder::Scope>,
     pub facts: Vec<(&'a str, builder::Fact)>,
     pub rules: Vec<(&'a str, builder::Rule)>,
     pub checks: Vec<(&'a str, builder::Check)>,
@@ -800,6 +832,44 @@ pub fn parse_block_source(mut i: &str) -> Result<SourceResult, Vec<Error>> {
     let mut result = SourceResult::default();
     let mut errors = Vec::new();
 
+    match opt(terminated(consumed(scopes), sep))(i) {
+        Ok((i2, opt_scopes)) => {
+            if let Some((_, scopes)) = opt_scopes {
+                i = i2;
+                result.scopes = scopes;
+            }
+        }
+        Err(nom::Err::Incomplete(_)) => panic!(),
+        Err(nom::Err::Error(mut e)) => {
+            if let Some(index) = e.input.find(|c| c == ';') {
+                e.input = &(e.input)[..index];
+            }
+
+            let offset = i.offset(e.input);
+            if let Some(index) = &i[offset..].find(|c| c == ';') {
+                i = &i[offset + index + 1..];
+            } else {
+                i = &i[i.len()..];
+            }
+
+            errors.push(e);
+        }
+        Err(nom::Err::Failure(mut e)) => {
+            if let Some(index) = e.input.find(|c| c == ';') {
+                e.input = &(e.input)[..index];
+            }
+
+            let offset = i.offset(e.input);
+            if let Some(index) = &i[offset..].find(|c| c == ';') {
+                i = &i[offset + index + 1..];
+            } else {
+                i = &i[i.len()..];
+            }
+
+            errors.push(e);
+        }
+    }
+
     loop {
         if i.is_empty() {
             if errors.is_empty() {
@@ -892,7 +962,7 @@ impl<'a> ParseError<&'a str> for Error<'a> {
     }
 }
 
-//FIXME: poperly handle other errors
+//FIXME: properly handle other errors
 impl<'a, E> FromExternalError<&'a str, E> for Error<'a> {
     fn from_external_error(input: &'a str, kind: ErrorKind, _e: E) -> Self {
         Self {

@@ -3,19 +3,19 @@ use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
     pub ops: Vec<Op>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Unary {
     Negate,
     Parens,
@@ -48,7 +48,7 @@ impl Unary {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Binary {
     LessThan,
     GreaterThan,

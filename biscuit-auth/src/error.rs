@@ -12,8 +12,6 @@ pub enum Token {
     InternalError,
     #[error("error deserializing or verifying the token")]
     Format(Format),
-    #[error("multiple blocks declare the same symbols")]
-    SymbolTableOverlap,
     #[error("tried to append a block to a sealed token")]
     AppendOnSealed,
     #[error("tried to seal an already sealed token")]
@@ -129,6 +127,18 @@ pub enum Format {
     SignatureDeserializationError(String),
     #[error("could not deserialize the block signature")]
     BlockSignatureDeserializationError(String),
+    #[error("invalid block id")]
+    InvalidBlockId(usize),
+    #[error("the public key is already present in previous blocks")]
+    ExistingPublicKey(String),
+    #[error("multiple blocks declare the same symbols")]
+    SymbolTableOverlap,
+    #[error("multiple blocks declare the same public keys")]
+    PublicKeyTableOverlap,
+    #[error("the external public key was not recognized")]
+    UnknownExternalKey,
+    #[error("the symbol id was not in the table")]
+    UnknownSymbol(u64),
 }
 
 /// Signature errors
