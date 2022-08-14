@@ -15,4 +15,5 @@ time = {version = "0.3.7", features = ["formatting", "parsing"]}
 
 [features]
 datalog-macro = []
+# used by biscuit-wasm to serialize errors to JSON
 serde-error = ["serde"]
