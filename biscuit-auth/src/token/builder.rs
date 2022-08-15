@@ -160,6 +160,18 @@ impl BlockBuilder {
                 };
                 res?;
             }
+            for (name, value) in &scope_params {
+                let res = match check.set_scope(&name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
             check.validate_parameters()?;
             self.checks.push(check);
         }
@@ -2270,21 +2282,28 @@ mod tests {
         params.insert("p2".to_string(), 1i64.into());
         params.insert("p3".to_string(), true.into());
         params.insert("p4".to_string(), "this will be ignored".into());
+        let pubkey = PublicKey::from_bytes(
+            &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
+                .unwrap(),
+        )
+        .unwrap();
+        let mut scope_params = HashMap::new();
+        scope_params.insert("pk".to_string(), pubkey);
         builder
             .add_code_with_params(
                 r#"fact({p1}, "value");
-             rule($head_var) <- f1($head_var), {p2} > 0;
-             check if {p3};
+             rule($head_var) <- f1($head_var), {p2} > 0 trusting {pk};
+             check if {p3} trusting {pk};
             "#,
                 params,
-                HashMap::new(),
+                scope_params,
             )
             .unwrap();
         assert_eq!(
             format!("{}", &builder),
             r#"fact("hello", "value");
-rule($head_var) <- f1($head_var), 1 > 0;
-check if true;
+rule($head_var) <- f1($head_var), 1 > 0 trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
+check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
 "#
         );
     }
