@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{crypto::PublicKey, error};
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PublicKeys {
     pub(crate) keys: Vec<PublicKey>,
 }
@@ -17,7 +17,7 @@ impl PublicKeys {
     }
 
     pub fn extend(&mut self, other: &PublicKeys) -> Result<(), error::Format> {
-        if !self.is_disjoint(&other) {
+        if !self.is_disjoint(other) {
             return Err(error::Format::PublicKeyTableOverlap);
         }
         self.keys.extend(other.keys.iter().cloned());

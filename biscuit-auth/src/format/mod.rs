@@ -185,7 +185,7 @@ impl SerializedBiscuit {
         for pk in &authority.public_keys {
             symbols
                 .public_keys
-                .insert_fallible(&PublicKey::from_proto(&pk)?)?;
+                .insert_fallible(&PublicKey::from_proto(pk)?)?;
         }
         // the authority block should not have an external key
         block_external_keys.push(None);
@@ -203,7 +203,7 @@ impl SerializedBiscuit {
 
             if let Some(external_signature) = &block.external_signature {
                 symbols.public_keys.insert(&external_signature.public_key);
-                block_external_keys.push(Some(external_signature.public_key.clone()));
+                block_external_keys.push(Some(external_signature.public_key));
             } else {
                 block_external_keys.push(None);
                 symbols.extend(&SymbolTable::from(deser.symbols.clone())?)?;
@@ -212,7 +212,7 @@ impl SerializedBiscuit {
             for pk in &deser.public_keys {
                 symbols
                     .public_keys
-                    .insert_fallible(&PublicKey::from_proto(&pk)?)?;
+                    .insert_fallible(&PublicKey::from_proto(pk)?)?;
             }
 
             blocks.push(deser);

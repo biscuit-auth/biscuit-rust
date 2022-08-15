@@ -151,7 +151,7 @@ impl PublicKey {
             )));
         }
 
-        Ok(PublicKey::from_bytes(&key.key)?)
+        PublicKey::from_bytes(&key.key)
     }
 
     pub fn to_proto(&self) -> schema::PublicKey {

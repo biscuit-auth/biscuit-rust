@@ -34,7 +34,7 @@ impl ThirdPartyRequest {
             })?
             .public_keys
         {
-            public_keys.insert(&PublicKey::from_proto(&pk)?);
+            public_keys.insert(&PublicKey::from_proto(pk)?);
         }
         for block in &container.blocks {
             for pk in &schema::Block::decode(&block.data[..])
@@ -43,14 +43,14 @@ impl ThirdPartyRequest {
                 })?
                 .public_keys
             {
-                public_keys.insert(&PublicKey::from_proto(&pk)?);
+                public_keys.insert(&PublicKey::from_proto(pk)?);
             }
         }
 
         let previous_key = container
             .blocks
             .last()
-            .unwrap_or(&&container.authority)
+            .unwrap_or(&container.authority)
             .next_key;
 
         Ok(ThirdPartyRequest {

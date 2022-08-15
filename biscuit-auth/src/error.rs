@@ -5,7 +5,7 @@ use std::convert::{From, Infallible};
 use thiserror::Error;
 
 /// the global error type for Biscuit
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Token {
     #[error("internal error")]
@@ -68,7 +68,7 @@ impl From<base64::DecodeError> for Token {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Base64Error {
     InvalidByte(usize, u8),
@@ -92,7 +92,7 @@ impl std::fmt::Display for Base64Error {
 
 /// Errors related to the token's serialization format or cryptographic
 /// signature
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Format {
     #[error("failed verifying the signature")]
@@ -142,7 +142,7 @@ pub enum Format {
 }
 
 /// Signature errors
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Signature {
     #[error("could not parse the signature elements")]
@@ -154,7 +154,7 @@ pub enum Signature {
 }
 
 /// errors in the Datalog evaluation
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Logic {
     #[error("a rule provided by a block is generating facts with the authority or ambient tag, or has head variables not used in its body")]
@@ -175,7 +175,7 @@ pub enum Logic {
     },
 }
 
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum MatchedPolicy {
     #[error("an allow policy matched")]
@@ -185,7 +185,7 @@ pub enum MatchedPolicy {
 }
 
 /// check errors
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum FailedCheck {
     #[error("a check failed in a block")]
@@ -194,7 +194,7 @@ pub enum FailedCheck {
     Authorizer(FailedAuthorizerCheck),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedBlockCheck {
     pub block_id: u32,
@@ -203,7 +203,7 @@ pub struct FailedBlockCheck {
     pub rule: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedAuthorizerCheck {
     pub check_id: u32,
@@ -212,7 +212,7 @@ pub struct FailedAuthorizerCheck {
 }
 
 /// runtime limits errors
-#[derive(Error, Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum RunLimit {
     #[error("too many facts generated")]
