@@ -29,9 +29,7 @@ fn main() {
     builder.add_fact("external_fact(\"hello\")").unwrap();
     let res = req.create_response(external.private(), builder).unwrap();
 
-    let biscuit2 = biscuit1
-        .append_third_party(external.public(), &res[..])
-        .unwrap();
+    let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
     println!("biscuit2: {}", biscuit2.print());
 

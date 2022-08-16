@@ -398,16 +398,14 @@ impl Biscuit {
     pub fn append_third_party(
         &self,
         external_key: PublicKey,
-        slice: &[u8],
+        response: Response,
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
         let ThirdPartyBlockContents {
             payload,
             external_signature,
-        } = schema::ThirdPartyBlockContents::decode(slice).map_err(|e| {
-            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-        })?;
+        } = response.0;
 
         if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
         {

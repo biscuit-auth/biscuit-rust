@@ -116,7 +116,7 @@ impl Request {
         self,
         private_key: PrivateKey,
         block_builder: BlockBuilder,
-    ) -> Result<Vec<u8>, error::Token> {
+    ) -> Result<Response, error::Token> {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
         let mut block = block_builder.build(symbols);
@@ -150,8 +150,16 @@ impl Request {
             },
         };
 
+        Ok(Response(content))
+    }
+}
+
+pub struct Response(pub(crate) schema::ThirdPartyBlockContents);
+
+impl Response {
+    pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
         let mut buffer = vec![];
-        content.encode(&mut buffer).map(|_| buffer).map_err(|e| {
+        self.0.encode(&mut buffer).map(|_| buffer).map_err(|e| {
             error::Token::Format(error::Format::SerializationError(format!(
                 "serialization error: {:?}",
                 e
@@ -159,30 +167,7 @@ impl Request {
         })
     }
 
-    pub fn create_response_base64(
-        self,
-        private_key: PrivateKey,
-        block_builder: BlockBuilder,
-    ) -> Result<String, error::Token> {
-        Ok(base64::encode_config(
-            self.create_response(private_key, block_builder)?,
-            base64::URL_SAFE,
-        ))
+    pub fn serialize_base64(self) -> Result<String, error::Token> {
+        Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE))
     }
 }
-
-/*pub struct Response{}
-impl Response {
-    pub fn deserialize(slice: &[u8]) -> Result<Self, error::Token> {
-        let data = schema::ThirdPartyBlockContents::decode(slice).map_err(|e| {
-            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-        })?;
-
-        if data.previous_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Token::Format(error::Format::DeserializationError(
-                format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    data.previous_key.algorithm
-                ),
-            )));
-        }*/
