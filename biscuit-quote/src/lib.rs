@@ -15,14 +15,14 @@
 //!   user_id = "1234",
 //! ).build(&root).expect("Failed to create biscuit");
 //!
-//! biscuit.append(block!(
+//! let new_biscuit = biscuit.append(block!(
 //!   r#"
 //!     check if time($time), $time < {expiration};
 //!   "#,
 //!   expiration = SystemTime::now() + Duration::from_secs(86_400),
 //! )).expect("Failed to append block");
 //!
-//! biscuit.authorize(&authorizer!(
+//! new_biscuit.authorize(&authorizer!(
 //!   r#"
 //!      time({now});
 //!      operation({operation});
