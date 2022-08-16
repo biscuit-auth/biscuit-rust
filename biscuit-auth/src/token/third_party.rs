@@ -81,8 +81,8 @@ impl Request {
         })
     }
 
-    pub fn serialize_base64(&self) -> Result<Vec<u8>, error::Token> {
-        Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE).into_bytes())
+    pub fn serialize_base64(&self) -> Result<String, error::Token> {
+        Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE))
     }
 
     pub fn deserialize(slice: &[u8]) -> Result<Self, error::Token> {
@@ -163,12 +163,11 @@ impl Request {
         self,
         private_key: PrivateKey,
         block_builder: BlockBuilder,
-    ) -> Result<Vec<u8>, error::Token> {
+    ) -> Result<String, error::Token> {
         Ok(base64::encode_config(
             self.create_response(private_key, block_builder)?,
             base64::URL_SAFE,
-        )
-        .into_bytes())
+        ))
     }
 }
 
