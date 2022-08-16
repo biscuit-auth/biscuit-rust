@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use ed25519_dalek::Signer;
 use prost::Message;
 
@@ -14,14 +12,14 @@ use crate::{
 
 use super::public_keys::PublicKeys;
 
+/// Third party block request
 pub struct Request {
     pub(crate) previous_key: PublicKey,
     pub(crate) public_keys: PublicKeys,
-    pub(crate) builder: BlockBuilder,
 }
 
 impl Request {
-    pub fn from_container(container: &SerializedBiscuit) -> Result<Request, error::Token> {
+    pub(crate) fn from_container(container: &SerializedBiscuit) -> Result<Request, error::Token> {
         if container.proof.is_sealed() {
             return Err(error::Token::AppendOnSealed);
         }
@@ -56,9 +54,9 @@ impl Request {
         Ok(Request {
             previous_key,
             public_keys,
-            builder: BlockBuilder::new(),
         })
     }
+
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
         let public_keys = self
             .public_keys
@@ -103,7 +101,6 @@ impl Request {
         Ok(Request {
             previous_key,
             public_keys,
-            builder: BlockBuilder::new(),
         })
     }
 
@@ -115,10 +112,14 @@ impl Request {
         Self::deserialize(&decoded)
     }
 
-    pub fn create_response(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
+    pub fn create_response(
+        self,
+        private_key: PrivateKey,
+        block_builder: BlockBuilder,
+    ) -> Result<Vec<u8>, error::Token> {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
-        let mut block = self.builder.build(symbols);
+        let mut block = block_builder.build(symbols);
         block.version = super::MAX_SCHEMA_VERSION;
 
         let mut v = Vec::new();
@@ -158,25 +159,16 @@ impl Request {
         })
     }
 
-    pub fn create_response_base64(self, private_key: PrivateKey) -> Result<Vec<u8>, error::Token> {
-        Ok(
-            base64::encode_config(self.create_response(private_key)?, base64::URL_SAFE)
-                .into_bytes(),
+    pub fn create_response_base64(
+        self,
+        private_key: PrivateKey,
+        block_builder: BlockBuilder,
+    ) -> Result<Vec<u8>, error::Token> {
+        Ok(base64::encode_config(
+            self.create_response(private_key, block_builder)?,
+            base64::URL_SAFE,
         )
-    }
-}
-
-impl Deref for Request {
-    type Target = BlockBuilder;
-
-    fn deref(&self) -> &Self::Target {
-        &self.builder
-    }
-}
-
-impl DerefMut for Request {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.builder
+        .into_bytes())
     }
 }
 

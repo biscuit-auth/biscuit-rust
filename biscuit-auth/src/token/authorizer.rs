@@ -1067,7 +1067,7 @@ impl AuthorizerExt for Authorizer<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::KeyPair;
+    use crate::{builder::BlockBuilder, KeyPair};
 
     use super::*;
 
@@ -1253,11 +1253,12 @@ mod tests {
 
         let biscuit1 = builder.build(&root).unwrap();
 
-        let mut req = biscuit1.third_party_request().unwrap();
+        let req = biscuit1.third_party_request().unwrap();
 
-        req.add_fact("group(\"admin\")").unwrap();
-        req.add_check("check if right(\"read\")").unwrap();
-        let res = req.create_response(external.private()).unwrap();
+        let mut builder = BlockBuilder::new();
+        builder.add_fact("group(\"admin\")").unwrap();
+        builder.add_check("check if right(\"read\")").unwrap();
+        let res = req.create_response(external.private(), builder).unwrap();
         let biscuit2 = biscuit1
             .append_third_party(external.public(), &res[..])
             .unwrap();
