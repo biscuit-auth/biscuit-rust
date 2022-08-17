@@ -391,23 +391,21 @@ impl Biscuit {
         })
     }
 
-    pub fn third_party_request(&self) -> Result<Request, error::Token> {
-        Request::from_container(&self.container)
+    pub fn third_party_request(&self) -> Result<ThirdPartyRequest, error::Token> {
+        ThirdPartyRequest::from_container(&self.container)
     }
 
     pub fn append_third_party(
         &self,
         external_key: PublicKey,
-        slice: &[u8],
+        response: ThirdPartyBlock,
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
         let ThirdPartyBlockContents {
             payload,
             external_signature,
-        } = schema::ThirdPartyBlockContents::decode(slice).map_err(|e| {
-            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-        })?;
+        } = response.0;
 
         if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
         {

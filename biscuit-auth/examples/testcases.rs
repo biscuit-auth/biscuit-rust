@@ -5,6 +5,7 @@ extern crate biscuit_auth as biscuit;
 use biscuit::error;
 use biscuit::KeyPair;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
+use biscuit_auth::builder::BlockBuilder;
 use biscuit_auth::datalog::SymbolTable;
 use prost::Message;
 use rand::prelude::*;
@@ -2175,14 +2176,13 @@ fn third_party<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut req = biscuit1.third_party_request().unwrap();
+    let req = biscuit1.third_party_request().unwrap();
 
-    req.add_fact("group(\"admin\")").unwrap();
-    req.add_check("check if right(\"read\")").unwrap();
-    let res = req.create_response(external.private()).unwrap();
-    let biscuit2 = biscuit1
-        .append_third_party(external.public(), &res[..])
-        .unwrap();
+    let mut builder = BlockBuilder::new();
+    builder.add_fact("group(\"admin\")").unwrap();
+    builder.add_check("check if right(\"read\")").unwrap();
+    let res = req.create_block(external.private(), builder).unwrap();
+    let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
     token = print_blocks(&biscuit2);
 
