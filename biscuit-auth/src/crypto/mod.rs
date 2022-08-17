@@ -32,7 +32,7 @@ impl KeyPair {
         KeyPair { kp }
     }
 
-    pub fn from(key: PrivateKey) -> Self {
+    pub fn from(key: &PrivateKey) -> Self {
         let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
 
         let public = (&key.0).into();
@@ -356,7 +356,7 @@ impl TokenNext {
     pub fn keypair(&self) -> Result<KeyPair, error::Token> {
         match &self {
             TokenNext::Seal(_) => Err(error::Token::AlreadySealed),
-            TokenNext::Secret(private) => Ok(KeyPair::from(private.clone())),
+            TokenNext::Secret(private) => Ok(KeyPair::from(private)),
         }
     }
 

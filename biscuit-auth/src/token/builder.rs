@@ -389,7 +389,7 @@ impl BiscuitBuilder {
     }
 }
 
-pub trait Convert<T>: Sized {
+pub(crate) trait Convert<T>: Sized {
     fn convert(&self, symbols: &mut SymbolTable) -> T;
     fn convert_from(f: &T, symbols: &SymbolTable) -> Result<Self, error::Format>;
 }
@@ -514,11 +514,16 @@ impl fmt::Display for Term {
     }
 }
 
+/// Builder for a block or rule scope
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Scope {
+    /// Trusts the first block, current block and the authorizer
     Authority,
+    /// Trusts the current block and all previous ones
     Previous,
+    /// Trusts the current block and any block signed by the public key
     PublicKey(PublicKey),
+    /// Used for parameter substitution
     Parameter(String),
 }
 

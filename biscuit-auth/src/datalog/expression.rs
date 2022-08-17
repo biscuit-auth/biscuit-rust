@@ -15,6 +15,7 @@ pub enum Op {
     Binary(Binary),
 }
 
+/// Unary operation code
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Unary {
     Negate,
@@ -48,6 +49,7 @@ impl Unary {
     }
 }
 
+/// Binary operation code
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Binary {
     LessThan,

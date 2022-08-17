@@ -27,7 +27,7 @@ fn main() {
     let req = biscuit_auth::ThirdPartyRequest::deserialize(&serialized_req).unwrap();
     let mut builder = BlockBuilder::new();
     builder.add_fact("external_fact(\"hello\")").unwrap();
-    let res = req.create_block(external.private(), builder).unwrap();
+    let res = req.create_block(&external.private(), builder).unwrap();
 
     let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
