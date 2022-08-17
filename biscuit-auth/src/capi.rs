@@ -349,7 +349,7 @@ pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box
             update_last_error(Error::InvalidArgument);
             None
         }
-        Some(privkey) => Some(Box::new(KeyPair(crate::crypto::KeyPair::from(privkey)))),
+        Some(privkey) => Some(Box::new(KeyPair(crate::crypto::KeyPair::from(&privkey)))),
     }
 }
 
