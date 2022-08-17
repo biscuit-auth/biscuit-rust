@@ -1039,11 +1039,11 @@ impl BuilderExt for Authorizer<'_> {
     fn check_expiration_date(&mut self, exp: SystemTime) {
         let check = constrained_rule(
             "expiration",
-            &[var("date")],
-            &[pred("time", &[var("date")])],
+            &[var("time")],
+            &[pred("time", &[var("time")])],
             &[Expression {
                 ops: vec![
-                    Op::Value(var("date")),
+                    Op::Value(var("time")),
                     Op::Value(date(&exp)),
                     Op::Binary(Binary::LessOrEqual),
                 ],
