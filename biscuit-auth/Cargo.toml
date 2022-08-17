@@ -20,6 +20,7 @@ wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 serde-error = ["serde", "biscuit-parser/serde-error"]
 # used by biscuit-quote to parse datalog at compile-time
 datalog-macro = ["biscuit-quote"]
+docsrs = []
 
 [dependencies]
 rand_core = "^0.5"

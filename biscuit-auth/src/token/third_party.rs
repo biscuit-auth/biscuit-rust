@@ -114,6 +114,7 @@ impl ThirdPartyRequest {
         Self::deserialize(&decoded)
     }
 
+    /// Creates a [`ThirdPartyBlock`] signed with the third party service's [`PrivateKey`]
     pub fn create_block(
         self,
         private_key: &PrivateKey,
@@ -156,6 +157,10 @@ impl ThirdPartyRequest {
     }
 }
 
+/// Signed third party block content
+///
+/// this must be integrated with the token that created the [`ThirdPartyRequest`]
+/// using [`Biscuit::append_third_party`](crate::Biscuit::append_third_party)
 pub struct ThirdPartyBlock(pub(crate) schema::ThirdPartyBlockContents);
 
 impl ThirdPartyBlock {

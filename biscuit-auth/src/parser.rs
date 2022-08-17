@@ -1,6 +1,6 @@
 //! Datalog text format parsing
 //!
-//! all of the parsers are usable with [`TryFrom`] so they can be used
+//! all of the parsers are usable with [`std::convert::TryFrom`] so they can be used
 //! as follows:
 //!
 //! ```rust

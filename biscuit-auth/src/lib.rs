@@ -232,7 +232,7 @@ pub use token::builder;
 pub use token::builder_ext;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
-pub use token::{ThirdPartyRequest, ThirdPartyBlock};
+pub use token::{ThirdPartyBlock, ThirdPartyRequest};
 
 #[cfg(cargo_c)]
 mod capi;
@@ -242,7 +242,9 @@ pub use capi::*;
 
 mod time;
 
+/// Procedural macros to construct Datalog policies
 #[cfg(feature = "datalog-macro")]
+#[cfg_attr(feature = "docsrs", doc(cfg(feature = "datalog-macro")))]
 pub mod macros {
     pub use biscuit_quote::*;
 }
