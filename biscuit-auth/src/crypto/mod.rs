@@ -74,6 +74,11 @@ impl PrivateKey {
         self.0.to_bytes()
     }
 
+    /// serializes to an hex-encoded string
+    pub fn to_bytes_hex(&self) -> String {
+        hex::encode(self.to_bytes())
+    }
+
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
         let bytes: [u8; 32] = bytes
@@ -83,6 +88,12 @@ impl PrivateKey {
             .map(PrivateKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
+    }
+
+    /// deserializes from an hex-encoded string
+    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+        let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Self::from_bytes(&bytes)
     }
 
     /// returns the matching public key
@@ -113,12 +124,23 @@ impl PublicKey {
         self.0.to_bytes()
     }
 
+    /// serializes to an hex-encoded string
+    pub fn to_bytes_hex(&self) -> String {
+        hex::encode(self.to_bytes())
+    }
+
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
         ed25519_dalek::PublicKey::from_bytes(bytes)
             .map(PublicKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
+    }
+
+    /// deserializes from an hex-encoded string
+    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+        let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Self::from_bytes(&bytes)
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
