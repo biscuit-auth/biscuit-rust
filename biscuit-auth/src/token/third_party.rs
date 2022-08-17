@@ -116,7 +116,7 @@ impl ThirdPartyRequest {
 
     pub fn create_block(
         self,
-        private_key: PrivateKey,
+        private_key: &PrivateKey,
         block_builder: BlockBuilder,
     ) -> Result<ThirdPartyBlock, error::Token> {
         let mut symbols = SymbolTable::new();
@@ -169,7 +169,7 @@ impl ThirdPartyBlock {
         })
     }
 
-    pub fn serialize_base64(self) -> Result<String, error::Token> {
+    pub fn serialize_base64(&self) -> Result<String, error::Token> {
         Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE))
     }
 }
