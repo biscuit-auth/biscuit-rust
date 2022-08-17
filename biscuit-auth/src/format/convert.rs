@@ -246,7 +246,7 @@ pub mod v2 {
         let mut queries = vec![];
 
         for q in input.queries.iter() {
-            let (c, scopes) = proto_rule_to_token_rule(q, version)?;
+            let (c, _scopes) = proto_rule_to_token_rule(q, version)?;
             let c = crate::token::builder::Rule::convert_from(&c, symbols)?;
             queries.push(c);
         }
