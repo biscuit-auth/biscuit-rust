@@ -24,10 +24,10 @@ fn main() {
 
     let serialized_req = biscuit1.third_party_request().unwrap().serialize().unwrap();
 
-    let req = biscuit_auth::Request::deserialize(&serialized_req).unwrap();
+    let req = biscuit_auth::ThirdPartyRequest::deserialize(&serialized_req).unwrap();
     let mut builder = BlockBuilder::new();
     builder.add_fact("external_fact(\"hello\")").unwrap();
-    let res = req.create_response(external.private(), builder).unwrap();
+    let res = req.create_block(external.private(), builder).unwrap();
 
     let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 

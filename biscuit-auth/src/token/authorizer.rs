@@ -1258,7 +1258,7 @@ mod tests {
         let mut builder = BlockBuilder::new();
         builder.add_fact("group(\"admin\")").unwrap();
         builder.add_check("check if right(\"read\")").unwrap();
-        let res = req.create_response(external.private(), builder).unwrap();
+        let res = req.create_block(external.private(), builder).unwrap();
         let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
         let mut authorizer = Authorizer::new().unwrap();

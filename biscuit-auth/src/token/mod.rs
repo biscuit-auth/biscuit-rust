@@ -391,14 +391,14 @@ impl Biscuit {
         })
     }
 
-    pub fn third_party_request(&self) -> Result<Request, error::Token> {
-        Request::from_container(&self.container)
+    pub fn third_party_request(&self) -> Result<ThirdPartyRequest, error::Token> {
+        ThirdPartyRequest::from_container(&self.container)
     }
 
     pub fn append_third_party(
         &self,
         external_key: PublicKey,
-        response: Response,
+        response: ThirdPartyBlock,
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 

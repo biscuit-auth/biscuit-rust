@@ -232,7 +232,7 @@ pub use token::builder;
 pub use token::builder_ext;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
-pub use token::Request;
+pub use token::ThirdPartyRequest;
 
 #[cfg(cargo_c)]
 mod capi;

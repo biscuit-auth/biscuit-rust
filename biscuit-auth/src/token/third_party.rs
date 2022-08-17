@@ -13,13 +13,15 @@ use crate::{
 use super::public_keys::PublicKeys;
 
 /// Third party block request
-pub struct Request {
+pub struct ThirdPartyRequest {
     pub(crate) previous_key: PublicKey,
     pub(crate) public_keys: PublicKeys,
 }
 
-impl Request {
-    pub(crate) fn from_container(container: &SerializedBiscuit) -> Result<Request, error::Token> {
+impl ThirdPartyRequest {
+    pub(crate) fn from_container(
+        container: &SerializedBiscuit,
+    ) -> Result<ThirdPartyRequest, error::Token> {
         if container.proof.is_sealed() {
             return Err(error::Token::AppendOnSealed);
         }
@@ -51,7 +53,7 @@ impl Request {
             .unwrap_or(&&container.authority)
             .next_key;
 
-        Ok(Request {
+        Ok(ThirdPartyRequest {
             previous_key,
             public_keys,
         })
@@ -98,7 +100,7 @@ impl Request {
             public_keys.insert(&PublicKey::from_proto(&key)?);
         }
 
-        Ok(Request {
+        Ok(ThirdPartyRequest {
             previous_key,
             public_keys,
         })
@@ -112,11 +114,11 @@ impl Request {
         Self::deserialize(&decoded)
     }
 
-    pub fn create_response(
+    pub fn create_block(
         self,
         private_key: PrivateKey,
         block_builder: BlockBuilder,
-    ) -> Result<Response, error::Token> {
+    ) -> Result<ThirdPartyBlock, error::Token> {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
         let mut block = block_builder.build(symbols);
@@ -150,13 +152,13 @@ impl Request {
             },
         };
 
-        Ok(Response(content))
+        Ok(ThirdPartyBlock(content))
     }
 }
 
-pub struct Response(pub(crate) schema::ThirdPartyBlockContents);
+pub struct ThirdPartyBlock(pub(crate) schema::ThirdPartyBlockContents);
 
-impl Response {
+impl ThirdPartyBlock {
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
         let mut buffer = vec![];
         self.0.encode(&mut buffer).map(|_| buffer).map_err(|e| {

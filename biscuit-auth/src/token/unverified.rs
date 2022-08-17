@@ -9,7 +9,7 @@ use crate::{
     datalog::SymbolTable,
     error,
     format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
-    token::{Request, ThirdPartyBlockContents},
+    token::{ThirdPartyBlockContents, ThirdPartyRequest},
     KeyPair,
 };
 use prost::Message;
@@ -261,8 +261,8 @@ impl UnverifiedBiscuit {
         }
     }
 
-    pub fn third_party_request(&self) -> Result<Request, error::Token> {
-        Request::from_container(&self.container)
+    pub fn third_party_request(&self) -> Result<ThirdPartyRequest, error::Token> {
+        ThirdPartyRequest::from_container(&self.container)
     }
 
     pub fn append_third_party(&self, slice: &[u8]) -> Result<Self, error::Token> {
