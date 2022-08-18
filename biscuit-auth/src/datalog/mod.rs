@@ -244,11 +244,8 @@ impl Rule {
         // the current block is always trusted
         origins.insert(current_block);
 
-        // if there is no scope annotation, the authority block is
-        // implicitly trusted
-        if self.scopes.is_empty() {
-            origins.insert(0);
-        }
+        // if there is no scope, the block scopes are used instead,
+        // so there is no need to default to trusting the authority here
 
         for scope in &self.scopes {
             match scope {
