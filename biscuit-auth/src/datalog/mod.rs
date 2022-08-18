@@ -235,19 +235,24 @@ impl Rule {
 
     pub(crate) fn origins(
         &self,
-        index: usize,
+        current_block: usize,
         public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
     ) -> Origin {
         let mut origins = Origin::default();
+        // the authorizer is always trusted
+        origins.insert(0); // todo this should be the authorizer id instead
+                           // the current block is always trusted
+        origins.insert(current_block);
 
         for scope in &self.scopes {
             match scope {
                 Scope::Authority => {
+                    // todo this won't be redundant once authority is separated
+                    // from authorizer
                     origins.insert(0);
                 }
-                Scope::Previous => origins.extend(0..index + 1),
+                Scope::Previous => origins.extend(0..current_block + 1),
                 Scope::PublicKey(key_id) => {
-                    origins.insert(index);
                     if let Some(map) = public_key_to_block_id {
                         if let Some(block_ids) = map.get(&(*key_id as usize)) {
                             origins.extend(block_ids.iter())
