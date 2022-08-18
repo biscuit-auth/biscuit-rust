@@ -137,10 +137,12 @@ impl<'t> Authorizer<'t> {
         let authority = token.block(0)?;
         let origin = authority.origins(0, Some(&self.public_key_to_block_id));
 
+        let mut authority_origin = Origin::default();
+        authority_origin.insert(0);
         // add authority facts and rules right away to make them available to queries
         for fact in authority.facts.iter().cloned() {
             let fact = Fact::convert_from(&fact, &token.symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&origin, fact);
+            self.world.facts.insert(&authority_origin, fact);
         }
 
         for rule in authority.rules.iter().cloned() {
@@ -172,9 +174,11 @@ impl<'t> Authorizer<'t> {
 
             let origin = block.origins(i, Some(&self.public_key_to_block_id));
 
+            let mut block_origin = Origin::default();
+            block_origin.insert(i);
             for fact in block.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &block_symbols)?.convert(&mut self.symbols);
-                self.world.facts.insert(&origin, fact);
+                self.world.facts.insert(&block_origin, fact);
             }
 
             for rule in block.rules.iter().cloned() {
