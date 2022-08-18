@@ -254,7 +254,11 @@ impl Rule {
                     // from authorizer
                     origins.insert(0);
                 }
-                Scope::Previous => origins.extend(0..current_block + 1),
+                Scope::Previous => {
+                    if current_block != usize::MAX {
+                        origins.extend(0..current_block + 1)
+                    }
+                }
                 Scope::PublicKey(key_id) => {
                     if let Some(map) = public_key_to_block_id {
                         if let Some(block_ids) = map.get(&(*key_id as usize)) {
