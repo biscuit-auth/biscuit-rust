@@ -240,9 +240,15 @@ impl Rule {
     ) -> Origin {
         let mut origins = Origin::default();
         // the authorizer is always trusted
-        origins.insert(0); // todo this should be the authorizer id instead
-                           // the current block is always trusted
+        origins.insert(usize::MAX);
+        // the current block is always trusted
         origins.insert(current_block);
+
+        // if there is no scope annotation, the authority block is
+        // implicitly trusted
+        if self.scopes.is_empty() {
+            origins.insert(0);
+        }
 
         for scope in &self.scopes {
             match scope {

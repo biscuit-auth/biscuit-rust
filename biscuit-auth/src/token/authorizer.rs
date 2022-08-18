@@ -84,7 +84,7 @@ impl<'t> Authorizer<'t> {
         } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
 
         let mut origin = Origin::default();
-        origin.insert(0);
+        origin.insert(usize::MAX);
         let mut f = FactSet::default();
         let mut r = RuleSet::default();
 
@@ -251,7 +251,7 @@ impl<'t> Authorizer<'t> {
         fact.validate()?;
 
         let mut origin = Origin::default();
-        origin.insert(0);
+        origin.insert(usize::MAX);
         self.world
             .facts
             .insert(&origin, fact.convert(&mut self.symbols));
@@ -266,7 +266,7 @@ impl<'t> Authorizer<'t> {
         let rule = rule.try_into()?;
         rule.validate_parameters()?;
         let mut origin = Origin::default();
-        origin.insert(0);
+        origin.insert(usize::MAX);
         self.world
             .rules
             .insert(&origin, rule.convert(&mut self.symbols));
@@ -309,7 +309,7 @@ impl<'t> Authorizer<'t> {
         })?;
 
         let mut origin = Origin::default();
-        origin.insert(0);
+        origin.insert(usize::MAX);
 
         for (_, fact) in source_result.facts.into_iter() {
             let mut fact: Fact = fact.into();
@@ -556,13 +556,13 @@ impl<'t> Authorizer<'t> {
             all_blocks.insert(usize::MAX);
             all_blocks
         } else {
-            [0].iter().collect()
+            [0, usize::MAX].iter().collect()
         };
 
         let origin = if rule.scopes.is_empty() {
             all_origins
         } else {
-            rule.origins(0, Some(&self.public_key_to_block_id))
+            rule.origins(usize::MAX, Some(&self.public_key_to_block_id))
         };
 
         let res = self.world.query_rule(rule.clone(), &origin, &self.symbols);
@@ -651,8 +651,9 @@ impl<'t> Authorizer<'t> {
             .map_err(error::Token::RunLimit)?;
         //self.world.rules.clear();
 
+        // by default we trust authority and the authorizer
         let mut origin = Origin::default();
-        origin.insert(0);
+        origin.extend([0, usize::MAX]);
 
         for (i, check) in self.checks.iter().enumerate() {
             let c = check.convert(&mut self.symbols);
@@ -663,7 +664,7 @@ impl<'t> Authorizer<'t> {
                 let origin = if query.scopes.is_empty() {
                     origin.clone()
                 } else {
-                    query.origins(0, Some(&self.public_key_to_block_id))
+                    query.origins(usize::MAX, Some(&self.public_key_to_block_id))
                 };
                 let res = self.world.query_match(query, &origin, &self.symbols);
 
@@ -734,7 +735,7 @@ impl<'t> Authorizer<'t> {
                 let origin = if query.scopes.is_empty() {
                     origin.clone()
                 } else {
-                    query.origins(0, Some(&self.public_key_to_block_id))
+                    query.origins(usize::MAX, Some(&self.public_key_to_block_id))
                 };
                 let res = self.world.query_match(query, &origin, &self.symbols);
 
@@ -1303,12 +1304,12 @@ mod tests {
         // todo: authority facts should not be visible if
         // there is an explicit rule scope annotation that does
         // not cover previous or authority
-        let _authority_facts_untrusted: Vec<Fact> = authorizer
+        let authority_facts_untrusted: Vec<Fact> = authorizer
             .query(
                 format!("right($right) <- right($right) trusting ed25519/{external_pub}").as_str(),
             )
             .unwrap();
-        //assert_eq!(authority_facts_untrusted.len(), 0);
+        assert_eq!(authority_facts_untrusted.len(), 0);
 
         // block facts are not visible by default
         let block_facts_untrusted: Vec<Fact> =
