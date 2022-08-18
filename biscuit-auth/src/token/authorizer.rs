@@ -275,7 +275,8 @@ impl<'t> Authorizer<'t> {
         rule.validate_parameters()?;
 
         let rule = rule.convert(&mut self.symbols);
-        let rule_scope = rule.origins(usize::MAX, Some(&self.public_key_to_block_id));
+        let mut rule_scope = rule.origins(usize::MAX, Some(&self.public_key_to_block_id));
+        rule_scope.insert(0);
 
         self.world.rules.insert(0, &rule_scope, rule);
         Ok(())
@@ -747,14 +748,14 @@ impl<'t> Authorizer<'t> {
         'policies_test: for (i, policy) in self.policies.iter().enumerate() {
             for query in policy.queries.iter() {
                 let query = query.convert(&mut self.symbols);
-                let origin = if query.scopes.is_empty() {
+                let scope = if query.scopes.is_empty() {
                     origin.clone()
                 } else {
                     query.origins(usize::MAX, Some(&self.public_key_to_block_id))
                 };
                 let res = self
                     .world
-                    .query_match(query, usize::MAX, &origin, &self.symbols);
+                    .query_match(query, usize::MAX, &scope, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
