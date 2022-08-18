@@ -92,8 +92,11 @@ impl<'t> Authorizer<'t> {
             f.insert(&origin, fact);
         }
 
+        let mut scope = Origin::default();
+        scope.insert(0);
+        scope.insert(usize::MAX);
         for rule in rules.drain(..) {
-            r.insert(&origin, rule);
+            r.insert(usize::MAX, &origin, rule);
         }
 
         let world = datalog::World { facts: f, rules: r };
@@ -135,7 +138,7 @@ impl<'t> Authorizer<'t> {
         let mut blocks = Vec::new();
 
         let authority = token.block(0)?;
-        let origin = authority.origins(0, Some(&self.public_key_to_block_id));
+        let block_scope = authority.origins(0, Some(&self.public_key_to_block_id));
 
         let mut authority_origin = Origin::default();
         authority_origin.insert(0);
@@ -154,10 +157,10 @@ impl<'t> Authorizer<'t> {
 
             let rule = rule.translate(&token.symbols, &mut self.symbols)?;
             if rule.scopes.is_empty() {
-                self.world.rules.insert(&origin, rule);
+                self.world.rules.insert(0, &block_scope, rule);
             } else {
-                let origin = rule.origins(0, Some(&self.public_key_to_block_id));
-                self.world.rules.insert(&origin, rule);
+                let rule_scope = rule.origins(0, Some(&self.public_key_to_block_id));
+                self.world.rules.insert(0, &rule_scope, rule);
             }
         }
 
@@ -172,7 +175,7 @@ impl<'t> Authorizer<'t> {
                 &block.symbols
             };
 
-            let origin = block.origins(i, Some(&self.public_key_to_block_id));
+            let block_scope = block.origins(i, Some(&self.public_key_to_block_id));
 
             let mut block_origin = Origin::default();
             block_origin.insert(i);
@@ -190,11 +193,11 @@ impl<'t> Authorizer<'t> {
                 let rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
                 if rule.scopes.is_empty() {
-                    self.world.rules.insert(&origin, rule);
+                    self.world.rules.insert(i, &block_scope, rule);
                 } else {
-                    let origin = rule.origins(i, Some(&self.public_key_to_block_id));
+                    let rule_scope = rule.origins(i, Some(&self.public_key_to_block_id));
 
-                    self.world.rules.insert(&origin, rule);
+                    self.world.rules.insert(i, &rule_scope, rule);
                 }
             }
 
@@ -256,6 +259,7 @@ impl<'t> Authorizer<'t> {
 
         let mut origin = Origin::default();
         origin.insert(usize::MAX);
+
         self.world
             .facts
             .insert(&origin, fact.convert(&mut self.symbols));
@@ -269,11 +273,11 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?;
         rule.validate_parameters()?;
-        let mut origin = Origin::default();
-        origin.insert(usize::MAX);
-        self.world
-            .rules
-            .insert(&origin, rule.convert(&mut self.symbols));
+
+        let rule = rule.convert(&mut self.symbols);
+        let rule_scope = rule.origins(usize::MAX, Some(&self.public_key_to_block_id));
+
+        self.world.rules.insert(0, &rule_scope, rule);
         Ok(())
     }
 
@@ -364,9 +368,10 @@ impl<'t> Authorizer<'t> {
                 res?;
             }
             rule.validate_parameters()?;
-            self.world
-                .rules
-                .insert(&origin, rule.convert(&mut self.symbols));
+            let rule = rule.convert(&mut self.symbols);
+            let rule_scope = rule.origins(usize::MAX, Some(&self.public_key_to_block_id));
+
+            self.world.rules.insert(usize::MAX, &rule_scope, rule);
         }
 
         for (_, check) in source_result.checks.into_iter() {
@@ -484,7 +489,9 @@ impl<'t> Authorizer<'t> {
         self.world
             .run_with_limits(&self.symbols, limits.into())
             .map_err(error::Token::RunLimit)?;
-        let res = self.world.query_rule(rule, &origin, &self.symbols);
+        let res = self
+            .world
+            .query_rule(rule, usize::MAX, &origin, &self.symbols);
 
         res //.drain(..)
             .inner
@@ -569,7 +576,9 @@ impl<'t> Authorizer<'t> {
             rule.origins(usize::MAX, Some(&self.public_key_to_block_id))
         };
 
-        let res = self.world.query_rule(rule.clone(), &origin, &self.symbols);
+        let res = self
+            .world
+            .query_rule(rule.clone(), 0, &origin, &self.symbols);
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -670,7 +679,9 @@ impl<'t> Authorizer<'t> {
                 } else {
                     query.origins(usize::MAX, Some(&self.public_key_to_block_id))
                 };
-                let res = self.world.query_match(query, &origin, &self.symbols);
+                let res = self
+                    .world
+                    .query_match(query, usize::MAX, &origin, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -710,7 +721,7 @@ impl<'t> Authorizer<'t> {
                     };
                     let res = self
                         .world
-                        .query_match(query.clone(), &origin, &self.symbols);
+                        .query_match(query.clone(), 0, &origin, &self.symbols);
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -741,7 +752,9 @@ impl<'t> Authorizer<'t> {
                 } else {
                     query.origins(usize::MAX, Some(&self.public_key_to_block_id))
                 };
-                let res = self.world.query_match(query, &origin, &self.symbols);
+                let res = self
+                    .world
+                    .query_match(query, usize::MAX, &origin, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -785,9 +798,9 @@ impl<'t> Authorizer<'t> {
                             query.origins(i + 1, Some(&self.public_key_to_block_id))
                         };
 
-                        let res = self
-                            .world
-                            .query_match(query.clone(), &origin, &self.symbols);
+                        let res =
+                            self.world
+                                .query_match(query.clone(), i + 1, &origin, &self.symbols);
 
                         let now = Instant::now();
                         if now >= time_limit {
@@ -855,7 +868,7 @@ impl<'t> Authorizer<'t> {
                     origin,
                     rules
                         .iter()
-                        .map(|r| self.symbols.print_rule(r))
+                        .map(|(_, r)| self.symbols.print_rule(r))
                         .collect::<Vec<_>>(),
                 )
             })
