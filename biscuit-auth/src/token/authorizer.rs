@@ -288,7 +288,7 @@ impl<'t> Authorizer<'t> {
             rule_scope.insert(0);
         }
 
-        self.world.rules.insert(0, &rule_scope, rule);
+        self.world.rules.insert(usize::MAX, &rule_scope, rule);
         Ok(())
     }
 
