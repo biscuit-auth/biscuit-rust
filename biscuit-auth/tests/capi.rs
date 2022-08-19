@@ -120,7 +120,6 @@ World {
     ],
     Origin {
         inner: {
-            0,
             1,
         },
     }: [

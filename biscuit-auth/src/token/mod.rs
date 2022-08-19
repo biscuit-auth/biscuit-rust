@@ -1111,7 +1111,7 @@ mod tests {
             );
 
             let res1: Result<Vec<builder::Fact>, crate::error::Token> =
-                other_authorizer.query("key_verif($id) <- key($id)", &[0].iter().collect());
+                other_authorizer.query("key_verif($id) <- key($id)");
             println!("res1: {:?}", res1);
             assert_eq!(
                 res1.unwrap()
@@ -1251,9 +1251,7 @@ mod tests {
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res: Vec<(Vec<u8>,)> = authorizer
-            .query("data($0) <- bytes($0)", &[0].iter().collect())
-            .unwrap();
+        let res: Vec<(Vec<u8>,)> = authorizer.query("data($0) <- bytes($0)").unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
     }

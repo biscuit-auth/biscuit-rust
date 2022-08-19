@@ -71,11 +71,14 @@ impl Block {
 
     pub(crate) fn origins(
         &self,
-        index: usize,
+        current_block: usize,
         public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
     ) -> Origin {
         let mut origins = Origin::default();
-        origins.insert(index);
+        // we always trust the authorizer
+        origins.insert(usize::MAX);
+        // we always trust the current block
+        origins.insert(current_block);
 
         // in the default case, we trust the authority block
         if self.scopes.is_empty() {
@@ -86,9 +89,12 @@ impl Block {
                     Scope::Authority => {
                         origins.insert(0);
                     }
-                    Scope::Previous => origins.extend(0..index + 1),
+                    Scope::Previous => {
+                        if current_block != usize::MAX {
+                            origins.extend(0..current_block + 1)
+                        }
+                    }
                     Scope::PublicKey(key_id) => {
-                        origins.insert(index);
                         if let Some(map) = public_key_to_block_id {
                             if let Some(block_ids) = map.get(&(*key_id as usize)) {
                                 origins.extend(block_ids.iter())
