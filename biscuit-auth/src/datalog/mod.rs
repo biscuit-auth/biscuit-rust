@@ -239,44 +239,6 @@ impl Rule {
                     ))
         }
     }
-
-    pub(crate) fn origins(
-        &self,
-        current_block: usize,
-        public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
-    ) -> Origin {
-        let mut origins = Origin::default();
-        // the authorizer is always trusted
-        origins.insert(usize::MAX);
-        // the current block is always trusted
-        origins.insert(current_block);
-
-        // if there is no scope, the block scopes are used instead,
-        // so there is no need to default to trusting the authority here
-
-        for scope in &self.scopes {
-            match scope {
-                Scope::Authority => {
-                    // todo this won't be redundant once authority is separated
-                    // from authorizer
-                    origins.insert(0);
-                }
-                Scope::Previous => {
-                    if current_block != usize::MAX {
-                        origins.extend(0..current_block + 1)
-                    }
-                }
-                Scope::PublicKey(key_id) => {
-                    if let Some(map) = public_key_to_block_id {
-                        if let Some(block_ids) = map.get(&(*key_id as usize)) {
-                            origins.extend(block_ids.iter())
-                        }
-                    }
-                }
-            }
-        }
-        origins
-    }
 }
 
 /// recursive iterator for rule application

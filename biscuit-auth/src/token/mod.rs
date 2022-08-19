@@ -13,6 +13,7 @@ use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::crypto::{self};
+use crate::datalog::Origin;
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
 use authorizer::Authorizer;
@@ -636,6 +637,49 @@ pub enum Scope {
     Previous,
     // index of the public key in the token's list
     PublicKey(u64),
+}
+
+pub(crate) fn scope_to_origins(
+    rule_scopes: &[Scope],
+    block_scopes: &[Scope],
+    current_block: usize,
+    public_key_to_block_id: Option<&HashMap<usize, Vec<usize>>>,
+) -> Origin {
+    let scopes = if rule_scopes.is_empty() {
+        if block_scopes.is_empty() {
+            &[Scope::Authority]
+        } else {
+            block_scopes
+        }
+    } else {
+        rule_scopes
+    };
+
+    let mut origins = Origin::default();
+    origins.insert(usize::MAX);
+    origins.insert(current_block);
+
+    for scope in scopes {
+        match scope {
+            Scope::Authority => {
+                origins.insert(0);
+            }
+            Scope::Previous => {
+                if current_block != usize::MAX {
+                    origins.extend(0..current_block + 1)
+                }
+            }
+            Scope::PublicKey(key_id) => {
+                if let Some(map) = public_key_to_block_id {
+                    if let Some(block_ids) = map.get(&(*key_id as usize)) {
+                        origins.extend(block_ids.iter())
+                    }
+                }
+            }
+        }
+    }
+
+    origins
 }
 
 #[cfg(test)]
