@@ -7,11 +7,10 @@ use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
 use crate::builder::Convert;
 use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits};
+use crate::datalog::{self, Origin, RunLimits, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
-use crate::token::scope_to_origins;
 use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
@@ -137,6 +136,13 @@ impl<'t> Authorizer<'t> {
 
         let mut authority_origin = Origin::default();
         authority_origin.insert(0);
+
+        let authority_trusted_origins = TrustedOrigins::from_scopes(
+            &authority.scopes,
+            &TrustedOrigins::default(),
+            0,
+            &self.public_key_to_block_id,
+        );
         // add authority facts and rules right away to make them available to queries
         for fact in authority.facts.iter().cloned() {
             let fact = Fact::convert_from(&fact, &token.symbols)?.convert(&mut self.symbols);
@@ -151,13 +157,13 @@ impl<'t> Authorizer<'t> {
             }
 
             let rule = rule.translate(&token.symbols, &mut self.symbols)?;
-            let scope = scope_to_origins(
+            let rule_trusted_origins = TrustedOrigins::from_scopes(
                 &rule.scopes,
-                &authority.scopes,
+                &authority_trusted_origins,
                 0,
-                Some(&self.public_key_to_block_id),
+                &self.public_key_to_block_id,
             );
-            self.world.rules.insert(0, &scope, rule);
+            self.world.rules.insert(0, &rule_trusted_origins, rule);
         }
 
         blocks.push(authority);
@@ -174,6 +180,13 @@ impl<'t> Authorizer<'t> {
             let mut block_origin = Origin::default();
             block_origin.insert(i);
 
+            let block_trusted_origins = TrustedOrigins::from_scopes(
+                &block.scopes,
+                &TrustedOrigins::default(),
+                i,
+                &self.public_key_to_block_id,
+            );
+
             for fact in block.facts.iter().cloned() {
                 let fact = Fact::convert_from(&fact, &block_symbols)?.convert(&mut self.symbols);
                 self.world.facts.insert(&block_origin, fact);
@@ -187,14 +200,14 @@ impl<'t> Authorizer<'t> {
                 }
                 let rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
-                let scope = scope_to_origins(
+                let rule_trusted_origins = TrustedOrigins::from_scopes(
                     &rule.scopes,
-                    &block.scopes,
+                    &block_trusted_origins,
                     i,
-                    Some(&self.public_key_to_block_id),
+                    &self.public_key_to_block_id,
                 );
 
-                self.world.rules.insert(i, &scope, rule);
+                self.world.rules.insert(i, &rule_trusted_origins, rule);
             }
 
             blocks.push(block);
@@ -463,14 +476,14 @@ impl<'t> Authorizer<'t> {
     {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
-        let scope = scope_to_origins(
+        let rule_trusted_origins = TrustedOrigins::from_scopes(
             &rule.scopes,
-            &[], // for queries, we don't want to default on the authorizer trust
+            &TrustedOrigins::default(), // for queries, we don't want to default on the authorizer trust
             // queries are there to explore the final state of the world,
             // whereas authorizer contents are there to authorize or not
             // a token
             usize::MAX,
-            Some(&self.public_key_to_block_id),
+            &self.public_key_to_block_id,
         );
 
         self.world
@@ -478,7 +491,7 @@ impl<'t> Authorizer<'t> {
             .map_err(error::Token::RunLimit)?;
         let res = self
             .world
-            .query_rule(rule, usize::MAX, &scope, &self.symbols);
+            .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols);
 
         res //.drain(..)
             .inner
@@ -546,34 +559,33 @@ impl<'t> Authorizer<'t> {
             .map_err(error::Token::RunLimit)?;
 
         let all_origins = if let Some(t) = self.token {
-            let mut all_blocks: Origin = std::iter::repeat(())
-                .enumerate()
-                .take(t.block_count())
-                .map(|(i, _)| i)
-                .collect();
-            all_blocks.insert(usize::MAX);
-            all_blocks
+            TrustedOrigins::from_scopes(
+                &[token::Scope::Previous],
+                &TrustedOrigins::default(),
+                t.block_count(),
+                &self.public_key_to_block_id,
+            )
         } else {
-            [0, usize::MAX].iter().collect()
+            TrustedOrigins::default()
         };
 
-        let origin = if rule.scopes.is_empty() {
+        let rule_trusted_origins = if rule.scopes.is_empty() {
             all_origins
         } else {
-            scope_to_origins(
+            TrustedOrigins::from_scopes(
                 &rule.scopes,
-                &[], // for queries, we don't want to default on the authorizer trust
+                &TrustedOrigins::default(), // for queries, we don't want to default on the authorizer trust
                 // queries are there to explore the final state of the world,
                 // whereas authorizer contents are there to authorize or not
                 // a token
                 usize::MAX,
-                Some(&self.public_key_to_block_id),
+                &self.public_key_to_block_id,
             )
         };
 
         let res = self
             .world
-            .query_rule(rule.clone(), 0, &origin, &self.symbols);
+            .query_rule(rule.clone(), 0, &rule_trusted_origins, &self.symbols);
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -648,6 +660,13 @@ impl<'t> Authorizer<'t> {
             .map(|s| s.convert(&mut self.symbols).clone())
             .collect();
 
+        let authorizer_trusted_origins = TrustedOrigins::from_scopes(
+            &authorizer_scopes,
+            &TrustedOrigins::default(),
+            usize::MAX,
+            &self.public_key_to_block_id,
+        );
+
         for fact in &self.authorizer_block_builder.facts {
             self.world
                 .facts
@@ -657,14 +676,16 @@ impl<'t> Authorizer<'t> {
         for rule in &self.authorizer_block_builder.rules {
             let rule = rule.convert(&mut self.symbols);
 
-            let scope = scope_to_origins(
+            let rule_trusted_origins = TrustedOrigins::from_scopes(
                 &rule.scopes,
-                &authorizer_scopes,
+                &authorizer_trusted_origins,
                 usize::MAX,
-                Some(&self.public_key_to_block_id),
+                &self.public_key_to_block_id,
             );
 
-            self.world.rules.insert(usize::MAX, &scope, rule);
+            self.world
+                .rules
+                .insert(usize::MAX, &rule_trusted_origins, rule);
         }
 
         self.world
@@ -680,21 +701,28 @@ impl<'t> Authorizer<'t> {
             .map(|s| s.convert(&mut self.symbols).clone())
             .collect();
 
+        let authorizer_trusted_origins = TrustedOrigins::from_scopes(
+            &authorizer_scopes,
+            &TrustedOrigins::default(),
+            usize::MAX,
+            &self.public_key_to_block_id,
+        );
+
         for (i, check) in self.authorizer_block_builder.checks.iter().enumerate() {
             let c = check.convert(&mut self.symbols);
             let mut successful = false;
 
             for query in check.queries.iter() {
                 let query = query.convert(&mut self.symbols);
-                let scope = scope_to_origins(
+                let rule_trusted_origins = TrustedOrigins::from_scopes(
                     &query.scopes,
-                    &authorizer_scopes,
+                    &authorizer_trusted_origins,
                     usize::MAX,
-                    Some(&self.public_key_to_block_id),
+                    &self.public_key_to_block_id,
                 );
-                let res = self
-                    .world
-                    .query_match(query, usize::MAX, &scope, &self.symbols);
+                let res =
+                    self.world
+                        .query_match(query, usize::MAX, &rule_trusted_origins, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -724,16 +752,26 @@ impl<'t> Authorizer<'t> {
                 let c = Check::convert_from(check, &token.symbols)?;
                 let check = c.convert(&mut self.symbols);
 
+                let authority_trusted_origins = TrustedOrigins::from_scopes(
+                    &self.blocks[0].scopes,
+                    &TrustedOrigins::default(),
+                    0,
+                    &self.public_key_to_block_id,
+                );
+
                 for query in check.queries.iter() {
-                    let scope = scope_to_origins(
+                    let rule_trusted_origins = TrustedOrigins::from_scopes(
                         &query.scopes,
-                        &self.blocks[0].scopes,
+                        &authority_trusted_origins,
                         0,
-                        Some(&self.public_key_to_block_id),
+                        &self.public_key_to_block_id,
                     );
-                    let res = self
-                        .world
-                        .query_match(query.clone(), 0, &scope, &self.symbols);
+                    let res = self.world.query_match(
+                        query.clone(),
+                        0,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                    );
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -759,16 +797,16 @@ impl<'t> Authorizer<'t> {
         'policies_test: for (i, policy) in self.policies.iter().enumerate() {
             for query in policy.queries.iter() {
                 let query = query.convert(&mut self.symbols);
-                let scope = scope_to_origins(
+                let rule_trusted_origins = TrustedOrigins::from_scopes(
                     &query.scopes,
-                    &authorizer_scopes,
+                    &authorizer_trusted_origins,
                     usize::MAX,
-                    Some(&self.public_key_to_block_id),
+                    &self.public_key_to_block_id,
                 );
 
-                let res = self
-                    .world
-                    .query_match(query, usize::MAX, &scope, &self.symbols);
+                let res =
+                    self.world
+                        .query_match(query, usize::MAX, &rule_trusted_origins, &self.symbols);
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -794,6 +832,13 @@ impl<'t> Authorizer<'t> {
                     &block.symbols
                 };
 
+                let block_trusted_origins = TrustedOrigins::from_scopes(
+                    &block.scopes,
+                    &TrustedOrigins::default(),
+                    i + 1,
+                    &self.public_key_to_block_id,
+                );
+
                 self.world
                     .run_with_limits(&self.symbols, RunLimits::default())
                     .map_err(error::Token::RunLimit)?;
@@ -804,16 +849,19 @@ impl<'t> Authorizer<'t> {
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
-                        let scope = scope_to_origins(
+                        let rule_trusted_origins = TrustedOrigins::from_scopes(
                             &query.scopes,
-                            &block.scopes,
+                            &block_trusted_origins,
                             i + 1,
-                            Some(&self.public_key_to_block_id),
+                            &self.public_key_to_block_id,
                         );
 
-                        let res =
-                            self.world
-                                .query_match(query.clone(), i + 1, &scope, &self.symbols);
+                        let res = self.world.query_match(
+                            query.clone(),
+                            i + 1,
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        );
 
                         let now = Instant::now();
                         if now >= time_limit {
@@ -1278,14 +1326,17 @@ mod tests {
     fn authorizer_with_scopes() {
         let root = KeyPair::new();
         let external = KeyPair::new();
-        let external_pub = hex::encode(external.public().to_bytes());
 
         let mut builder = Biscuit::builder();
-
-        builder.add_fact("right(\"read\")").unwrap();
+        let mut scope_params = HashMap::new();
+        scope_params.insert("external_pub".to_string(), external.public());
         builder
-            .add_check(
-                format!("check if group(\"admin\") trusting ed25519/{external_pub}").as_str(),
+            .add_code_with_params(
+                r#"right("read");
+               check if group("admin") trusting {external_pub};
+            "#,
+                HashMap::new(),
+                scope_params,
             )
             .unwrap();
 
@@ -1294,44 +1345,47 @@ mod tests {
         let req = biscuit1.third_party_request().unwrap();
 
         let mut builder = BlockBuilder::new();
-        builder.add_fact("group(\"admin\")").unwrap();
-        builder.add_check("check if right(\"read\")").unwrap();
+        builder
+            .add_code(
+                r#"group("admin");
+             check if right("read");
+            "#,
+            )
+            .unwrap();
         let res = req.create_block(&external.private(), builder).unwrap();
         let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
         let mut authorizer = Authorizer::new().unwrap();
         let external2 = KeyPair::new();
-        let external2_pub = hex::encode(external2.public().to_bytes());
 
-        // this rule trusts both the third-party block and the authority, and can access facts
-        // from both
-        authorizer
-            .add_rule(
-                format!("possible(true) <- right($right), group(\"admin\") trusting authority, ed25519/{external_pub}")
-                    .as_str(),
-            )
-            .unwrap();
+        let mut scope_params = HashMap::new();
+        scope_params.insert("external".to_string(), external.public());
+        scope_params.insert("external2".to_string(), external2.public());
 
-        // this rule only trusts the third-party block and can't access authority facts
-        // it should _not_ generate a fact
         authorizer
-            .add_rule(
-                format!("impossible(true) <- right(\"read\") trusting ed25519/{external2_pub}")
-                    .as_str(),
+            .add_code_with_params(
+                r#"
+            // this rule trusts both the third-party block and the authority, and can access facts
+            // from both
+            possible(true) <- right($right), group("admin") trusting authority, {external};
+
+            // this rule only trusts the third-party block and can't access authority facts
+            // it should _not_ generate a fact
+            impossible(true) <- right("read") trusting {external2};
+
+            authorizer(true);
+
+            check if possible(true) trusting authority, {external};
+            deny if impossible(true) trusting {external2};
+            allow if true;
+            "#,
+                HashMap::new(),
+                scope_params,
             )
             .unwrap();
 
         authorizer.add_token(&biscuit2).unwrap();
 
-        authorizer.add_fact("authorizer(true)").unwrap();
-        authorizer
-            .add_check(
-                format!("check if possible(true) trusting authority, ed25519/{external_pub}")
-                    .as_str(),
-            )
-            .unwrap();
-        authorizer.add_policy("deny if impossible(true)").unwrap();
-        authorizer.add_allow_all();
         println!("token:\n{}", biscuit2.print());
         println!("world:\n{}", authorizer.print_world());
 
@@ -1356,9 +1410,13 @@ mod tests {
         // there is an explicit rule scope annotation that does
         // not cover previous or authority
         let authority_facts_untrusted: Vec<Fact> = authorizer
-            .query(
-                format!("right($right) <- right($right) trusting ed25519/{external_pub}").as_str(),
-            )
+            .query({
+                let mut r: Rule = "right($right) <- right($right) trusting {external}"
+                    .try_into()
+                    .unwrap();
+                r.set_scope("external", external.public()).unwrap();
+                r
+            })
             .unwrap();
         assert_eq!(authority_facts_untrusted.len(), 0);
 
@@ -1369,9 +1427,13 @@ mod tests {
 
         // block facts are visible if trusted
         let block_facts_trusted: Vec<Fact> = authorizer
-            .query(
-                format!("group($group) <- group($group) trusting ed25519/{external_pub}").as_str(),
-            )
+            .query({
+                let mut r: Rule = "group($group) <- group($group) trusting {external}"
+                    .try_into()
+                    .unwrap();
+                r.set_scope("external", external.public()).unwrap();
+                r
+            })
             .unwrap();
         assert_eq!(block_facts_trusted.len(), 1);
 

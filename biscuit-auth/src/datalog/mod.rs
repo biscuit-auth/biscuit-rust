@@ -155,7 +155,7 @@ impl Rule {
         &self,
         facts: &FactSet,
         origin: usize,
-        scope: &Origin,
+        scope: &TrustedOrigins,
         symbols: &SymbolTable,
     ) -> bool {
         let fact_it = facts.iterator(scope);
@@ -560,7 +560,7 @@ impl World {
         self.facts.insert(origin, fact);
     }
 
-    pub fn add_rule(&mut self, origin: usize, scope: &Origin, rule: Rule) {
+    pub fn add_rule(&mut self, origin: usize, scope: &TrustedOrigins, rule: Rule) {
         self.rules.insert(origin, scope, rule);
     }
 
@@ -640,7 +640,7 @@ impl World {
         &self,
         rule: Rule,
         origin: usize,
-        scope: &Origin,
+        scope: &TrustedOrigins,
         symbols: &SymbolTable,
     ) -> FactSet {
         let mut new_facts = FactSet::default();
@@ -654,7 +654,7 @@ impl World {
         &self,
         rule: Rule,
         origin: usize,
-        scope: &Origin,
+        scope: &TrustedOrigins,
         symbols: &SymbolTable,
     ) -> bool {
         rule.find_match(&self.facts, origin, scope, symbols)
@@ -702,12 +702,12 @@ impl FactSet {
 
     pub fn iterator<'a>(
         &'a self,
-        block_ids: &'a Origin,
+        block_ids: &'a TrustedOrigins,
     ) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .filter_map(move |(ids, facts)| {
-                if block_ids.is_superset(ids) {
+                if block_ids.contains(ids) {
                     Some(facts.iter().map(move |fact| (ids, fact)))
                 } else {
                     None
@@ -757,11 +757,11 @@ impl IntoIterator for FactSet {
 
 #[derive(Clone, Debug, Default)]
 pub struct RuleSet {
-    pub inner: HashMap<Origin, Vec<(usize, Rule)>>,
+    pub inner: HashMap<TrustedOrigins, Vec<(usize, Rule)>>,
 }
 
 impl RuleSet {
-    pub fn insert(&mut self, origin: usize, scope: &Origin, rule: Rule) {
+    pub fn insert(&mut self, origin: usize, scope: &TrustedOrigins, rule: Rule) {
         match self.inner.get_mut(scope) {
             None => {
                 self.inner.insert(scope.clone(), vec![(origin, rule)]);
@@ -772,7 +772,7 @@ impl RuleSet {
         }
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Rule)> + Clone {
+    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
         self.inner
             .iter()
             .map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
