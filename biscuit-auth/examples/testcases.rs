@@ -233,7 +233,7 @@ fn validate_token(
     ambient_rules: Vec<Rule>,
     checks: Vec<Vec<Rule>>,
 ) -> Validation {
-    let token = match Biscuit::from(&data[..], |_| root.public()) {
+    let token = match Biscuit::from(&data[..], &root.public()) {
         Ok(t) => t,
         Err(e) => {
             return Validation {
