@@ -637,6 +637,12 @@ pub enum Scope {
     PublicKey(u64),
 }
 
+/// Chooses a root public key to verify the token
+///
+/// In case of key rotation, it is possible to add a root key id
+/// to the token with [`BiscuitBuilder::set_root_key_id`]. This
+/// value will be passed to the implementor of `RootKeyProvider`
+/// to choose which key will be used.
 pub trait RootKeyProvider {
     fn choose(&self, key_id: Option<u32>) -> Result<PublicKey, error::Format>;
 }
@@ -644,6 +650,12 @@ pub trait RootKeyProvider {
 impl RootKeyProvider for PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
         Ok(self.clone())
+    }
+}
+
+impl<F: Fn(Option<u32>) -> Result<PublicKey, error::Format>> RootKeyProvider for F {
+    fn choose(&self, root_key_id: Option<u32>) -> Result<PublicKey, error::Format> {
+        self(root_key_id)
     }
 }
 
