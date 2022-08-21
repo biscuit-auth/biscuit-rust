@@ -81,7 +81,7 @@
 //!   /************** VERIFICATION ****************/
 //!
 //!   // let's deserialize the token:
-//!   let biscuit2 = Biscuit::from(&token2,  |_| root.public())?;
+//!   let biscuit2 = Biscuit::from(&token2,  root.public())?;
 //!
 //!   // let's define 3 authorizers (corresponding to 3 different requests):
 //!   // - one for /a/file1.txt and a read operation
