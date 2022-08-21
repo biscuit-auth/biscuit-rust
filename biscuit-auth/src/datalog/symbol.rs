@@ -8,7 +8,7 @@ use crate::{error, token::public_keys::PublicKeys};
 
 use super::{Check, Fact, Predicate, Rule, Term, World};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {
     symbols: Vec<String>,
     pub(crate) public_keys: PublicKeys,
@@ -56,7 +56,7 @@ impl SymbolTable {
     }
 
     pub fn from(symbols: Vec<String>) -> Result<Self, error::Format> {
-        let h1 = DEFAULT_SYMBOLS.iter().map(|s| *s).collect::<HashSet<_>>();
+        let h1 = DEFAULT_SYMBOLS.iter().copied().collect::<HashSet<_>>();
         let h2 = symbols.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
 
         if !h1.is_disjoint(&h2) {
@@ -70,7 +70,7 @@ impl SymbolTable {
     }
 
     pub fn extend(&mut self, other: &SymbolTable) -> Result<(), error::Format> {
-        if !self.is_disjoint(&other) {
+        if !self.is_disjoint(other) {
             return Err(error::Format::SymbolTableOverlap);
         }
         self.symbols.extend(other.symbols.iter().cloned());
@@ -135,14 +135,14 @@ impl SymbolTable {
                 .get((i - OFFSET as u64) as usize)
                 .map(|s| s.as_str())
         } else {
-            DEFAULT_SYMBOLS.get(i as usize).map(|s| *s)
+            DEFAULT_SYMBOLS.get(i as usize).copied()
         }
     }
 
     pub fn print_symbol(&self, i: SymbolIndex) -> Result<String, error::Format> {
         self.get_symbol(i)
             .map(|s| s.to_string())
-            .ok_or_else(|| error::Format::UnknownSymbol(i))
+            .ok_or(error::Format::UnknownSymbol(i))
     }
 
     // infallible symbol printing method
@@ -157,16 +157,14 @@ impl SymbolTable {
             .facts
             .inner
             .iter()
-            .map(|facts| facts.1.iter())
-            .flatten()
+            .flat_map(|facts| facts.1.iter())
             .map(|f| self.print_fact(f))
             .collect::<Vec<_>>();
         let rules = w
             .rules
             .inner
             .iter()
-            .map(|rules| rules.1.iter())
-            .flatten()
+            .flat_map(|rules| rules.1.iter())
             .map(|(_, r)| self.print_rule(r))
             .collect::<Vec<_>>();
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
@@ -283,7 +281,7 @@ impl Default for SymbolTable {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TemporarySymbolTable<'a> {
     base: &'a SymbolTable,
     offset: usize,

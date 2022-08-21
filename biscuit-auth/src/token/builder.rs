@@ -11,7 +11,7 @@ use std::str::FromStr;
 use std::{
     collections::{BTreeSet, HashMap},
     convert::{TryFrom, TryInto},
-    fmt,
+    fmt::{self, Write},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -101,7 +101,7 @@ impl BlockBuilder {
         for (_, fact) in source_result.facts.into_iter() {
             let mut fact: Fact = fact.into();
             for (name, value) in &params {
-                let res = match fact.set(&name, value) {
+                let res = match fact.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -119,7 +119,7 @@ impl BlockBuilder {
         for (_, rule) in source_result.rules.into_iter() {
             let mut rule: Rule = rule.into();
             for (name, value) in &params {
-                let res = match rule.set(&name, value) {
+                let res = match rule.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -131,7 +131,7 @@ impl BlockBuilder {
                 res?;
             }
             for (name, value) in &scope_params {
-                let res = match rule.set_scope(&name, *value) {
+                let res = match rule.set_scope(name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -149,7 +149,7 @@ impl BlockBuilder {
         for (_, check) in source_result.checks.into_iter() {
             let mut check: Check = check.into();
             for (name, value) in &params {
-                let res = match check.set(&name, value) {
+                let res = match check.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -161,7 +161,7 @@ impl BlockBuilder {
                 res?;
             }
             for (name, value) in &scope_params {
-                let res = match check.set_scope(&name, *value) {
+                let res = match check.set_scope(name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -256,22 +256,22 @@ impl fmt::Display for BlockBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for mut fact in self.facts.clone().into_iter() {
             fact.apply_parameters();
-            write!(f, "{};\n", &fact)?;
+            writeln!(f, "{};", &fact)?;
         }
         for mut rule in self.rules.clone().into_iter() {
             rule.apply_parameters();
-            write!(f, "{};\n", &rule)?;
+            writeln!(f, "{};", &rule)?;
         }
         for mut check in self.checks.clone().into_iter() {
             check.apply_parameters();
-            write!(f, "{};\n", &check)?;
+            writeln!(f, "{};", &check)?;
         }
         Ok(())
     }
 }
 
 /// creates a Biscuit
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BiscuitBuilder {
     inner: BlockBuilder,
     root_key_id: Option<u32>,
@@ -355,13 +355,13 @@ impl BiscuitBuilder {
         let (facts, rules, checks) = self.dump();
         let mut f = String::new();
         for fact in facts {
-            f.push_str(&format!("{};\n", &fact));
+            let _ = writeln!(f, "{};", fact);
         }
         for rule in rules {
-            f.push_str(&format!("{};\n", &rule));
+            let _ = writeln!(f, "{};", rule);
         }
         for check in checks {
-            f.push_str(&format!("{};\n", &check));
+            let _ = writeln!(f, "{};", check);
         }
         f
     }
@@ -458,11 +458,11 @@ impl From<&Term> for Term {
 impl From<biscuit_parser::builder::Term> for Term {
     fn from(t: biscuit_parser::builder::Term) -> Self {
         match t {
-            biscuit_parser::builder::Term::Variable(v) => Term::Variable(v.clone()),
+            biscuit_parser::builder::Term::Variable(v) => Term::Variable(v),
             biscuit_parser::builder::Term::Integer(i) => Term::Integer(i),
-            biscuit_parser::builder::Term::Str(s) => Term::Str(s.clone()),
+            biscuit_parser::builder::Term::Str(s) => Term::Str(s),
             biscuit_parser::builder::Term::Date(d) => Term::Date(d),
-            biscuit_parser::builder::Term::Bytes(s) => Term::Bytes(s.clone()),
+            biscuit_parser::builder::Term::Bytes(s) => Term::Bytes(s),
             biscuit_parser::builder::Term::Bool(b) => Term::Bool(b),
             biscuit_parser::builder::Term::Set(s) => {
                 Term::Set(s.into_iter().map(|t| t.into()).collect())
@@ -533,7 +533,7 @@ impl Convert<super::Scope> for Scope {
             Scope::Authority => crate::token::Scope::Authority,
             Scope::Previous => crate::token::Scope::Previous,
             Scope::PublicKey(key) => {
-                crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
+                crate::token::Scope::PublicKey(symbols.public_keys.insert(key))
             }
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
@@ -827,7 +827,7 @@ impl From<biscuit_parser::builder::Fact> for Fact {
 }
 
 /// Builder for a Datalog expression
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expression {
     pub ops: Vec<Op>,
 }
@@ -875,7 +875,7 @@ impl From<biscuit_parser::builder::Expression> for Expression {
 }
 
 /// Builder for an expression operation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
     Value(Term),
     Unary(Unary),
@@ -945,7 +945,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
 }
 
 /// Builder for a Datalog rule
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
@@ -1245,7 +1245,7 @@ impl Rule {
                 .map(|scope| {
                     if let Scope::Parameter(name) = &scope {
                         if let Some(Some(pubkey)) = parameters.get(name) {
-                            return Scope::PublicKey(pubkey.clone());
+                            return Scope::PublicKey(*pubkey);
                         }
                     }
                     scope
@@ -1278,7 +1278,7 @@ impl Convert<datalog::Rule> for Rule {
                 Scope::Authority => crate::token::Scope::Authority,
                 Scope::Previous => crate::token::Scope::Previous,
                 Scope::PublicKey(key) => {
-                    crate::token::Scope::PublicKey(symbols.public_keys.insert(&key))
+                    crate::token::Scope::PublicKey(symbols.public_keys.insert(key))
                 }
                 // The error is caught in the `add_xxx` functions, so this should
                 // not happen™
@@ -1396,7 +1396,7 @@ impl From<biscuit_parser::builder::Rule> for Rule {
 }
 
 /// Builder for a Biscuit check
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
 }
@@ -1566,14 +1566,14 @@ impl From<biscuit_parser::builder::Check> for Check {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyKind {
     Allow,
     Deny,
 }
 
 /// Builder for a Biscuit policy
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Policy {
     pub queries: Vec<Rule>,
     pub kind: PolicyKind,
@@ -1945,9 +1945,9 @@ impl From<&[u8]> for Term {
 }
 
 #[cfg(feature = "datalog-macro")]
-impl ToAnyParam for &[u8] {
+impl ToAnyParam for [u8] {
     fn to_any_param(&self) -> AnyParam {
-        AnyParam::Term((self.clone()).into())
+        AnyParam::Term(self.into())
     }
 }
 
@@ -1961,7 +1961,7 @@ impl From<SystemTime> for Term {
 #[cfg(feature = "datalog-macro")]
 impl ToAnyParam for SystemTime {
     fn to_any_param(&self) -> AnyParam {
-        AnyParam::Term((self.clone()).into())
+        AnyParam::Term((*self).into())
     }
 }
 
@@ -2042,7 +2042,7 @@ tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
 #[cfg(feature = "datalog-macro")]
 impl ToAnyParam for PublicKey {
     fn to_any_param(&self) -> AnyParam {
-        AnyParam::PublicKey(self.clone())
+        AnyParam::PublicKey(*self)
     }
 }
 
@@ -2053,7 +2053,7 @@ impl TryFrom<&str> for Fact {
         Ok(biscuit_parser::parser::fact(value)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2064,7 +2064,7 @@ impl TryFrom<&str> for Rule {
         Ok(biscuit_parser::parser::rule(value)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2075,7 +2075,7 @@ impl FromStr for Fact {
         Ok(biscuit_parser::parser::fact(s)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2086,7 +2086,7 @@ impl FromStr for Rule {
         Ok(biscuit_parser::parser::rule(s)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2097,7 +2097,7 @@ impl TryFrom<&str> for Check {
         Ok(biscuit_parser::parser::check(value)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2108,7 +2108,7 @@ impl FromStr for Check {
         Ok(biscuit_parser::parser::check(s)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2119,7 +2119,7 @@ impl TryFrom<&str> for Policy {
         Ok(biscuit_parser::parser::policy(value)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 
@@ -2130,7 +2130,7 @@ impl FromStr for Policy {
         Ok(biscuit_parser::parser::policy(s)
             .finish()
             .map(|(_, o)| o.into())
-            .map_err(|e| biscuit_parser::error::LanguageError::from(e))?)
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }
 

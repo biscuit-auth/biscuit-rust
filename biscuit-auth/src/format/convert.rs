@@ -8,8 +8,8 @@ use crate::datalog::*;
 use crate::error;
 use crate::token::public_keys::PublicKeys;
 use crate::token::Scope;
-use crate::token::MIN_SCHEMA_VERSION;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
+use crate::token::{MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {
@@ -50,7 +50,7 @@ pub fn proto_block_to_token_block(
     external_key: Option<PublicKey>,
 ) -> Result<Block, error::Format> {
     let version = input.version.unwrap_or(0);
-    if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
+    if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
         return Err(error::Format::Version {
             minimum: crate::token::MIN_SCHEMA_VERSION,
             maximum: crate::token::MAX_SCHEMA_VERSION,
@@ -79,7 +79,7 @@ pub fn proto_block_to_token_block(
     let mut public_keys = PublicKeys::new();
 
     for pk in &input.public_keys {
-        public_keys.insert_fallible(&PublicKey::from_proto(&pk)?)?;
+        public_keys.insert_fallible(&PublicKey::from_proto(pk)?)?;
     }
 
     if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
@@ -138,7 +138,7 @@ pub fn proto_authorizer_to_authorizer(
     input: &schema::AuthorizerPolicies,
 ) -> Result<AuthorizerPolicies, error::Format> {
     let version = input.version.unwrap_or(0);
-    if version < crate::token::MIN_SCHEMA_VERSION || version > crate::token::MAX_SCHEMA_VERSION {
+    if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
         return Err(error::Format::Version {
             minimum: crate::token::MIN_SCHEMA_VERSION,
             maximum: crate::token::MAX_SCHEMA_VERSION,
@@ -578,11 +578,9 @@ pub mod v2 {
                 }
                 schema::scope::Content::PublicKey(i) => Ok(Scope::PublicKey(*i as u64)),
             },
-            None => {
-                return Err(error::Format::DeserializationError(
-                    "deserialization error: expected `content` field in Scope".to_string(),
-                ));
-            }
+            None => Err(error::Format::DeserializationError(
+                "deserialization error: expected `content` field in Scope".to_string(),
+            )),
         }
     }
 }

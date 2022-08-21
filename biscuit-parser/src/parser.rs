@@ -955,7 +955,7 @@ pub fn parse_block_source(mut i: &str) -> Result<SourceResult, Vec<Error>> {
     }
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 #[error("Parse error on input: {input}. Message: {message:?}")]
 pub struct Error<'a> {
     pub input: &'a str,

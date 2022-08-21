@@ -139,7 +139,7 @@ impl UnverifiedBiscuit {
         if let Some(index) = block
             .external_key
             .as_ref()
-            .and_then(|pk| symbols.public_keys.get(&pk))
+            .and_then(|pk| symbols.public_keys.get(pk))
         {
             public_key_to_block_id
                 .entry(index as usize)
@@ -306,7 +306,7 @@ impl UnverifiedBiscuit {
             .container
             .blocks
             .last()
-            .unwrap_or(&&self.container.authority)
+            .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
         to_verify
@@ -335,13 +335,13 @@ impl UnverifiedBiscuit {
 
         let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
         for key in &token_block.public_keys.keys {
-            symbols.public_keys.insert_fallible(&key)?;
+            symbols.public_keys.insert_fallible(key)?;
         }
 
         if let Some(index) = token_block
             .external_key
             .as_ref()
-            .and_then(|pk| symbols.public_keys.get(&pk))
+            .and_then(|pk| symbols.public_keys.get(pk))
         {
             public_key_to_block_id
                 .entry(index as usize)

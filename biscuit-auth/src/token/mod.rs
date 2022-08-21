@@ -142,7 +142,7 @@ impl Biscuit {
     }
 
     /// runs authorization with the provided authorizer
-    pub fn authorize<'t>(&self, authorizer: &Authorizer) -> Result<usize, error::Token> {
+    pub fn authorize(&self, authorizer: &Authorizer) -> Result<usize, error::Token> {
         let mut a = authorizer.clone();
         a.add_token(self)?;
         a.authorize()
@@ -176,9 +176,7 @@ impl Biscuit {
     /// revocation identifiers are unique: tokens generated separately with
     /// the same contents will have different revocation ids
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        let mut res = Vec::new();
-
-        res.push(self.container.authority.signature.to_bytes().to_vec());
+        let mut res = vec![self.container.authority.signature.to_bytes().to_vec()];
 
         for block in self.container.blocks.iter() {
             res.push(block.signature.to_bytes().to_vec());
@@ -364,7 +362,7 @@ impl Biscuit {
         if let Some(index) = block
             .external_key
             .as_ref()
-            .and_then(|pk| symbols.public_keys.get(&pk))
+            .and_then(|pk| symbols.public_keys.get(pk))
         {
             public_key_to_block_id
                 .entry(index as usize)
@@ -435,7 +433,7 @@ impl Biscuit {
             .container
             .blocks
             .last()
-            .unwrap_or(&&self.container.authority)
+            .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
         to_verify
@@ -471,13 +469,13 @@ impl Biscuit {
 
         let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
         for key in &token_block.public_keys.keys {
-            symbols.public_keys.insert_fallible(&key)?;
+            symbols.public_keys.insert_fallible(key)?;
         }
 
         if let Some(index) = token_block
             .external_key
             .as_ref()
-            .and_then(|pk| symbols.public_keys.get(&pk))
+            .and_then(|pk| symbols.public_keys.get(pk))
         {
             public_key_to_block_id
                 .entry(index as usize)
@@ -525,7 +523,7 @@ impl Biscuit {
         let mut public_keys = PublicKeys::new();
 
         for pk in &block.public_keys {
-            public_keys.insert(&PublicKey::from_proto(&pk)?);
+            public_keys.insert(&PublicKey::from_proto(pk)?);
         }
         Ok(public_keys)
     }
@@ -655,13 +653,13 @@ pub trait RootKeyProvider {
 
 impl RootKeyProvider for PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
-        Ok(self.clone())
+        Ok(*self)
     }
 }
 
 impl RootKeyProvider for &PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
-        Ok((*self).clone())
+        Ok(**self)
     }
 }
 

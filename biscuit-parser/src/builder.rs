@@ -155,7 +155,7 @@ impl ToTokens for Fact {
 }
 
 /// Builder for a Datalog expression
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expression {
     pub ops: Vec<Op>,
 }
@@ -173,21 +173,21 @@ impl ToTokens for Expression {
 }
 
 /// Builder for an expression operation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Negate,
     Parens,
     Length,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Binary {
     LessThan,
     GreaterThan,
@@ -258,7 +258,7 @@ impl ToTokens for Binary {
 pub type PublicKey = Vec<u8>;
 
 /// Builder for a Datalog rule
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rule {
     pub head: Predicate,
     pub body: Vec<Predicate>,
@@ -372,7 +372,7 @@ impl ToTokens for Rule {
 }
 
 /// Builder for a Biscuit check
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
 }
@@ -389,7 +389,7 @@ impl ToTokens for Check {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyKind {
     Allow,
     Deny,
@@ -410,7 +410,7 @@ impl ToTokens for PolicyKind {
 }
 
 /// Builder for a Biscuit policy
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Policy {
     pub queries: Vec<Rule>,
     pub kind: PolicyKind,

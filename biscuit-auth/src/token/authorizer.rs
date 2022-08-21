@@ -18,6 +18,7 @@ use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
     default::Default,
+    fmt::Write,
     time::{Duration, SystemTime},
 };
 
@@ -144,15 +145,15 @@ impl<'t> Authorizer<'t> {
             &self.public_key_to_block_id,
         );
         // add authority facts and rules right away to make them available to queries
-        for fact in authority.facts.iter().cloned() {
-            let fact = Fact::convert_from(&fact, &token.symbols)?.convert(&mut self.symbols);
+        for fact in authority.facts.iter() {
+            let fact = Fact::convert_from(fact, &token.symbols)?.convert(&mut self.symbols);
             self.world.facts.insert(&authority_origin, fact);
         }
 
-        for rule in authority.rules.iter().cloned() {
+        for rule in authority.rules.iter() {
             if let Err(_message) = rule.validate_variables(&token.symbols) {
                 return Err(
-                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(&rule)).into(),
+                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(rule)).into(),
                 );
             }
 
@@ -187,18 +188,18 @@ impl<'t> Authorizer<'t> {
                 &self.public_key_to_block_id,
             );
 
-            for fact in block.facts.iter().cloned() {
-                let fact = Fact::convert_from(&fact, &block_symbols)?.convert(&mut self.symbols);
+            for fact in block.facts.iter() {
+                let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
                 self.world.facts.insert(&block_origin, fact);
             }
 
-            for rule in block.rules.iter().cloned() {
-                if let Err(_message) = rule.validate_variables(&block_symbols) {
+            for rule in block.rules.iter() {
+                if let Err(_message) = rule.validate_variables(block_symbols) {
                     return Err(
-                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(&rule)).into(),
+                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
                     );
                 }
-                let rule = rule.translate(&block_symbols, &mut self.symbols)?;
+                let rule = rule.translate(block_symbols, &mut self.symbols)?;
 
                 let rule_trusted_origins = TrustedOrigins::from_scopes(
                     &rule.scopes,
@@ -314,7 +315,7 @@ impl<'t> Authorizer<'t> {
     ) -> Result<(), error::Token> {
         let source = source.as_ref();
 
-        let source_result = parse_source(&source).map_err(|e| {
+        let source_result = parse_source(source).map_err(|e| {
             let e2: biscuit_parser::error::LanguageError = e.into();
             e2
         })?;
@@ -322,7 +323,7 @@ impl<'t> Authorizer<'t> {
         for (_, fact) in source_result.facts.into_iter() {
             let mut fact: Fact = fact.into();
             for (name, value) in &params {
-                let res = match fact.set(&name, value) {
+                let res = match fact.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -340,7 +341,7 @@ impl<'t> Authorizer<'t> {
         for (_, rule) in source_result.rules.into_iter() {
             let mut rule: Rule = rule.into();
             for (name, value) in &params {
-                let res = match rule.set(&name, value) {
+                let res = match rule.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -352,7 +353,7 @@ impl<'t> Authorizer<'t> {
                 res?;
             }
             for (name, value) in &scope_params {
-                let res = match rule.set_scope(&name, *value) {
+                let res = match rule.set_scope(name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -370,7 +371,7 @@ impl<'t> Authorizer<'t> {
         for (_, check) in source_result.checks.into_iter() {
             let mut check: Check = check.into();
             for (name, value) in &params {
-                let res = match check.set(&name, value) {
+                let res = match check.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -382,7 +383,7 @@ impl<'t> Authorizer<'t> {
                 res?;
             }
             for (name, value) in &scope_params {
-                let res = match check.set_scope(&name, *value) {
+                let res = match check.set_scope(name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -399,7 +400,7 @@ impl<'t> Authorizer<'t> {
         for (_, policy) in source_result.policies.into_iter() {
             let mut policy: Policy = policy.into();
             for (name, value) in &params {
-                let res = match policy.set(&name, value) {
+                let res = match policy.set(name, value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -411,7 +412,7 @@ impl<'t> Authorizer<'t> {
                 res?;
             }
             for (name, value) in &scope_params {
-                let res = match policy.set_scope(&name, *value) {
+                let res = match policy.set_scope(name, *value) {
                     Ok(_) => Ok(()),
                     Err(error::Token::Language(
                         biscuit_parser::error::LanguageError::Parameters {
@@ -496,8 +497,7 @@ impl<'t> Authorizer<'t> {
         res //.drain(..)
             .inner
             .into_iter()
-            .map(|(_, set)| set.into_iter())
-            .flatten()
+            .flat_map(|(_, set)| set.into_iter())
             .map(|f| Fact::convert_from(&f, &self.symbols))
             .map(|fact| {
                 fact.map_err(error::Token::Format)
@@ -585,7 +585,7 @@ impl<'t> Authorizer<'t> {
 
         let res = self
             .world
-            .query_rule(rule.clone(), 0, &rule_trusted_origins, &self.symbols);
+            .query_rule(rule, 0, &rule_trusted_origins, &self.symbols);
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -657,7 +657,7 @@ impl<'t> Authorizer<'t> {
             .scopes
             .clone()
             .iter()
-            .map(|s| s.convert(&mut self.symbols).clone())
+            .map(|s| s.convert(&mut self.symbols))
             .collect();
 
         let authorizer_trusted_origins = TrustedOrigins::from_scopes(
@@ -698,7 +698,7 @@ impl<'t> Authorizer<'t> {
             .scopes
             .clone()
             .iter()
-            .map(|s| s.convert(&mut self.symbols).clone())
+            .map(|s| s.convert(&mut self.symbols))
             .collect();
 
         let authorizer_trusted_origins = TrustedOrigins::from_scopes(
@@ -845,7 +845,7 @@ impl<'t> Authorizer<'t> {
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
-                    let c = Check::convert_from(check, &block_symbols)?;
+                    let c = Check::convert_from(check, block_symbols)?;
                     let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
@@ -997,16 +997,16 @@ impl<'t> Authorizer<'t> {
         let (facts, rules, checks, policies) = self.dump();
         let mut f = String::new();
         for fact in facts {
-            f.push_str(&format!("{};\n", &fact));
+            let _ = writeln!(f, "{fact};");
         }
         for rule in rules {
-            f.push_str(&format!("{};\n", &rule));
+            let _ = writeln!(f, "{rule};");
         }
         for check in checks {
-            f.push_str(&format!("{};\n", &check));
+            let _ = writeln!(f, "{check};");
         }
         for policy in policies {
-            f.push_str(&format!("{};\n", &policy));
+            let _ = writeln!(f, "{policy};");
         }
         f
     }

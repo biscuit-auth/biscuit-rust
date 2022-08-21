@@ -101,7 +101,7 @@ impl TrustedOrigins {
     }
 
     pub fn contains(&self, fact_origin: &Origin) -> bool {
-        self.0.is_superset(&fact_origin)
+        self.0.is_superset(fact_origin)
     }
 }
 

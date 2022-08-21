@@ -94,7 +94,7 @@ impl AsRef<Expression> for Expression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
 }
@@ -303,7 +303,7 @@ where
                 Some(variables) => {
                     //println!("predicates empty, will test variables: {:?}", variables);
                     let mut valid = true;
-                    let mut temporary_symbols = TemporarySymbolTable::new(&self.symbols);
+                    let mut temporary_symbols = TemporarySymbolTable::new(self.symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
                             Some(Term::Bool(true)) => {}
@@ -367,7 +367,7 @@ where
                                     //println!("will test with variables: {:?}", variables);
                                     let mut valid = true;
                                     let mut temporary_symbols =
-                                        TemporarySymbolTable::new(&self.symbols);
+                                        TemporarySymbolTable::new(self.symbols);
                                     for e in self.expressions.iter() {
                                         match e.evaluate(&variables, &mut temporary_symbols) {
                                             Some(Term::Bool(true)) => {
@@ -424,7 +424,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatchedVariables {
     pub variables: HashMap<u32, Option<Term>>,
 }
@@ -618,7 +618,7 @@ impl World {
             .filter(|f| {
                 f.predicate.name == pred.name
                     && f.predicate.terms.iter().zip(&pred.terms).all(|(fid, pid)| {
-                        let res = match (fid, pid) {
+                        match (fid, pid) {
                             //(Term::Symbol(_), Term::Variable(_)) => true,
                             //(Term::Symbol(i), Term::Symbol(ref j)) => i == j,
                             (_, Term::Variable(_)) => true,
@@ -629,8 +629,7 @@ impl World {
                             (Term::Bool(i), Term::Bool(ref j)) => i == j,
                             (Term::Set(i), Term::Set(ref j)) => i == j,
                             _ => false,
-                        };
-                        res
+                        }
                     })
             })
             .collect::<Vec<_>>()
@@ -700,6 +699,10 @@ impl FactSet {
         self.inner.values().fold(0, |acc, set| acc + set.len())
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.inner.values().all(|set| set.is_empty())
+    }
+
     pub fn iterator<'a>(
         &'a self,
         block_ids: &'a TrustedOrigins,
@@ -719,8 +722,7 @@ impl FactSet {
     pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
-            .map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
-            .flatten()
+            .flat_map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
     }
 
     pub fn merge(&mut self, other: FactSet) {
@@ -747,10 +749,9 @@ impl IntoIterator for FactSet {
 
     fn into_iter(self) -> Self::IntoIter {
         Box::new(
-            self.inner
-                .into_iter()
-                .map(move |(ids, facts)| facts.into_iter().map(move |fact| (ids.clone(), fact)))
-                .flatten(),
+            self.inner.into_iter().flat_map(move |(ids, facts)| {
+                facts.into_iter().map(move |fact| (ids.clone(), fact))
+            }),
         )
     }
 }
@@ -775,8 +776,7 @@ impl RuleSet {
     pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
         self.inner
             .iter()
-            .map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
-            .flatten()
+            .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
     }
 }
 
