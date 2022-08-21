@@ -59,7 +59,7 @@
 //!   // we want to limit access to `/a/file1.txt` and to read operations
 //!   let token2 = {
 //!     // the token is deserialized, the signature is verified
-//!     let deser = Biscuit::from(&token1,  |_| root.public())?;
+//!     let deser = Biscuit::from(&token1,  root.public())?;
 //!
 //!     // biscuits can be attenuated by appending checks
 //!     let biscuit = deser.append(block!(r#"

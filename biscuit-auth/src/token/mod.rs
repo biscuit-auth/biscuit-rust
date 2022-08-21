@@ -89,19 +89,21 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from<T, F: RootKeyProvider>(slice: T, f: &F) -> Result<Self, error::Token>
+    pub fn from<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
+        KP: RootKeyProvider,
     {
-        Biscuit::from_with_symbols(slice.as_ref(), f, default_symbol_table())
+        Biscuit::from_with_symbols(slice.as_ref(), key_provider, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T, F: RootKeyProvider>(slice: T, f: &F) -> Result<Self, error::Token>
+    pub fn from_base64<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
+        KP: RootKeyProvider,
     {
-        Biscuit::from_base64_with_symbols(slice, f, default_symbol_table())
+        Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table())
     }
 
     /// serializes the token
@@ -283,13 +285,16 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    fn from_with_symbols<F: RootKeyProvider>(
+    fn from_with_symbols<KP>(
         slice: &[u8],
-        f: &F,
+        key_provider: KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
-where {
-        let container = SerializedBiscuit::from_slice(slice, f).map_err(error::Token::Format)?;
+    where
+        KP: RootKeyProvider,
+    {
+        let container =
+            SerializedBiscuit::from_slice(slice, key_provider).map_err(error::Token::Format)?;
 
         Biscuit::from_serialized_container(container, symbols)
     }
@@ -313,16 +318,17 @@ where {
     }
 
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
-    fn from_base64_with_symbols<T, F: RootKeyProvider>(
+    fn from_base64_with_symbols<T, KP>(
         slice: T,
-        f: &F,
+        key_provider: KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
+        KP: RootKeyProvider,
     {
         let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
-        Biscuit::from_with_symbols(&decoded, f, symbols)
+        Biscuit::from_with_symbols(&decoded, key_provider, symbols)
     }
 
     /// returns the internal representation of the token
@@ -653,6 +659,12 @@ impl RootKeyProvider for PublicKey {
     }
 }
 
+impl RootKeyProvider for &PublicKey {
+    fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
+        Ok((*self).clone())
+    }
+}
+
 impl<F: Fn(Option<u32>) -> Result<PublicKey, error::Format>> RootKeyProvider for F {
     fn choose(&self, root_key_id: Option<u32>) -> Result<PublicKey, error::Format> {
         self(root_key_id)
@@ -755,7 +767,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2, &root.public()).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
 
             // new check: can only access file1
             let mut block3 = BlockBuilder::new();
@@ -1310,7 +1322,7 @@ mod tests {
         //panic!();
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, &root.public()).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, |_| Ok(root.public())).unwrap();
 
             // new check: can only have read access1
             let mut block2 = BlockBuilder::new();

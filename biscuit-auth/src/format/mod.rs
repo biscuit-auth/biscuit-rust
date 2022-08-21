@@ -40,10 +40,13 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice<F: RootKeyProvider>(slice: &[u8], f: &F) -> Result<Self, error::Format> {
+    pub fn from_slice<KP>(slice: &[u8], key_provider: KP) -> Result<Self, error::Format>
+    where
+        KP: RootKeyProvider,
+    {
         let deser = SerializedBiscuit::deserialize(slice)?;
 
-        let root = f.choose(deser.root_key_id)?;
+        let root = key_provider.choose(deser.root_key_id)?;
         deser.verify(&root)?;
 
         Ok(deser)
