@@ -567,7 +567,7 @@ pub unsafe extern "C" fn biscuit_from<'a>(
     }
     let root = root?;
 
-    crate::token::Biscuit::from(biscuit, |_| root.0)
+    crate::token::Biscuit::from(biscuit, root.0)
         .map(Biscuit)
         .map(Box::new)
         .ok()
