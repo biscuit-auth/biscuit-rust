@@ -634,7 +634,6 @@ fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
 }
 
-//FIXME: replace panics with proper parse errors
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
@@ -645,19 +644,35 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     let mut kind: Option<u8> = None;
     for term in list.drain(..) {
         let index = match term {
-            builder::Term::Variable(_) => panic!("variables are not permitted in sets"),
+            builder::Term::Variable(_) => {
+                return Err(nom::Err::Failure(Error {
+                    input: i,
+                    code: ErrorKind::Fail,
+                    message: Some("variables are not permitted in sets".to_string()),
+                }))
+            }
             builder::Term::Integer(_) => 2,
             builder::Term::Str(_) => 3,
             builder::Term::Date(_) => 4,
             builder::Term::Bytes(_) => 5,
             builder::Term::Bool(_) => 6,
-            builder::Term::Set(_) => panic!("sets cannot contain other sets"),
+            builder::Term::Set(_) => {
+                return Err(nom::Err::Failure(Error {
+                    input: i,
+                    code: ErrorKind::Fail,
+                    message: Some("sets cannot contain other sets".to_string()),
+                }))
+            }
             builder::Term::Parameter(_) => 7,
         };
 
         if let Some(k) = kind {
             if k != index {
-                panic!("set elements must have the same type");
+                return Err(nom::Err::Failure(Error {
+                    input: i,
+                    code: ErrorKind::Fail,
+                    message: Some("set elements must have the same type".to_string()),
+                }));
             }
         } else {
             kind = Some(index);

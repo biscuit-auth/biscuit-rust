@@ -165,7 +165,7 @@ impl SymbolTable {
             .inner
             .iter()
             .flat_map(|rules| rules.1.iter())
-            .map(|r| self.print_rule(r))
+            .map(|(_, r)| self.print_rule(r))
             .collect::<Vec<_>>();
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
     }
