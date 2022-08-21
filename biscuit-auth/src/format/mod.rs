@@ -13,6 +13,7 @@ use super::error;
 use super::token::Block;
 use crate::crypto::ExternalSignature;
 use crate::datalog::SymbolTable;
+use crate::token::RootKeyProvider;
 use ed25519_dalek::Signer;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -39,13 +40,13 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice<F: Fn(Option<u32>) -> PublicKey>(
-        slice: &[u8],
-        f: F,
-    ) -> Result<Self, error::Format> {
+    pub fn from_slice<KP>(slice: &[u8], key_provider: KP) -> Result<Self, error::Format>
+    where
+        KP: RootKeyProvider,
+    {
         let deser = SerializedBiscuit::deserialize(slice)?;
 
-        let root = f(deser.root_key_id);
+        let root = key_provider.choose(deser.root_key_id)?;
         deser.verify(&root)?;
 
         Ok(deser)

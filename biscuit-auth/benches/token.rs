@@ -63,7 +63,7 @@ fn append_block_2(b: &mut Bencher) {
     b.bytes = (data.len() - base_data.len()) as u64;
     assert_eq!(b.bytes, 189);
     b.iter(|| {
-        let token = Biscuit::from(&base_data, |_| root.public()).unwrap();
+        let token = Biscuit::from(&base_data, &root.public()).unwrap();
         let mut block_builder = BlockBuilder::new();
         block_builder.check_resource("file1");
         block_builder.check_operation("read");
@@ -101,7 +101,7 @@ fn append_block_5(b: &mut Bencher) {
     b.bytes = (data.len() - base_data.len()) as u64;
     assert_eq!(b.bytes, 189);
     b.iter(|| {
-        let token2 = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token2 = Biscuit::from(&data, &root.public()).unwrap();
         let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
@@ -109,7 +109,7 @@ fn append_block_5(b: &mut Bencher) {
         let token3 = token2.append_with_keypair(&keypair3, b).unwrap();
         let data = token3.to_vec().unwrap();
 
-        let token3 = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token3 = Biscuit::from(&data, &root.public()).unwrap();
         let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
@@ -117,7 +117,7 @@ fn append_block_5(b: &mut Bencher) {
         let token4 = token3.append_with_keypair(&keypair4, b).unwrap();
         let data = token4.to_vec().unwrap();
 
-        let token4 = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token4 = Biscuit::from(&data, &root.public()).unwrap();
         let mut b = BlockBuilder::new();
         b.check_resource("file1");
         b.check_operation("read");
@@ -240,7 +240,7 @@ fn verify_block_2(b: &mut Bencher) {
         token2.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
@@ -249,7 +249,7 @@ fn verify_block_2(b: &mut Bencher) {
 
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let token = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
@@ -309,7 +309,7 @@ fn verify_block_5(b: &mut Bencher) {
         token5.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
@@ -318,7 +318,7 @@ fn verify_block_5(b: &mut Bencher) {
 
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let token = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
@@ -351,7 +351,7 @@ fn check_signature_2(b: &mut Bencher) {
         token2.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
@@ -360,7 +360,7 @@ fn check_signature_2(b: &mut Bencher) {
 
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let token = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token = Biscuit::from(&data, &root.public()).unwrap();
     });
 }
 
@@ -414,7 +414,7 @@ fn check_signature_5(b: &mut Bencher) {
         token5.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
@@ -423,7 +423,7 @@ fn check_signature_5(b: &mut Bencher) {
 
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let token = Biscuit::from(&data, |_| root.public()).unwrap();
+        let token = Biscuit::from(&data, &root.public()).unwrap();
     });
 }
 
@@ -451,14 +451,14 @@ fn checks_block_2(b: &mut Bencher) {
         token2.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut verifier = token.authorizer().unwrap();
@@ -493,14 +493,14 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
         token2.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut verifier = token.authorizer().unwrap();
@@ -531,14 +531,14 @@ fn checks_block_verify_only2(b: &mut Bencher) {
         token2.to_vec().unwrap()
     };
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
     verifier.authorize().unwrap();
 
-    let token = Biscuit::from(&data, |_| root.public()).unwrap();
+    let token = Biscuit::from(&data, &root.public()).unwrap();
     b.iter(|| {
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");

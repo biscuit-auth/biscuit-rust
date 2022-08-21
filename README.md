@@ -51,7 +51,7 @@ fn main() -> Result<(), error::Token> {
   // we want to limit access to `/a/file1.txt` and to read operations
   let token2 = {
     // the token is deserialized, the signature is verified
-    let deser = Biscuit::from(&token1, |_root_key_id| root.public())?;
+    let deser = Biscuit::from(&token1, root.public())?;
 
     // biscuits can be attenuated by appending checks
     let biscuit = deser.append(block!(r#"
@@ -72,7 +72,7 @@ fn main() -> Result<(), error::Token> {
   /************** VERIFICATION ****************/
 
   // let's deserialize the token:
-  let biscuit2 = Biscuit::from(&token2, |_root_key_id| public_key)?;
+  let biscuit2 = Biscuit::from(&token2, public_key)?;
 
   // let's define 3 verifiers (corresponding to 3 different requests):
   // - one for /a/file1.txt and a read operation
