@@ -176,9 +176,7 @@ impl Biscuit {
     /// revocation identifiers are unique: tokens generated separately with
     /// the same contents will have different revocation ids
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        let mut res = Vec::new();
-
-        res.push(self.container.authority.signature.to_bytes().to_vec());
+        let mut res = vec![self.container.authority.signature.to_bytes().to_vec()];
 
         for block in self.container.blocks.iter() {
             res.push(block.signature.to_bytes().to_vec());
@@ -655,13 +653,13 @@ pub trait RootKeyProvider {
 
 impl RootKeyProvider for PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
-        Ok(self.clone())
+        Ok(*self)
     }
 }
 
 impl RootKeyProvider for &PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
-        Ok((*self).clone())
+        Ok(**self)
     }
 }
 

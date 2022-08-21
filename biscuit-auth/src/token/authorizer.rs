@@ -189,7 +189,7 @@ impl<'t> Authorizer<'t> {
             );
 
             for fact in block.facts.iter() {
-                let fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
+                let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
                 self.world.facts.insert(&block_origin, fact);
             }
 
@@ -315,7 +315,7 @@ impl<'t> Authorizer<'t> {
     ) -> Result<(), error::Token> {
         let source = source.as_ref();
 
-        let source_result = parse_source(&source).map_err(|e| {
+        let source_result = parse_source(source).map_err(|e| {
             let e2: biscuit_parser::error::LanguageError = e.into();
             e2
         })?;
@@ -657,7 +657,7 @@ impl<'t> Authorizer<'t> {
             .scopes
             .clone()
             .iter()
-            .map(|s| s.convert(&mut self.symbols).clone())
+            .map(|s| s.convert(&mut self.symbols))
             .collect();
 
         let authorizer_trusted_origins = TrustedOrigins::from_scopes(
@@ -698,7 +698,7 @@ impl<'t> Authorizer<'t> {
             .scopes
             .clone()
             .iter()
-            .map(|s| s.convert(&mut self.symbols).clone())
+            .map(|s| s.convert(&mut self.symbols))
             .collect();
 
         let authorizer_trusted_origins = TrustedOrigins::from_scopes(

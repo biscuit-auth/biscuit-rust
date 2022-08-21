@@ -115,7 +115,7 @@ impl Drop for PrivateKey {
 }
 
 /// the public part of a [KeyPair]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
 
 impl PublicKey {
@@ -163,6 +163,12 @@ impl PublicKey {
 
     pub fn print(&self) -> String {
         format!("ed25519/{}", hex::encode(&self.to_bytes()))
+    }
+}
+
+impl PartialEq for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bytes() == other.0.to_bytes()
     }
 }
 
