@@ -59,20 +59,23 @@ pub fn proto_block_to_token_block(
         });
     }
 
-    let mut facts = vec![];
-    let mut rules = vec![];
-    let mut checks = vec![];
-    for fact in input.facts_v2.iter() {
-        facts.push(v2::proto_fact_to_token_fact(fact)?);
-    }
+    let facts = input
+        .facts_v2
+        .iter()
+        .map(v2::proto_fact_to_token_fact)
+        .collect::<Result<Vec<_>, _>>()?;
 
-    for rule in input.rules_v2.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
-    }
+    let rules = input
+        .rules_v2
+        .iter()
+        .map(|r| v2::proto_rule_to_token_rule(r, version).map(|r| r.0))
+        .collect::<Result<Vec<_>, _>>()?;
 
-    for check in input.checks_v2.iter() {
-        checks.push(v2::proto_check_to_token_check(check, version)?);
-    }
+    let checks = input
+        .checks_v2
+        .iter()
+        .map(|c| v2::proto_check_to_token_check(c, version))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let context = input.context.clone();
 
@@ -150,26 +153,26 @@ pub fn proto_authorizer_to_authorizer(
 
     let symbols = SymbolTable::from(input.symbols.clone())?;
 
-    let mut facts = vec![];
-    let mut rules = vec![];
-    let mut checks = vec![];
-    let mut policies = vec![];
-
-    for fact in input.facts.iter() {
-        facts.push(v2::proto_fact_to_token_fact(fact)?);
-    }
-
-    for rule in input.rules.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
-    }
-
-    for check in input.checks.iter() {
-        checks.push(v2::proto_check_to_token_check(check, version)?);
-    }
-
-    for policy in input.policies.iter() {
-        policies.push(v2::proto_policy_to_policy(policy, &symbols, version)?);
-    }
+    let facts = input
+        .facts
+        .iter()
+        .map(v2::proto_fact_to_token_fact)
+        .collect::<Result<Vec<_>, _>>()?;
+    let rules = input
+        .rules
+        .iter()
+        .map(|r| v2::proto_rule_to_token_rule(r, version).map(|r| r.0))
+        .collect::<Result<Vec<_>, _>>()?;
+    let checks = input
+        .checks
+        .iter()
+        .map(|c| v2::proto_check_to_token_check(c, version))
+        .collect::<Result<Vec<_>, _>>()?;
+    let policies = input
+        .policies
+        .iter()
+        .map(|p| v2::proto_policy_to_policy(p, &symbols, version))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(AuthorizerPolicies {
         version,
@@ -214,11 +217,11 @@ pub mod v2 {
         input: &schema::CheckV2,
         version: u32,
     ) -> Result<Check, error::Format> {
-        let mut queries = vec![];
-
-        for q in input.queries.iter() {
-            queries.push(proto_rule_to_token_rule(q, version)?.0);
-        }
+        let queries = input
+            .queries
+            .iter()
+            .map(|q| proto_rule_to_token_rule(q, version).map(|r| r.0))
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Check { queries })
     }
@@ -247,13 +250,14 @@ pub mod v2 {
         version: u32,
     ) -> Result<crate::token::builder::Policy, error::Format> {
         use schema::policy::Kind;
-        let mut queries = vec![];
-
-        for q in input.queries.iter() {
-            let (c, _scopes) = proto_rule_to_token_rule(q, version)?;
-            let c = crate::token::builder::Rule::convert_from(&c, symbols)?;
-            queries.push(c);
-        }
+        let queries = input
+            .queries
+            .iter()
+            .map(|q| {
+                let (c, _scopes) = proto_rule_to_token_rule(q, version)?;
+                crate::token::builder::Rule::convert_from(&c, symbols)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let kind = if let Some(i) = Kind::from_i32(input.kind) {
             i
@@ -297,17 +301,17 @@ pub mod v2 {
         input: &schema::RuleV2,
         version: u32,
     ) -> Result<(Rule, Vec<Scope>), error::Format> {
-        let mut body = vec![];
+        let body = input
+            .body
+            .iter()
+            .map(proto_predicate_to_token_predicate)
+            .collect::<Result<Vec<_>, _>>()?;
 
-        for p in input.body.iter() {
-            body.push(proto_predicate_to_token_predicate(p)?);
-        }
-
-        let mut expressions = vec![];
-
-        for c in input.expressions.iter() {
-            expressions.push(proto_expression_to_token_expression(c)?);
-        }
+        let expressions = input
+            .expressions
+            .iter()
+            .map(proto_expression_to_token_expression)
+            .collect::<Result<Vec<_>, _>>()?;
 
         if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
             return Err(error::Format::DeserializationError(
@@ -315,9 +319,11 @@ pub mod v2 {
             ));
         }
 
-        let scopes: Result<Vec<_>, _> =
-            input.scope.iter().map(proto_scope_to_token_scope).collect();
-        let scopes = scopes?;
+        let scopes = input
+            .scope
+            .iter()
+            .map(proto_scope_to_token_scope)
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok((
             Rule {
@@ -341,11 +347,11 @@ pub mod v2 {
     pub fn proto_predicate_to_token_predicate(
         input: &schema::PredicateV2,
     ) -> Result<Predicate, error::Format> {
-        let mut terms = vec![];
-
-        for term in input.terms.iter() {
-            terms.push(proto_id_to_token_term(term)?);
-        }
+        let terms = input
+            .terms
+            .iter()
+            .map(proto_id_to_token_term)
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Predicate {
             name: input.name,

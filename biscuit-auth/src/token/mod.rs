@@ -164,12 +164,9 @@ impl Biscuit {
     /// can be stored
     #[must_use]
     pub fn context(&self) -> Vec<Option<String>> {
-        let mut res = vec![self.authority.context.clone()];
-
-        for b in self.blocks.iter() {
-            res.push(b.context.clone());
-        }
-
+        let mut res = Vec::with_capacity(1 + self.blocks.len());
+        res.push(self.authority.context.clone());
+        res.extend(self.blocks.iter().map(|b| b.context.clone()));
         res
     }
 
@@ -179,12 +176,14 @@ impl Biscuit {
     /// the same contents will have different revocation ids
     #[must_use]
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
-        let mut res = vec![self.container.authority.signature.to_bytes().to_vec()];
-
-        for block in self.container.blocks.iter() {
-            res.push(block.signature.to_bytes().to_vec());
-        }
-
+        let mut res = Vec::with_capacity(1 + self.container.blocks.len());
+        res.push(self.container.authority.signature.to_bytes().to_vec());
+        res.extend(
+            self.container
+                .blocks
+                .iter()
+                .map(|b| b.signature.to_bytes().to_vec()),
+        );
         res
     }
 
@@ -195,17 +194,13 @@ impl Biscuit {
     /// the corresponding private key
     #[must_use]
     pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
-        let mut res = vec![None];
-
-        for block in self.container.blocks.iter() {
-            res.push(
-                block
-                    .external_signature
-                    .as_ref()
-                    .map(|sig| sig.public_key.to_bytes().to_vec()),
-            );
-        }
-
+        let mut res = Vec::with_capacity(1 + self.container.blocks.len());
+        res.push(None);
+        res.extend(self.container.blocks.iter().map(|b| {
+            b.external_signature
+                .as_ref()
+                .map(|sig| sig.public_key.to_bytes().to_vec())
+        }));
         res
     }
 

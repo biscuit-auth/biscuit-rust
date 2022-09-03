@@ -245,11 +245,11 @@ fn validate_token(
         }
     };
 
-    let mut revocation_ids = vec![];
-
-    for bytes in token.revocation_identifiers() {
-        revocation_ids.push(hex::encode(&bytes));
-    }
+    let revocation_ids = token
+        .revocation_identifiers()
+        .into_iter()
+        .map(|rev_id| hex::encode(&rev_id))
+        .collect::<Vec<_>>();
 
     let mut authorizer = match token.authorizer() {
         Ok(v) => v,

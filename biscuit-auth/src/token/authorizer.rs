@@ -952,10 +952,11 @@ impl<'t> Authorizer<'t> {
             }
         }
 
-        let mut policies = Vec::new();
-        for policy in self.policies.iter() {
-            policies.push(policy.to_string());
-        }
+        let policies = self
+            .policies
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>();
 
         format!(
             "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",

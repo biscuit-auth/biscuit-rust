@@ -253,23 +253,26 @@ impl AuthorizerWithParams {
     ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_source(input)?;
-        let mut facts = Vec::new();
-        let mut rules = Vec::new();
-        let mut checks = Vec::new();
-        let mut policies = Vec::new();
-
-        for (_, fact) in source_result.facts.into_iter() {
-            facts.push(fact);
-        }
-        for (_, rule) in source_result.rules.into_iter() {
-            rules.push(rule);
-        }
-        for (_, check) in source_result.checks.into_iter() {
-            checks.push(check);
-        }
-        for (_, policy) in source_result.policies.into_iter() {
-            policies.push(policy);
-        }
+        let facts = source_result
+            .facts
+            .into_iter()
+            .map(|f| f.1)
+            .collect::<Vec<_>>();
+        let rules = source_result
+            .rules
+            .into_iter()
+            .map(|r| r.1)
+            .collect::<Vec<_>>();
+        let checks = source_result
+            .checks
+            .into_iter()
+            .map(|c| c.1)
+            .collect::<Vec<_>>();
+        let policies = source_result
+            .policies
+            .into_iter()
+            .map(|p| p.1)
+            .collect::<Vec<_>>();
 
         Ok(AuthorizerWithParams {
             facts,
@@ -444,19 +447,21 @@ impl BiscuitWithParams {
     ) -> std::result::Result<Self, error::LanguageError> {
         let input = source.as_ref();
         let source_result = parse_block_source(input)?;
-        let mut facts = Vec::new();
-        let mut rules = Vec::new();
-        let mut checks = Vec::new();
-
-        for (_, fact) in source_result.facts.into_iter() {
-            facts.push(fact);
-        }
-        for (_, rule) in source_result.rules.into_iter() {
-            rules.push(rule);
-        }
-        for (_, check) in source_result.checks.into_iter() {
-            checks.push(check);
-        }
+        let facts = source_result
+            .facts
+            .into_iter()
+            .map(|f| f.1)
+            .collect::<Vec<_>>();
+        let rules = source_result
+            .rules
+            .into_iter()
+            .map(|r| r.1)
+            .collect::<Vec<_>>();
+        let checks = source_result
+            .checks
+            .into_iter()
+            .map(|c| c.1)
+            .collect::<Vec<_>>();
 
         Ok(BiscuitWithParams {
             facts,

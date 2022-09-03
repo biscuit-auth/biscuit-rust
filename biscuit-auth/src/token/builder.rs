@@ -35,15 +35,9 @@ impl BlockBuilder {
     }
 
     pub fn append(&mut self, other: BlockBuilder) {
-        for fact in other.facts {
-            self.facts.push(fact);
-        }
-        for rule in other.rules {
-            self.rules.push(rule);
-        }
-        for check in other.checks {
-            self.checks.push(check);
-        }
+        self.facts.extend(other.facts.into_iter());
+        self.rules.extend(other.rules.into_iter());
+        self.checks.extend(other.checks.into_iter());
         if let Some(c) = other.context {
             self.set_context(c);
         }
@@ -192,26 +186,30 @@ impl BlockBuilder {
         let symbols_start = symbols.current_offset();
         let public_keys_start = symbols.public_keys.current_offset();
 
-        let mut facts = Vec::new();
-        for fact in self.facts {
-            facts.push(fact.convert(&mut symbols));
-        }
+        let facts = self
+            .facts
+            .into_iter()
+            .map(|f| f.convert(&mut symbols))
+            .collect::<Vec<_>>();
 
-        let mut rules = Vec::new();
-        for rule in &self.rules {
-            rules.push(rule.convert(&mut symbols));
-        }
+        let rules = self
+            .rules
+            .iter()
+            .map(|r| r.convert(&mut symbols))
+            .collect::<Vec<_>>();
 
-        let mut checks = Vec::new();
-        for check in &self.checks {
-            checks.push(check.convert(&mut symbols));
-        }
+        let checks = self
+            .checks
+            .iter()
+            .map(|c| c.convert(&mut symbols))
+            .collect::<Vec<_>>();
         let new_syms = symbols.split_at(symbols_start);
         let public_keys = symbols.public_keys.split_at(public_keys_start);
 
         let needs_scopes = !self.scopes.is_empty()
-            || (&self.rules).iter().any(|r: &Rule| !r.scopes.is_empty())
-            || (&self.checks)
+            || self.rules.iter().any(|r: &Rule| !r.scopes.is_empty())
+            || self
+                .checks
                 .iter()
                 .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
@@ -255,15 +253,15 @@ impl BlockBuilder {
 
 impl fmt::Display for BlockBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for mut fact in self.facts.clone().into_iter() {
+        for mut fact in self.facts.iter().cloned() {
             fact.apply_parameters();
             writeln!(f, "{};", &fact)?;
         }
-        for mut rule in self.rules.clone().into_iter() {
+        for mut rule in self.rules.iter().cloned() {
             rule.apply_parameters();
             writeln!(f, "{};", &rule)?;
         }
-        for mut check in self.checks.clone().into_iter() {
+        for mut check in self.checks.iter().cloned() {
             check.apply_parameters();
             writeln!(f, "{};", &check)?;
         }
@@ -604,12 +602,11 @@ impl Predicate {
 impl Convert<datalog::Predicate> for Predicate {
     fn convert(&self, symbols: &mut SymbolTable) -> datalog::Predicate {
         let name = symbols.insert(&self.name);
-        let mut terms = vec![];
-
-        for term in self.terms.iter() {
-            terms.push(term.convert(symbols));
-        }
-
+        let terms = self
+            .terms
+            .iter()
+            .map(|t| t.convert(symbols))
+            .collect::<Vec<_>>();
         datalog::Predicate { name, terms }
     }
 
@@ -1266,30 +1263,33 @@ impl Convert<datalog::Rule> for Rule {
         r.apply_parameters();
 
         let head = r.head.convert(symbols);
-        let mut body = vec![];
-        let mut expressions = vec![];
-        let mut scopes = vec![];
-
-        for p in r.body.iter() {
-            body.push(p.convert(symbols));
-        }
-
-        for c in r.expressions.iter() {
-            expressions.push(c.convert(symbols));
-        }
-
-        for scope in r.scopes.iter() {
-            scopes.push(match scope {
-                Scope::Authority => crate::token::Scope::Authority,
-                Scope::Previous => crate::token::Scope::Previous,
-                Scope::PublicKey(key) => {
-                    crate::token::Scope::PublicKey(symbols.public_keys.insert(key))
+        let body = r
+            .body
+            .iter()
+            .map(|p| p.convert(symbols))
+            .collect::<Vec<_>>();
+        let expressions = r
+            .expressions
+            .iter()
+            .map(|e| e.convert(symbols))
+            .collect::<Vec<_>>();
+        let scopes = r
+            .scopes
+            .iter()
+            .map(|s| {
+                match s {
+                    Scope::Authority => crate::token::Scope::Authority,
+                    Scope::Previous => crate::token::Scope::Previous,
+                    Scope::PublicKey(key) => {
+                        crate::token::Scope::PublicKey(symbols.public_keys.insert(key))
+                    }
+                    // The error is caught in the `add_xxx` functions, so this should
+                    // not happen™
+                    Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
                 }
-                // The error is caught in the `add_xxx` functions, so this should
-                // not happen™
-                Scope::Parameter(s) => panic!("Remaining parameter {}", &s),
             })
-        }
+            .collect::<Vec<_>>();
+
         datalog::Rule {
             head,
             body,
@@ -1502,20 +1502,20 @@ impl Check {
 
 impl Convert<datalog::Check> for Check {
     fn convert(&self, symbols: &mut SymbolTable) -> datalog::Check {
-        let mut queries = vec![];
-        for q in self.queries.iter() {
-            queries.push(q.convert(symbols));
-        }
-
+        let queries = self
+            .queries
+            .iter()
+            .map(|q| q.convert(symbols))
+            .collect::<Vec<_>>();
         datalog::Check { queries }
     }
 
     fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Result<Self, error::Format> {
-        let mut queries = vec![];
-        for q in r.queries.iter() {
-            queries.push(Rule::convert_from(q, symbols)?);
-        }
-
+        let queries = r
+            .queries
+            .iter()
+            .map(|q| Rule::convert_from(q, symbols))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Check { queries })
     }
 }
