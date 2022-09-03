@@ -48,6 +48,7 @@ const DEFAULT_SYMBOLS: [&str; 28] = [
 const OFFSET: usize = 1024;
 
 impl SymbolTable {
+    #[must_use]
     pub fn new() -> Self {
         SymbolTable {
             symbols: vec![],
@@ -97,6 +98,7 @@ impl SymbolTable {
         Term::Str(term)
     }
 
+    #[must_use]
     pub fn get(&self, s: &str) -> Option<SymbolIndex> {
         if let Some(index) = DEFAULT_SYMBOLS.iter().position(|sym| *sym == s) {
             return Some(index as u64);
@@ -108,10 +110,12 @@ impl SymbolTable {
             .map(|i| (OFFSET + i) as SymbolIndex)
     }
 
+    #[must_use]
     pub fn strings(&self) -> Vec<String> {
         self.symbols.clone()
     }
 
+    #[must_use]
     pub fn current_offset(&self) -> usize {
         self.symbols.len()
     }
@@ -122,6 +126,7 @@ impl SymbolTable {
         table
     }
 
+    #[must_use]
     pub fn is_disjoint(&self, other: &SymbolTable) -> bool {
         let h1 = self.symbols.iter().collect::<HashSet<_>>();
         let h2 = other.symbols.iter().collect::<HashSet<_>>();
@@ -129,6 +134,7 @@ impl SymbolTable {
         h1.is_disjoint(&h2)
     }
 
+    #[must_use]
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
         if i >= OFFSET as u64 {
             self.symbols
@@ -146,12 +152,14 @@ impl SymbolTable {
     }
 
     // infallible symbol printing method
+    #[must_use]
     pub fn print_symbol_default(&self, i: SymbolIndex) -> String {
         self.get_symbol(i)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("<{}?>", i))
     }
 
+    #[must_use]
     pub fn print_world(&self, w: &World) -> String {
         let facts = w
             .facts
@@ -170,6 +178,7 @@ impl SymbolTable {
         format!("World {{\n  facts: {:#?}\n  rules: {:#?}\n}}", facts, rules)
     }
 
+    #[must_use]
     pub fn print_term(&self, term: &Term) -> String {
         match term {
             Term::Variable(i) => format!("${}", self.print_symbol_default(*i as u64)),
@@ -196,10 +205,12 @@ impl SymbolTable {
             }
         }
     }
+    #[must_use]
     pub fn print_fact(&self, f: &Fact) -> String {
         self.print_predicate(&f.predicate)
     }
 
+    #[must_use]
     pub fn print_predicate(&self, p: &Predicate) -> String {
         let strings = p
             .terms
@@ -213,11 +224,13 @@ impl SymbolTable {
         )
     }
 
+    #[must_use]
     pub fn print_expression(&self, e: &super::expression::Expression) -> String {
         e.print(self)
             .unwrap_or_else(|| format!("<invalid expression: {:?}>", e.ops))
     }
 
+    #[must_use]
     pub fn print_rule_body(&self, r: &Rule) -> String {
         let preds: Vec<_> = r.body.iter().map(|p| self.print_predicate(p)).collect();
 
@@ -258,12 +271,14 @@ impl SymbolTable {
         format!("{}{}{}", preds.join(", "), e, scopes)
     }
 
+    #[must_use]
     pub fn print_rule(&self, r: &Rule) -> String {
         let res = self.print_predicate(&r.head);
 
         format!("{} <- {}", res, self.print_rule_body(r))
     }
 
+    #[must_use]
     pub fn print_check(&self, c: &Check) -> String {
         let queries = c
             .queries
@@ -289,6 +304,7 @@ pub struct TemporarySymbolTable<'a> {
 }
 
 impl<'a> TemporarySymbolTable<'a> {
+    #[must_use]
     pub fn new(base: &'a SymbolTable) -> Self {
         let offset = OFFSET + base.current_offset();
 
@@ -299,6 +315,7 @@ impl<'a> TemporarySymbolTable<'a> {
         }
     }
 
+    #[must_use]
     pub fn get_symbol(&self, i: SymbolIndex) -> Option<&str> {
         if i as usize >= self.offset {
             self.symbols

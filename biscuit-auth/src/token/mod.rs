@@ -84,6 +84,7 @@ impl Biscuit {
     /// create the first block's builder
     ///
     /// call [`builder::BiscuitBuilder::build`] to create the token
+    #[must_use]
     pub fn builder() -> BiscuitBuilder {
         BiscuitBuilder::new()
     }
@@ -161,6 +162,7 @@ impl Biscuit {
     ///
     /// the context is a free form text field in which application specific data
     /// can be stored
+    #[must_use]
     pub fn context(&self) -> Vec<Option<String>> {
         let mut res = vec![self.authority.context.clone()];
 
@@ -175,6 +177,7 @@ impl Biscuit {
     ///
     /// revocation identifiers are unique: tokens generated separately with
     /// the same contents will have different revocation ids
+    #[must_use]
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         let mut res = vec![self.container.authority.signature.to_bytes().to_vec()];
 
@@ -190,6 +193,7 @@ impl Biscuit {
     /// Blocks carrying an external public key are _third-party blocks_
     /// and their contents can be trusted as coming from the holder of
     /// the corresponding private key
+    #[must_use]
     pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
         let mut res = vec![None];
 
@@ -206,6 +210,7 @@ impl Biscuit {
     }
 
     /// pretty printer for this token
+    #[must_use]
     pub fn print(&self) -> String {
         let authority = self
             .block(0)
@@ -330,6 +335,7 @@ impl Biscuit {
     }
 
     /// returns the internal representation of the token
+    #[must_use]
     pub fn container(&self) -> &SerializedBiscuit {
         &self.container
     }
@@ -546,6 +552,7 @@ impl Biscuit {
     }
 
     /// returns the number of blocks (at least 1)
+    #[must_use]
     pub fn block_count(&self) -> usize {
         1 + self.blocks.len()
     }

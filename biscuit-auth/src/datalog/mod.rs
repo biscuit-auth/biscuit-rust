@@ -53,6 +53,7 @@ pub struct Predicate {
 }
 
 impl Predicate {
+    #[must_use]
     pub fn new(name: SymbolIndex, terms: &[Term]) -> Predicate {
         Predicate {
             name,
@@ -73,6 +74,7 @@ pub struct Fact {
 }
 
 impl Fact {
+    #[must_use]
     pub fn new(name: SymbolIndex, terms: &[Term]) -> Fact {
         Fact {
             predicate: Predicate::new(name, terms),
@@ -151,6 +153,7 @@ impl Rule {
         })
     }
 
+    #[must_use]
     pub fn find_match(
         &self,
         facts: &FactSet,
@@ -430,6 +433,7 @@ pub struct MatchedVariables {
 }
 
 impl MatchedVariables {
+    #[must_use]
     pub fn new(import: HashSet<u32>) -> Self {
         MatchedVariables {
             variables: import.iter().map(|key| (*key, None)).collect(),
@@ -447,10 +451,12 @@ impl MatchedVariables {
         }
     }
 
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.variables.values().all(|v| v.is_some())
     }
 
+    #[must_use]
     pub fn complete(&self) -> Option<HashMap<u32, Term>> {
         let mut result = HashMap::new();
         for (k, v) in self.variables.iter() {
@@ -506,6 +512,7 @@ pub fn expressed_rule<I: AsRef<Term>, P: AsRef<Predicate>, C: AsRef<Expression>>
     }
 }
 
+#[must_use]
 pub fn int(i: i64) -> Term {
     Term::Integer(i)
 }
@@ -514,6 +521,7 @@ pub fn int(i: i64) -> Term {
     Term::Str(s.to_string())
 }*/
 
+#[must_use]
 pub fn date(t: &SystemTime) -> Term {
     let dur = t.duration_since(UNIX_EPOCH).unwrap();
     Term::Date(dur.as_secs())
@@ -524,6 +532,7 @@ pub fn var(syms: &mut SymbolTable, name: &str) -> Term {
     Term::Variable(id as u32)
 }
 
+#[must_use]
 pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
     rule_pred.name == fact_pred.name
         && rule_pred.terms.len() == fact_pred.terms.len()
@@ -552,6 +561,7 @@ pub struct World {
 }
 
 impl World {
+    #[must_use]
     pub fn new() -> Self {
         World::default()
     }
@@ -635,6 +645,7 @@ impl World {
             .collect::<Vec<_>>()
     }*/
 
+    #[must_use]
     pub fn query_rule(
         &self,
         rule: Rule,
@@ -649,6 +660,7 @@ impl World {
         new_facts
     }
 
+    #[must_use]
     pub fn query_match(
         &self,
         rule: Rule,
@@ -695,10 +707,12 @@ impl FactSet {
         }
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.inner.values().fold(0, |acc, set| acc + set.len())
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.inner.values().all(|set| set.is_empty())
     }

@@ -15,12 +15,14 @@ impl Origin {
         self.inner.insert(i);
     }
 
+    #[must_use]
     pub fn union(&self, other: &Self) -> Self {
         Origin {
             inner: self.inner.union(&other.inner).cloned().collect(),
         }
     }
 
+    #[must_use]
     pub fn is_superset(&self, other: &Self) -> bool {
         self.inner.is_superset(&other.inner)
     }
@@ -59,12 +61,14 @@ impl FromIterator<usize> for Origin {
 pub struct TrustedOrigins(Origin);
 
 impl TrustedOrigins {
+    #[must_use]
     pub fn default() -> TrustedOrigins {
         let mut origins = Origin::default();
         origins.insert(usize::MAX);
         origins.insert(0);
         TrustedOrigins(origins)
     }
+    #[must_use]
     pub fn from_scopes(
         rule_scopes: &[Scope],
         default_origins: &TrustedOrigins,
@@ -100,6 +104,7 @@ impl TrustedOrigins {
         TrustedOrigins(origins)
     }
 
+    #[must_use]
     pub fn contains(&self, fact_origin: &Origin) -> bool {
         self.0.is_superset(fact_origin)
     }

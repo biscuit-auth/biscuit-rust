@@ -22,6 +22,7 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
+    #[must_use]
     pub fn new() -> Self {
         Self::new_with_rng(&mut rand::rngs::OsRng)
     }
@@ -32,6 +33,7 @@ impl KeyPair {
         KeyPair { kp }
     }
 
+    #[must_use]
     pub fn from(key: &PrivateKey) -> Self {
         let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
 
@@ -42,11 +44,13 @@ impl KeyPair {
         }
     }
 
+    #[must_use]
     pub fn private(&self) -> PrivateKey {
         let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
         PrivateKey(secret)
     }
 
+    #[must_use]
     pub fn public(&self) -> PublicKey {
         PublicKey(self.kp.public)
     }
@@ -70,11 +74,13 @@ pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 
 impl PrivateKey {
     /// serializes to a byte array
+    #[must_use]
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
     /// serializes to an hex-encoded string
+    #[must_use]
     pub fn to_bytes_hex(&self) -> String {
         hex::encode(self.to_bytes())
     }
@@ -97,6 +103,7 @@ impl PrivateKey {
     }
 
     /// returns the matching public key
+    #[must_use]
     pub fn public(&self) -> PublicKey {
         PublicKey((&self.0).into())
     }
@@ -120,11 +127,13 @@ pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
 
 impl PublicKey {
     /// serializes to a byte array
+    #[must_use]
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
     /// serializes to an hex-encoded string
+    #[must_use]
     pub fn to_bytes_hex(&self) -> String {
         hex::encode(self.to_bytes())
     }
@@ -154,6 +163,7 @@ impl PublicKey {
         PublicKey::from_bytes(&key.key)
     }
 
+    #[must_use]
     pub fn to_proto(&self) -> schema::PublicKey {
         schema::PublicKey {
             algorithm: schema::public_key::Algorithm::Ed25519 as i32,
@@ -161,6 +171,7 @@ impl PublicKey {
         }
     }
 
+    #[must_use]
     pub fn print(&self) -> String {
         format!("ed25519/{}", hex::encode(&self.to_bytes()))
     }

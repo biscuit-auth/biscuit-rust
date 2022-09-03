@@ -234,6 +234,7 @@ impl SerializedBiscuit {
     }
 
     /// serializes the token
+    #[must_use]
     pub fn to_proto(&self) -> schema::Biscuit {
         let authority = schema::SignedBlock {
             block: self.authority.data.clone(),
@@ -276,6 +277,7 @@ impl SerializedBiscuit {
         }
     }
 
+    #[must_use]
     pub fn serialized_size(&self) -> usize {
         self.to_proto().encoded_len()
     }

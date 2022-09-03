@@ -381,6 +381,7 @@ pub enum Expr {
 }
 
 impl Expr {
+    #[must_use]
     pub fn opcodes(self) -> Vec<builder::Op> {
         let mut v = Vec::new();
         self.into_opcodes(&mut v);

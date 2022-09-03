@@ -175,6 +175,7 @@ impl UnverifiedBiscuit {
     ///
     /// revocation identifiers are unique: tokens generated separately with
     /// the same contents will have different revocation ids
+    #[must_use]
     pub fn revocation_identifiers(&self) -> Vec<Vec<u8>> {
         let mut res = vec![self.container.authority.signature.to_bytes().to_vec()];
 
@@ -190,6 +191,7 @@ impl UnverifiedBiscuit {
     /// Blocks carrying an external public key are _third-party blocks_
     /// and their contents can be trusted as coming from the holder of
     /// the corresponding private key
+    #[must_use]
     pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
         let mut res = vec![None];
 
@@ -206,6 +208,7 @@ impl UnverifiedBiscuit {
     }
 
     /// returns the number of blocks (at least 1)
+    #[must_use]
     pub fn block_count(&self) -> usize {
         1 + self.container.blocks.len()
     }

@@ -11,6 +11,7 @@ use crate::token::Scope;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 use crate::token::{MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
 
+#[must_use]
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {
         symbols: input.symbols.strings(),
@@ -104,6 +105,7 @@ pub fn proto_block_to_token_block(
     })
 }
 
+#[must_use]
 pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::AuthorizerPolicies {
     let mut symbols = input.symbols.clone();
     let policies = input
@@ -188,6 +190,7 @@ pub mod v2 {
     use crate::token::MIN_SCHEMA_VERSION;
     use std::collections::BTreeSet;
 
+    #[must_use]
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
         schema::FactV2 {
             predicate: token_predicate_to_proto_predicate(&input.predicate),
@@ -200,6 +203,7 @@ pub mod v2 {
         })
     }
 
+    #[must_use]
     pub fn token_check_to_proto_check(input: &Check) -> schema::CheckV2 {
         schema::CheckV2 {
             queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
@@ -267,6 +271,7 @@ pub mod v2 {
         Ok(crate::token::builder::Policy { queries, kind })
     }
 
+    #[must_use]
     pub fn token_rule_to_proto_rule(input: &Rule) -> schema::RuleV2 {
         schema::RuleV2 {
             head: token_predicate_to_proto_predicate(&input.head),
@@ -325,6 +330,7 @@ pub mod v2 {
         ))
     }
 
+    #[must_use]
     pub fn token_predicate_to_proto_predicate(input: &Predicate) -> schema::PredicateV2 {
         schema::PredicateV2 {
             name: input.name,
@@ -347,6 +353,7 @@ pub mod v2 {
         })
     }
 
+    #[must_use]
     pub fn token_term_to_proto_id(input: &Term) -> schema::TermV2 {
         use schema::term_v2::Content;
 
@@ -437,6 +444,7 @@ pub mod v2 {
         }
     }
 
+    #[must_use]
     pub fn token_expression_to_proto_expression(input: &Expression) -> schema::ExpressionV2 {
         schema::ExpressionV2 {
             ops: input
@@ -546,6 +554,7 @@ pub mod v2 {
         Ok(Expression { ops })
     }
 
+    #[must_use]
     pub fn token_scope_to_proto_scope(input: &Scope) -> schema::Scope {
         schema::Scope {
             content: Some(match input {

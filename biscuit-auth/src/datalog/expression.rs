@@ -40,6 +40,7 @@ impl Unary {
         }
     }
 
+    #[must_use]
     pub fn print(&self, value: String, _symbols: &SymbolTable) -> String {
         match self {
             Unary::Negate => format!("!{}", value),
@@ -188,6 +189,7 @@ impl Binary {
         }
     }
 
+    #[must_use]
     pub fn print(&self, left: String, right: String, _symbols: &SymbolTable) -> String {
         match self {
             Binary::LessThan => format!("{} < {}", left, right),
@@ -262,6 +264,7 @@ impl Expression {
         }
     }
 
+    #[must_use]
     pub fn print(&self, symbols: &SymbolTable) -> Option<String> {
         let mut stack: Vec<String> = Vec::new();
 

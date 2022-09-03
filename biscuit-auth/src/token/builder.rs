@@ -29,6 +29,7 @@ pub struct BlockBuilder {
 }
 
 impl BlockBuilder {
+    #[must_use]
     pub fn new() -> BlockBuilder {
         BlockBuilder::default()
     }
@@ -278,6 +279,7 @@ pub struct BiscuitBuilder {
 }
 
 impl BiscuitBuilder {
+    #[must_use]
     pub fn new() -> BiscuitBuilder {
         BiscuitBuilder {
             inner: BlockBuilder::new(),
@@ -343,6 +345,7 @@ impl BiscuitBuilder {
     }
 
     /// returns all of the datalog loaded in the biscuit builder
+    #[must_use]
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>) {
         (
             self.inner.facts.clone(),
@@ -351,6 +354,7 @@ impl BiscuitBuilder {
         )
     }
 
+    #[must_use]
     pub fn dump_code(&self) -> String {
         let (facts, rules, checks) = self.dump();
         let mut f = String::new();
@@ -956,6 +960,7 @@ pub struct Rule {
 }
 
 impl Rule {
+    #[must_use]
     pub fn new(
         head: Predicate,
         body: Vec<Predicate>,
@@ -1763,11 +1768,13 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
 }
 
 /// creates an integer value
+#[must_use]
 pub fn int(i: i64) -> Term {
     Term::Integer(i)
 }
 
 /// creates a string
+#[must_use]
 pub fn string(s: &str) -> Term {
     Term::Str(s.to_string())
 }
@@ -1775,37 +1782,44 @@ pub fn string(s: &str) -> Term {
 /// creates a date
 ///
 /// internally the date will be stored as seconds since UNIX_EPOCH
+#[must_use]
 pub fn date(t: &SystemTime) -> Term {
     let dur = t.duration_since(UNIX_EPOCH).unwrap();
     Term::Date(dur.as_secs())
 }
 
 /// creates a variable for a rule
+#[must_use]
 pub fn var(s: &str) -> Term {
     Term::Variable(s.to_string())
 }
 
 /// creates a variable for a rule
+#[must_use]
 pub fn variable(s: &str) -> Term {
     Term::Variable(s.to_string())
 }
 
 /// creates a byte array
+#[must_use]
 pub fn bytes(s: &[u8]) -> Term {
     Term::Bytes(s.to_vec())
 }
 
 /// creates a boolean
+#[must_use]
 pub fn boolean(b: bool) -> Term {
     Term::Bool(b)
 }
 
 /// creates a set
+#[must_use]
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
 }
 
 /// creates a parameter
+#[must_use]
 pub fn parameter(p: &str) -> Term {
     Term::Parameter(p.to_string())
 }

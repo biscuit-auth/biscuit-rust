@@ -902,6 +902,7 @@ impl<'t> Authorizer<'t> {
     }
 
     /// prints the content of the authorizer
+    #[must_use]
     pub fn print_world(&self) -> String {
         let facts: BTreeMap<_, _> = self
             .world
@@ -963,6 +964,7 @@ impl<'t> Authorizer<'t> {
     }
 
     /// returns all of the data loaded in the authorizer
+    #[must_use]
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.authorizer_block_builder.checks.clone();
         checks.extend(
@@ -993,6 +995,7 @@ impl<'t> Authorizer<'t> {
         (facts, rules, checks, self.policies.clone())
     }
 
+    #[must_use]
     pub fn dump_code(&self) -> String {
         let (facts, rules, checks, policies) = self.dump();
         let mut f = String::new();
