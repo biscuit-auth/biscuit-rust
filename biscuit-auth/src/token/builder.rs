@@ -389,7 +389,7 @@ impl BiscuitBuilder {
     }
 }
 
-pub(crate) trait Convert<T>: Sized {
+pub trait Convert<T>: Sized {
     fn convert(&self, symbols: &mut SymbolTable) -> T;
     fn convert_from(f: &T, symbols: &SymbolTable) -> Result<Self, error::Format>;
 }
