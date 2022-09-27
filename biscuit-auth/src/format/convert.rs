@@ -216,8 +216,6 @@ pub mod v2 {
         input: &schema::CheckV2,
         version: u32,
     ) -> Result<Check, error::Format> {
-        use schema::check_v2::Kind;
-
         let mut queries = vec![];
 
         for q in input.queries.iter() {
@@ -225,16 +223,13 @@ pub mod v2 {
         }
 
         let kind = match input.kind {
-            None => crate::token::builder::CheckKind::One,
-            Some(i) => match Kind::from_i32(i) {
-                Some(Kind::One) | None => crate::token::builder::CheckKind::One,
-                Some(Kind::All) => crate::token::builder::CheckKind::All,
-                None => {
-                    return Err(error::Format::DeserializationError(
-                        "deserialization error: invalid check kind".to_string(),
-                    ))
-                }
-            },
+            None | Some(0) => crate::token::builder::CheckKind::One,
+            Some(1) => crate::token::builder::CheckKind::All,
+            _ => {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: invalid check kind".to_string(),
+                ))
+            }
         };
 
         Ok(Check { queries, kind })

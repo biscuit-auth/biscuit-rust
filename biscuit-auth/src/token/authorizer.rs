@@ -720,9 +720,18 @@ impl<'t> Authorizer<'t> {
                     usize::MAX,
                     &self.public_key_to_block_id,
                 );
-                let res =
-                    self.world
-                        .query_match(query, usize::MAX, &rule_trusted_origins, &self.symbols);
+                let res = match check.kind {
+                    CheckKind::One => self.world.query_match(
+                        query,
+                        usize::MAX,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                    ),
+                    CheckKind::All => {
+                        self.world
+                            .query_match_all(query, &rule_trusted_origins, &self.symbols)
+                    }
+                };
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -766,12 +775,19 @@ impl<'t> Authorizer<'t> {
                         0,
                         &self.public_key_to_block_id,
                     );
-                    let res = self.world.query_match(
-                        query.clone(),
-                        0,
-                        &rule_trusted_origins,
-                        &self.symbols,
-                    );
+                    let res = match check.kind {
+                        CheckKind::One => self.world.query_match(
+                            query.clone(),
+                            0,
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        ),
+                        CheckKind::All => self.world.query_match_all(
+                            query.clone(),
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        ),
+                    };
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -856,12 +872,19 @@ impl<'t> Authorizer<'t> {
                             &self.public_key_to_block_id,
                         );
 
-                        let res = self.world.query_match(
-                            query.clone(),
-                            i + 1,
-                            &rule_trusted_origins,
-                            &self.symbols,
-                        );
+                        let res = match check.kind {
+                            CheckKind::One => self.world.query_match(
+                                query.clone(),
+                                i + 1,
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            ),
+                            CheckKind::All => self.world.query_match_all(
+                                query.clone(),
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            ),
+                        };
 
                         let now = Instant::now();
                         if now >= time_limit {

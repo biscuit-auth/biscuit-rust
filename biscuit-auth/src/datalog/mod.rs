@@ -179,6 +179,34 @@ impl Rule {
         next.is_some()
     }
 
+    pub fn check_match_all(
+        &self,
+        facts: &FactSet,
+        scope: &TrustedOrigins,
+        symbols: &SymbolTable,
+    ) -> bool {
+        let fact_it = facts.iterator(scope);
+        let variables = MatchedVariables::new(self.variables_set());
+        let mut found = false;
+
+        for (_, variables) in CombineIt::new(variables, &self.body, fact_it, symbols) {
+            found = true;
+
+            let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+            for e in self.expressions.iter() {
+                match e.evaluate(&variables, &mut temporary_symbols) {
+                    Some(Term::Bool(true)) => {}
+                    _res => {
+                        //println!("expr returned {:?}", res);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        found
+    }
+
     // use this to translate rules and checks from token to authorizer world without translating
     // to a builder Rule first, because the builder Rule can contain a public key, so we would
     // need to loo up then retranslate that key, while the datalog rule does not need to know about
@@ -628,6 +656,15 @@ impl World {
         symbols: &SymbolTable,
     ) -> bool {
         rule.find_match(&self.facts, origin, scope, symbols)
+    }
+
+    pub fn query_match_all(
+        &self,
+        rule: Rule,
+        scope: &TrustedOrigins,
+        symbols: &SymbolTable,
+    ) -> bool {
+        rule.check_match_all(&self.facts, scope, symbols)
     }
 }
 
