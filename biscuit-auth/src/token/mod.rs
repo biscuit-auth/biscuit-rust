@@ -674,6 +674,7 @@ mod tests {
     use super::builder::{check, fact, pred, rule, string, var};
     use super::builder_ext::BuilderExt;
     use super::*;
+    use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
     use crate::error::*;
     use rand::prelude::*;
@@ -1162,7 +1163,10 @@ mod tests {
         let mut builder = Biscuit::builder();
 
         builder
-            .add_check(check(&[pred("resource", &[string("hello")])]))
+            .add_check(check(
+                &[pred("resource", &[string("hello")])],
+                CheckKind::One,
+            ))
             .unwrap();
 
         let biscuit1 = builder

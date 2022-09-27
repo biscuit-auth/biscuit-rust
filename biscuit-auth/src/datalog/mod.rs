@@ -1,5 +1,5 @@
 //! Logic language implementation for checks
-use crate::builder::Convert;
+use crate::builder::{CheckKind, Convert};
 use crate::time::Instant;
 use crate::token::Scope;
 use crate::{builder, error};
@@ -97,6 +97,7 @@ impl AsRef<Expression> for Expression {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
+    pub kind: CheckKind,
 }
 
 impl fmt::Display for Fact {

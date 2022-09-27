@@ -1,4 +1,4 @@
-use crate::builder;
+use crate::builder::{self, CheckKind};
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
@@ -67,10 +67,13 @@ pub fn check(i: &str) -> IResult<&str, builder::Check, Error> {
 fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, _) = space0(i)?;
 
-    let (i, _) = tag_no_case("check if")(i)?;
+    let (i, kind) = alt((
+        map(tag_no_case("check if"), |_| CheckKind::One),
+        map(tag_no_case("check all"), |_| CheckKind::All),
+    ))(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
-    Ok((i, builder::Check { queries }))
+    Ok((i, builder::Check { queries, kind }))
 }
 
 /// parse an allow or deny rule

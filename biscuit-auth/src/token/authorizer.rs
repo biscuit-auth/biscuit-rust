@@ -5,7 +5,7 @@ use super::builder::{
 };
 use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
-use crate::builder::Convert;
+use crate::builder::{CheckKind, Convert};
 use crate::crypto::PublicKey;
 use crate::datalog::{self, Origin, RunLimits, TrustedOrigins};
 use crate::error;
@@ -1069,6 +1069,7 @@ impl BuilderExt for Authorizer<'_> {
                 &[string("resource_check")],
                 &[pred("resource", &[string(name)])],
             )],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1083,6 +1084,7 @@ impl BuilderExt for Authorizer<'_> {
                 &[string("operation_check")],
                 &[pred("operation", &[string(name)])],
             )],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1102,6 +1104,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1122,6 +1125,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1142,6 +1146,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }

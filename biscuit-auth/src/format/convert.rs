@@ -201,8 +201,14 @@ pub mod v2 {
     }
 
     pub fn token_check_to_proto_check(input: &Check) -> schema::CheckV2 {
+        use schema::check_v2::Kind;
+
         schema::CheckV2 {
             queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
+            kind: match input.kind {
+                crate::token::builder::CheckKind::One => None,
+                crate::token::builder::CheckKind::All => Some(Kind::All as i32),
+            },
         }
     }
 
@@ -210,13 +216,28 @@ pub mod v2 {
         input: &schema::CheckV2,
         version: u32,
     ) -> Result<Check, error::Format> {
+        use schema::check_v2::Kind;
+
         let mut queries = vec![];
 
         for q in input.queries.iter() {
             queries.push(proto_rule_to_token_rule(q, version)?.0);
         }
 
-        Ok(Check { queries })
+        let kind = match input.kind {
+            None => crate::token::builder::CheckKind::One,
+            Some(i) => match Kind::from_i32(i) {
+                Some(Kind::One) | None => crate::token::builder::CheckKind::One,
+                Some(Kind::All) => crate::token::builder::CheckKind::All,
+                None => {
+                    return Err(error::Format::DeserializationError(
+                        "deserialization error: invalid check kind".to_string(),
+                    ))
+                }
+            },
+        };
+
+        Ok(Check { queries, kind })
     }
 
     pub fn policy_to_proto_policy(
