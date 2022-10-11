@@ -7,19 +7,17 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::{error::Format, format::schema};
+use crate::format::schema;
 
 use super::error;
-use ed25519_dalek::Signer;
-use ed25519_dalek::*;
+mod ed25519;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, hash::Hash, ops::Drop};
-use zeroize::Zeroize;
+use std::hash::Hash;
 
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
-pub struct KeyPair {
-    kp: ed25519_dalek::Keypair,
+pub enum KeyPair {
+    Ed25519(ed25519::KeyPair),
 }
 
 impl KeyPair {
@@ -28,44 +26,37 @@ impl KeyPair {
     }
 
     pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let kp = ed25519_dalek::Keypair::generate(rng);
-
-        KeyPair { kp }
+        KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng))
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
-
-        let public = (&key.0).into();
-
-        KeyPair {
-            kp: ed25519_dalek::Keypair { secret, public },
+        match key {
+            PrivateKey::Ed25519(key) => KeyPair::Ed25519(ed25519::KeyPair::from(key)),
         }
     }
 
     pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
-        Ok(Signature(
-            self.kp
-                .try_sign(&data)
-                .map_err(|s| s.to_string())
-                .map_err(error::Signature::InvalidSignatureGeneration)
-                .map_err(error::Format::Signature)?
-                .to_bytes()
-                .to_vec(),
-        ))
+        match self {
+            KeyPair::Ed25519(key) => key.sign(data),
+        }
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
-        PrivateKey(secret)
+        match self {
+            KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
+        }
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.public)
+        match self {
+            KeyPair::Ed25519(key) => PublicKey::Ed25519(key.public()),
+        }
     }
 
-    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
-        crate::format::schema::public_key::Algorithm::Ed25519
+    pub fn algorithm(&self) -> crate::format::schema::private_key::Algorithm {
+        match self {
+            KeyPair::Ed25519(_) => crate::format::schema::private_key::Algorithm::Ed25519,
+        }
     }
 }
 
@@ -75,20 +66,18 @@ impl std::default::Default for KeyPair {
     }
 }
 
-impl Drop for KeyPair {
-    fn drop(&mut self) {
-        self.kp.secret.zeroize();
-    }
-}
-
 /// the private part of a [KeyPair]
 #[derive(Debug)]
-pub struct PrivateKey(ed25519_dalek::SecretKey);
+pub enum PrivateKey {
+    Ed25519(ed25519::PrivateKey),
+}
 
 impl PrivateKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        match self {
+            PrivateKey::Ed25519(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -98,13 +87,7 @@ impl PrivateKey {
 
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let bytes: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-        SecretKey::from_bytes(&bytes)
-            .map(PrivateKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+        Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?))
     }
 
     /// deserializes from an hex-encoded string
@@ -121,16 +104,29 @@ impl PrivateKey {
             )));
         }
 
-        PrivateKey::from_bytes(&key.key)
+        Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(
+            &key.key,
+        )?))
+    }
+
+    pub fn to_proto(&self) -> schema::PrivateKey {
+        schema::PrivateKey {
+            algorithm: schema::private_key::Algorithm::Ed25519 as i32,
+            key: self.to_bytes().to_vec(),
+        }
     }
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey((&self.0).into())
+        match self {
+            PrivateKey::Ed25519(key) => PublicKey::Ed25519(key.public()),
+        }
     }
 
-    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
-        crate::format::schema::public_key::Algorithm::Ed25519
+    pub fn algorithm(&self) -> crate::format::schema::private_key::Algorithm {
+        match self {
+            PrivateKey::Ed25519(_) => crate::format::schema::private_key::Algorithm::Ed25519,
+        }
     }
 }
 
@@ -140,20 +136,18 @@ impl std::clone::Clone for PrivateKey {
     }
 }
 
-impl Drop for PrivateKey {
-    fn drop(&mut self) {
-        self.0.zeroize();
-    }
-}
-
 /// the public part of a [KeyPair]
-#[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(ed25519_dalek::PublicKey);
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+pub enum PublicKey {
+    Ed25519(ed25519::PublicKey),
+}
 
 impl PublicKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        match self {
+            PublicKey::Ed25519(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -163,10 +157,7 @@ impl PublicKey {
 
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        ed25519_dalek::PublicKey::from_bytes(bytes)
-            .map(PublicKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+        Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?))
     }
 
     /// deserializes from an hex-encoded string
@@ -183,7 +174,9 @@ impl PublicKey {
             )));
         }
 
-        PublicKey::from_bytes(&key.key)
+        Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
+            &key.key,
+        )?))
     }
 
     pub fn to_proto(&self) -> schema::PublicKey {
@@ -198,39 +191,19 @@ impl PublicKey {
         data: &[u8],
         signature: &Signature,
     ) -> Result<(), error::Format> {
-        let sig = ed25519_dalek::Signature::from_bytes(&signature.0).map_err(|e| {
-            error::Format::BlockSignatureDeserializationError(format!(
-                "block signature deserialization error: {:?}",
-                e
-            ))
-        })?;
-
-        self.0
-            .verify_strict(&data, &sig)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)
+        match self {
+            PublicKey::Ed25519(key) => key.verify_signature(data, signature),
+        }
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
-        crate::format::schema::public_key::Algorithm::Ed25519
+        match self {
+            PublicKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+        }
     }
 
     pub fn print(&self) -> String {
         format!("ed25519/{}", hex::encode(&self.to_bytes()))
-    }
-}
-
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.to_bytes() == other.0.to_bytes()
-    }
-}
-
-impl Hash for PublicKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
-        self.0.to_bytes().hash(state);
     }
 }
 
@@ -284,12 +257,7 @@ pub fn sign(
     to_sign.extend(&(next_key.algorithm() as i32).to_le_bytes());
     to_sign.extend(&next_key.public().to_bytes());
 
-    let signature = keypair
-        .kp
-        .try_sign(&to_sign)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignatureGeneration)
-        .map_err(error::Format::Signature)?;
+    let signature = keypair.sign(&to_sign)?;
 
     Ok(Signature(signature.to_bytes().to_vec()))
 }
