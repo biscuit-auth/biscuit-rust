@@ -180,17 +180,37 @@ impl Hash for PublicKey {
 }
 
 #[derive(Clone, Debug)]
+pub struct Signature(pub(crate) ed25519_dalek::Signature);
+
+impl Signature {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, error::Format> {
+        Ok(Signature(
+            ed25519_dalek::Signature::from_bytes(data).map_err(|e| {
+                error::Format::BlockSignatureDeserializationError(format!(
+                    "block signature deserialization error: {:?}",
+                    e
+                ))
+            })?,
+        ))
+    }
+
+    pub fn to_bytes(&self) -> [u8; 64] {
+        self.0.to_bytes()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Block {
     pub(crate) data: Vec<u8>,
     pub(crate) next_key: PublicKey,
-    pub signature: ed25519_dalek::Signature,
+    pub signature: Signature,
     pub external_signature: Option<ExternalSignature>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ExternalSignature {
     pub(crate) public_key: PublicKey,
-    pub(crate) signature: ed25519_dalek::Signature,
+    pub(crate) signature: Signature,
 }
 
 #[derive(Clone, Debug)]
@@ -203,7 +223,7 @@ pub struct Token {
 #[derive(Clone, Debug)]
 pub enum TokenNext {
     Secret(PrivateKey),
-    Seal(ed25519_dalek::Signature),
+    Seal(Signature),
 }
 
 pub fn sign(
@@ -223,24 +243,22 @@ pub fn sign(
         .map_err(error::Signature::InvalidSignatureGeneration)
         .map_err(error::Format::Signature)?;
 
-    Ok(signature)
+    Ok(Signature(signature))
 }
 
 pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
-    use ed25519_dalek::ed25519::signature::Signature;
-
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
 
     if let Some(signature) = block.external_signature.as_ref() {
-        to_verify.extend_from_slice(signature.signature.as_bytes());
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
     public_key
         .0
-        .verify_strict(&to_verify, &block.signature)
+        .verify_strict(&to_verify, &block.signature.0)
         .map_err(|s| s.to_string())
         .map_err(error::Signature::InvalidSignature)
         .map_err(error::Format::Signature)?;
@@ -254,7 +272,7 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
         external_signature
             .public_key
             .0
-            .verify_strict(&to_verify, &external_signature.signature)
+            .verify_strict(&to_verify, &external_signature.signature.0)
             .map_err(|s| s.to_string())
             .map_err(error::Signature::InvalidSignature)
             .map_err(error::Format::Signature)?;
@@ -347,7 +365,7 @@ impl Token {
 
                 current_pub
                     .0
-                    .verify_strict(&to_verify, signature)
+                    .verify_strict(&to_verify, &signature.0)
                     .map_err(|s| s.to_string())
                     .map_err(error::Signature::InvalidSignature)
                     .map_err(error::Format::Signature)?;

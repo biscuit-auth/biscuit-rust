@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 use self::public_keys::PublicKeys;
 
-use super::crypto::{KeyPair, PublicKey};
+use super::crypto::{KeyPair, PublicKey, Signature};
 use super::datalog::SymbolTable;
 use super::error;
 use super::format::SerializedBiscuit;
@@ -423,12 +423,7 @@ impl Biscuit {
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-            error::Format::BlockSignatureDeserializationError(format!(
-                "block external signature deserialization error: {:?}",
-                e
-            ))
-        })?;
+        let signature = Signature::from_bytes(&bytes)?;
         let previous_key = self
             .container
             .blocks
@@ -442,7 +437,7 @@ impl Biscuit {
 
         external_key
             .0
-            .verify_strict(&to_verify, &signature)
+            .verify_strict(&to_verify, &signature.0)
             .map_err(|s| s.to_string())
             .map_err(error::Signature::InvalidSignature)
             .map_err(error::Format::Signature)?;
