@@ -121,6 +121,9 @@ impl SerializedBiscuit {
             Some(schema::proof::Content::NextSecret(v)) => {
                 TokenNext::Secret(PrivateKey::from_bytes(&v)?)
             }
+            Some(schema::proof::Content::NextSecretv3(key)) => {
+                TokenNext::Secret(PrivateKey::from_proto(&key)?)
+            }
             Some(schema::proof::Content::FinalSignature(v)) => {
                 let bytes: [u8; 64] = (&v[..])
                     .try_into()

@@ -113,6 +113,17 @@ impl PrivateKey {
         Self::from_bytes(&bytes)
     }
 
+    pub fn from_proto(key: &schema::PrivateKey) -> Result<Self, error::Format> {
+        if key.algorithm != schema::private_key::Algorithm::Ed25519 as i32 {
+            return Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                key.algorithm
+            )));
+        }
+
+        PrivateKey::from_bytes(&key.key)
+    }
+
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         PublicKey((&self.0).into())
