@@ -1,4 +1,3 @@
-use ed25519_dalek::Signer;
 use prost::Message;
 
 use crate::{
@@ -133,16 +132,11 @@ impl ThirdPartyRequest {
             })?;
         let payload = v.clone();
 
-        v.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        v.extend(&(private_key.algorithm() as i32).to_le_bytes());
         v.extend(self.previous_key.to_bytes());
 
         let keypair = KeyPair::from(private_key);
-        let signature = keypair
-            .kp
-            .try_sign(&v)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = keypair.sign(&v)?;
 
         let public_key = keypair.public();
         let content = schema::ThirdPartyBlockContents {

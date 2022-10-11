@@ -10,6 +10,7 @@
 use crate::{error::Format, format::schema};
 
 use super::error;
+use ed25519_dalek::Signer;
 use ed25519_dalek::*;
 use rand_core::{CryptoRng, RngCore};
 use std::{convert::TryInto, hash::Hash, ops::Drop};
@@ -18,7 +19,7 @@ use zeroize::Zeroize;
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
 pub struct KeyPair {
-    pub kp: ed25519_dalek::Keypair,
+    kp: ed25519_dalek::Keypair,
 }
 
 impl KeyPair {
@@ -42,6 +43,18 @@ impl KeyPair {
         }
     }
 
+    pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
+        Ok(Signature(
+            self.kp
+                .try_sign(&data)
+                .map_err(|s| s.to_string())
+                .map_err(error::Signature::InvalidSignatureGeneration)
+                .map_err(error::Format::Signature)?
+                .to_bytes()
+                .to_vec(),
+        ))
+    }
+
     pub fn private(&self) -> PrivateKey {
         let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
         PrivateKey(secret)
@@ -49,6 +62,10 @@ impl KeyPair {
 
     pub fn public(&self) -> PublicKey {
         PublicKey(self.kp.public)
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        crate::format::schema::public_key::Algorithm::Ed25519
     }
 }
 
@@ -66,7 +83,7 @@ impl Drop for KeyPair {
 
 /// the private part of a [KeyPair]
 #[derive(Debug)]
-pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
+pub struct PrivateKey(ed25519_dalek::SecretKey);
 
 impl PrivateKey {
     /// serializes to a byte array
@@ -100,6 +117,10 @@ impl PrivateKey {
     pub fn public(&self) -> PublicKey {
         PublicKey((&self.0).into())
     }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        crate::format::schema::public_key::Algorithm::Ed25519
+    }
 }
 
 impl std::clone::Clone for PrivateKey {
@@ -116,7 +137,7 @@ impl Drop for PrivateKey {
 
 /// the public part of a [KeyPair]
 #[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
+pub struct PublicKey(ed25519_dalek::PublicKey);
 
 impl PublicKey {
     /// serializes to a byte array
@@ -161,6 +182,29 @@ impl PublicKey {
         }
     }
 
+    pub fn verify_signature(
+        &self,
+        data: &[u8],
+        signature: &Signature,
+    ) -> Result<(), error::Format> {
+        let sig = ed25519_dalek::Signature::from_bytes(&signature.0).map_err(|e| {
+            error::Format::BlockSignatureDeserializationError(format!(
+                "block signature deserialization error: {:?}",
+                e
+            ))
+        })?;
+
+        self.0
+            .verify_strict(&data, &sig)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignature)
+            .map_err(error::Format::Signature)
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        crate::format::schema::public_key::Algorithm::Ed25519
+    }
+
     pub fn print(&self) -> String {
         format!("ed25519/{}", hex::encode(&self.to_bytes()))
     }
@@ -180,22 +224,15 @@ impl Hash for PublicKey {
 }
 
 #[derive(Clone, Debug)]
-pub struct Signature(pub(crate) ed25519_dalek::Signature);
+pub struct Signature(pub(crate) Vec<u8>);
 
 impl Signature {
     pub fn from_bytes(data: &[u8]) -> Result<Self, error::Format> {
-        Ok(Signature(
-            ed25519_dalek::Signature::from_bytes(data).map_err(|e| {
-                error::Format::BlockSignatureDeserializationError(format!(
-                    "block signature deserialization error: {:?}",
-                    e
-                ))
-            })?,
-        ))
+        Ok(Signature(data.to_owned()))
     }
 
-    pub fn to_bytes(&self) -> [u8; 64] {
-        self.0.to_bytes()
+    pub fn to_bytes(&self) -> &[u8] {
+        &self.0[..]
     }
 }
 
@@ -243,7 +280,7 @@ pub fn sign(
         .map_err(error::Signature::InvalidSignatureGeneration)
         .map_err(error::Format::Signature)?;
 
-    Ok(Signature(signature))
+    Ok(Signature(signature.to_bytes().to_vec()))
 }
 
 pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
@@ -256,12 +293,7 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
-    public_key
-        .0
-        .verify_strict(&to_verify, &block.signature.0)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignature)
-        .map_err(error::Format::Signature)?;
+    public_key.verify_signature(&to_verify, &block.signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
         let mut to_verify = block.data.to_vec();
@@ -271,16 +303,12 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
 
         external_signature
             .public_key
-            .0
-            .verify_strict(&to_verify, &external_signature.signature.0)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+            .verify_signature(&to_verify, &external_signature.signature)?;
     }
 
     Ok(())
 }
-
+/*
 impl Token {
     #[allow(dead_code)]
     pub fn new<T: RngCore + CryptoRng>(
@@ -374,7 +402,7 @@ impl Token {
 
         Ok(())
     }
-}
+}*/
 
 impl TokenNext {
     pub fn keypair(&self) -> Result<KeyPair, error::Token> {

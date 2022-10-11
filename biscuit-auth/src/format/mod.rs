@@ -14,7 +14,6 @@ use crate::crypto::ExternalSignature;
 use crate::crypto::Signature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
-use ed25519_dalek::Signer;
 use std::collections::HashMap;
 use std::convert::TryInto;
 
@@ -409,18 +408,11 @@ impl SerializedBiscuit {
                     &self.blocks[self.blocks.len() - 1]
                 };
                 to_verify.extend(&block.data);
-                to_verify.extend(
-                    &(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes(),
-                );
+                to_verify.extend(&(current_pub.algorithm() as i32).to_le_bytes());
                 to_verify.extend(&block.next_key.to_bytes());
-                to_verify.extend(&block.signature.to_bytes());
+                to_verify.extend(block.signature.to_bytes());
 
-                current_pub
-                    .0
-                    .verify_strict(&to_verify, &signature.0)
-                    .map_err(|s| s.to_string())
-                    .map_err(error::Signature::InvalidSignature)
-                    .map_err(error::Format::Signature)?;
+                current_pub.verify_signature(&to_verify, &signature)?;
             }
         }
 
@@ -438,23 +430,17 @@ impl SerializedBiscuit {
             &self.blocks[self.blocks.len() - 1]
         };
         to_sign.extend(&block.data);
-        to_sign
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_sign.extend(&(keypair.algorithm() as i32).to_le_bytes());
         to_sign.extend(&block.next_key.to_bytes());
-        to_sign.extend(&block.signature.to_bytes());
+        to_sign.extend(block.signature.to_bytes());
 
-        let signature = keypair
-            .kp
-            .try_sign(&to_sign)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = keypair.sign(&to_sign)?;
 
         Ok(SerializedBiscuit {
             root_key_id: self.root_key_id,
             authority: self.authority.clone(),
             blocks: self.blocks.clone(),
-            proof: TokenNext::Seal(Signature(signature)),
+            proof: TokenNext::Seal(signature),
         })
     }
 }

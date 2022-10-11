@@ -276,15 +276,6 @@ impl UnverifiedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
-            return Err(error::Token::Format(error::Format::DeserializationError(
-                format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
-                ),
-            )));
-        }
         let external_key =
             PublicKey::from_bytes(&external_signature.public_key.key).map_err(|e| {
                 error::Format::BlockSignatureDeserializationError(format!(
@@ -305,9 +296,9 @@ impl UnverifiedBiscuit {
             .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
+        external_key.verify_signature(&to_verify, &signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(

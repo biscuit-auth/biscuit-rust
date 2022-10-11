@@ -410,15 +410,16 @@ impl Biscuit {
             external_signature,
         } = response.0;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
+        let provided_key = PublicKey::from_proto(&external_signature.public_key)?;
+        if external_key != provided_key {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
+                    "deserialization error: unexpected key {}",
+                    provided_key.print()
                 ),
             )));
         }
+
         let bytes: [u8; 64] = (&external_signature.signature[..])
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
@@ -431,16 +432,10 @@ impl Biscuit {
             .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
 
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature.0)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        external_key.verify_signature(&to_verify, &signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
