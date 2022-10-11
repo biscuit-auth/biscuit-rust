@@ -11,6 +11,7 @@ use crate::format::schema;
 
 use super::error;
 mod ed25519;
+mod p256;
 use rand_core::{CryptoRng, RngCore};
 use std::hash::Hash;
 
@@ -18,6 +19,7 @@ use std::hash::Hash;
 #[derive(Debug)]
 pub enum KeyPair {
     Ed25519(ed25519::KeyPair),
+    P256(p256::KeyPair),
 }
 
 impl KeyPair {
@@ -29,33 +31,57 @@ impl KeyPair {
         KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng))
     }
 
+    pub fn new_p256() -> Self {
+        KeyPair::P256(p256::KeyPair::new())
+    }
+
     pub fn from(key: &PrivateKey) -> Self {
         match key {
             PrivateKey::Ed25519(key) => KeyPair::Ed25519(ed25519::KeyPair::from(key)),
+            PrivateKey::P256(key) => KeyPair::P256(p256::KeyPair::from(key)),
+        }
+    }
+
+    /// deserializes from a byte array
+    pub fn from_bytes(
+        bytes: &[u8],
+        algorithm: schema::public_key::Algorithm,
+    ) -> Result<Self, error::Format> {
+        match algorithm {
+            schema::public_key::Algorithm::Ed25519 => {
+                Ok(KeyPair::Ed25519(ed25519::KeyPair::from_bytes(bytes)?))
+            }
+            schema::public_key::Algorithm::P256 => {
+                Ok(KeyPair::P256(p256::KeyPair::from_bytes(bytes)?))
+            }
         }
     }
 
     pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
         match self {
             KeyPair::Ed25519(key) => key.sign(data),
+            KeyPair::P256(key) => key.sign(data),
         }
     }
 
     pub fn private(&self) -> PrivateKey {
         match self {
             KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
+            KeyPair::P256(key) => PrivateKey::P256(key.private()),
         }
     }
 
     pub fn public(&self) -> PublicKey {
         match self {
             KeyPair::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            KeyPair::P256(key) => PublicKey::P256(key.public()),
         }
     }
 
-    pub fn algorithm(&self) -> crate::format::schema::private_key::Algorithm {
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
-            KeyPair::Ed25519(_) => crate::format::schema::private_key::Algorithm::Ed25519,
+            KeyPair::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            KeyPair::P256(_) => crate::format::schema::public_key::Algorithm::P256,
         }
     }
 }
@@ -67,9 +93,10 @@ impl std::default::Default for KeyPair {
 }
 
 /// the private part of a [KeyPair]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PrivateKey {
     Ed25519(ed25519::PrivateKey),
+    P256(p256::PrivateKey),
 }
 
 impl PrivateKey {
@@ -77,6 +104,7 @@ impl PrivateKey {
     pub fn to_bytes(&self) -> [u8; 32] {
         match self {
             PrivateKey::Ed25519(key) => key.to_bytes(),
+            PrivateKey::P256(key) => key.to_bytes(),
         }
     }
 
@@ -86,53 +114,42 @@ impl PrivateKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?))
+    pub fn from_bytes(
+        bytes: &[u8],
+        algorithm: schema::public_key::Algorithm,
+    ) -> Result<Self, error::Format> {
+        match algorithm {
+            schema::public_key::Algorithm::Ed25519 => {
+                Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?))
+            }
+            schema::public_key::Algorithm::P256 => {
+                Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?))
+            }
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(
+        str: &str,
+        algorithm: schema::public_key::Algorithm,
+    ) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
-    }
-
-    pub fn from_proto(key: &schema::PrivateKey) -> Result<Self, error::Format> {
-        if key.algorithm != schema::private_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: unexpected key algorithm {}",
-                key.algorithm
-            )));
-        }
-
-        Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(
-            &key.key,
-        )?))
-    }
-
-    pub fn to_proto(&self) -> schema::PrivateKey {
-        schema::PrivateKey {
-            algorithm: schema::private_key::Algorithm::Ed25519 as i32,
-            key: self.to_bytes().to_vec(),
-        }
+        Self::from_bytes(&bytes, algorithm)
     }
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         match self {
             PrivateKey::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            PrivateKey::P256(key) => PublicKey::P256(key.public()),
         }
     }
 
-    pub fn algorithm(&self) -> crate::format::schema::private_key::Algorithm {
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
-            PrivateKey::Ed25519(_) => crate::format::schema::private_key::Algorithm::Ed25519,
+            PrivateKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PrivateKey::P256(_) => crate::format::schema::public_key::Algorithm::P256,
         }
-    }
-}
-
-impl std::clone::Clone for PrivateKey {
-    fn clone(&self) -> Self {
-        PrivateKey::from_bytes(&self.to_bytes()).unwrap()
     }
 }
 
@@ -140,13 +157,15 @@ impl std::clone::Clone for PrivateKey {
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum PublicKey {
     Ed25519(ed25519::PublicKey),
+    P256(p256::PublicKey),
 }
 
 impl PublicKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
+    pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            PublicKey::Ed25519(key) => key.to_bytes(),
+            PublicKey::Ed25519(key) => key.to_bytes().into(),
+            PublicKey::P256(key) => key.to_bytes(),
         }
     }
 
@@ -167,22 +186,24 @@ impl PublicKey {
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
-        if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
+        if key.algorithm == schema::public_key::Algorithm::Ed25519 as i32 {
+            Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
+                &key.key,
+            )?))
+        } else if key.algorithm == schema::public_key::Algorithm::P256 as i32 {
+            Ok(PublicKey::P256(p256::PublicKey::from_bytes(&key.key)?))
+        } else {
+            Err(error::Format::DeserializationError(format!(
                 "deserialization error: unexpected key algorithm {}",
                 key.algorithm
-            )));
+            )))
         }
-
-        Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
-            &key.key,
-        )?))
     }
 
     pub fn to_proto(&self) -> schema::PublicKey {
         schema::PublicKey {
-            algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-            key: self.to_bytes().to_vec(),
+            algorithm: self.algorithm() as i32,
+            key: self.to_bytes(),
         }
     }
 
@@ -193,12 +214,14 @@ impl PublicKey {
     ) -> Result<(), error::Format> {
         match self {
             PublicKey::Ed25519(key) => key.verify_signature(data, signature),
+            PublicKey::P256(key) => key.verify_signature(data, signature),
         }
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
             PublicKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PublicKey::P256(_) => crate::format::schema::public_key::Algorithm::P256,
         }
     }
 

@@ -57,6 +57,7 @@ impl SerializedBiscuit {
         })?;
 
         let next_key = PublicKey::from_proto(&data.authority.next_key)?;
+        let mut next_key_algorithm = next_key.algorithm();
 
         let bytes: [u8; 64] = (&data.authority.signature[..])
             .try_into()
@@ -80,6 +81,7 @@ impl SerializedBiscuit {
         let mut blocks = Vec::new();
         for block in &data.blocks {
             let next_key = PublicKey::from_proto(&block.next_key)?;
+            next_key_algorithm = next_key.algorithm();
 
             let bytes: [u8; 64] = (&block.signature[..])
                 .try_into()
@@ -119,10 +121,7 @@ impl SerializedBiscuit {
                 ))
             }
             Some(schema::proof::Content::NextSecret(v)) => {
-                TokenNext::Secret(PrivateKey::from_bytes(&v)?)
-            }
-            Some(schema::proof::Content::NextSecretv3(key)) => {
-                TokenNext::Secret(PrivateKey::from_proto(&key)?)
+                TokenNext::Secret(PrivateKey::from_bytes(&v, next_key_algorithm)?)
             }
             Some(schema::proof::Content::FinalSignature(v)) => {
                 let bytes: [u8; 64] = (&v[..])

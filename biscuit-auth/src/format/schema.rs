@@ -40,6 +40,7 @@ pub mod public_key {
     #[repr(i32)]
     pub enum Algorithm {
         Ed25519 = 0,
+        P256 = 1,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

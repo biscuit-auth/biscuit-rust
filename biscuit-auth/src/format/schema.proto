@@ -26,16 +26,7 @@ message PublicKey {
 
   enum Algorithm {
     Ed25519 = 0;
-  }
-
-  required bytes key = 2;
-}
-
-message PrivateKey {
-  required Algorithm algorithm = 1;
-
-  enum Algorithm {
-    Ed25519 = 0;
+    P256 = 1;
   }
 
   required bytes key = 2;
@@ -43,10 +34,8 @@ message PrivateKey {
 
 message Proof {
   oneof Content {
-    // deprecated
     bytes nextSecret = 1;
     bytes finalSignature = 2;
-    PrivateKey nextSecretv3 = 3;
   }
 }
 

@@ -42,6 +42,8 @@ getrandom = { version = "0.1.16" }
 time = {version = "0.3.7", features = ["formatting", "parsing"]}
 biscuit-parser = { version = "0.1.0-alpha2", path = "../biscuit-parser" }
 biscuit-quote = { version = "0.2.0-alpha2", optional = true, path = "../biscuit-quote" }
+ecdsa = { version = "0.14.8", features = ["sign", "verify", "pem", "alloc", "pkcs8", "serde"] }
+p256 = "0.11.1"
 
 
 [dev-dependencies]
