@@ -281,7 +281,7 @@ pub fn sign(
 ) -> Result<Signature, error::Token> {
     //FIXME: replace with SHA512 hashing
     let mut to_sign = message.to_vec();
-    to_sign.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_sign.extend(&(next_key.algorithm() as i32).to_le_bytes());
     to_sign.extend(&next_key.public().to_bytes());
 
     let signature = keypair
@@ -301,15 +301,14 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
     if let Some(signature) = block.external_signature.as_ref() {
         to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(block.next_key.algorithm() as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
     public_key.verify_signature(&to_verify, &block.signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
         let mut to_verify = block.data.to_vec();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(public_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&public_key.to_bytes());
 
         external_signature
@@ -319,101 +318,6 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
 
     Ok(())
 }
-/*
-impl Token {
-    #[allow(dead_code)]
-    pub fn new<T: RngCore + CryptoRng>(
-        keypair: &KeyPair,
-        next_key: &KeyPair,
-        message: &[u8],
-    ) -> Result<Self, error::Token> {
-        let signature = sign(keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature: None,
-        };
-
-        Ok(Token {
-            root: keypair.public(),
-            blocks: vec![block],
-            next: TokenNext::Secret(next_key.private()),
-        })
-    }
-
-    #[allow(dead_code)]
-    pub fn append<T: RngCore + CryptoRng>(
-        &self,
-        next_key: &KeyPair,
-        message: &[u8],
-        external_signature: Option<ExternalSignature>,
-    ) -> Result<Self, error::Token> {
-        let keypair = match self.next.keypair() {
-            Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
-            other => other,
-        }?;
-
-        let signature = sign(&keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature,
-        };
-
-        let mut t = Token {
-            root: self.root,
-            blocks: self.blocks.clone(),
-            next: TokenNext::Secret(next_key.private()),
-        };
-
-        t.blocks.push(block);
-
-        Ok(t)
-    }
-
-    #[allow(dead_code)]
-    pub fn verify(&self, root: PublicKey) -> Result<(), error::Token> {
-        //FIXME: try batched signature verification
-        let mut current_pub = root;
-
-        for block in &self.blocks {
-            verify_block_signature(block, &current_pub)?;
-            current_pub = block.next_key;
-        }
-
-        match &self.next {
-            TokenNext::Secret(private) => {
-                if current_pub != private.public() {
-                    return Err(error::Format::Signature(error::Signature::InvalidSignature(
-                        "the last public key does not match the private key".to_string(),
-                    ))
-                    .into());
-                }
-            }
-            TokenNext::Seal(signature) => {
-                //FIXME: replace with SHA512 hashing
-                let mut to_verify = Vec::new();
-                for block in &self.blocks {
-                    to_verify.extend(&block.data);
-                    to_verify.extend(&block.next_key.to_bytes());
-                }
-
-                current_pub
-                    .0
-                    .verify_strict(&to_verify, &signature.0)
-                    .map_err(|s| s.to_string())
-                    .map_err(error::Signature::InvalidSignature)
-                    .map_err(error::Format::Signature)?;
-            }
-        }
-
-        Ok(())
-    }
-}*/
 
 impl TokenNext {
     pub fn keypair(&self) -> Result<KeyPair, error::Token> {
@@ -429,100 +333,4 @@ impl TokenNext {
             TokenNext::Secret(_) => false,
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    /*
-    use super::*;
-    use rand::prelude::*;
-    use rand_core::SeedableRng;
-
-    #[test]
-    fn basic_signature() {
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message = b"hello world";
-        let keypair = KeyPair::new_with_rng(&mut rng);
-
-        let signature = keypair.sign(&mut rng, message);
-
-        assert!(verify(&keypair.public, message, &signature));
-
-        assert!(!verify(&keypair.public, b"AAAA", &signature));
-    }
-
-    #[test]
-    fn three_messages() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        assert_eq!(token2.verify(), Ok(()), "cannot verify second token");
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(token3.verify(), Ok(()), "cannot verify third token");
-    }
-
-    #[test]
-    fn change_message() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let mut token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        token2.messages[1] = Vec::from(&b"you"[..]);
-
-        assert_eq!(
-            token2.verify(),
-            Err(error::Signature::InvalidSignature),
-            "second token should not be valid"
-        );
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(
-            token3.verify(),
-            Err(error::Signature::InvalidSignature),
-            "cannot verify third token"
-        );
-    }*/
 }
