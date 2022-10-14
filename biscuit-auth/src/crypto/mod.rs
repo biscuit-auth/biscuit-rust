@@ -101,9 +101,9 @@ pub enum PrivateKey {
 
 impl PrivateKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
+    pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
         match self {
-            PrivateKey::Ed25519(key) => key.to_bytes(),
+            PrivateKey::Ed25519(key) => zeroize::Zeroizing::new(key.to_bytes()),
             PrivateKey::P256(key) => key.to_bytes(),
         }
     }
