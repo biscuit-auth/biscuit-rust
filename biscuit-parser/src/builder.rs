@@ -206,6 +206,9 @@ pub enum Binary {
     Or,
     Intersection,
     Union,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -251,6 +254,9 @@ impl ToTokens for Binary {
             Binary::Or => quote! { ::biscuit_auth::datalog::Binary::Or  },
             Binary::Intersection => quote! { ::biscuit_auth::datalog::Binary::Intersection  },
             Binary::Union => quote! { ::biscuit_auth::datalog::Binary::Union  },
+            Binary::BitwiseAnd => quote! { ::biscuit_auth::datalog::Binary::BitwiseAnd  },
+            Binary::BitwiseOr => quote! { ::biscuit_auth::datalog::Binary::BitwiseOr  },
+            Binary::BitwiseXor => quote! { ::biscuit_auth::datalog::Binary::BitwiseXor  },
         });
     }
 }

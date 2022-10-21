@@ -65,6 +65,9 @@ pub enum Binary {
     Sub,
     Mul,
     Div,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
     And,
     Or,
     Intersection,
@@ -99,6 +102,9 @@ impl Binary {
             (Binary::Div, Term::Integer(i), Term::Integer(j)) => {
                 i.checked_div(j).map(Term::Integer)
             }
+            (Binary::BitwiseAnd, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i & j)),
+            (Binary::BitwiseOr, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i | j)),
+            (Binary::BitwiseXor, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i ^ j)),
 
             // string
             (Binary::Prefix, Term::Str(s), Term::Str(pref)) => {
@@ -207,6 +213,9 @@ impl Binary {
             Binary::Or => format!("{} || {}", left, right),
             Binary::Intersection => format!("{}.intersection({})", left, right),
             Binary::Union => format!("{}.union({})", left, right),
+            Binary::BitwiseAnd => format!("{} & {}", left, right),
+            Binary::BitwiseOr => format!("{} | {}", left, right),
+            Binary::BitwiseXor => format!("{} ^ {}", left, right),
         }
     }
 }
@@ -318,6 +327,37 @@ mod tests {
 
         let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Some(Term::Bool(true)));
+    }
+
+    #[test]
+    fn bitwise() {
+        for (op, v1, v2, expected) in [
+            (Binary::BitwiseAnd, 9, 10, 8),
+            (Binary::BitwiseAnd, 9, 1, 1),
+            (Binary::BitwiseAnd, 9, 0, 0),
+            (Binary::BitwiseOr, 1, 2, 3),
+            (Binary::BitwiseOr, 2, 2, 2),
+            (Binary::BitwiseOr, 2, 0, 2),
+            (Binary::BitwiseXor, 1, 0, 1),
+            (Binary::BitwiseXor, 1, 1, 0),
+        ] {
+            let symbols = SymbolTable::new();
+            let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+            let ops = vec![
+                Op::Value(Term::Integer(v1)),
+                Op::Value(Term::Integer(v2)),
+                Op::Binary(op),
+            ];
+
+            println!("ops: {:?}", ops);
+
+            let e = Expression { ops };
+            println!("print: {}", e.print(&symbols).unwrap());
+
+            let res = e.evaluate(&HashMap::new(), &mut tmp_symbols);
+            assert_eq!(res, Some(Term::Integer(expected)));
+        }
     }
 
     #[test]

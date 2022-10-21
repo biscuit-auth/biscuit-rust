@@ -940,6 +940,9 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::Or => Binary::Or,
             biscuit_parser::builder::Binary::Intersection => Binary::Intersection,
             biscuit_parser::builder::Binary::Union => Binary::Union,
+            biscuit_parser::builder::Binary::BitwiseAnd => Binary::BitwiseAnd,
+            biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
+            biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
         }
     }
 }

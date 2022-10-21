@@ -476,6 +476,9 @@ pub mod v2 {
                                     Binary::Div => Kind::Div,
                                     Binary::And => Kind::And,
                                     Binary::Or => Kind::Or,
+                                    Binary::BitwiseAnd => Kind::BitwiseAnd,
+                                    Binary::BitwiseOr => Kind::BitwiseOr,
+                                    Binary::BitwiseXor => Kind::BitwiseXor,
                                     Binary::Intersection => Kind::Intersection,
                                     Binary::Union => Kind::Union,
                                 } as i32,
@@ -528,6 +531,9 @@ pub mod v2 {
                     Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
                     Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
                     Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
+                    Some(op_binary::Kind::BitwiseAnd) => Op::Binary(Binary::BitwiseAnd),
+                    Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
+                    Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
                     None => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: binary operation is empty".to_string(),
