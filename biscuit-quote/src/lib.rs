@@ -1,6 +1,4 @@
 //! ```rust
-//! extern crate biscuit_auth;
-//! extern crate biscuit_quote;
 //! use biscuit_auth::KeyPair;
 //! use biscuit_quote::{authorizer, biscuit, block};
 //! use std::time::{Duration, SystemTime};
@@ -49,21 +47,86 @@ use biscuit_parser::{
     parser::{parse_block_source, parse_source},
 };
 use proc_macro::TokenStream;
-use proc_macro_error::{abort, abort_call_site, proc_macro_error};
+use proc_macro_error::{abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
-    parse::{Parse, ParseStream, Result},
-    Expr, Ident, LitStr, Token,
+    parse::{self, Parse, ParseStream},
+    Expr, Ident, LitStr, Token, TypePath,
 };
 
-/// create a `BlockBuilder` from a datalog string and optional parameters.
+// parses ", foo = bar, baz = quux", including the leading comma
+struct ParsedParameters {
+    parameters: HashMap<String, Expr>,
+}
+
+impl Parse for ParsedParameters {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let mut parameters = HashMap::new();
+
+        while input.peek(Token![,]) {
+            let _: Token![,] = input.parse()?;
+            if input.is_empty() {
+                break;
+            }
+
+            let key: Ident = input.parse()?;
+            let _: Token![=] = input.parse()?;
+            let value: Expr = input.parse()?;
+
+            parameters.insert(key.to_string(), value);
+        }
+
+        Ok(Self { parameters })
+    }
+}
+
+// parses "\"...\", foo = bar, baz = quux"
+struct ParsedCreateNew {
+    datalog: String,
+    parameters: HashMap<String, Expr>,
+}
+
+impl Parse for ParsedCreateNew {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let datalog = input.parse::<LitStr>()?.value();
+        let parameters = input.parse::<ParsedParameters>()?;
+
+        Ok(Self {
+            datalog,
+            parameters: parameters.parameters,
+        })
+    }
+}
+
+// parses "&mut b, \"...\", foo = bar, baz = quux"
+struct ParsedMerge {
+    target: Expr,
+    datalog: String,
+    parameters: HashMap<String, Expr>,
+}
+
+impl Parse for ParsedMerge {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let target = input.parse::<Expr>()?;
+        let _: Token![,] = input.parse()?;
+
+        let datalog = input.parse::<LitStr>()?.value();
+        let parameters = input.parse::<ParsedParameters>()?;
+
+        Ok(Self {
+            target,
+            datalog,
+            parameters: parameters.parameters,
+        })
+    }
+}
+
+/// Create a `BlockBuilder` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
 ///
 /// ```rust
-/// extern crate biscuit_auth;
-/// extern crate biscuit_quote;
 /// use biscuit_auth::Biscuit;
 /// use biscuit_quote::{block};
 ///
@@ -78,258 +141,61 @@ use syn::{
 #[proc_macro]
 #[proc_macro_error]
 pub fn block(input: TokenStream) -> TokenStream {
-    let ParsedQuery {
+    let ParsedCreateNew {
         datalog,
         parameters,
-    } = syn::parse(input).unwrap_or_else(|e| abort!(e));
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
 
-    let builder = BlockBuilderWithParams::from_code(&datalog, &parameters)
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
+    let builder = Builder::block_source(ty, None, &datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
-    let gen = quote! {
-        {
-          #builder
-        }
-    };
-
-    gen.into()
+    builder.into_token_stream().into()
 }
 
-struct ParsedQuery {
-    datalog: String,
-    parameters: HashMap<String, Expr>,
+/// Merge facts, rules, and checks into a `BlockBuilder` from a datalog
+/// string and optional parameters. The datalog string is parsed at compile time
+/// and replaced by manual block building.
+///
+/// ```rust
+/// use biscuit_auth::Biscuit;
+/// use biscuit_quote::{block, block_merge};
+///
+/// let mut b = block!(
+///   r#"
+///     user({user_id});
+///   "#,
+///   user_id = "1234"
+/// );
+///
+/// block_merge!(
+///   &mut b,
+///   r#"
+///     check if user($id);
+///   "#
+/// );
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn block_merge(input: TokenStream) -> TokenStream {
+    let ParsedMerge {
+        target,
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedMerge);
+
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
+    let builder = Builder::block_source(ty, Some(target), &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    builder.into_token_stream().into()
 }
 
-impl Parse for ParsedQuery {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let datalog = input.parse::<LitStr>()?.value();
-
-        let mut parameters = HashMap::new();
-
-        while input.peek(Token![,]) {
-            let _: Token![,] = input.parse()?;
-            if input.is_empty() {
-                break;
-            }
-
-            let key: Ident = input.parse()?;
-            let _: Token![=] = input.parse()?;
-            let value: Expr = input.parse()?;
-
-            parameters.insert(key.to_string(), value);
-        }
-
-        Ok(ParsedQuery {
-            datalog,
-            parameters,
-        })
-    }
-}
-
-#[derive(Clone, Debug)]
-struct BlockBuilderWithParams {
-    pub facts: Vec<Fact>,
-    pub rules: Vec<Rule>,
-    pub checks: Vec<Check>,
-    pub parameters: HashMap<String, Expr>,
-}
-
-impl BlockBuilderWithParams {
-    pub fn from_code<T: AsRef<str>>(
-        source: T,
-        parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::LanguageError> {
-        let input = source.as_ref();
-        let mut facts = vec![];
-        let mut rules = vec![];
-        let mut checks = vec![];
-        let mut datalog_parameters = HashSet::new();
-        let macro_parameters = HashSet::from_iter(parameters.keys().map(|k| k.to_string()));
-        let source_result = parse_block_source(input)?;
-
-        for (_, fact) in source_result.facts.into_iter() {
-            if let Some(params) = &fact.parameters.clone() {
-                for param in params.clone().keys() {
-                    let p = param.clone();
-                    datalog_parameters.insert(p);
-                }
-            }
-
-            facts.push(fact);
-        }
-        for (_, rule) in source_result.rules.into_iter() {
-            if let Some(params) = &rule.parameters.clone() {
-                for param in params.clone().keys() {
-                    let p = param.clone();
-                    datalog_parameters.insert(p);
-                }
-            }
-            rules.push(rule);
-        }
-        for (_, check) in source_result.checks.into_iter() {
-            for query in check.queries.iter() {
-                if let Some(params) = &query.parameters.clone() {
-                    for param in params.clone().keys() {
-                        let p = param.clone();
-                        datalog_parameters.insert(p);
-                    }
-                }
-            }
-            checks.push(check);
-        }
-
-        if datalog_parameters == macro_parameters {
-            Ok(BlockBuilderWithParams {
-                facts,
-                rules,
-                checks,
-                parameters: parameters.clone(),
-            })
-        } else {
-            let unused_parameters: Vec<String> = macro_parameters
-                .difference(&datalog_parameters)
-                .map(|k| k.to_string())
-                .collect();
-            let missing_parameters: Vec<String> = datalog_parameters
-                .difference(&macro_parameters)
-                .map(|k| k.to_string())
-                .collect();
-            Err(error::LanguageError::Parameters {
-                missing_parameters,
-                unused_parameters,
-            })
-        }
-    }
-}
-
-impl ToTokens for BlockBuilderWithParams {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let param_names: Vec<String> = self.parameters.clone().into_keys().collect();
-        let param_values: Vec<Expr> = self.parameters.clone().into_values().collect();
-        let facts_quote = self.facts.iter().map(|f| {
-            quote! {
-                let mut fact = #f;
-                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_fact(fact).unwrap();
-            }
-        });
-        let rules_quote = self.rules.iter().map(|r| {
-            quote! {
-                let mut rule = #r;
-                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_rule(rule).unwrap();
-            }
-        });
-        let checks_quote = self.checks.iter().map(|c| {
-            quote! {
-                let mut check = #c;
-                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_check(check).unwrap();
-            }
-        });
-        tokens.extend(quote! {
-            let mut builder = ::biscuit_auth::builder::BlockBuilder::new();
-            #(#facts_quote)*
-            #(#rules_quote)*
-            #(#checks_quote)*
-            builder
-        });
-    }
-}
-
-#[derive(Clone, Debug)]
-struct AuthorizerWithParams {
-    pub parameters: HashMap<String, Expr>,
-    pub facts: Vec<Fact>,
-    pub rules: Vec<Rule>,
-    pub checks: Vec<Check>,
-    pub policies: Vec<Policy>,
-}
-
-impl AuthorizerWithParams {
-    pub fn from_code<T: AsRef<str>>(
-        source: T,
-        parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::LanguageError> {
-        let input = source.as_ref();
-        let source_result = parse_source(input)?;
-        let mut facts = Vec::new();
-        let mut rules = Vec::new();
-        let mut checks = Vec::new();
-        let mut policies = Vec::new();
-
-        for (_, fact) in source_result.facts.into_iter() {
-            facts.push(fact);
-        }
-        for (_, rule) in source_result.rules.into_iter() {
-            rules.push(rule);
-        }
-        for (_, check) in source_result.checks.into_iter() {
-            checks.push(check);
-        }
-        for (_, policy) in source_result.policies.into_iter() {
-            policies.push(policy);
-        }
-
-        Ok(AuthorizerWithParams {
-            facts,
-            rules,
-            checks,
-            policies,
-            parameters: parameters.clone(),
-        })
-    }
-}
-
-impl ToTokens for AuthorizerWithParams {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let param_names: Vec<String> = self.parameters.clone().into_keys().collect();
-        let param_values: Vec<Expr> = self.parameters.clone().into_values().collect();
-        let facts_quote = self.facts.iter().map(|f| {
-            quote! {
-                let mut fact = #f;
-                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_fact(fact).unwrap();
-            }
-        });
-        let rules_quote = self.rules.iter().map(|r| {
-            quote! {
-                let mut rule = #r;
-                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_rule(rule).unwrap();
-            }
-        });
-        let checks_quote = self.checks.iter().map(|c| {
-            quote! {
-                let mut check = #c;
-                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_check(check).unwrap();
-            }
-        });
-        let policies_quote = self.policies.iter().map(|p| {
-            quote! {
-                let mut policy = #p;
-                #(policy.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_policy(policy).unwrap();
-            }
-        });
-        tokens.extend(quote! {
-            let mut builder = ::biscuit_auth::Authorizer::new().unwrap();
-            #(#facts_quote)*
-            #(#rules_quote)*
-            #(#checks_quote)*
-            #(#policies_quote)*
-            builder
-        });
-    }
-}
-
-/// create an `Authorizer` from a datalog string and optional parameters.
+/// Create an `Authorizer` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
 ///
 /// ```rust
-/// extern crate biscuit_quote;
 /// use biscuit_quote::{authorizer};
 /// use std::time::SystemTime;
 ///
@@ -342,61 +208,63 @@ impl ToTokens for AuthorizerWithParams {
 /// );
 /// ```
 #[proc_macro]
+#[proc_macro_error]
 pub fn authorizer(input: TokenStream) -> TokenStream {
-    let ParsedQuery {
+    let ParsedCreateNew {
         datalog,
         parameters,
-    } = syn::parse(input).unwrap();
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
 
-    let builder = AuthorizerWithParams::from_code(&datalog, &parameters).unwrap();
+    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let builder = Builder::source(ty, None, &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
-    let gen = quote! {
-        {
-          #builder
-        }
-    };
-
-    gen.into()
+    builder.into_token_stream().into()
 }
 
-struct ParsedBiscuitQuery {
-    datalog: String,
-    parameters: HashMap<String, Expr>,
+/// Merge facts, rules, checks, and policies into an `Authorizer` from a datalog
+/// string and optional parameters. The datalog string is parsed at compile time
+/// and replaced by manual block building.
+///
+/// ```rust
+/// use biscuit_quote::{authorizer, authorizer_merge};
+/// use std::time::SystemTime;
+///
+/// let mut b = authorizer!(
+///   r#"
+///     time({now});
+///   "#,
+///   now = SystemTime::now()
+/// );
+///
+/// authorizer_merge!(
+///   &mut b,
+///   r#"
+///     allow if true;
+///   "#
+/// );
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn authorizer_merge(input: TokenStream) -> TokenStream {
+    let ParsedMerge {
+        target,
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedMerge);
+
+    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let builder = Builder::source(ty, Some(target), &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    builder.into_token_stream().into()
 }
 
-impl Parse for ParsedBiscuitQuery {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let datalog = input.parse::<LitStr>()?.value();
-
-        let mut parameters = HashMap::new();
-
-        while input.peek(Token![,]) {
-            let _: Token![,] = input.parse()?;
-            if input.is_empty() {
-                break;
-            }
-
-            let key: Ident = input.parse()?;
-            let _: Token![=] = input.parse()?;
-            let value: Expr = input.parse()?;
-
-            parameters.insert(key.to_string(), value);
-        }
-
-        Ok(ParsedBiscuitQuery {
-            datalog,
-            parameters,
-        })
-    }
-}
-
-/// create an `BiscuitBuilder` from a datalog string and optional parameters.
+/// Create an `BiscuitBuilder` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
 ///
 /// ```rust
-/// extern crate biscuit_quote;
-/// extern crate biscuit_auth;
 /// use biscuit_auth::{Biscuit, KeyPair};
 /// use biscuit_quote::{biscuit};
 /// use std::time::{SystemTime, Duration};
@@ -412,65 +280,210 @@ impl Parse for ParsedBiscuitQuery {
 /// ).build(&root);
 /// ```
 #[proc_macro]
+#[proc_macro_error]
 pub fn biscuit(input: TokenStream) -> TokenStream {
-    let ParsedBiscuitQuery {
+    let ParsedCreateNew {
         datalog,
         parameters,
-    } = syn::parse(input).unwrap();
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
 
-    let builder = BiscuitWithParams::from_code(&datalog, &parameters).unwrap();
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BiscuitBuilder);
+    let builder = Builder::block_source(ty, None, &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
-    let gen = quote! {
-        {
-          #builder
-        }
-    };
+    builder.into_token_stream().into()
+}
 
-    gen.into()
+/// Merge facts, rules, and checks into a `BiscuitBuilder` from a datalog
+/// string and optional parameters. The datalog string is parsed at compile time
+/// and replaced by manual block building.
+///
+/// ```rust
+/// use biscuit_auth::{Biscuit, KeyPair};
+/// use biscuit_quote::{biscuit, biscuit_merge};
+/// use std::time::{SystemTime, Duration};
+///
+/// let root = KeyPair::new();
+///
+/// let mut b = biscuit!(
+///   r#"
+///     user({user_id});
+///   "#,
+///   user_id = "1234"
+/// );
+///
+/// biscuit_merge!(
+///   &mut b,
+///   r#"
+///     check if time($time), $time < {expiration}
+///   "#,
+///   expiration = SystemTime::now() + Duration::from_secs(86_400)
+/// );
+///
+/// let biscuit = b.build(&root);
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn biscuit_merge(input: TokenStream) -> TokenStream {
+    let ParsedMerge {
+        target,
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedMerge);
+
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BiscuitBuilder);
+    let builder = Builder::block_source(ty, Some(target), &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    builder.into_token_stream().into()
 }
 
 #[derive(Clone, Debug)]
-struct BiscuitWithParams {
+struct Builder {
+    pub builder_type: TypePath,
+    pub target: Option<Expr>,
     pub parameters: HashMap<String, Expr>,
+
+    // parameters used in the datalog source
+    pub datalog_parameters: HashSet<String>,
+    // parameters provided to the macro
+    pub macro_parameters: HashSet<String>,
+
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
+    pub policies: Vec<Policy>,
 }
 
-impl BiscuitWithParams {
-    pub fn from_code<T: AsRef<str>>(
+impl Builder {
+    fn new(
+        builder_type: TypePath,
+        target: Option<Expr>,
+        parameters: HashMap<String, Expr>,
+    ) -> Self {
+        let macro_parameters = parameters.keys().cloned().collect();
+
+        Self {
+            builder_type,
+            target,
+            parameters,
+
+            datalog_parameters: HashSet::new(),
+            macro_parameters,
+
+            facts: Vec::new(),
+            rules: Vec::new(),
+            checks: Vec::new(),
+            policies: Vec::new(),
+        }
+    }
+
+    pub fn block_source<T: AsRef<str>>(
+        builder_type: TypePath,
+        target: Option<Expr>,
         source: T,
-        parameters: &HashMap<String, Expr>,
-    ) -> std::result::Result<Self, error::LanguageError> {
-        let input = source.as_ref();
-        let source_result = parse_block_source(input)?;
-        let mut facts = Vec::new();
-        let mut rules = Vec::new();
-        let mut checks = Vec::new();
+        parameters: HashMap<String, Expr>,
+    ) -> Result<Builder, error::LanguageError> {
+        let mut builder = Builder::new(builder_type, target, parameters);
+        let source = parse_block_source(source.as_ref())?;
 
-        for (_, fact) in source_result.facts.into_iter() {
-            facts.push(fact);
+        builder.facts(source.facts.into_iter().map(|(_name, fact)| fact));
+        builder.rules(source.rules.into_iter().map(|(_name, rule)| rule));
+        builder.checks(source.checks.into_iter().map(|(_name, check)| check));
+
+        builder.validate()?;
+        Ok(builder)
+    }
+
+    pub fn source<T: AsRef<str>>(
+        builder_type: TypePath,
+        target: Option<Expr>,
+        source: T,
+        parameters: HashMap<String, Expr>,
+    ) -> Result<Builder, error::LanguageError> {
+        let mut builder = Builder::new(builder_type, target, parameters);
+        let source = parse_source(source.as_ref())?;
+
+        builder.facts(source.facts.into_iter().map(|(_name, fact)| fact));
+        builder.rules(source.rules.into_iter().map(|(_name, rule)| rule));
+        builder.checks(source.checks.into_iter().map(|(_name, check)| check));
+        builder.policies(source.policies.into_iter().map(|(_name, policy)| policy));
+
+        builder.validate()?;
+        Ok(builder)
+    }
+
+    fn facts(&mut self, facts: impl Iterator<Item = Fact>) {
+        for fact in facts {
+            if let Some(parameters) = &fact.parameters {
+                self.datalog_parameters.extend(parameters.keys().cloned());
+            }
+            self.facts.push(fact);
         }
-        for (_, rule) in source_result.rules.into_iter() {
-            rules.push(rule);
-        }
-        for (_, check) in source_result.checks.into_iter() {
-            checks.push(check);
+    }
+
+    fn rule_parameters(&mut self, rule: &Rule) {
+        if let Some(parameters) = &rule.parameters {
+            self.datalog_parameters.extend(parameters.keys().cloned());
         }
 
-        Ok(BiscuitWithParams {
-            facts,
-            rules,
-            checks,
-            parameters: parameters.clone(),
-        })
+        if let Some(parameters) = &rule.scope_parameters {
+            self.datalog_parameters.extend(parameters.keys().cloned());
+        }
+    }
+
+    fn rules(&mut self, rules: impl Iterator<Item = Rule>) {
+        for rule in rules {
+            self.rule_parameters(&rule);
+            self.rules.push(rule);
+        }
+    }
+
+    fn checks(&mut self, checks: impl Iterator<Item = Check>) {
+        for check in checks {
+            for rule in check.queries.iter() {
+                self.rule_parameters(rule);
+            }
+            self.checks.push(check);
+        }
+    }
+
+    fn policies(&mut self, policies: impl Iterator<Item = Policy>) {
+        for policy in policies {
+            for rule in policy.queries.iter() {
+                self.rule_parameters(rule);
+            }
+            self.policies.push(policy);
+        }
+    }
+
+    fn validate(&self) -> Result<(), error::LanguageError> {
+        if self.datalog_parameters == self.macro_parameters {
+            Ok(())
+        } else {
+            let unused_parameters: Vec<String> = self
+                .macro_parameters
+                .difference(&self.datalog_parameters)
+                .cloned()
+                .collect();
+            let missing_parameters: Vec<String> = self
+                .datalog_parameters
+                .difference(&self.macro_parameters)
+                .cloned()
+                .collect();
+            Err(error::LanguageError::Parameters {
+                missing_parameters,
+                unused_parameters,
+            })
+        }
     }
 }
 
-impl ToTokens for BiscuitWithParams {
+impl ToTokens for Builder {
     fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        let param_names: Vec<String> = self.parameters.clone().into_keys().collect();
-        let param_values: Vec<Expr> = self.parameters.clone().into_values().collect();
+        let (param_names, param_values): (Vec<String>, Vec<Expr>) =
+            self.parameters.clone().into_iter().unzip();
+
         let facts_quote = self.facts.iter().map(|f| {
             quote! {
                 let mut fact = #f;
@@ -478,6 +491,7 @@ impl ToTokens for BiscuitWithParams {
                 builder.add_fact(fact).unwrap();
             }
         });
+
         let rules_quote = self.rules.iter().map(|r| {
             quote! {
                 let mut rule = #r;
@@ -485,6 +499,7 @@ impl ToTokens for BiscuitWithParams {
                 builder.add_rule(rule).unwrap();
             }
         });
+
         let checks_quote = self.checks.iter().map(|c| {
             quote! {
                 let mut check = #c;
@@ -492,12 +507,35 @@ impl ToTokens for BiscuitWithParams {
                 builder.add_check(check).unwrap();
             }
         });
+
+        let policies_quote = self.policies.iter().map(|p| {
+            quote! {
+                let mut policy = #p;
+                #(policy.set_macro_param(#param_names, #param_values).unwrap();)*
+                builder.add_policy(policy).unwrap();
+            }
+        });
+
+        let builder_type = &self.builder_type;
+        let builder_quote = if let Some(target) = &self.target {
+            quote! {
+                let builder: &mut #builder_type = #target;
+            }
+        } else {
+            quote! {
+                let mut builder = <#builder_type>::new();
+            }
+        };
+
         tokens.extend(quote! {
-            let mut builder = ::biscuit_auth::Biscuit::builder();
-            #(#facts_quote)*
-            #(#rules_quote)*
-            #(#checks_quote)*
-            builder
+            {
+                #builder_quote
+                #(#facts_quote)*
+                #(#rules_quote)*
+                #(#checks_quote)*
+                #(#policies_quote)*
+                builder
+            }
         });
     }
 }
