@@ -65,13 +65,13 @@ pub enum Binary {
     Sub,
     Mul,
     Div,
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
     And,
     Or,
     Intersection,
     Union,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
 }
 
 impl Binary {

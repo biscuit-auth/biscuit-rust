@@ -476,11 +476,11 @@ pub mod v2 {
                                     Binary::Div => Kind::Div,
                                     Binary::And => Kind::And,
                                     Binary::Or => Kind::Or,
+                                    Binary::Intersection => Kind::Intersection,
+                                    Binary::Union => Kind::Union,
                                     Binary::BitwiseAnd => Kind::BitwiseAnd,
                                     Binary::BitwiseOr => Kind::BitwiseOr,
                                     Binary::BitwiseXor => Kind::BitwiseXor,
-                                    Binary::Intersection => Kind::Intersection,
-                                    Binary::Union => Kind::Union,
                                 } as i32,
                             })
                         }
