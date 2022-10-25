@@ -99,6 +99,7 @@ pub fn proto_block_to_token_block(
                 "deserialization error: v3 blocks must not have bitwise operators".to_string(),
             ));
         },
+        // No schema version conflicts.
         _ => (),
     }
 
