@@ -1,7 +1,7 @@
 //! Logic language implementation for checks
 use crate::builder::Convert;
 use crate::time::Instant;
-use crate::token::Scope;
+use crate::token::{Scope, MIN_SCHEMA_VERSION, MAX_SCHEMA_VERSION};
 use crate::{builder, error};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
@@ -778,6 +778,66 @@ impl RuleSet {
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
     }
+}
+
+pub enum SchemaVersion {
+    ContainsScopes(u32),
+    ContainsBitwise(u32),
+    MinVersion(u32),
+}
+
+impl SchemaVersion {
+    pub fn version(self) -> u32 {
+        match self {
+            SchemaVersion::ContainsScopes(version) => version,
+            SchemaVersion::ContainsBitwise(version) => version,
+            SchemaVersion::MinVersion(version) => version,
+        }
+    }
+}
+
+/// Determine the schema version given the elements of a block.
+pub fn get_schema_version(_facts: &[Fact], rules: &[Rule], checks: &[Check], scopes: &[Scope]) -> SchemaVersion {
+    let needs_scopes = !scopes.is_empty()
+        || rules.iter().any(|r: &Rule| !r.scopes.is_empty())
+        || checks
+            .iter()
+            .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
+
+
+    let needs_bitwise = rules
+        .iter()
+        .any(|rule| contains_bitwise_op(&rule.expressions))
+        || checks.iter().any(|check| {
+            check
+                .queries
+                .iter()
+                .any(|query| contains_bitwise_op(&query.expressions))
+        });
+
+    if needs_scopes {
+        return SchemaVersion::ContainsScopes(MAX_SCHEMA_VERSION)
+    } else if needs_bitwise {
+        return SchemaVersion::ContainsBitwise(MAX_SCHEMA_VERSION)
+    };
+
+    SchemaVersion::MinVersion(MIN_SCHEMA_VERSION)
+}
+
+/// Determine whether any of the expression contain a bitwise operator.
+/// Bitwise operators are only supported in biscuits v4+
+pub fn contains_bitwise_op(expressions: &[Expression]) -> bool {
+    expressions.iter().any(|expression| {
+        expression.ops.iter().any(|op| {
+            if let Op::Binary(binary) = op {
+                match binary {
+                    Binary::BitwiseAnd | Binary::BitwiseOr | Binary::BitwiseXor => return true,
+                    _ => return false,
+                }
+            }
+            return false;
+        })
+    })
 }
 
 #[cfg(test)]

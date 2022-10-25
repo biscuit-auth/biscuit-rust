@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
-use crate::datalog::{self, SymbolTable};
+use crate::datalog::{self, SymbolTable, get_schema_version};
 use crate::error;
 use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
@@ -16,7 +16,7 @@ use std::{
 };
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{Binary, Unary};
+pub use crate::datalog::{Binary, Expression as DatalogExpression, Op as DatalogOp, Unary};
 
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
@@ -205,14 +205,15 @@ impl BlockBuilder {
         for check in &self.checks {
             checks.push(check.convert(&mut symbols));
         }
+
+        let mut scopes = Vec::new();
+        for scope in &self.scopes {
+            scopes.push(scope.convert(&mut symbols));
+        }
+
         let new_syms = symbols.split_at(symbols_start);
         let public_keys = symbols.public_keys.split_at(public_keys_start);
-
-        let needs_scopes = !self.scopes.is_empty()
-            || (&self.rules).iter().any(|r: &Rule| !r.scopes.is_empty())
-            || (&self.checks)
-                .iter()
-                .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
+        let schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
 
         Block {
             symbols: new_syms,
@@ -220,18 +221,10 @@ impl BlockBuilder {
             rules,
             checks,
             context: self.context,
-            version: if needs_scopes {
-                super::MAX_SCHEMA_VERSION
-            } else {
-                super::MIN_SCHEMA_VERSION
-            },
+            version: schema_version.version(),
             external_key: None,
             public_keys,
-            scopes: self
-                .scopes
-                .into_iter()
-                .map(|scope| scope.convert(&mut symbols))
-                .collect(),
+            scopes,
         }
     }
 
