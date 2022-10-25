@@ -1663,6 +1663,8 @@ fn expressions<T: Rng + CryptoRng>(
     builder.add_check("check if 3 == 3").unwrap();
     //integer add sub mul div
     builder.add_check("check if 1 + 2 * 3 - 4 /2 == 5").unwrap();
+    //integer bitwise and or xor
+    builder.add_check("check if 1 | 2 ^ 3 == 0").unwrap();
 
     // string prefix and suffix
     builder.add_check(
