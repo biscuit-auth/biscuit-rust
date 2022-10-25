@@ -1951,6 +1951,13 @@ impl ToAnyParam for [u8] {
     }
 }
 
+#[cfg(feature = "uuid")]
+impl ToAnyParam for uuid::Uuid {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(Term::Bytes(self.as_bytes().to_vec()))
+    }
+}
+
 impl From<SystemTime> for Term {
     fn from(t: SystemTime) -> Self {
         let dur = t.duration_since(UNIX_EPOCH).unwrap();
