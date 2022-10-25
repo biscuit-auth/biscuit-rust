@@ -260,8 +260,16 @@ impl<'t> Authorizer<'t> {
             */
     }
 
-    pub fn append(&mut self, other: BlockBuilder) {
-        self.authorizer_block_builder.append(other)
+    /// Add the rules, facts, checks, and policies of another `Authorizer`.
+    /// If a token has already been added to `other`, it is not merged into `self`.
+    pub fn merge(&mut self, mut other: Authorizer) {
+        self.merge_block(other.authorizer_block_builder);
+        self.policies.append(&mut other.policies);
+    }
+
+    /// Add the rules, facts, and checks of another `BlockBuilder`.
+    pub fn merge_block(&mut self, other: BlockBuilder) {
+        self.authorizer_block_builder.merge(other)
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
