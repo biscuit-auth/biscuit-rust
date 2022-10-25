@@ -44,7 +44,7 @@ use biscuit_parser::{
     error,
     parser::{parse_block_source, parse_source},
 };
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
@@ -456,7 +456,7 @@ impl Builder {
     }
 
     fn validate(&self) -> Result<(), error::LanguageError> {
-        if self.datalog_parameters == self.macro_parameters {
+        if self.macro_parameters.is_subset(&self.datalog_parameters) {
             Ok(())
         } else {
             let unused_parameters: Vec<String> = self
@@ -464,75 +464,176 @@ impl Builder {
                 .difference(&self.datalog_parameters)
                 .cloned()
                 .collect();
-            let missing_parameters: Vec<String> = self
-                .datalog_parameters
-                .difference(&self.macro_parameters)
-                .cloned()
-                .collect();
             Err(error::LanguageError::Parameters {
-                missing_parameters,
+                missing_parameters: Vec::new(),
                 unused_parameters,
             })
         }
     }
 }
 
+struct Item {
+    parameters: HashSet<String>,
+    start: TokenStream,
+    middle: TokenStream,
+    end: TokenStream,
+}
+
+impl Item {
+    fn fact(fact: &Fact) -> Self {
+        Self {
+            parameters: fact
+                .parameters
+                .iter()
+                .flatten()
+                .map(|(name, _)| name.to_owned())
+                .collect(),
+            start: quote! {
+                let mut __biscuit_auth_item = #fact;
+            },
+            middle: TokenStream::new(),
+            end: quote! {
+                __biscuit_auth_builder.add_fact(__biscuit_auth_item).unwrap();
+            },
+        }
+    }
+    fn rule(rule: &Rule) -> Self {
+        Self {
+            parameters: Item::rule_params(rule).collect(),
+            start: quote! {
+                let mut __biscuit_auth_item = #rule;
+            },
+            middle: TokenStream::new(),
+            end: quote! {
+                __biscuit_auth_builder.add_rule(__biscuit_auth_item).unwrap();
+            },
+        }
+    }
+
+    fn check(check: &Check) -> Self {
+        Self {
+            parameters: check.queries.iter().flat_map(Item::rule_params).collect(),
+            start: quote! {
+                let mut __biscuit_auth_item = #check;
+            },
+            middle: TokenStream::new(),
+            end: quote! {
+                __biscuit_auth_builder.add_check(__biscuit_auth_item).unwrap();
+            },
+        }
+    }
+
+    fn policy(policy: &Policy) -> Self {
+        Self {
+            parameters: policy.queries.iter().flat_map(Item::rule_params).collect(),
+            start: quote! {
+                let mut __biscuit_auth_item = #policy;
+            },
+            middle: TokenStream::new(),
+            end: quote! {
+                __biscuit_auth_builder.add_policy(__biscuit_auth_item).unwrap();
+            },
+        }
+    }
+
+    fn rule_params(rule: &Rule) -> impl Iterator<Item = String> + '_ {
+        rule.parameters
+            .iter()
+            .flatten()
+            .map(|(name, _)| name.as_ref())
+            .chain(
+                rule.scope_parameters
+                    .iter()
+                    .flatten()
+                    .map(|(name, _)| name.as_ref()),
+            )
+            .map(str::to_owned)
+    }
+
+    fn needs_param(&self, name: &str) -> bool {
+        self.parameters.contains(name)
+    }
+
+    fn add_param(&mut self, name: &str, clone: bool) {
+        let ident = Ident::new(&name, Span::call_site());
+
+        let expr = if clone {
+            quote! { ::core::clone::Clone::clone(&#ident) }
+        } else {
+            quote! { #ident }
+        };
+
+        self.middle.extend(quote! {
+            __biscuit_auth_item.set_macro_param(#name, #expr).unwrap();
+        });
+    }
+}
+
+impl ToTokens for Item {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(self.start.clone());
+        tokens.extend(self.middle.clone());
+        tokens.extend(self.end.clone());
+    }
+}
+
 impl ToTokens for Builder {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let (param_names, param_values): (Vec<String>, Vec<Expr>) =
-            self.parameters.clone().into_iter().unzip();
+        let params_quote = {
+            let (ident, expr): (Vec<_>, Vec<_>) = self
+                .parameters
+                .iter()
+                .map(|(name, expr)| {
+                    let ident = Ident::new(&name, Span::call_site());
+                    (ident, expr)
+                })
+                .unzip();
 
-        let facts_quote = self.facts.iter().map(|f| {
+            // Bind all parameters "in parallel". If this were a sequence of let bindings,
+            // earlier bindings would affect the scope of later bindings.
             quote! {
-                let mut fact = #f;
-                #(fact.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_fact(fact).unwrap();
+                let (#(#ident),*) = (#(#expr),*);
             }
-        });
+        };
 
-        let rules_quote = self.rules.iter().map(|r| {
-            quote! {
-                let mut rule = #r;
-                #(rule.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_rule(rule).unwrap();
-            }
-        });
+        let mut items = self
+            .facts
+            .iter()
+            .map(Item::fact)
+            .chain(self.rules.iter().map(Item::rule))
+            .chain(self.checks.iter().map(Item::check))
+            .chain(self.policies.iter().map(Item::policy))
+            .collect::<Vec<_>>();
 
-        let checks_quote = self.checks.iter().map(|c| {
-            quote! {
-                let mut check = #c;
-                #(check.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_check(check).unwrap();
-            }
-        });
+        for param in &self.datalog_parameters {
+            let mut items = items.iter_mut().filter(|i| i.needs_param(param)).peekable();
 
-        let policies_quote = self.policies.iter().map(|p| {
-            quote! {
-                let mut policy = #p;
-                #(policy.set_macro_param(#param_names, #param_values).unwrap();)*
-                builder.add_policy(policy).unwrap();
+            loop {
+                match (items.next(), items.peek()) {
+                    (Some(cur), Some(_next)) => cur.add_param(&param, true),
+                    (Some(cur), None) => cur.add_param(&param, false),
+                    (None, _) => break,
+                }
             }
-        });
+        }
 
         let builder_type = &self.builder_type;
         let builder_quote = if let Some(target) = &self.target {
             quote! {
-                let builder: &mut #builder_type = #target;
+                let __biscuit_auth_builder: &mut #builder_type = #target;
             }
         } else {
             quote! {
-                let mut builder = <#builder_type>::new();
+                let mut __biscuit_auth_builder = <#builder_type>::new();
             }
         };
 
         tokens.extend(quote! {
             {
                 #builder_quote
-                #(#facts_quote)*
-                #(#rules_quote)*
-                #(#checks_quote)*
-                #(#policies_quote)*
-                builder
+                #params_quote
+                #(#items)*
+                __biscuit_auth_builder
             }
         });
     }
