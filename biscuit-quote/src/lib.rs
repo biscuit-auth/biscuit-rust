@@ -39,14 +39,12 @@
 //! )).expect("Failed to authorize biscuit");
 //! ```
 
-extern crate proc_macro;
-extern crate proc_macro_error;
 use biscuit_parser::{
     builder::{Check, Fact, Policy, Rule},
     error,
     parser::{parse_block_source, parse_source},
 };
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
 use proc_macro_error::{abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
@@ -140,7 +138,7 @@ impl Parse for ParsedMerge {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn block(input: TokenStream) -> TokenStream {
+pub fn block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedCreateNew {
         datalog,
         parameters,
@@ -177,7 +175,7 @@ pub fn block(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn block_merge(input: TokenStream) -> TokenStream {
+pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedMerge {
         target,
         datalog,
@@ -209,7 +207,7 @@ pub fn block_merge(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn authorizer(input: TokenStream) -> TokenStream {
+pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedCreateNew {
         datalog,
         parameters,
@@ -246,7 +244,7 @@ pub fn authorizer(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn authorizer_merge(input: TokenStream) -> TokenStream {
+pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedMerge {
         target,
         datalog,
@@ -281,7 +279,7 @@ pub fn authorizer_merge(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn biscuit(input: TokenStream) -> TokenStream {
+pub fn biscuit(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedCreateNew {
         datalog,
         parameters,
@@ -324,7 +322,7 @@ pub fn biscuit(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn biscuit_merge(input: TokenStream) -> TokenStream {
+pub fn biscuit_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ParsedMerge {
         target,
         datalog,
@@ -378,7 +376,7 @@ impl Builder {
         }
     }
 
-    pub fn block_source<T: AsRef<str>>(
+    fn block_source<T: AsRef<str>>(
         builder_type: TypePath,
         target: Option<Expr>,
         source: T,
@@ -395,7 +393,7 @@ impl Builder {
         Ok(builder)
     }
 
-    pub fn source<T: AsRef<str>>(
+    fn source<T: AsRef<str>>(
         builder_type: TypePath,
         target: Option<Expr>,
         source: T,
@@ -480,7 +478,7 @@ impl Builder {
 }
 
 impl ToTokens for Builder {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let (param_names, param_values): (Vec<String>, Vec<Expr>) =
             self.parameters.clone().into_iter().unzip();
 
