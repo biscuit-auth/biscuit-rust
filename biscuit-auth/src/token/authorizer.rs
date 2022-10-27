@@ -39,7 +39,7 @@ pub struct Authorizer<'t> {
 
 impl<'t> Authorizer<'t> {
     pub(crate) fn from_token(token: &'t Biscuit) -> Result<Self, error::Token> {
-        let mut v = Authorizer::new()?;
+        let mut v = Authorizer::new();
         v.add_token(token)?;
 
         Ok(v)
@@ -54,12 +54,12 @@ impl<'t> Authorizer<'t> {
     /// In the latter case, we can create an empty authorizer, load it
     /// with the facts, rules and checks, and each time a token must be checked,
     /// clone the authorizer and load the token with [`Authorizer::add_token`]
-    pub fn new() -> Result<Self, error::Logic> {
+    pub fn new() -> Self {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
         let authorizer_block_builder = BlockBuilder::new();
 
-        Ok(Authorizer {
+        Authorizer {
             authorizer_block_builder,
             world,
             symbols,
@@ -68,7 +68,7 @@ impl<'t> Authorizer<'t> {
             token: None,
             blocks: vec![],
             public_key_to_block_id: HashMap::new(),
-        })
+        }
     }
 
     /// creates an `Authorizer` from a serialized [crate::format::schema::AuthorizerPolicies]
@@ -86,7 +86,7 @@ impl<'t> Authorizer<'t> {
             policies,
         } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
 
-        let mut authorizer = Self::new()?;
+        let mut authorizer = Self::new();
 
         for fact in facts {
             authorizer
@@ -260,8 +260,16 @@ impl<'t> Authorizer<'t> {
             */
     }
 
-    pub fn append(&mut self, other: BlockBuilder) {
-        self.authorizer_block_builder.append(other)
+    /// Add the rules, facts, checks, and policies of another `Authorizer`.
+    /// If a token has already been added to `other`, it is not merged into `self`.
+    pub fn merge(&mut self, mut other: Authorizer) {
+        self.merge_block(other.authorizer_block_builder);
+        self.policies.append(&mut other.policies);
+    }
+
+    /// Add the rules, facts, and checks of another `BlockBuilder`.
+    pub fn merge_block(&mut self, other: BlockBuilder) {
+        self.authorizer_block_builder.merge(other)
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
@@ -292,7 +300,7 @@ impl<'t> Authorizer<'t> {
     ///
     /// use biscuit::Authorizer;
     ///
-    /// let mut authorizer = Authorizer::new().unwrap();
+    /// let mut authorizer = Authorizer::new();
     ///
     /// authorizer.add_code(r#"
     ///   resource("/file1.txt");
@@ -1164,14 +1172,14 @@ mod tests {
 
     #[test]
     fn empty_authorizer() {
-        let mut authorizer = Authorizer::new().unwrap();
+        let mut authorizer = Authorizer::new();
         authorizer.add_policy("allow if true").unwrap();
         assert_eq!(authorizer.authorize(), Ok(0));
     }
 
     #[test]
     fn parameter_substitution() {
-        let mut authorizer = Authorizer::new().unwrap();
+        let mut authorizer = Authorizer::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "value".into());
         params.insert("p2".to_string(), 0i64.into());
@@ -1201,7 +1209,7 @@ mod tests {
 
     #[test]
     fn forbid_unbound_parameters() {
-        let mut builder = Authorizer::new().unwrap();
+        let mut builder = Authorizer::new();
 
         let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
         fact.set("p1", "hello").unwrap();
@@ -1259,7 +1267,7 @@ mod tests {
 
     #[test]
     fn forbid_unbound_parameters_in_add_code() {
-        let mut builder = Authorizer::new().unwrap();
+        let mut builder = Authorizer::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "hello".into());
         params.insert("p2".to_string(), 1i64.into());
@@ -1355,7 +1363,7 @@ mod tests {
         let res = req.create_block(&external.private(), builder).unwrap();
         let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
-        let mut authorizer = Authorizer::new().unwrap();
+        let mut authorizer = Authorizer::new();
         let external2 = KeyPair::new();
 
         let mut scope_params = HashMap::new();

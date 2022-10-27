@@ -43,7 +43,7 @@ impl AsRef<Term> for Term {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Term {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             Term::Variable(v) => quote! { ::biscuit_auth::builder::Term::Variable(#v.to_string()) },
             Term::Integer(v) => quote! { ::biscuit_auth::builder::Term::Integer(#v) },
@@ -69,7 +69,7 @@ pub enum Scope {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Scope {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             Scope::Authority => quote! { ::biscuit_auth::builder::Scope::Authority},
             Scope::Previous => quote! { ::biscuit_auth::builder::Scope::Previous},
@@ -104,7 +104,7 @@ impl Predicate {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Predicate {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name = &self.name;
         let terms = self.terms.iter();
         tokens.extend(quote! {
@@ -142,7 +142,7 @@ impl Fact {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Fact {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name = &self.predicate.name;
         let terms = self.predicate.terms.iter();
         tokens.extend(quote! {
@@ -162,7 +162,7 @@ pub struct Expression {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Expression {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let ops = self.ops.iter();
         tokens.extend(quote! {
           ::biscuit_auth::builder::Expression {
@@ -210,7 +210,7 @@ pub enum Binary {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Op {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             Op::Value(t) => quote! { ::biscuit_auth::builder::Op::Value(#t) },
             Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
@@ -221,7 +221,7 @@ impl ToTokens for Op {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Unary {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
@@ -232,7 +232,7 @@ impl ToTokens for Unary {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Binary {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             Binary::LessThan => quote! { ::biscuit_auth::datalog::Binary::LessThan  },
             Binary::GreaterThan => quote! { ::biscuit_auth::datalog::Binary::GreaterThan  },
@@ -355,7 +355,7 @@ impl Rule {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Rule {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let head = &self.head;
         let body = self.body.iter();
         let expressions = self.expressions.iter();
@@ -379,7 +379,7 @@ pub struct Check {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Check {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let queries = self.queries.iter();
         tokens.extend(quote! {
           ::biscuit_auth::builder::Check {
@@ -397,7 +397,7 @@ pub enum PolicyKind {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for PolicyKind {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
             PolicyKind::Allow => quote! {
               ::biscuit_auth::builder::PolicyKind::Allow
@@ -418,7 +418,7 @@ pub struct Policy {
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Policy {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let queries = self.queries.iter();
         let kind = &self.kind;
         tokens.extend(quote! {
