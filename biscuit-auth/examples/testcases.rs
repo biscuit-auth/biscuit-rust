@@ -318,6 +318,7 @@ fn write_testcase(target: &str, name: &str, data: &[u8]) {
     file.flush().unwrap();
 }
 
+#[track_caller]
 fn load_testcase(target: &str, name: &str) -> Vec<u8> {
     std::fs::read(&format!("{}/{}.bc", target, name)).unwrap()
 }
@@ -1796,7 +1797,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test8_invalid_block_fact_ambient");
+        let v = load_testcase(target, "test18_unbound_variables_in_rule");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
