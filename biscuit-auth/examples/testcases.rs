@@ -341,15 +341,9 @@ fn basic_token<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -358,15 +352,7 @@ fn basic_token<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -394,7 +380,7 @@ fn basic_token<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -421,9 +407,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     let root2 = KeyPair::new_with_rng(rng);
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root2, SymbolTable::default(), rng)
@@ -432,15 +416,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -463,7 +439,7 @@ fn different_root_key<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -489,15 +465,9 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -506,15 +476,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -540,7 +502,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -566,15 +528,9 @@ fn random_block<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -583,15 +539,7 @@ fn random_block<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -620,7 +568,7 @@ fn random_block<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -646,15 +594,9 @@ fn invalid_signature<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -663,15 +605,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -699,7 +633,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -725,15 +659,9 @@ fn reordered_blocks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -742,15 +670,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -758,13 +678,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
 
     let mut block3 = BlockBuilder::new();
 
-    block3
-        .add_check(rule(
-            "check2",
-            &[var("0")],
-            &[pred("resource", &[string("file1")])],
-        ))
-        .unwrap();
+    block3.add_check(r#"check if resource("file1")"#).unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -791,7 +705,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -817,12 +731,8 @@ fn scoped_rules<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("user_id", &[string("alice")]))
-        .unwrap();
-    builder
-        .add_fact(fact("owner", &[string("alice"), string("file1")]))
-        .unwrap();
+    builder.add_fact(r#"user_id("alice")"#).unwrap();
+    builder.add_fact(r#"owner("alice", "file1")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -831,26 +741,10 @@ fn scoped_rules<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_rule(rule(
-            "right",
-            &[var("0"), string("read")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("user_id", &[var("1")]),
-                pred("owner", &[var("1"), var("0")]),
-            ],
-        ))
+        .add_rule(r#"right($0, "read") <- resource($0), user_id($1), owner($1, $0)"#)
         .unwrap();
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -858,9 +752,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
 
     let mut block3 = BlockBuilder::new();
 
-    block3
-        .add_fact(fact("owner", &[string("alice"), string("file2")]))
-        .unwrap();
+    block3.add_fact(r#"owner("alice", "file2")"#).unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -885,8 +777,8 @@ fn scoped_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file2")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![],
@@ -913,9 +805,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -924,15 +814,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -940,9 +822,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
 
     let mut block3 = BlockBuilder::new();
 
-    block3
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
+    block3.add_fact(r#"right("file2", "read")"#).unwrap();
 
     let keypair3 = KeyPair::new_with_rng(rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -967,8 +847,8 @@ fn scoped_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file2")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![],
@@ -1000,13 +880,7 @@ fn expired_token<T: Rng + CryptoRng>(
 
     let mut block2 = BlockBuilder::new();
 
-    block2
-        .add_check(rule(
-            "check1",
-            &[string("file1")],
-            &[pred("resource", &[string("file1")])],
-        ))
-        .unwrap();
+    block2.add_check(r#"check if resource("file1")"#).unwrap();
     // January 1 2019
     block2.check_expiration_date(
         UNIX_EPOCH
@@ -1037,8 +911,8 @@ fn expired_token<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file1")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file1")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
                 fact(
                     "time",
                     &[date(
@@ -1073,9 +947,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1083,9 +955,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
 
     let mut block2 = BlockBuilder::new();
 
-    block2
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
+    block2.add_fact(r#"right("file2", "read")"#).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1110,8 +980,8 @@ fn authorizer_scope<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file2")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![vec![rule(
@@ -1145,9 +1015,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1172,8 +1040,8 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file2")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![vec![rule(
@@ -1208,13 +1076,7 @@ fn authority_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_check(rule(
-            "check1",
-            &[string("file1")],
-            &[pred("resource", &[string("file1")])],
-        ))
-        .unwrap();
+    builder.add_check(r#"check if resource("file1")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1239,8 +1101,8 @@ fn authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file1")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file1")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![],
@@ -1253,8 +1115,8 @@ fn authority_checks<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file2")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![],
@@ -1280,12 +1142,8 @@ fn block_rules<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1351,14 +1209,7 @@ fn block_rules<T: Rng + CryptoRng>(
         .unwrap();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[variable("0")],
-            &[
-                pred("valid_date", &[variable("0")]),
-                pred("resource", &[var("0")]),
-            ],
-        ))
+        .add_check(r#"check if valid_date($0), resource($0)"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -1384,7 +1235,7 @@ fn block_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file1")]),
+                r#"resource("file1")"#.try_into().unwrap(),
                 fact(
                     "time",
                     &[date(
@@ -1405,7 +1256,7 @@ fn block_rules<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file2")]),
+                r#"resource("file2")"#.try_into().unwrap(),
                 fact(
                     "time",
                     &[date(
@@ -1441,18 +1292,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
     let mut builder = Biscuit::builder();
 
     builder
-        .add_check(constrained_rule(
-            "resource_match",
-            &[variable("0")],
-            &[pred("resource", &[variable("0")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("0")),
-                    Op::Value(string("file[0-9]+.txt")),
-                    Op::Binary(Binary::Regex),
-                ],
-            }],
-        ))
+        .add_check(r#"check if resource($0), $0.matches("file[0-9]+.txt")"#)
         .unwrap();
 
     let biscuit1 = builder
@@ -1477,7 +1317,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file1")])],
+            vec![r#"resource("file1")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -1488,7 +1328,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("resource", &[string("file123.txt")])],
+            vec![r#"resource("file123.txt")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -1513,13 +1353,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact(
-            "must_be_present",
-            &[string("hello")],
-            //&[string("hello")],
-        ))
-        .unwrap();
+    builder.add_fact(r#"must_be_present("hello")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1580,22 +1414,14 @@ fn check_head_name<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_check(rule(
-            "check1",
-            &[string("test")],
-            &[pred("resource", &[string("hello")])],
-        ))
-        .unwrap();
+    builder.add_check(r#"check if resource("hello")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    //println!("biscuit1 (authority): {}", biscuit1.print());
-
     let mut block2 = BlockBuilder::new();
-    block2.add_fact(fact("check1", &[string("test")])).unwrap();
+    block2.add_fact(r#"query("test")"#).unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1770,13 +1596,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder();
-    builder
-        .add_check(rule(
-            "check1",
-            &[string("test")],
-            &[pred("operation", &[string("read")])],
-        ))
-        .unwrap();
+    builder.add_check(r#"check if operation("read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1784,6 +1604,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
 
     let mut block2 = BlockBuilder::new();
 
+    // this one does not go through the parser because it checks for unused variables
     block2
         .add_rule(rule(
             "operation",
@@ -1813,7 +1634,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[string("write")])],
+            vec![r#"operation("write")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -1838,13 +1659,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     let token;
 
     let mut builder = Biscuit::builder();
-    builder
-        .add_check(rule(
-            "check1",
-            &[string("test")],
-            &[pred("operation", &[string("read")])],
-        ))
-        .unwrap();
+    builder.add_check(r#"check if operation("read")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1853,11 +1668,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_rule(rule(
-            "operation",
-            &[string("read")],
-            &[pred("operation", &[var("any")])],
-        ))
+        .add_rule(r#"operation("read") <- operation($any)"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -1885,7 +1696,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![fact("operation", &[string("write")])],
+            vec![r#"operation("write")"#.try_into().unwrap()],
             vec![],
             vec![],
         ),
@@ -1910,15 +1721,9 @@ fn sealed_token<T: Rng + CryptoRng>(
 
     let mut builder = Biscuit::builder();
 
-    builder
-        .add_fact(fact("right", &[string("file1"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file2"), string("read")]))
-        .unwrap();
-    builder
-        .add_fact(fact("right", &[string("file1"), string("write")]))
-        .unwrap();
+    builder.add_fact(r#"right("file1", "read")"#).unwrap();
+    builder.add_fact(r#"right("file2", "read")"#).unwrap();
+    builder.add_fact(r#"right("file1", "write")"#).unwrap();
 
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), rng)
@@ -1927,15 +1732,7 @@ fn sealed_token<T: Rng + CryptoRng>(
     let mut block2 = BlockBuilder::new();
 
     block2
-        .add_check(rule(
-            "check1",
-            &[var("0")],
-            &[
-                pred("resource", &[var("0")]),
-                pred("operation", &[string("read")]),
-                pred("right", &[var("0"), string("read")]),
-            ],
-        ))
+        .add_check(r#"check if resource($0), operation("read"), right($0, "read")"#)
         .unwrap();
 
     let keypair2 = KeyPair::new_with_rng(rng);
@@ -1964,8 +1761,8 @@ fn sealed_token<T: Rng + CryptoRng>(
             root,
             &data[..],
             vec![
-                fact("resource", &[string("file1")]),
-                fact("operation", &[string("read")]),
+                r#"resource("file1")"#.try_into().unwrap(),
+                r#"operation("read")"#.try_into().unwrap(),
             ],
             vec![],
             vec![],
