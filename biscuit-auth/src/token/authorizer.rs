@@ -1004,16 +1004,28 @@ impl<'t> Authorizer<'t> {
     pub fn dump_code(&self) -> String {
         let (facts, rules, checks, policies) = self.dump();
         let mut f = String::new();
-        for fact in facts {
+        for fact in &facts {
             let _ = writeln!(f, "{fact};");
         }
-        for rule in rules {
+        if !facts.is_empty() {
+            let _ = writeln!(f, "");
+        }
+
+        for rule in &rules {
             let _ = writeln!(f, "{rule};");
         }
-        for check in checks {
+        if !rules.is_empty() {
+            let _ = writeln!(f, "");
+        }
+
+        for check in &checks {
             let _ = writeln!(f, "{check};");
         }
-        for policy in policies {
+        if !checks.is_empty() {
+            let _ = writeln!(f, "");
+        }
+
+        for policy in &policies {
             let _ = writeln!(f, "{policy};");
         }
         f
