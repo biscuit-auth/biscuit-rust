@@ -6,6 +6,7 @@ use biscuit::builder::BlockBuilder;
 use biscuit::datalog::SymbolTable;
 use biscuit::error;
 use biscuit::macros::*;
+use biscuit::Authorizer;
 use biscuit::KeyPair;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
 use prost::Message;
@@ -13,7 +14,6 @@ use rand::prelude::*;
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    convert::TryInto,
     fs::File,
     io::Write,
     time::*,
@@ -227,13 +227,7 @@ enum AuthorizerResult {
     Err(error::Token),
 }
 
-fn validate_token(
-    root: &KeyPair,
-    data: &[u8],
-    ambient_facts: Vec<Fact>,
-    ambient_rules: Vec<Rule>,
-    checks: Vec<Vec<Rule>>,
-) -> Validation {
+fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validation {
     let token = match Biscuit::from(&data[..], &root.public()) {
         Ok(t) => t,
         Err(e) => {
@@ -252,7 +246,11 @@ fn validate_token(
         revocation_ids.push(hex::encode(&bytes));
     }
 
-    let mut authorizer = match token.authorizer() {
+    let mut authorizer = Authorizer::new();
+    authorizer.add_code(authorizer_code).unwrap();
+    let authorizer_code = authorizer.dump_code();
+
+    match authorizer.add_token(&token) {
         Ok(v) => v,
         Err(e) => {
             return Validation {
@@ -263,33 +261,6 @@ fn validate_token(
             }
         }
     };
-
-    let mut authorizer_code = String::new();
-    for fact in ambient_facts {
-        authorizer_code += &format!("{};\n", fact);
-        authorizer.add_fact(fact).unwrap();
-    }
-
-    if !ambient_rules.is_empty() {
-        authorizer_code += "\n";
-    }
-
-    for rule in ambient_rules {
-        authorizer_code += &format!("{};\n", rule);
-        authorizer.add_rule(rule).unwrap();
-    }
-
-    if !checks.is_empty() {
-        authorizer_code += "\n";
-    }
-
-    for check in checks {
-        authorizer.add_check(&check[..]).unwrap();
-        let c: Check = (&check[..]).try_into().unwrap();
-        authorizer_code += &format!("{};\n", c);
-    }
-
-    authorizer.allow().unwrap();
 
     let res = authorizer.authorize();
     //println!("authorizer world:\n{}", authorizer.print_world());
@@ -384,9 +355,10 @@ fn basic_token<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
+            r#"
+            resource("file1");
+            allow if true;
+        "#,
         ),
     );
 
@@ -447,9 +419,10 @@ fn different_root_key<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
+            r#"
+        resource("file1");
+        allow if true;
+        "#,
         ),
     );
 
@@ -506,13 +479,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file1"); allow if true"#),
     );
 
     TestResult {
@@ -571,13 +538,7 @@ fn random_block<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file1"); allow if true"#),
     );
 
     TestResult {
@@ -635,13 +596,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file1"); allow if true"#),
     );
 
     TestResult {
@@ -704,13 +659,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file1"); allow if true"#),
     );
 
     TestResult {
@@ -779,12 +728,11 @@ fn scoped_rules<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file2");
+                operation("read");
+                allow if true;
+                "#,
         ),
     );
 
@@ -846,12 +794,11 @@ fn scoped_checks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file2");
+                operation("read");
+                allow if true;
+            "#,
         ),
     );
 
@@ -878,11 +825,7 @@ fn expired_token<T: Rng + CryptoRng>(
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();
 
-    let mut block2 = block!(
-        r#"
-            check if resource("file1");
-        "#
-    );
+    let mut block2 = block!(r#"check if resource("file1");"#);
 
     // January 1 2019
     block2.check_expiration_date(
@@ -913,20 +856,12 @@ fn expired_token<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file1")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-                fact(
-                    "time",
-                    &[date(
-                        &UNIX_EPOCH
-                            .checked_add(Duration::from_secs(1608542592))
-                            .unwrap(),
-                    )],
-                ),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file1");
+                operation("read");
+                time(2020-12-21T09:23:12Z);
+                allow if true
+            "#,
         ),
     );
 
@@ -980,20 +915,12 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![vec![rule(
-                "check1",
-                &[variable("0"), variable("1")],
-                &[
-                    pred("right", &[var("0"), var("1")]),
-                    pred("resource", &[var("0")]),
-                    pred("operation", &[var("1")]),
-                ],
-            )]],
+            r#"
+                resource("file2");
+                operation("read");
+                check if right($0, $1), resource($0), operation($1);
+                allow if true
+            "#,
         ),
     );
 
@@ -1040,20 +967,12 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![vec![rule(
-                "check1",
-                &[variable("0"), variable("1")],
-                &[
-                    pred("right", &[var("0"), var("1")]),
-                    pred("resource", &[var("0")]),
-                    pred("operation", &[var("1")]),
-                ],
-            )]],
+            r#"
+                resource("file2");
+                operation("read");
+                check if right($0, $1), resource($0), operation($1);
+                allow if true
+            "#,
         ),
     );
 
@@ -1097,12 +1016,11 @@ fn authority_checks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file1")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file1");
+                operation("read");
+                allow if true
+            "#,
         ),
     );
 
@@ -1111,12 +1029,11 @@ fn authority_checks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file2");
+                operation("read");
+                allow if true
+            "#,
         ),
     );
 
@@ -1178,19 +1095,11 @@ fn block_rules<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file1")"#.try_into().unwrap(),
-                fact(
-                    "time",
-                    &[date(
-                        &UNIX_EPOCH
-                            .checked_add(Duration::from_secs(1608542592))
-                            .unwrap(),
-                    )],
-                ),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file1");
+                time(2020-12-21T09:23:12Z);
+                allow if true
+            "#,
         ),
     );
 
@@ -1199,19 +1108,11 @@ fn block_rules<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file2")"#.try_into().unwrap(),
-                fact(
-                    "time",
-                    &[date(
-                        &UNIX_EPOCH
-                            .checked_add(Duration::from_secs(1608542592))
-                            .unwrap(),
-                    )],
-                ),
-            ],
-            vec![],
-            vec![],
+            r#"
+                resource("file2");
+                time(2020-12-21T09:23:12Z);
+                allow if true
+            "#,
         ),
     );
 
@@ -1252,24 +1153,12 @@ fn regex_constraint<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "file1".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file1")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file1"); allow if true"#),
     );
 
     validations.insert(
         "file123".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"resource("file123.txt")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"resource("file123.txt"); allow if true"#),
     );
     TestResult {
         title,
@@ -1312,20 +1201,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![],
-            vec![],
-            vec![vec![
-                rule(
-                    "test_must_be_present_authority",
-                    &[variable("0")],
-                    &[pred("must_be_present", &[var("0")])],
-                ),
-                rule(
-                    "test_must_be_present",
-                    &[variable("0")],
-                    &[pred("must_be_present", &[var("0")])],
-                ),
-            ]],
+            r#"check if must_be_present($0) or must_be_present($0); allow if true"#,
         ),
     );
     TestResult {
@@ -1370,7 +1246,7 @@ fn check_head_name<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], vec![], vec![], vec![]),
+        validate_token(root, &data[..], "allow if true"),
     );
     TestResult {
         title,
@@ -1469,7 +1345,7 @@ fn expressions<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], vec![], vec![], vec![]),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
@@ -1523,13 +1399,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"operation("write")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"operation("write"); allow if true"#),
     );
     TestResult {
         title,
@@ -1578,13 +1448,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            vec![r#"operation("write")"#.try_into().unwrap()],
-            vec![],
-            vec![],
-        ),
+        validate_token(root, &data[..], r#"operation("write"); allow if true"#),
     );
     TestResult {
         title,
@@ -1644,12 +1508,7 @@ fn sealed_token<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![
-                r#"resource("file1")"#.try_into().unwrap(),
-                r#"operation("read")"#.try_into().unwrap(),
-            ],
-            vec![],
-            vec![],
+            r#"resource("file1"); operation("read"); allow if true"#,
         ),
     );
 
@@ -1693,13 +1552,7 @@ fn parsing<T: Rng + CryptoRng>(
         validate_token(
             root,
             &data[..],
-            vec![],
-            vec![],
-            vec![vec![rule(
-                "check1",
-                &[string("test")],
-                &[pred("ns::fact_123", &[string("hello é\t😁")])],
-            )]],
+            "check if ns::fact_123(\"hello é\t😁\"); allow if true",
         ),
     );
 
@@ -1743,17 +1596,21 @@ fn default_symbols<T: Rng + CryptoRng>(
         data
     };
 
-    let check: Check = r#"check if read(0),write(1),resource(2),operation(3),right(4),
-        time(5),role(6),owner(7),tenant(8),namespace(9),user(10),team(11),
-        service(12),admin(13),email(14),group(15),member(16),ip_address(17),
-        client(18),client_ip(19),domain(20),path(21),version(22),cluster(23),
-        node(24),hostname(25),nonce(26),query(27)"#
-        .parse()
-        .unwrap();
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], vec![], vec![], vec![check.queries]),
+        validate_token(
+            root,
+            &data[..],
+            r#"
+            check if read(0),write(1),resource(2),operation(3),right(4),
+                time(5),role(6),owner(7),tenant(8),namespace(9),user(10),team(11),
+                service(12),admin(13),email(14),group(15),member(16),ip_address(17),
+                client(18),client_ip(19),domain(20),path(21),version(22),cluster(23),
+                node(24),hostname(25),nonce(26),query(27);
+            allow if true
+        "#,
+        ),
     );
 
     TestResult {
@@ -1812,7 +1669,7 @@ fn execution_scope<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], vec![], vec![], vec![]),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
@@ -1876,7 +1733,7 @@ fn third_party<T: Rng + CryptoRng>(
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], vec![], vec![], vec![]),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
