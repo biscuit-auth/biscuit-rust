@@ -72,7 +72,9 @@ impl TrustedOrigins {
         public_key_to_block_id: &HashMap<usize, Vec<usize>>,
     ) -> TrustedOrigins {
         if rule_scopes.is_empty() {
-            return default_origins.clone();
+            let mut origins = default_origins.clone();
+            origins.0.insert(current_block);
+            return origins;
         }
 
         let mut origins = Origin::default();
