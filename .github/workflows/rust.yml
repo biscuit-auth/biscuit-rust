@@ -30,6 +30,12 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --features serde-error --verbose
+    - name: Check samples
+      run: |
+        cargo run --release --example testcases --features serde-error -- ./samples  > ./samples/README.md
+        git --no-pager diff
+        git diff --exit-code
+      
 
   capi:
     runs-on: ubuntu-latest
