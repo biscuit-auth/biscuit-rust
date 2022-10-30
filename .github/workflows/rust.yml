@@ -34,7 +34,6 @@ jobs:
       run: |
         cd biscuit-auth
         cargo run --release --example testcases --features serde-error -- ./samples  > ./samples/README.md
-        git --no-pager diff
         git diff --exit-code
       
 
