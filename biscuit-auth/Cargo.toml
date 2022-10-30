@@ -17,7 +17,7 @@ regex-full = [ "regex/perf", "regex/unicode"]
 capi = ["inline-c"]
 wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 # used by biscuit-wasm to serialize errors to JSON
-serde-error = ["serde"]
+serde-error = ["serde", "biscuit-parser/serde-error"]
 # used by biscuit-quote to parse datalog at compile-time
 datalog-macro = ["biscuit-quote"]
 
