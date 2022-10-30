@@ -32,6 +32,7 @@ jobs:
       run: cargo test --features serde-error --verbose
     - name: Check samples
       run: |
+        cd biscuit-auth
         cargo run --release --example testcases --features serde-error -- ./samples  > ./samples/README.md
         git --no-pager diff
         git diff --exit-code
