@@ -1714,7 +1714,10 @@ fn third_party<T: Rng + CryptoRng>(
             ),
         )
         .unwrap();
-    let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
+    let keypair2 = KeyPair::new_with_rng(rng);
+    let biscuit2 = biscuit1
+        .append_third_party_with_keypair(external.public(), res, keypair2)
+        .unwrap();
 
     token = print_blocks(&biscuit2);
 
