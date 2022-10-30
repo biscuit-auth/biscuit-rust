@@ -56,8 +56,11 @@ fn authorizer_macro() {
         b.dump_code(),
         r#"fact("test", hex:aabbcc, [ true], "my_value");
 appended(true);
+
 rule($0, true) <- fact($0, $1, $2, "my_value");
+
 check if "my_value".starts_with("my");
+
 allow if false;
 allow if true;
 "#,
@@ -70,6 +73,7 @@ fn authorizer_macro_trailing_comma() {
     assert_eq!(
         b.dump_code(),
         r#"fact("test", "my_value");
+
 "#,
     );
 }

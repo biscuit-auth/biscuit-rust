@@ -405,6 +405,14 @@ impl Biscuit {
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
+        self.append_third_party_with_keypair(external_key, response, next_keypair)
+    }
+    pub fn append_third_party_with_keypair(
+        &self,
+        external_key: PublicKey,
+        response: ThirdPartyBlock,
+        next_keypair: KeyPair,
+    ) -> Result<Self, error::Token> {
         let ThirdPartyBlockContents {
             payload,
             external_signature,
