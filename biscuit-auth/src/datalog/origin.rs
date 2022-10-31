@@ -74,6 +74,7 @@ impl TrustedOrigins {
         if rule_scopes.is_empty() {
             let mut origins = default_origins.clone();
             origins.0.insert(current_block);
+            origins.0.insert(usize::MAX);
             return origins;
         }
 
