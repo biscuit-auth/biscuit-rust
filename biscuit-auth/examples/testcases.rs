@@ -106,6 +106,8 @@ fn main() {
 
     results.push(third_party(&mut rng, &target, &root, test));
 
+    results.push(check_all(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1737,6 +1739,74 @@ fn third_party<T: Rng + CryptoRng>(
     validations.insert(
         "".to_string(),
         validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn check_all<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "block rules".to_string();
+    let filename = "test25_check_all.bc".to_string();
+    let token;
+
+    let biscuit1 = biscuit!(
+        r#"
+        allowed_operations(["A", "B"]);
+        check all operation($op), allowed_operations($allowed), $allowed.contains($op);
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit1);
+
+    let data = if test {
+        let v = load_testcase(target, "test25_check_all");
+        let expected = Biscuit::from(&v[..], root.public()).unwrap();
+        print_diff(&biscuit1.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit1.to_vec().unwrap();
+        write_testcase(target, "test25_check_all", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "A, B".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            r#"
+                operation("A");
+                operation("B");
+                allow if true
+            "#,
+        ),
+    );
+
+    validations.insert(
+        "A, inalid".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            r#"
+                operation("A");
+                operation("invalid");
+                allow if true
+            "#,
+        ),
     );
 
     TestResult {
