@@ -69,6 +69,12 @@ pub fn proto_block_to_token_block(
         rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
     }
 
+    if version == MIN_SCHEMA_VERSION && input.checks_v2.iter().any(|c| c.kind.is_some()) {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: v3 blocks must not contain a check kind".to_string(),
+        ));
+    }
+
     for check in input.checks_v2.iter() {
         checks.push(v2::proto_check_to_token_check(check, version)?);
     }

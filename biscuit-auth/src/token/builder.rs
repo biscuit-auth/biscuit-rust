@@ -209,13 +209,15 @@ impl BlockBuilder {
                 .iter()
                 .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
+        let has_check_all = self.checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+
         Block {
             symbols: new_syms,
             facts,
             rules,
             checks,
             context: self.context,
-            version: if needs_scopes {
+            version: if needs_scopes || has_check_all {
                 super::MAX_SCHEMA_VERSION
             } else {
                 super::MIN_SCHEMA_VERSION
