@@ -405,6 +405,14 @@ impl Biscuit {
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
+        self.append_third_party_with_keypair(external_key, response, next_keypair)
+    }
+    pub fn append_third_party_with_keypair(
+        &self,
+        external_key: PublicKey,
+        response: ThirdPartyBlock,
+        next_keypair: KeyPair,
+    ) -> Result<Self, error::Token> {
         let ThirdPartyBlockContents {
             payload,
             external_signature,
@@ -664,6 +672,7 @@ mod tests {
     use super::builder::{check, fact, pred, rule, string, var};
     use super::builder_ext::BuilderExt;
     use super::*;
+    use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
     use crate::error::*;
     use rand::prelude::*;
@@ -1152,7 +1161,10 @@ mod tests {
         let mut builder = Biscuit::builder();
 
         builder
-            .add_check(check(&[pred("resource", &[string("hello")])]))
+            .add_check(check(
+                &[pred("resource", &[string("hello")])],
+                CheckKind::One,
+            ))
             .unwrap();
 
         let biscuit1 = builder
@@ -1361,5 +1373,68 @@ mod tests {
         println!("authorizer:\n{}", authorizer.print_world());
 
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn check_all() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(&mut rng);
+
+        let mut builder = Biscuit::builder();
+
+        builder.add_check("check if fact($v), $v < 1").unwrap();
+
+        let biscuit1 = builder
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
+            .unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1.print());
+
+        let mut builder = Biscuit::builder();
+
+        builder.add_check("check all fact($v), $v < 1").unwrap();
+
+        let biscuit2 = builder
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
+            .unwrap();
+
+        println!("biscuit2 (authority): {}", biscuit2.print());
+
+        {
+            let mut authorizer = biscuit1.authorizer().unwrap();
+            authorizer.add_fact("fact(0)").unwrap();
+            authorizer.add_fact("fact(1)").unwrap();
+
+            //println!("final token: {:#?}", final_token);
+            authorizer.allow().unwrap();
+
+            let res = authorizer.authorize();
+            println!("res1: {:?}", res);
+            res.unwrap();
+        }
+
+        {
+            let mut authorizer = biscuit2.authorizer().unwrap();
+            authorizer.add_fact("fact(0)").unwrap();
+            authorizer.add_fact("fact(1)").unwrap();
+
+            //println!("final token: {:#?}", final_token);
+            authorizer.allow().unwrap();
+
+            let res = authorizer.authorize();
+            println!("res2: {:?}", res);
+
+            assert_eq!(
+                res,
+                Err(Token::FailedLogic(Logic::Unauthorized {
+                    policy: MatchedPolicy::Allow(0),
+                    checks: vec![FailedCheck::Block(FailedBlockCheck {
+                        block_id: 0,
+                        check_id: 0,
+                        rule: String::from("check all fact($v), $v < 1"),
+                    }),]
+                }))
+            );
+        }
     }
 }

@@ -12,6 +12,7 @@ use crate::{
 use super::public_keys::PublicKeys;
 
 /// Third party block request
+#[derive(Debug)]
 pub struct ThirdPartyRequest {
     pub(crate) previous_key: PublicKey,
     pub(crate) public_keys: PublicKeys,
@@ -155,6 +156,7 @@ impl ThirdPartyRequest {
 ///
 /// this must be integrated with the token that created the [`ThirdPartyRequest`]
 /// using [`Biscuit::append_third_party`](crate::Biscuit::append_third_party)
+#[derive(Debug)]
 pub struct ThirdPartyBlock(pub(crate) schema::ThirdPartyBlockContents);
 
 impl ThirdPartyBlock {

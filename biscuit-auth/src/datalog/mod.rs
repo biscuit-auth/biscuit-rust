@@ -1,5 +1,5 @@
 //! Logic language implementation for checks
-use crate::builder::Convert;
+use crate::builder::{CheckKind, Convert};
 use crate::time::Instant;
 use crate::token::Scope;
 use crate::{builder, error};
@@ -97,6 +97,7 @@ impl AsRef<Expression> for Expression {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
+    pub kind: CheckKind,
 }
 
 impl fmt::Display for Fact {
@@ -131,7 +132,20 @@ impl Rule {
         let head = self.head.clone();
         let variables = MatchedVariables::new(self.variables_set());
 
-        CombineIt::new(variables, &self.body, &self.expressions, facts, symbols).filter_map(move |(mut origin,h)| {
+        CombineIt::new(variables, &self.body, facts, symbols)
+        .filter(move |(_, variables)| {
+                    let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+                    for e in self.expressions.iter() {
+                        match e.evaluate(&variables, &mut temporary_symbols) {
+                            Some(Term::Bool(true)) => {}
+                            _res => {
+                                //println!("expr returned {:?}", res);
+                                return false;
+                            }
+                        }
+                    }
+            true
+        }).filter_map(move |(mut origin,h)| {
             let mut p = head.clone();
             for index in 0..p.terms.len() {
                 match &p.terms[index] {
@@ -163,6 +177,34 @@ impl Rule {
 
         let next = it.next();
         next.is_some()
+    }
+
+    pub fn check_match_all(
+        &self,
+        facts: &FactSet,
+        scope: &TrustedOrigins,
+        symbols: &SymbolTable,
+    ) -> bool {
+        let fact_it = facts.iterator(scope);
+        let variables = MatchedVariables::new(self.variables_set());
+        let mut found = false;
+
+        for (_, variables) in CombineIt::new(variables, &self.body, fact_it, symbols) {
+            found = true;
+
+            let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+            for e in self.expressions.iter() {
+                match e.evaluate(&variables, &mut temporary_symbols) {
+                    Some(Term::Bool(true)) => {}
+                    _res => {
+                        //println!("expr returned {:?}", res);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        found
     }
 
     // use this to translate rules and checks from token to authorizer world without translating
@@ -245,7 +287,6 @@ impl Rule {
 pub struct CombineIt<'a, IT> {
     variables: MatchedVariables,
     predicates: &'a [Predicate],
-    expressions: &'a [Expression],
     all_facts: IT,
     symbols: &'a SymbolTable,
     current_facts: Box<dyn Iterator<Item = (&'a Origin, &'a Fact)> + 'a>,
@@ -259,7 +300,6 @@ where
     pub fn new(
         variables: MatchedVariables,
         predicates: &'a [Predicate],
-        expressions: &'a [Expression],
         facts: IT,
         symbols: &'a SymbolTable,
     ) -> Self {
@@ -278,7 +318,6 @@ where
         CombineIt {
             variables,
             predicates,
-            expressions,
             all_facts: facts,
             symbols,
             current_facts,
@@ -301,30 +340,12 @@ where
                 None => return None,
                 // we got a complete set of variables, let's test the expressions
                 Some(variables) => {
-                    //println!("predicates empty, will test variables: {:?}", variables);
-                    let mut valid = true;
-                    let mut temporary_symbols = TemporarySymbolTable::new(self.symbols);
-                    for e in self.expressions.iter() {
-                        match e.evaluate(&variables, &mut temporary_symbols) {
-                            Some(Term::Bool(true)) => {}
-                            _res => {
-                                //println!("expr returned {:?}", res);
-                                valid = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if valid {
-                        // if there were no predicates and expressions evaluated to true,
-                        // we should return a value, but only once. To prevent further
-                        // successful calls, we create a set of variables that cannot
-                        // possibly be completed, so the next call will fail
-                        self.variables = MatchedVariables::new([0].into());
-                        return Some((Origin::default(), variables));
-                    } else {
-                        return None;
-                    }
+                    // if there were no predicates and expressions evaluated to true,
+                    // we should return a value, but only once. To prevent further
+                    // successful calls, we create a set of variables that cannot
+                    // possibly be completed, so the next call will fail
+                    self.variables = MatchedVariables::new([0].into());
+                    return Some((Origin::default(), variables));
                 }
             }
         }
@@ -364,28 +385,7 @@ where
                                 }
                                 // we got a complete set of variables, let's test the expressions
                                 Some(variables) => {
-                                    //println!("will test with variables: {:?}", variables);
-                                    let mut valid = true;
-                                    let mut temporary_symbols =
-                                        TemporarySymbolTable::new(self.symbols);
-                                    for e in self.expressions.iter() {
-                                        match e.evaluate(&variables, &mut temporary_symbols) {
-                                            Some(Term::Bool(true)) => {
-                                                //println!("expression returned true");
-                                            }
-                                            _e => {
-                                                //println!("expression returned {:?}", e);
-                                                valid = false;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if valid {
-                                        return Some((current_origin.clone(), variables));
-                                    } else {
-                                        continue;
-                                    }
+                                    return Some((current_origin.clone(), variables));
                                 }
                             }
                         } else {
@@ -395,7 +395,6 @@ where
                                 CombineIt::new(
                                     vars,
                                     &self.predicates[1..],
-                                    self.expressions,
                                     self.all_facts.clone(),
                                     self.symbols,
                                 )
@@ -657,6 +656,15 @@ impl World {
         symbols: &SymbolTable,
     ) -> bool {
         rule.find_match(&self.facts, origin, scope, symbols)
+    }
+
+    pub fn query_match_all(
+        &self,
+        rule: Rule,
+        scope: &TrustedOrigins,
+        symbols: &SymbolTable,
+    ) -> bool {
+        rule.check_match_all(&self.facts, scope, symbols)
     }
 }
 
