@@ -271,7 +271,14 @@ impl SymbolTable {
             .map(|r| self.print_rule_body(r))
             .collect::<Vec<_>>();
 
-        format!("check if {}", queries.join(" or "))
+        format!(
+            "check {} {}",
+            match c.kind {
+                crate::builder::CheckKind::One => "if",
+                crate::builder::CheckKind::All => "all",
+            },
+            queries.join(" or ")
+        )
     }
 }
 

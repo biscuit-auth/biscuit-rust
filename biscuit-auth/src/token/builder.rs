@@ -209,13 +209,15 @@ impl BlockBuilder {
                 .iter()
                 .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
+        let has_check_all = self.checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+
         Block {
             symbols: new_syms,
             facts,
             rules,
             checks,
             context: self.context,
-            version: if needs_scopes {
+            version: if needs_scopes || has_check_all {
                 super::MAX_SCHEMA_VERSION
             } else {
                 super::MIN_SCHEMA_VERSION
@@ -1394,6 +1396,14 @@ impl From<biscuit_parser::builder::Rule> for Rule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
+    pub kind: CheckKind,
+}
+
+/// Builder for a Biscuit check
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckKind {
+    One,
+    All,
 }
 
 impl Check {
@@ -1497,7 +1507,10 @@ impl Convert<datalog::Check> for Check {
             queries.push(q.convert(symbols));
         }
 
-        datalog::Check { queries }
+        datalog::Check {
+            queries,
+            kind: self.kind.clone(),
+        }
     }
 
     fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Result<Self, error::Format> {
@@ -1506,7 +1519,10 @@ impl Convert<datalog::Check> for Check {
             queries.push(Rule::convert_from(q, symbols)?);
         }
 
-        Ok(Check { queries })
+        Ok(Check {
+            queries,
+            kind: r.kind.clone(),
+        })
     }
 }
 
@@ -1516,6 +1532,7 @@ impl TryFrom<Rule> for Check {
     fn try_from(value: Rule) -> Result<Self, Self::Error> {
         Ok(Check {
             queries: vec![value],
+            kind: CheckKind::One,
         })
     }
 }
@@ -1526,13 +1543,17 @@ impl TryFrom<&[Rule]> for Check {
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
         Ok(Check {
             queries: values.to_vec(),
+            kind: CheckKind::One,
         })
     }
 }
 
 impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "check if ")?;
+        match self.kind {
+            CheckKind::One => write!(f, "check if ")?,
+            CheckKind::All => write!(f, "check all ")?,
+        };
 
         if !self.queries.is_empty() {
             let mut q0 = self.queries[0].clone();
@@ -1557,6 +1578,10 @@ impl From<biscuit_parser::builder::Check> for Check {
     fn from(c: biscuit_parser::builder::Check) -> Self {
         Check {
             queries: c.queries.into_iter().map(|q| q.into()).collect(),
+            kind: match c.kind {
+                biscuit_parser::builder::CheckKind::One => CheckKind::One,
+                biscuit_parser::builder::CheckKind::All => CheckKind::All,
+            },
         }
     }
 }
@@ -1745,7 +1770,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
 }
 
 /// creates a check
-pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
+pub fn check<P: AsRef<Predicate>>(predicates: &[P], kind: CheckKind) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
         queries: vec![Rule::new(
@@ -1754,6 +1779,7 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
             vec![],
             vec![],
         )],
+        kind,
     }
 }
 
@@ -2147,6 +2173,7 @@ impl BuilderExt for BlockBuilder {
                 &[string("resource_check")],
                 &[pred("resource", &[string(name)])],
             )],
+            kind: CheckKind::One,
         });
     }
     fn add_operation(&mut self, name: &str) {
@@ -2159,6 +2186,7 @@ impl BuilderExt for BlockBuilder {
                 &[string("operation_check")],
                 &[pred("operation", &[string(name)])],
             )],
+            kind: CheckKind::One,
         });
     }
     fn check_resource_prefix(&mut self, prefix: &str) {
@@ -2177,6 +2205,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 
@@ -2196,6 +2225,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 
@@ -2215,6 +2245,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 }

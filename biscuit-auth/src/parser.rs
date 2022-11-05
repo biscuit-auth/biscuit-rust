@@ -18,7 +18,11 @@ pub use biscuit_parser::parser::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{builder::Convert, datalog, token::builder};
+    use crate::{
+        builder::{CheckKind, Convert},
+        datalog,
+        token::builder,
+    };
     use biscuit_parser::parser::*;
     use nom::error::ErrorKind;
 
@@ -186,7 +190,8 @@ mod tests {
                             empty,
                             &[builder::pred("admin", &[builder::string("authority")]),]
                         ),
-                    ]
+                    ],
+                    kind: CheckKind::One,
                 }
             ))
         );
@@ -470,6 +475,7 @@ mod tests {
                         ],
                     }],
                 )],
+                kind: CheckKind::One,
             },
             Check {
                 queries: vec![
@@ -487,6 +493,7 @@ mod tests {
                         }],
                     ),
                 ],
+                kind: CheckKind::One,
             },
             Check {
                 queries: vec![constrained_rule(
@@ -505,6 +512,7 @@ mod tests {
                         ],
                     }],
                 )],
+                kind: CheckKind::One,
             },
         ];
 
@@ -625,6 +633,7 @@ mod tests {
                         ],
                     }],
                 )],
+                kind: CheckKind::One,
             },
             Check {
                 queries: vec![
@@ -642,6 +651,7 @@ mod tests {
                         }],
                     ),
                 ],
+                kind: CheckKind::One,
             },
             Check {
                 queries: vec![constrained_rule(
@@ -660,6 +670,7 @@ mod tests {
                         ],
                     }],
                 )],
+                kind: CheckKind::One,
             },
         ];
 

@@ -378,16 +378,39 @@ impl ToTokens for Rule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
+    pub kind: CheckKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckKind {
+    One,
+    All,
 }
 
 #[cfg(feature = "datalog-macro")]
 impl ToTokens for Check {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let queries = self.queries.iter();
+        let kind = &self.kind;
         tokens.extend(quote! {
           ::biscuit_auth::builder::Check {
             queries: <[::biscuit_auth::builder::Rule]>::into_vec(Box::new([#(#queries),*])),
+            kind: #kind,
           }
+        });
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToTokens for CheckKind {
+    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
+        tokens.extend(match self {
+            CheckKind::One => quote! {
+              ::biscuit_auth::builder::CheckKind::One
+            },
+            CheckKind::All => quote! {
+              ::biscuit_auth::builder::CheckKind::All
+            },
         });
     }
 }
@@ -477,7 +500,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
 }
 
 /// creates a check
-pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
+pub fn check<P: AsRef<Predicate>>(predicates: &[P], kind: CheckKind) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
         queries: vec![Rule::new(
@@ -486,6 +509,7 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
             vec![],
             vec![],
         )],
+        kind,
     }
 }
 

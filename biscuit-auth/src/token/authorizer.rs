@@ -5,7 +5,7 @@ use super::builder::{
 };
 use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
-use crate::builder::Convert;
+use crate::builder::{CheckKind, Convert};
 use crate::crypto::PublicKey;
 use crate::datalog::{self, Origin, RunLimits, TrustedOrigins};
 use crate::error;
@@ -728,9 +728,18 @@ impl<'t> Authorizer<'t> {
                     usize::MAX,
                     &self.public_key_to_block_id,
                 );
-                let res =
-                    self.world
-                        .query_match(query, usize::MAX, &rule_trusted_origins, &self.symbols);
+                let res = match check.kind {
+                    CheckKind::One => self.world.query_match(
+                        query,
+                        usize::MAX,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                    ),
+                    CheckKind::All => {
+                        self.world
+                            .query_match_all(query, &rule_trusted_origins, &self.symbols)
+                    }
+                };
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -774,12 +783,19 @@ impl<'t> Authorizer<'t> {
                         0,
                         &self.public_key_to_block_id,
                     );
-                    let res = self.world.query_match(
-                        query.clone(),
-                        0,
-                        &rule_trusted_origins,
-                        &self.symbols,
-                    );
+                    let res = match check.kind {
+                        CheckKind::One => self.world.query_match(
+                            query.clone(),
+                            0,
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        ),
+                        CheckKind::All => self.world.query_match_all(
+                            query.clone(),
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        ),
+                    };
 
                     let now = Instant::now();
                     if now >= time_limit {
@@ -864,12 +880,19 @@ impl<'t> Authorizer<'t> {
                             &self.public_key_to_block_id,
                         );
 
-                        let res = self.world.query_match(
-                            query.clone(),
-                            i + 1,
-                            &rule_trusted_origins,
-                            &self.symbols,
-                        );
+                        let res = match check.kind {
+                            CheckKind::One => self.world.query_match(
+                                query.clone(),
+                                i + 1,
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            ),
+                            CheckKind::All => self.world.query_match_all(
+                                query.clone(),
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            ),
+                        };
 
                         let now = Instant::now();
                         if now >= time_limit {
@@ -1089,6 +1112,7 @@ impl BuilderExt for Authorizer<'_> {
                 &[string("resource_check")],
                 &[pred("resource", &[string(name)])],
             )],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1103,6 +1127,7 @@ impl BuilderExt for Authorizer<'_> {
                 &[string("operation_check")],
                 &[pred("operation", &[string(name)])],
             )],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1122,6 +1147,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1142,6 +1168,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
@@ -1162,6 +1189,7 @@ impl BuilderExt for Authorizer<'_> {
 
         self.add_check(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         })
         .unwrap();
     }
