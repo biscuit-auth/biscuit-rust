@@ -1437,7 +1437,10 @@ mod tests {
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
 
-        let res = authorizer.authorize();
+        let res = authorizer.authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_millis(5), //Set 5 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+            ..Default::default()
+        });
         println!("world after:\n{}", authorizer.print_world());
 
         res.unwrap();
