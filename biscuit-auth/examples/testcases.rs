@@ -127,7 +127,7 @@ fn main() {
 
         for result in results {
             println!("\n------------------------------\n");
-            println!("{}", result);
+            println!("{}", result.print());
         }
     }
 }
