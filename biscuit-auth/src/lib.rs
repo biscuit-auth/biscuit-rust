@@ -47,7 +47,7 @@
 //!     "#)
 //!       .build(&root)?; // the first block is signed
 //!
-//!     println!("biscuit (authority): {}", biscuit.print());
+//!     println!("biscuit (authority): {}", biscuit);
 //!
 //!     biscuit.to_vec()?
 //!   };
@@ -70,7 +70,7 @@
 //!       check if resource("/a/file1.txt"), operation("read");
 //!     "#))?;
 //!
-//!     println!("biscuit (authority): {}", biscuit.print());
+//!     println!("biscuit (authority): {}", biscuit);
 //!
 //!     biscuit.to_vec()?
 //!   };

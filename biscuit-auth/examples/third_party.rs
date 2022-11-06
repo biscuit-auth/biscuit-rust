@@ -20,7 +20,7 @@ fn main() {
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    println!("biscuit1: {}", biscuit1.print());
+    println!("biscuit1: {}", biscuit1);
 
     let serialized_req = biscuit1.third_party_request().unwrap().serialize().unwrap();
 
@@ -31,7 +31,7 @@ fn main() {
 
     let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
 
-    println!("biscuit2: {}", biscuit2.print());
+    println!("biscuit2: {}", biscuit2);
 
     let mut authorizer = biscuit1.authorizer().unwrap();
     authorizer.allow().unwrap();

@@ -1434,7 +1434,7 @@ mod tests {
 
         authorizer.add_token(&biscuit2).unwrap();
 
-        println!("token:\n{}", biscuit2.print());
+        println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
 
         let res = authorizer.authorize();
