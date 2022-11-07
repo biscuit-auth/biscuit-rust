@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
-use crate::datalog::{self, SymbolTable, get_schema_version};
+use crate::datalog::{self, get_schema_version, SymbolTable};
 use crate::error;
 use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
@@ -33,16 +33,11 @@ impl BlockBuilder {
         BlockBuilder::default()
     }
 
-    pub fn append(&mut self, other: BlockBuilder) {
-        for fact in other.facts {
-            self.facts.push(fact);
-        }
-        for rule in other.rules {
-            self.rules.push(rule);
-        }
-        for check in other.checks {
-            self.checks.push(check);
-        }
+    pub fn merge(&mut self, mut other: BlockBuilder) {
+        self.facts.append(&mut other.facts);
+        self.rules.append(&mut other.rules);
+        self.checks.append(&mut other.checks);
+
         if let Some(c) = other.context {
             self.set_context(c);
         }
@@ -278,8 +273,8 @@ impl BiscuitBuilder {
         }
     }
 
-    pub fn append(&mut self, other: BlockBuilder) {
-        self.inner.append(other)
+    pub fn merge(&mut self, other: BlockBuilder) {
+        self.inner.merge(other)
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
@@ -1395,6 +1390,14 @@ impl From<biscuit_parser::builder::Rule> for Rule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
     pub queries: Vec<Rule>,
+    pub kind: CheckKind,
+}
+
+/// Builder for a Biscuit check
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckKind {
+    One,
+    All,
 }
 
 impl Check {
@@ -1498,7 +1501,10 @@ impl Convert<datalog::Check> for Check {
             queries.push(q.convert(symbols));
         }
 
-        datalog::Check { queries }
+        datalog::Check {
+            queries,
+            kind: self.kind.clone(),
+        }
     }
 
     fn convert_from(r: &datalog::Check, symbols: &SymbolTable) -> Result<Self, error::Format> {
@@ -1507,7 +1513,10 @@ impl Convert<datalog::Check> for Check {
             queries.push(Rule::convert_from(q, symbols)?);
         }
 
-        Ok(Check { queries })
+        Ok(Check {
+            queries,
+            kind: r.kind.clone(),
+        })
     }
 }
 
@@ -1517,6 +1526,7 @@ impl TryFrom<Rule> for Check {
     fn try_from(value: Rule) -> Result<Self, Self::Error> {
         Ok(Check {
             queries: vec![value],
+            kind: CheckKind::One,
         })
     }
 }
@@ -1527,13 +1537,17 @@ impl TryFrom<&[Rule]> for Check {
     fn try_from(values: &[Rule]) -> Result<Self, Self::Error> {
         Ok(Check {
             queries: values.to_vec(),
+            kind: CheckKind::One,
         })
     }
 }
 
 impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "check if ")?;
+        match self.kind {
+            CheckKind::One => write!(f, "check if ")?,
+            CheckKind::All => write!(f, "check all ")?,
+        };
 
         if !self.queries.is_empty() {
             let mut q0 = self.queries[0].clone();
@@ -1558,6 +1572,10 @@ impl From<biscuit_parser::builder::Check> for Check {
     fn from(c: biscuit_parser::builder::Check) -> Self {
         Check {
             queries: c.queries.into_iter().map(|q| q.into()).collect(),
+            kind: match c.kind {
+                biscuit_parser::builder::CheckKind::One => CheckKind::One,
+                biscuit_parser::builder::CheckKind::All => CheckKind::All,
+            },
         }
     }
 }
@@ -1746,7 +1764,7 @@ pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression
 }
 
 /// creates a check
-pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
+pub fn check<P: AsRef<Predicate>>(predicates: &[P], kind: CheckKind) -> Check {
     let empty_terms: &[Term] = &[];
     Check {
         queries: vec![Rule::new(
@@ -1755,6 +1773,7 @@ pub fn check<P: AsRef<Predicate>>(predicates: &[P]) -> Check {
             vec![],
             vec![],
         )],
+        kind,
     }
 }
 
@@ -1944,6 +1963,13 @@ impl From<&[u8]> for Term {
 impl ToAnyParam for [u8] {
     fn to_any_param(&self) -> AnyParam {
         AnyParam::Term(self.into())
+    }
+}
+
+#[cfg(feature = "uuid")]
+impl ToAnyParam for uuid::Uuid {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(Term::Bytes(self.as_bytes().to_vec()))
     }
 }
 
@@ -2141,6 +2167,7 @@ impl BuilderExt for BlockBuilder {
                 &[string("resource_check")],
                 &[pred("resource", &[string(name)])],
             )],
+            kind: CheckKind::One,
         });
     }
     fn add_operation(&mut self, name: &str) {
@@ -2153,6 +2180,7 @@ impl BuilderExt for BlockBuilder {
                 &[string("operation_check")],
                 &[pred("operation", &[string(name)])],
             )],
+            kind: CheckKind::One,
         });
     }
     fn check_resource_prefix(&mut self, prefix: &str) {
@@ -2171,6 +2199,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 
@@ -2190,6 +2219,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 
@@ -2209,6 +2239,7 @@ impl BuilderExt for BlockBuilder {
 
         self.checks.push(Check {
             queries: vec![check],
+            kind: CheckKind::One,
         });
     }
 }

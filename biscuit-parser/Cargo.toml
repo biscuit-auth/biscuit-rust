@@ -1,6 +1,6 @@
 [package]
 name = "biscuit-parser"
-version = "0.1.0-alpha2"
+version = "0.1.0-alpha3"
 edition = "2021"
 authors = ["Clément Delafargue <clement@delafargue.name>", "Geoffroy Couprie <contact@geoffroycouprie.com>"]
 description = "Datalog parser used in the biscuit-auth and biscuit-quote crates"
@@ -13,6 +13,7 @@ repository = "https://github.com/biscuit-auth/biscuit-rust"
 [dependencies]
 hex = "0.4.3"
 nom = "7.1.1"
+proc-macro2 = "1"
 quote = "1.0.21"
 serde = { version = "1.0.132", optional = true, features = ["derive"] }
 thiserror = "1.0.32"

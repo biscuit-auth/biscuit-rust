@@ -70,6 +70,12 @@ pub fn proto_block_to_token_block(
         rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
     }
 
+    if version == MIN_SCHEMA_VERSION && input.checks_v2.iter().any(|c| c.kind.is_some()) {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: v3 blocks must not contain a check kind".to_string(),
+        ));
+    }
+
     for check in input.checks_v2.iter() {
         checks.push(v2::proto_check_to_token_check(check, version)?);
     }
@@ -216,8 +222,14 @@ pub mod v2 {
     }
 
     pub fn token_check_to_proto_check(input: &Check) -> schema::CheckV2 {
+        use schema::check_v2::Kind;
+
         schema::CheckV2 {
             queries: input.queries.iter().map(token_rule_to_proto_rule).collect(),
+            kind: match input.kind {
+                crate::token::builder::CheckKind::One => None,
+                crate::token::builder::CheckKind::All => Some(Kind::All as i32),
+            },
         }
     }
 
@@ -231,7 +243,17 @@ pub mod v2 {
             queries.push(proto_rule_to_token_rule(q, version)?.0);
         }
 
-        Ok(Check { queries })
+        let kind = match input.kind {
+            None | Some(0) => crate::token::builder::CheckKind::One,
+            Some(1) => crate::token::builder::CheckKind::All,
+            _ => {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: invalid check kind".to_string(),
+                ))
+            }
+        };
+
+        Ok(Check { queries, kind })
     }
 
     pub fn policy_to_proto_policy(
