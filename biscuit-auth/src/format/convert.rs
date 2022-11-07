@@ -94,20 +94,7 @@ pub fn proto_block_to_token_block(
 
     let detected_schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
 
-    match (version, detected_schema_version) {
-        (MIN_SCHEMA_VERSION, SchemaVersion::ContainsScopes(_version)) => {
-            return Err(error::Format::DeserializationError(
-                "deserialization error: v3 blocks must not have scopes".to_string(),
-            ));
-        },
-        (MIN_SCHEMA_VERSION, SchemaVersion::ContainsBitwise(_version)) => {
-            return Err(error::Format::DeserializationError(
-                "deserialization error: v3 blocks must not have bitwise operators".to_string(),
-            ));
-        },
-        // No schema version conflicts.
-        _ => (),
-    }
+    detected_schema_version.check_compatibility(version)?;
 
     let scopes: Result<Vec<Scope>, _> =
         input.scope.iter().map(proto_scope_to_token_scope).collect();

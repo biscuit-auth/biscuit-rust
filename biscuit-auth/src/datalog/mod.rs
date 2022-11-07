@@ -1,7 +1,7 @@
 //! Logic language implementation for checks
 use crate::builder::{CheckKind, Convert};
 use crate::time::Instant;
-use crate::token::{Scope, MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
+use crate::token::{Scope, MIN_SCHEMA_VERSION};
 use crate::{builder, error};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
@@ -788,20 +788,34 @@ impl RuleSet {
     }
 }
 
-pub enum SchemaVersion {
-    ContainsScopes(u32),
-    ContainsBitwise(u32),
-    ContainsCheckAll(u32),
-    MinVersion(u32),
+pub struct SchemaVersion {
+    contains_scopes: bool,
+    contains_bitwise: bool,
+    contains_check_all: bool,
 }
 
 impl SchemaVersion {
-    pub fn version(self) -> u32 {
-        match self {
-            SchemaVersion::ContainsScopes(version) => version,
-            SchemaVersion::ContainsBitwise(version) => version,
-            SchemaVersion::ContainsCheckAll(version) => version,
-            SchemaVersion::MinVersion(version) => version,
+    pub fn version(&self) -> u32 {
+        if self.contains_scopes || self.contains_bitwise || self.contains_check_all {
+            4
+        } else {
+            MIN_SCHEMA_VERSION
+        }
+    }
+
+    pub fn check_compatibility(&self, version: u32) -> Result<(), error::Format> {
+        if version < 4 {
+            if self.contains_scopes {
+                Err(error::Format::DeserializationError("v3 blocks must not have scopes".to_string()))
+            } else if self.contains_bitwise {
+                Err(error::Format::DeserializationError("v3 blocks must not have bitwise operators".to_string()))
+            } else if self.contains_check_all {
+                Err(error::Format::DeserializationError("v3 blocks must not have use all".to_string()))
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
     }
 }
@@ -813,15 +827,15 @@ pub fn get_schema_version(
     checks: &[Check],
     scopes: &[Scope],
 ) -> SchemaVersion {
-    let needs_scopes = !scopes.is_empty()
+    let contains_scopes = !scopes.is_empty()
         || rules.iter().any(|r: &Rule| !r.scopes.is_empty())
         || checks
             .iter()
             .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
-    let needs_check_all = checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+    let contains_check_all = checks.iter().any(|c: &Check| c.kind == CheckKind::All);
 
-    let needs_bitwise = rules
+    let contains_bitwise = rules
         .iter()
         .any(|rule| contains_bitwise_op(&rule.expressions))
         || checks.iter().any(|check| {
@@ -831,15 +845,11 @@ pub fn get_schema_version(
                 .any(|query| contains_bitwise_op(&query.expressions))
         });
 
-    if needs_scopes {
-        return SchemaVersion::ContainsScopes(MAX_SCHEMA_VERSION);
-    } else if needs_bitwise {
-        return SchemaVersion::ContainsBitwise(MAX_SCHEMA_VERSION);
-    } else if needs_check_all {
-        return SchemaVersion::ContainsCheckAll(MAX_SCHEMA_VERSION);
-    };
-
-    SchemaVersion::MinVersion(MIN_SCHEMA_VERSION)
+    SchemaVersion {
+        contains_scopes,
+        contains_bitwise,
+        contains_check_all,
+    }
 }
 
 /// Determine whether any of the expression contain a bitwise operator.
