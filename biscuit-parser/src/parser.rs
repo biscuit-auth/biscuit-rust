@@ -466,7 +466,13 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
 
 fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
+    alt((
+        value(Binary::Add, tag("+")),
+        value(Binary::Sub, tag("-")),
+        value(Binary::BitwiseAnd, tag("&")),
+        value(Binary::BitwiseOr, tag("|")),
+        value(Binary::BitwiseXor, tag("^")),
+    ))(i)
 }
 
 fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {

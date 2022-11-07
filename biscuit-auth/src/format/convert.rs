@@ -61,6 +61,7 @@ pub fn proto_block_to_token_block(
     let mut facts = vec![];
     let mut rules = vec![];
     let mut checks = vec![];
+    let mut scopes = vec![];
     for fact in input.facts_v2.iter() {
         facts.push(v2::proto_fact_to_token_fact(fact)?);
     }
@@ -78,6 +79,9 @@ pub fn proto_block_to_token_block(
     for check in input.checks_v2.iter() {
         checks.push(v2::proto_check_to_token_check(check, version)?);
     }
+    for scope in input.scope.iter() {
+        scopes.push(v2::proto_scope_to_token_scope(scope)?);
+    }
 
     let context = input.context.clone();
 
@@ -88,10 +92,21 @@ pub fn proto_block_to_token_block(
         public_keys.insert_fallible(&PublicKey::from_proto(pk)?)?;
     }
 
-    if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
-        return Err(error::Format::DeserializationError(
-            "deserialization error: v3 blocks must not have scopes".to_string(),
-        ));
+    let detected_schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
+
+    match (version, detected_schema_version) {
+        (MIN_SCHEMA_VERSION, SchemaVersion::ContainsScopes(_version)) => {
+            return Err(error::Format::DeserializationError(
+                "deserialization error: v3 blocks must not have scopes".to_string(),
+            ));
+        },
+        (MIN_SCHEMA_VERSION, SchemaVersion::ContainsBitwise(_version)) => {
+            return Err(error::Format::DeserializationError(
+                "deserialization error: v3 blocks must not have bitwise operators".to_string(),
+            ));
+        },
+        // No schema version conflicts.
+        _ => (),
     }
 
     let scopes: Result<Vec<Scope>, _> =
@@ -500,6 +515,9 @@ pub mod v2 {
                                     Binary::Or => Kind::Or,
                                     Binary::Intersection => Kind::Intersection,
                                     Binary::Union => Kind::Union,
+                                    Binary::BitwiseAnd => Kind::BitwiseAnd,
+                                    Binary::BitwiseOr => Kind::BitwiseOr,
+                                    Binary::BitwiseXor => Kind::BitwiseXor,
                                 } as i32,
                             })
                         }
@@ -550,6 +568,9 @@ pub mod v2 {
                     Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
                     Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
                     Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
+                    Some(op_binary::Kind::BitwiseAnd) => Op::Binary(Binary::BitwiseAnd),
+                    Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
+                    Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
                     None => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: binary operation is empty".to_string(),
