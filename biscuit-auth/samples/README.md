@@ -5,7 +5,7 @@ root public key: acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc2018
 
 ------------------------------
 
-## basic token: test1_basic.bc
+## basic token: test001_basic.bc
 ### token
 
 authority:
@@ -63,7 +63,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## different root key: test2_different_root_key.bc
+## different root key: test002_different_root_key.bc
 ### token
 
 authority:
@@ -91,7 +91,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## invalid signature format: test3_invalid_signature_format.bc
+## invalid signature format: test003_invalid_signature_format.bc
 ### token
 
 authority:
@@ -121,7 +121,7 @@ result: `Err(Format(InvalidSignatureSize(16)))`
 
 ------------------------------
 
-## random block: test4_random_block.bc
+## random block: test004_random_block.bc
 ### token
 
 authority:
@@ -151,7 +151,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## invalid signature: test5_invalid_signature.bc
+## invalid signature: test005_invalid_signature.bc
 ### token
 
 authority:
@@ -181,7 +181,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## reordered blocks: test6_reordered_blocks.bc
+## reordered blocks: test006_reordered_blocks.bc
 ### token
 
 authority:
@@ -220,7 +220,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## scoped rules: test7_scoped_rules.bc
+## scoped rules: test007_scoped_rules.bc
 ### token
 
 authority:
@@ -292,7 +292,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## scoped checks: test8_scoped_checks.bc
+## scoped checks: test008_scoped_checks.bc
 ### token
 
 authority:
@@ -359,7 +359,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## expired token: test9_expired_token.bc
+## expired token: test009_expired_token.bc
 ### token
 
 authority:
@@ -416,7 +416,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## authorizer scope: test10_authorizer_scope.bc
+## authorizer scope: test010_authorizer_scope.bc
 ### token
 
 authority:
@@ -477,7 +477,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Authorizer(Fa
 
 ------------------------------
 
-## authorizer authority checks: test11_authorizer_authority_caveats.bc
+## authorizer authority checks: test011_authorizer_authority_caveats.bc
 ### token
 
 authority:
@@ -527,7 +527,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Authorizer(Fa
 
 ------------------------------
 
-## authority checks: test12_authority_caveats.bc
+## authority checks: test012_authority_caveats.bc
 ### token
 
 authority:
@@ -601,7 +601,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## block rules: test13_block_rules.bc
+## block rules: test013_block_rules.bc
 ### token
 
 authority:
@@ -700,7 +700,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## regex_constraint: test14_regex_constraint.bc
+## regex_constraint: test014_regex_constraint.bc
 ### token
 
 authority:
@@ -770,7 +770,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## multi queries checks: test15_multi_queries_caveats.bc
+## multi queries checks: test015_multi_queries_caveats.bc
 ### token
 
 authority:
@@ -815,7 +815,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## check head name should be independent from fact names: test16_caveat_head_name.bc
+## check head name should be independent from fact names: test016_caveat_head_name.bc
 ### token
 
 authority:
@@ -866,7 +866,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## test expression syntax and all available operations: test17_expressions.bc
+## test expression syntax and all available operations: test017_expressions.bc
 ### token
 
 authority:
@@ -935,7 +935,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## invalid block rule with unbound_variables: test18_unbound_variables_in_rule.bc
+## invalid block rule with unbound_variables: test018_unbound_variables_in_rule.bc
 ### token
 
 authority:
@@ -963,7 +963,7 @@ result: `Err(FailedLogic(InvalidBlockRule(0, "operation($unbound, \"read\") <- o
 
 ------------------------------
 
-## invalid block rule generating an #authority or #ambient symbol with a variable: test19_generating_ambient_from_variables.bc
+## invalid block rule generating an #authority or #ambient symbol with a variable: test019_generating_ambient_from_variables.bc
 ### token
 
 authority:
@@ -1019,7 +1019,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## sealed token: test20_sealed.bc
+## sealed token: test020_sealed.bc
 ### token
 
 authority:
@@ -1079,7 +1079,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## parsing: test21_parsing.bc
+## parsing: test021_parsing.bc
 ### token
 
 authority:
@@ -1124,7 +1124,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## default_symbols: test22_default_symbols.bc
+## default_symbols: test022_default_symbols.bc
 ### token
 
 authority:
@@ -1223,7 +1223,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## execution scope: test23_execution_scope.bc
+## execution scope: test023_execution_scope.bc
 ### token
 
 authority:
@@ -1286,7 +1286,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## third party: test24_third_party.bc
+## third party: test024_third_party.bc
 ### token
 
 authority:
@@ -1342,7 +1342,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## block rules: test25_check_all.bc
+## block rules: test025_check_all.bc
 ### token
 
 authority:
@@ -1385,7 +1385,7 @@ World {
 ```
 
 result: `Ok(0)`
-### validation for "A, inalid"
+### validation for "A, invalid"
 
 authorizer code:
 ```
