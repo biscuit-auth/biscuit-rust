@@ -108,6 +108,8 @@ fn main() {
 
     results.push(check_all(&mut rng, &target, &root, test));
 
+    results.push(public_keys_interning(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1806,6 +1808,149 @@ fn check_all<T: Rng + CryptoRng>(
                 operation("invalid");
                 allow if true
             "#,
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn public_keys_interning<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "public keys interning".to_string();
+    let filename = "test026_public_keys_interning.bc".to_string();
+    let token;
+
+    let external1 = KeyPair::new_with_rng(rng);
+    let external2 = KeyPair::new_with_rng(rng);
+    let external3 = KeyPair::new_with_rng(rng);
+
+    let biscuit1 = biscuit!(
+        r#"
+        query(0);
+        check if true trusting previous, {k1};
+    "#,
+        k1 = external1.public()
+    )
+    .build_with_rng(&root, SymbolTable::default(), rng)
+    .unwrap();
+
+    let req1 = biscuit1.third_party_request().unwrap();
+
+    let res1 = req1
+        .create_block(
+            &external1.private(),
+            block!(
+                r#"
+        query(1);
+        query(1,2) <- query(1), query(2) trusting {k2};
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit2 = biscuit1
+        .append_third_party_with_keypair(external1.public(), res1, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let req2 = biscuit2.third_party_request().unwrap();
+    let res2 = req2
+        .create_block(
+            &external2.private(),
+            block!(
+                r#"
+        query(2);
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit3 = biscuit2
+        .append_third_party_with_keypair(external2.public(), res2, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let req3 = biscuit3.third_party_request().unwrap();
+    let res3 = req3
+        .create_block(
+            &external2.private(),
+            block!(
+                r#"
+        query(3);
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit4 = biscuit3
+        .append_third_party_with_keypair(external2.public(), res3, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let biscuit5 = biscuit4
+        .append_with_keypair(
+            &KeyPair::new_with_rng(rng),
+            block!(
+                r#"
+            query(4);
+            check if query(2) trusting {k2};
+            check if query(4) trusting {k3};
+            "#,
+                k2 = external2.public(),
+                k3 = external3.public(),
+            ),
+        )
+        .unwrap();
+
+    token = print_blocks(&biscuit5);
+
+    let data = if test {
+        let v = load_testcase(target, "test026_public_keys_interning");
+        let expected = Biscuit::from(&v[..], root.public()).unwrap();
+        print_diff(&biscuit5.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit5.to_vec().unwrap();
+        write_testcase(target, "test026_public_keys_interning", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            &format!(
+                r#"
+              check if query(1,2) trusting ed25519/{k1}, ed25519/{k2};
+              deny if query(3);
+              deny if query(1,2);
+              deny if query(0) trusting ed25519/{k1};
+              allow if true;
+            "#,
+                k1 = &external1.public().to_bytes_hex(),
+                k2 = &external2.public().to_bytes_hex(),
+            ),
         ),
     );
 

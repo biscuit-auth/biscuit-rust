@@ -1416,3 +1416,117 @@ World {
 
 result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check all operation($op), allowed_operations($allowed), $allowed.contains($op)" })] }))`
 
+
+------------------------------
+
+## public keys interning: test026_public_keys_interning.bc
+### token
+
+authority:
+symbols: []
+
+public keys: ["ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59"]
+
+```
+query(0);
+check if true trusting previous, ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+1:
+symbols: []
+
+public keys: ["ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"]
+
+external signature by: "ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59"
+
+```
+query(1);
+query(1, 2) <- query(1), query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+2:
+symbols: []
+
+public keys: []
+
+external signature by: "ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"
+
+```
+query(2);
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+3:
+symbols: []
+
+public keys: []
+
+external signature by: "ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"
+
+```
+query(3);
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+4:
+symbols: []
+
+public keys: ["ed25519/2e0118e63beb7731dab5119280ddb117234d0cdc41b7dd5dc4241bcbbb585d14"]
+
+```
+query(4);
+check if query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(4) trusting ed25519/2e0118e63beb7731dab5119280ddb117234d0cdc41b7dd5dc4241bcbbb585d14;
+```
+
+### validation
+
+authorizer code:
+```
+check if query(1, 2) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59, ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+
+deny if query(3);
+deny if query(1, 2);
+deny if query(0) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+allow if true;
+```
+
+revocation ids:
+- `bc144fef824b7ba4b266eac53e9b4f3f2d3cd443c6963833f2f8d4073bef9553f92034c2350fdd50966a9f0c09db35b142d61e0476b0133429885c787052060b`
+- `aba1631f8d0bea1c81447e73269f560973d03287c2b44325d1b42d10a496156dc8e78648b946bc7db7a3111d787a10c1a9da8d53fc066b1f207de7415a2e9b0b`
+- `539cff0f5c311dcac843a9e6c8bb445aff0d6510bfa9b17d5350747be92dc365217e89e1d733f3ead1ecc05f287f312c41831338708e788503b55517af3ad000`
+- `5b10f7a7b4487f4421cf7f7f6d00b24a7a71939037b65b2e44241909564082a3e1e70cf7d866eb96f0a5119b9ea395adb772faaa33252fa62a579eb15a108a0b`
+- `3905351588cdfc4433b510cc1ed9c11ca5c1a7bd7d9cef338bcd3f6d374c711f34edd83dd0d53c25b63bf05b49fc78addceb47905d5495580c2fd36c11bc1e0a`
+
+authorizer world:
+```
+World {
+  facts: {
+    "query(0)",
+    "query(1)",
+    "query(1, 2)",
+    "query(2)",
+    "query(3)",
+    "query(4)",
+}
+  rules: {
+    "query(1, 2) <- query(1), query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee",
+}
+  checks: {
+    "check if query(1, 2) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59, ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee",
+}
+  policies: {
+    "allow if true",
+    "deny if query(0) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59",
+    "deny if query(1, 2)",
+    "deny if query(3)",
+}
+}
+```
+
+result: `Ok(3)`
+
