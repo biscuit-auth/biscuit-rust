@@ -367,13 +367,15 @@ fn scope(i: &str) -> IResult<&str, builder::Scope, Error> {
     alt((
         map(tag("authority"), |_| builder::Scope::Authority),
         map(tag("previous"), |_| builder::Scope::Previous),
-        map(preceded(tag("ed25519/"), parse_hex), |bytes| {
-            builder::Scope::PublicKey(bytes)
-        }),
+        map(public_key, |bytes| builder::Scope::PublicKey(bytes)),
         map(delimited(char('{'), name, char('}')), |n| {
             builder::Scope::Parameter(n.to_string())
         }),
     ))(i)
+}
+
+pub fn public_key(i: &str) -> IResult<&str, builder::PublicKey, Error> {
+    preceded(tag("ed25519/"), parse_hex)(i)
 }
 
 #[derive(Debug, PartialEq)]
