@@ -406,15 +406,11 @@ impl Expr {
     }
 }
 
-fn unary(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary_parens, unary_negate, unary_length))(i)
-}
-
 fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("!")(i)?;
     let (i, _) = space0(i)?;
-    let (i, value) = expr(i)?;
+    let (i, value) = expr6(i)?;
 
     Ok((
         i,
@@ -433,18 +429,6 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     Ok((
         i,
         Expr::Unary(builder::Op::Unary(builder::Unary::Parens), Box::new(value)),
-    ))
-}
-
-fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, _) = space0(i)?;
-    let (i, value) = alt((map(term, Expr::Value), unary_parens))(i)?;
-    let (i, _) = space0(i)?;
-    let (i, _) = tag(".length()")(i)?;
-
-    Ok((
-        i,
-        Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value)),
     ))
 }
 
@@ -493,7 +477,7 @@ fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
 }
 
 fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary, reduce(map(term, Expr::Value), " ,\n);")))(i)
+    alt((unary_parens, reduce(map(term, Expr::Value), " ,\n);")))(i)
 }
 
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
@@ -543,6 +527,32 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+fn expr5(i: &str) -> IResult<&str, Expr, Error> {
+    alt((unary_negate, expr6))(i)
+}
+
+fn expr6(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr_term(i)?;
+
+    if let Ok((i, _)) = char::<_, ()>('.')(i) {
+        let bin_result = binary_method(i);
+        let un_result = unary_method(i);
+        match (bin_result, un_result) {
+            (Ok((i, (op, arg))), _) => {
+                let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                Ok((i, e))
+            }
+            (_, Ok((i, op))) => {
+                let e = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
+                Ok((i, e))
+            }
+            (_, Err(e)) => Err(e),
+        }
+    } else {
+        Ok((i, initial))
+    }
+}
+
 fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
     let (i, op) = binary_op_5(i)?;
 
@@ -565,28 +575,6 @@ fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
     let (i, _) = char(')')(i)?;
 
     Ok((i, op))
-}
-
-fn expr5(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, initial) = expr_term(i)?;
-
-    if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let bin_result = binary_method(i);
-        let un_result = unary_method(i);
-        match (bin_result, un_result) {
-            (Ok((i, (op, arg))), _) => {
-                let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
-                Ok((i, e))
-            }
-            (_, Ok((i, op))) => {
-                let e = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
-                Ok((i, e))
-            }
-            (_, Err(e)) => Err(e),
-        }
-    } else {
-        Ok((i, initial))
-    }
 }
 
 fn name(i: &str) -> IResult<&str, &str, Error> {
@@ -1246,6 +1234,33 @@ mod tests {
                 ],
             ))
         );
+
+        assert_eq!(
+            super::expr("!$0 == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!false && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(false)),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                ],
+            ))
+        );
+
         assert_eq!(
             super::expr("true || true && true").map(|(i, o)| (i, o.opcodes())),
             Ok((
