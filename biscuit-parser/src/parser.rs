@@ -450,10 +450,15 @@ fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::And, tag("&&")), value(Binary::Or, tag("||"))))(i)
+    value(Binary::Or, tag("||"))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::And, tag("&&"))(i)
+}
+
+fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::LessOrEqual, tag("<=")),
@@ -464,17 +469,17 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
     ))(i)
 }
 
-fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
 }
 
-fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
 }
 
-fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
     alt((
@@ -531,10 +536,18 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
 }
 
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr5(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_4), expr5)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+fn expr5(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
 
     if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let (i, op) = binary_op_4(i)?;
+        let (i, op) = binary_op_5(i)?;
 
         let (i, _) = char('(')(i)?;
         let (i, _) = space0(i)?;
@@ -1104,7 +1117,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{date, int, set, string, var, Binary, Op, Unary};
+        use builder::{boolean, date, int, set, string, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
         use std::time::{Duration, SystemTime};
 
@@ -1192,6 +1205,19 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Value(int(1)),
                     Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+        assert_eq!(
+            super::expr("true || true && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                    Op::Binary(Binary::Or),
                 ],
             ))
         );
