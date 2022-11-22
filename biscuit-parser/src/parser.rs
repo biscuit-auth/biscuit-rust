@@ -543,22 +543,47 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
+    let (i, op) = binary_op_5(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    // we only support a single argument for now
+    let (i, arg) = expr(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, (op, arg)))
+}
+
+fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
+    use builder::Unary;
+    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, op))
+}
+
 fn expr5(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
 
     if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let (i, op) = binary_op_5(i)?;
-
-        let (i, _) = char('(')(i)?;
-        let (i, _) = space0(i)?;
-        // we only support a single argument for now
-        let (i, arg) = expr(i)?;
-        let (i, _) = space0(i)?;
-        let (i, _) = char(')')(i)?;
-
-        let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
-
-        Ok((i, e))
+        let bin_result = binary_method(i);
+        let un_result = unary_method(i);
+        match (bin_result, un_result) {
+            (Ok((i, (op, arg))), _) => {
+                let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                Ok((i, e))
+            }
+            (_, Ok((i, op))) => {
+                let e = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
+                Ok((i, e))
+            }
+            (_, Err(e)) => Err(e),
+        }
     } else {
         Ok((i, initial))
     }
@@ -1204,6 +1229,19 @@ mod tests {
                 vec![
                     Op::Value(var("0")),
                     Op::Value(int(1)),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
                     Op::Binary(Binary::Equal),
                 ],
             ))
