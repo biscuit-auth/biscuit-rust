@@ -506,9 +506,18 @@ fn expr1(i: &str) -> IResult<&str, Expr, Error> {
 fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr3(i)?;
 
-    let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
-
-    Ok((i, fold_exprs(initial, remainder)))
+    if let Ok((i, (op, remainder))) = tuple((preceded(space0, binary_op_2), expr3))(i) {
+        Ok((
+            i,
+            Expr::Binary(
+                builder::Op::Binary(op),
+                Box::new(initial),
+                Box::new(remainder),
+            ),
+        ))
+    } else {
+        Ok((i, initial))
+    }
 }
 
 fn expr3(i: &str) -> IResult<&str, Expr, Error> {
@@ -1272,6 +1281,47 @@ mod tests {
                     Op::Binary(Binary::And),
                     Op::Binary(Binary::Or),
                 ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Equal),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 + 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Add),
+                    Op::Binary(Binary::GreaterThan),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                " == 3",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                ]
             ))
         );
 
