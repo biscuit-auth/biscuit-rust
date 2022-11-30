@@ -476,6 +476,8 @@ fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
     ))(i)
 }
 
+/// Innermost parser for an expression: either a parenthesised expression,
+/// or a single term.
 fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
     alt((unary_parens, reduce(map(term, Expr::Value), " ,\n);")))(i)
 }
@@ -487,6 +489,19 @@ fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
     })
 }
 
+/// Top-lever parser for an expression. Expression parsers are layered in
+/// order to support operator precedence (see https://en.wikipedia.org/wiki/Operator-precedence_parser).
+///
+/// See https://github.com/biscuit-auth/biscuit/blob/master/SPECIFICATIONS.md#grammar
+/// for the precedence order of operators in biscuit datalog.
+///
+/// The operators with the lowest precedence are parsed at the outer level,
+/// and their operands delegate to parsers that progressively handle more
+/// tightly binding operators.
+///
+/// This level handles the last operator in the precedence list: `||`
+/// `||` is left associative, so multiple `||` expressions can be combined:
+/// `a || b || c <=> (a || b) || c`
 pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr1(i)?;
 
@@ -495,6 +510,9 @@ pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `&&`
+/// `&&` is left associative, so multiple `&&` expressions can be combined:
+/// `a && b && c <=> (a && b) && c`
 fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr2(i)?;
 
@@ -503,6 +521,9 @@ fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles comparison operators (`==`, `>`, `>=`, `<`, `<=`).
+/// Those operators are _not_ associative and require explicit grouping
+/// with parentheses.
 fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr3(i)?;
 
@@ -520,6 +541,9 @@ fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     }
 }
 
+/// This level handles `+` and `-`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a + b - c <=> (a + b) - c`
 fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr4(i)?;
 
@@ -528,6 +552,9 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `*` and `/`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a * b / c <=> (a * b) / c`
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr5(i)?;
 
@@ -536,10 +563,14 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `!` (prefix negation)
 fn expr5(i: &str) -> IResult<&str, Expr, Error> {
     alt((unary_negate, expr6))(i)
 }
 
+/// This level handles methods. Methods can take either zero or one
+/// argument in addition to the expression they are called on.
+/// The name of the method decides its arity.
 fn expr6(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
 
