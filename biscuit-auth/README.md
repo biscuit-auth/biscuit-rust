@@ -39,7 +39,7 @@ fn main() -> Result<(), error::Token> {
           right("/b/file3.txt", "write");
     "#).build(&root)?; // the first block is signed
 
-    println!("biscuit (authority): {}", biscuit.print());
+    println!("biscuit (authority): {}", biscuit);
 
     biscuit.to_vec()?
   };
@@ -61,7 +61,7 @@ fn main() -> Result<(), error::Token> {
       // and a read operation
       check if resource("/a/file1.txt"), operation("read");
     "#));
-    println!("biscuit (authority): {}", biscuit.print());
+    println!("biscuit (authority): {}", biscuit);
 
     biscuit.to_vec()?
   };

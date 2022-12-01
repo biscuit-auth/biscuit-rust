@@ -5,7 +5,7 @@ root public key: acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc2018
 
 ------------------------------
 
-## basic token: test1_basic.bc
+## basic token: test001_basic.bc
 ### token
 
 authority:
@@ -63,7 +63,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## different root key: test2_different_root_key.bc
+## different root key: test002_different_root_key.bc
 ### token
 
 authority:
@@ -91,7 +91,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## invalid signature format: test3_invalid_signature_format.bc
+## invalid signature format: test003_invalid_signature_format.bc
 ### token
 
 authority:
@@ -121,7 +121,7 @@ result: `Err(Format(InvalidSignatureSize(16)))`
 
 ------------------------------
 
-## random block: test4_random_block.bc
+## random block: test004_random_block.bc
 ### token
 
 authority:
@@ -151,7 +151,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## invalid signature: test5_invalid_signature.bc
+## invalid signature: test005_invalid_signature.bc
 ### token
 
 authority:
@@ -181,7 +181,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## reordered blocks: test6_reordered_blocks.bc
+## reordered blocks: test006_reordered_blocks.bc
 ### token
 
 authority:
@@ -220,7 +220,7 @@ result: `Err(Format(Signature(InvalidSignature("signature error: Verification eq
 
 ------------------------------
 
-## scoped rules: test7_scoped_rules.bc
+## scoped rules: test007_scoped_rules.bc
 ### token
 
 authority:
@@ -292,7 +292,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## scoped checks: test8_scoped_checks.bc
+## scoped checks: test008_scoped_checks.bc
 ### token
 
 authority:
@@ -359,7 +359,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## expired token: test9_expired_token.bc
+## expired token: test009_expired_token.bc
 ### token
 
 authority:
@@ -416,7 +416,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## authorizer scope: test10_authorizer_scope.bc
+## authorizer scope: test010_authorizer_scope.bc
 ### token
 
 authority:
@@ -477,7 +477,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Authorizer(Fa
 
 ------------------------------
 
-## authorizer authority checks: test11_authorizer_authority_caveats.bc
+## authorizer authority checks: test011_authorizer_authority_caveats.bc
 ### token
 
 authority:
@@ -527,7 +527,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Authorizer(Fa
 
 ------------------------------
 
-## authority checks: test12_authority_caveats.bc
+## authority checks: test012_authority_caveats.bc
 ### token
 
 authority:
@@ -601,7 +601,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## block rules: test13_block_rules.bc
+## block rules: test013_block_rules.bc
 ### token
 
 authority:
@@ -700,7 +700,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## regex_constraint: test14_regex_constraint.bc
+## regex_constraint: test014_regex_constraint.bc
 ### token
 
 authority:
@@ -770,7 +770,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## multi queries checks: test15_multi_queries_caveats.bc
+## multi queries checks: test015_multi_queries_caveats.bc
 ### token
 
 authority:
@@ -815,7 +815,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## check head name should be independent from fact names: test16_caveat_head_name.bc
+## check head name should be independent from fact names: test016_caveat_head_name.bc
 ### token
 
 authority:
@@ -866,7 +866,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## test expression syntax and all available operations: test17_expressions.bc
+## test expression syntax and all available operations: test017_expressions.bc
 ### token
 
 authority:
@@ -888,6 +888,7 @@ check if 2 >= 1;
 check if 2 >= 2;
 check if 3 == 3;
 check if 1 + 2 * 3 - 4 / 2 == 5;
+check if 1 | 2 ^ 3 == 0;
 check if "hello world".starts_with("hello") && "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
@@ -916,7 +917,7 @@ allow if true;
 ```
 
 revocation ids:
-- `f1391d7549f4c165dd58878c8433bdc23634533f4910bcd37fc53d5b3b29c542ef1b46a38a42beb2df911d526a52f65774e1d60f910dbe15ca1591735617240b`
+- `1472c34b2854a24f5023f5c9a2ecead444b1ddb9c94ffc42f3ed1f062745d3983e8392cd0a94ec3b00e355f00fa5980e187bb86a625e289e2e723f373e3bcd05`
 
 authorizer world:
 ```
@@ -935,7 +936,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## invalid block rule with unbound_variables: test18_unbound_variables_in_rule.bc
+## invalid block rule with unbound_variables: test018_unbound_variables_in_rule.bc
 ### token
 
 authority:
@@ -963,7 +964,7 @@ result: `Err(FailedLogic(InvalidBlockRule(0, "operation($unbound, \"read\") <- o
 
 ------------------------------
 
-## invalid block rule generating an #authority or #ambient symbol with a variable: test19_generating_ambient_from_variables.bc
+## invalid block rule generating an #authority or #ambient symbol with a variable: test019_generating_ambient_from_variables.bc
 ### token
 
 authority:
@@ -1019,7 +1020,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## sealed token: test20_sealed.bc
+## sealed token: test020_sealed.bc
 ### token
 
 authority:
@@ -1079,7 +1080,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## parsing: test21_parsing.bc
+## parsing: test021_parsing.bc
 ### token
 
 authority:
@@ -1124,7 +1125,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## default_symbols: test22_default_symbols.bc
+## default_symbols: test022_default_symbols.bc
 ### token
 
 authority:
@@ -1223,7 +1224,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## execution scope: test23_execution_scope.bc
+## execution scope: test023_execution_scope.bc
 ### token
 
 authority:
@@ -1286,7 +1287,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## third party: test24_third_party.bc
+## third party: test024_third_party.bc
 ### token
 
 authority:
@@ -1338,4 +1339,195 @@ World {
 ```
 
 result: `Ok(0)`
+
+
+------------------------------
+
+## block rules: test025_check_all.bc
+### token
+
+authority:
+symbols: ["allowed_operations", "A", "B", "op", "allowed"]
+
+public keys: []
+
+```
+allowed_operations(["A", "B"]);
+check all operation($op), allowed_operations($allowed), $allowed.contains($op);
+```
+
+### validation for "A, B"
+
+authorizer code:
+```
+operation("A");
+operation("B");
+
+allow if true;
+```
+
+revocation ids:
+- `b4ee591001e4068a7ee8efb7a0586c3ca3a785558f34d1fa8dbfa21b41ace70de0b670ac49222c7413066d0d83e6d9edee94fb0fda4b27ea11e837304dfb4b0b`
+
+authorizer world:
+```
+World {
+  facts: {
+    "allowed_operations([ \"A\", \"B\"])",
+    "operation(\"A\")",
+    "operation(\"B\")",
+}
+  rules: {}
+  checks: {}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Ok(0)`
+### validation for "A, invalid"
+
+authorizer code:
+```
+operation("A");
+operation("invalid");
+
+allow if true;
+```
+
+revocation ids:
+- `b4ee591001e4068a7ee8efb7a0586c3ca3a785558f34d1fa8dbfa21b41ace70de0b670ac49222c7413066d0d83e6d9edee94fb0fda4b27ea11e837304dfb4b0b`
+
+authorizer world:
+```
+World {
+  facts: {
+    "allowed_operations([ \"A\", \"B\"])",
+    "operation(\"A\")",
+    "operation(\"invalid\")",
+}
+  rules: {}
+  checks: {}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check all operation($op), allowed_operations($allowed), $allowed.contains($op)" })] }))`
+
+
+------------------------------
+
+## public keys interning: test026_public_keys_interning.bc
+### token
+
+authority:
+symbols: []
+
+public keys: ["ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59"]
+
+```
+query(0);
+check if true trusting previous, ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+1:
+symbols: []
+
+public keys: ["ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"]
+
+external signature by: "ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59"
+
+```
+query(1);
+query(1, 2) <- query(1), query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+2:
+symbols: []
+
+public keys: []
+
+external signature by: "ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"
+
+```
+query(2);
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+3:
+symbols: []
+
+public keys: []
+
+external signature by: "ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee"
+
+```
+query(3);
+check if query(2), query(3) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+```
+
+4:
+symbols: []
+
+public keys: ["ed25519/2e0118e63beb7731dab5119280ddb117234d0cdc41b7dd5dc4241bcbbb585d14"]
+
+```
+query(4);
+check if query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+check if query(4) trusting ed25519/2e0118e63beb7731dab5119280ddb117234d0cdc41b7dd5dc4241bcbbb585d14;
+```
+
+### validation
+
+authorizer code:
+```
+check if query(1, 2) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59, ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee;
+
+deny if query(3);
+deny if query(1, 2);
+deny if query(0) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59;
+allow if true;
+```
+
+revocation ids:
+- `bc144fef824b7ba4b266eac53e9b4f3f2d3cd443c6963833f2f8d4073bef9553f92034c2350fdd50966a9f0c09db35b142d61e0476b0133429885c787052060b`
+- `aba1631f8d0bea1c81447e73269f560973d03287c2b44325d1b42d10a496156dc8e78648b946bc7db7a3111d787a10c1a9da8d53fc066b1f207de7415a2e9b0b`
+- `539cff0f5c311dcac843a9e6c8bb445aff0d6510bfa9b17d5350747be92dc365217e89e1d733f3ead1ecc05f287f312c41831338708e788503b55517af3ad000`
+- `5b10f7a7b4487f4421cf7f7f6d00b24a7a71939037b65b2e44241909564082a3e1e70cf7d866eb96f0a5119b9ea395adb772faaa33252fa62a579eb15a108a0b`
+- `3905351588cdfc4433b510cc1ed9c11ca5c1a7bd7d9cef338bcd3f6d374c711f34edd83dd0d53c25b63bf05b49fc78addceb47905d5495580c2fd36c11bc1e0a`
+
+authorizer world:
+```
+World {
+  facts: {
+    "query(0)",
+    "query(1)",
+    "query(1, 2)",
+    "query(2)",
+    "query(3)",
+    "query(4)",
+}
+  rules: {
+    "query(1, 2) <- query(1), query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee",
+}
+  checks: {
+    "check if query(1, 2) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59, ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee",
+}
+  policies: {
+    "allow if true",
+    "deny if query(0) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59",
+    "deny if query(1, 2)",
+    "deny if query(3)",
+}
+}
+```
+
+result: `Ok(3)`
 

@@ -108,6 +108,8 @@ fn main() {
 
     results.push(check_all(&mut rng, &target, &root, test));
 
+    results.push(public_keys_interning(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -310,7 +312,7 @@ fn basic_token<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "basic token".to_string();
-    let filename = "test1_basic.bc".to_string();
+    let filename = "test001_basic.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -338,7 +340,7 @@ fn basic_token<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test1_basic");
+        let v = load_testcase(target, "test001_basic");
         let t = Biscuit::from(&v[..], root.public()).unwrap();
 
         let actual = biscuit2.print();
@@ -347,7 +349,7 @@ fn basic_token<T: Rng + CryptoRng>(
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test1_basic", &data[..]);
+        write_testcase(target, "test001_basic", &data[..]);
         data
     };
 
@@ -379,7 +381,7 @@ fn different_root_key<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "different root key".to_string();
-    let filename = "test2_different_root_key.bc".to_string();
+    let filename = "test002_different_root_key.bc".to_string();
     let token;
 
     let root2 = KeyPair::new_with_rng(rng);
@@ -407,11 +409,11 @@ fn different_root_key<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test2_different_root_key");
+        let v = load_testcase(target, "test002_different_root_key");
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test2_different_root_key", &data[..]);
+        write_testcase(target, "test002_different_root_key", &data[..]);
         data
     };
 
@@ -443,7 +445,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "invalid signature format".to_string();
-    let filename = "test3_invalid_signature_format.bc".to_string();
+    let filename = "test003_invalid_signature_format.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -466,7 +468,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test3_invalid_signature_format");
+        let v = load_testcase(target, "test003_invalid_signature_format");
         v
     } else {
         let serialized = biscuit2.container();
@@ -474,7 +476,7 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         proto.authority.signature.truncate(16);
         let mut data = Vec::new();
         proto.encode(&mut data).unwrap();
-        write_testcase(target, "test3_invalid_signature_format", &data[..]);
+        write_testcase(target, "test003_invalid_signature_format", &data[..]);
         data
     };
 
@@ -499,7 +501,7 @@ fn random_block<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "random block".to_string();
-    let filename = "test4_random_block.bc".to_string();
+    let filename = "test004_random_block.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -523,7 +525,7 @@ fn random_block<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test4_random_block");
+        let v = load_testcase(target, "test004_random_block");
         v
     } else {
         let serialized = biscuit2.container();
@@ -533,7 +535,7 @@ fn random_block<T: Rng + CryptoRng>(
         let mut data = Vec::new();
         proto.encode(&mut data).unwrap();
 
-        write_testcase(target, "test4_random_block", &data[..]);
+        write_testcase(target, "test004_random_block", &data[..]);
         data
     };
 
@@ -558,7 +560,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "invalid signature".to_string();
-    let filename = "test5_invalid_signature.bc".to_string();
+    let filename = "test005_invalid_signature.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -581,7 +583,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test5_invalid_signature");
+        let v = load_testcase(target, "test005_invalid_signature");
         v
     } else {
         let serialized = biscuit2.container();
@@ -590,7 +592,7 @@ fn invalid_signature<T: Rng + CryptoRng>(
         let mut data = Vec::new();
         proto.encode(&mut data).unwrap();
 
-        write_testcase(target, "test5_invalid_signature", &data[..]);
+        write_testcase(target, "test005_invalid_signature", &data[..]);
 
         data
     };
@@ -616,7 +618,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "reordered blocks".to_string();
-    let filename = "test6_reordered_blocks.bc".to_string();
+    let filename = "test006_reordered_blocks.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -650,11 +652,11 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     serialized.blocks = blocks;
 
     let data = if test {
-        let v = load_testcase(target, "test6_reordered_blocks");
+        let v = load_testcase(target, "test006_reordered_blocks");
         v
     } else {
         let data = serialized.to_vec().unwrap();
-        write_testcase(target, "test6_reordered_blocks", &data[..]);
+        write_testcase(target, "test006_reordered_blocks", &data[..]);
         data
     };
 
@@ -679,7 +681,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "scoped rules".to_string();
-    let filename = "test7_scoped_rules.bc".to_string();
+    let filename = "test007_scoped_rules.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -713,13 +715,13 @@ fn scoped_rules<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit3);
 
     let data = if test {
-        let v = load_testcase(target, "test7_scoped_rules");
+        let v = load_testcase(target, "test007_scoped_rules");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
         let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, "test7_scoped_rules", &data[..]);
+        write_testcase(target, "test007_scoped_rules", &data[..]);
 
         data
     };
@@ -753,7 +755,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "scoped checks".to_string();
-    let filename = "test8_scoped_checks.bc".to_string();
+    let filename = "test008_scoped_checks.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -779,13 +781,13 @@ fn scoped_checks<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit3);
 
     let data = if test {
-        let v = load_testcase(target, "test8_scoped_checks");
+        let v = load_testcase(target, "test008_scoped_checks");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
         let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, "test8_scoped_checks", &data[..]);
+        write_testcase(target, "test008_scoped_checks", &data[..]);
 
         data
     };
@@ -819,7 +821,7 @@ fn expired_token<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "expired token".to_string();
-    let filename = "test9_expired_token.bc".to_string();
+    let filename = "test009_expired_token.bc".to_string();
     let token;
 
     let builder = Biscuit::builder();
@@ -841,13 +843,13 @@ fn expired_token<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test9_expired_token");
+        let v = load_testcase(target, "test009_expired_token");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test9_expired_token", &data[..]);
+        write_testcase(target, "test009_expired_token", &data[..]);
 
         data
     };
@@ -882,7 +884,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "authorizer scope".to_string();
-    let filename = "test10_authorizer_scope.bc".to_string();
+    let filename = "test010_authorizer_scope.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -900,13 +902,13 @@ fn authorizer_scope<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test10_authorizer_scope");
+        let v = load_testcase(target, "test010_authorizer_scope");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test10_authorizer_scope", &data[..]);
+        write_testcase(target, "test010_authorizer_scope", &data[..]);
 
         data
     };
@@ -940,7 +942,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "authorizer authority checks".to_string();
-    let filename = "test11_authorizer_authority_caveats.bc".to_string();
+    let filename = "test011_authorizer_authority_caveats.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -953,13 +955,13 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test11_authorizer_authority_caveats");
+        let v = load_testcase(target, "test011_authorizer_authority_caveats");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test11_authorizer_authority_caveats", &data[..]);
+        write_testcase(target, "test011_authorizer_authority_caveats", &data[..]);
         data
     };
 
@@ -993,7 +995,7 @@ fn authority_checks<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "authority checks".to_string();
-    let filename = "test12_authority_caveats.bc".to_string();
+    let filename = "test012_authority_caveats.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource("file1")"#)
@@ -1002,13 +1004,13 @@ fn authority_checks<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test12_authority_caveats");
+        let v = load_testcase(target, "test012_authority_caveats");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test12_authority_caveats", &data[..]);
+        write_testcase(target, "test012_authority_caveats", &data[..]);
         data
     };
 
@@ -1054,7 +1056,7 @@ fn block_rules<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "block rules".to_string();
-    let filename = "test13_block_rules.bc".to_string();
+    let filename = "test013_block_rules.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -1080,13 +1082,13 @@ fn block_rules<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test13_block_rules");
+        let v = load_testcase(target, "test013_block_rules");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test13_block_rules", &data[..]);
+        write_testcase(target, "test013_block_rules", &data[..]);
 
         data
     };
@@ -1133,7 +1135,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "regex_constraint".to_string();
-    let filename = "test14_regex_constraint.bc".to_string();
+    let filename = "test014_regex_constraint.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource($0), $0.matches("file[0-9]+.txt")"#)
@@ -1142,13 +1144,13 @@ fn regex_constraint<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test14_regex_constraint");
+        let v = load_testcase(target, "test014_regex_constraint");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test14_regex_constraint", &data[..]);
+        write_testcase(target, "test014_regex_constraint", &data[..]);
         data
     };
 
@@ -1177,7 +1179,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "multi queries checks".to_string();
-    let filename = "test15_multi_queries_caveats.bc".to_string();
+    let filename = "test015_multi_queries_caveats.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"must_be_present("hello")"#)
@@ -1186,13 +1188,13 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test15_multi_queries_caveats");
+        let v = load_testcase(target, "test015_multi_queries_caveats");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test15_multi_queries_caveats", &data[..]);
+        write_testcase(target, "test015_multi_queries_caveats", &data[..]);
 
         data
     };
@@ -1221,7 +1223,7 @@ fn check_head_name<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "check head name should be independent from fact names".to_string();
-    let filename = "test16_caveat_head_name.bc".to_string();
+    let filename = "test016_caveat_head_name.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource("hello")"#)
@@ -1235,13 +1237,13 @@ fn check_head_name<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test16_caveat_head_name");
+        let v = load_testcase(target, "test016_caveat_head_name");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test16_caveat_head_name", &data[..]);
+        write_testcase(target, "test016_caveat_head_name", &data[..]);
         data
     };
 
@@ -1265,7 +1267,7 @@ fn expressions<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "test expression syntax and all available operations".to_string();
-    let filename = "test17_expressions.bc".to_string();
+    let filename = "test017_expressions.bc".to_string();
     let token;
 
     let biscuit = biscuit!(r#"
@@ -1336,13 +1338,13 @@ fn expressions<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit);
 
     let data = if test {
-        let v = load_testcase(target, "test17_expressions");
+        let v = load_testcase(target, "test017_expressions");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit.print(), &expected.print());
         v
     } else {
         let data = biscuit.to_vec().unwrap();
-        write_testcase(target, "test17_expressions", &data[..]);
+        write_testcase(target, "test017_expressions", &data[..]);
         data
     };
 
@@ -1367,7 +1369,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "invalid block rule with unbound_variables".to_string();
-    let filename = "test18_unbound_variables_in_rule.bc".to_string();
+    let filename = "test018_unbound_variables_in_rule.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if operation("read")"#)
@@ -1390,13 +1392,13 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test18_unbound_variables_in_rule");
+        let v = load_testcase(target, "test018_unbound_variables_in_rule");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test18_unbound_variables_in_rule", &data[..]);
+        write_testcase(target, "test018_unbound_variables_in_rule", &data[..]);
         data
     };
 
@@ -1421,7 +1423,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
 ) -> TestResult {
     let title = "invalid block rule generating an #authority or #ambient symbol with a variable"
         .to_string();
-    let filename = "test19_generating_ambient_from_variables.bc".to_string();
+    let filename = "test019_generating_ambient_from_variables.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if operation("read")"#)
@@ -1435,7 +1437,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test19_generating_ambient_from_variables");
+        let v = load_testcase(target, "test019_generating_ambient_from_variables");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
@@ -1443,7 +1445,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         let data = biscuit2.to_vec().unwrap();
         write_testcase(
             target,
-            "test19_generating_ambient_from_variables",
+            "test019_generating_ambient_from_variables",
             &data[..],
         );
         data
@@ -1469,7 +1471,7 @@ fn sealed_token<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "sealed token".to_string();
-    let filename = "test20_sealed.bc".to_string();
+    let filename = "test020_sealed.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -1493,7 +1495,7 @@ fn sealed_token<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test20_sealed");
+        let v = load_testcase(target, "test020_sealed");
         let t = Biscuit::from(&v[..], root.public()).unwrap();
 
         let actual = biscuit2.print();
@@ -1502,7 +1504,7 @@ fn sealed_token<T: Rng + CryptoRng>(
         v
     } else {
         let data = biscuit2.seal().unwrap().to_vec().unwrap();
-        write_testcase(target, "test20_sealed", &data[..]);
+        write_testcase(target, "test020_sealed", &data[..]);
         data
     };
 
@@ -1531,7 +1533,7 @@ fn parsing<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "parsing".to_string();
-    let filename = "test21_parsing.bc".to_string();
+    let filename = "test021_parsing.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!("ns::fact_123(\"hello é\t😁\")")
@@ -1540,13 +1542,13 @@ fn parsing<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test21_parsing");
+        let v = load_testcase(target, "test021_parsing");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test21_parsing", &data[..]);
+        write_testcase(target, "test021_parsing", &data[..]);
         data
     };
 
@@ -1575,7 +1577,7 @@ fn default_symbols<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "default_symbols".to_string();
-    let filename = "test22_default_symbols.bc".to_string();
+    let filename = "test022_default_symbols.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -1590,13 +1592,13 @@ fn default_symbols<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test22_default_symbols");
+        let v = load_testcase(target, "test022_default_symbols");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test22_default_symbols", &data[..]);
+        write_testcase(target, "test022_default_symbols", &data[..]);
         data
     };
 
@@ -1632,7 +1634,7 @@ fn execution_scope<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "execution scope".to_string();
-    let filename = "test23_execution_scope.bc".to_string();
+    let filename = "test023_execution_scope.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!("authority_fact(1)")
@@ -1659,13 +1661,13 @@ fn execution_scope<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit3);
 
     let data = if test {
-        let v = load_testcase(target, "test23_execution_scope");
+        let v = load_testcase(target, "test023_execution_scope");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit3.print(), &expected.print());
         v
     } else {
         let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, "test23_execution_scope", &data[..]);
+        write_testcase(target, "test023_execution_scope", &data[..]);
 
         data
     };
@@ -1691,7 +1693,7 @@ fn third_party<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "third party".to_string();
-    let filename = "test24_third_party.bc".to_string();
+    let filename = "test024_third_party.bc".to_string();
     let token;
 
     let external = KeyPair::new_with_rng(rng);
@@ -1726,13 +1728,13 @@ fn third_party<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit2);
 
     let data = if test {
-        let v = load_testcase(target, "test24_third_party");
+        let v = load_testcase(target, "test024_third_party");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit2.print(), &expected.print());
         v
     } else {
         let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, "test24_third_party", &data[..]);
+        write_testcase(target, "test024_third_party", &data[..]);
 
         data
     };
@@ -1758,7 +1760,7 @@ fn check_all<T: Rng + CryptoRng>(
     test: bool,
 ) -> TestResult {
     let title = "block rules".to_string();
-    let filename = "test25_check_all.bc".to_string();
+    let filename = "test025_check_all.bc".to_string();
     let token;
 
     let biscuit1 = biscuit!(
@@ -1773,13 +1775,13 @@ fn check_all<T: Rng + CryptoRng>(
     token = print_blocks(&biscuit1);
 
     let data = if test {
-        let v = load_testcase(target, "test25_check_all");
+        let v = load_testcase(target, "test025_check_all");
         let expected = Biscuit::from(&v[..], root.public()).unwrap();
         print_diff(&biscuit1.print(), &expected.print());
         v
     } else {
         let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, "test25_check_all", &data[..]);
+        write_testcase(target, "test025_check_all", &data[..]);
 
         data
     };
@@ -1799,7 +1801,7 @@ fn check_all<T: Rng + CryptoRng>(
     );
 
     validations.insert(
-        "A, inalid".to_string(),
+        "A, invalid".to_string(),
         validate_token(
             root,
             &data[..],
@@ -1808,6 +1810,149 @@ fn check_all<T: Rng + CryptoRng>(
                 operation("invalid");
                 allow if true
             "#,
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn public_keys_interning<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "public keys interning".to_string();
+    let filename = "test026_public_keys_interning.bc".to_string();
+    let token;
+
+    let external1 = KeyPair::new_with_rng(rng);
+    let external2 = KeyPair::new_with_rng(rng);
+    let external3 = KeyPair::new_with_rng(rng);
+
+    let biscuit1 = biscuit!(
+        r#"
+        query(0);
+        check if true trusting previous, {k1};
+    "#,
+        k1 = external1.public()
+    )
+    .build_with_rng(&root, SymbolTable::default(), rng)
+    .unwrap();
+
+    let req1 = biscuit1.third_party_request().unwrap();
+
+    let res1 = req1
+        .create_block(
+            &external1.private(),
+            block!(
+                r#"
+        query(1);
+        query(1,2) <- query(1), query(2) trusting {k2};
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit2 = biscuit1
+        .append_third_party_with_keypair(external1.public(), res1, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let req2 = biscuit2.third_party_request().unwrap();
+    let res2 = req2
+        .create_block(
+            &external2.private(),
+            block!(
+                r#"
+        query(2);
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit3 = biscuit2
+        .append_third_party_with_keypair(external2.public(), res2, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let req3 = biscuit3.third_party_request().unwrap();
+    let res3 = req3
+        .create_block(
+            &external2.private(),
+            block!(
+                r#"
+        query(3);
+        check if query(2), query(3) trusting {k2};
+        check if query(1) trusting {k1};
+        "#,
+                k1 = external1.public(),
+                k2 = external2.public(),
+            ),
+        )
+        .unwrap();
+
+    let biscuit4 = biscuit3
+        .append_third_party_with_keypair(external2.public(), res3, KeyPair::new_with_rng(rng))
+        .unwrap();
+
+    let biscuit5 = biscuit4
+        .append_with_keypair(
+            &KeyPair::new_with_rng(rng),
+            block!(
+                r#"
+            query(4);
+            check if query(2) trusting {k2};
+            check if query(4) trusting {k3};
+            "#,
+                k2 = external2.public(),
+                k3 = external3.public(),
+            ),
+        )
+        .unwrap();
+
+    token = print_blocks(&biscuit5);
+
+    let data = if test {
+        let v = load_testcase(target, "test026_public_keys_interning");
+        let expected = Biscuit::from(&v[..], root.public()).unwrap();
+        print_diff(&biscuit5.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit5.to_vec().unwrap();
+        write_testcase(target, "test026_public_keys_interning", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            &format!(
+                r#"
+              check if query(1,2) trusting ed25519/{k1}, ed25519/{k2};
+              deny if query(3);
+              deny if query(1,2);
+              deny if query(0) trusting ed25519/{k1};
+              allow if true;
+            "#,
+                k1 = &external1.public().to_bytes_hex(),
+                k2 = &external2.public().to_bytes_hex(),
+            ),
         ),
     );
 

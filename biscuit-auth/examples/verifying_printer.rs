@@ -22,7 +22,7 @@ fn main() {
     for i in 0..token.block_count() {
         println!("block {}:\n{}\n", i, token.print_block_source(i).unwrap());
     }
-    println!("token:\n{}", token.print());
+    println!("token:\n{}", token);
 
     let mut authorizer = token.authorizer().unwrap();
     authorizer.allow().unwrap();
