@@ -408,15 +408,11 @@ impl Expr {
     }
 }
 
-fn unary(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary_parens, unary_negate, unary_length))(i)
-}
-
 fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("!")(i)?;
     let (i, _) = space0(i)?;
-    let (i, value) = expr(i)?;
+    let (i, value) = expr6(i)?;
 
     Ok((
         i,
@@ -438,24 +434,17 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     ))
 }
 
-fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, _) = space0(i)?;
-    let (i, value) = alt((map(term, Expr::Value), unary_parens))(i)?;
-    let (i, _) = space0(i)?;
-    let (i, _) = tag(".length()")(i)?;
-
-    Ok((
-        i,
-        Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value)),
-    ))
-}
-
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::And, tag("&&")), value(Binary::Or, tag("||"))))(i)
+    value(Binary::Or, tag("||"))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::And, tag("&&"))(i)
+}
+
+fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::LessOrEqual, tag("<=")),
@@ -466,17 +455,17 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
     ))(i)
 }
 
-fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
 }
 
-fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
 }
 
-fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
+fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
     alt((
@@ -489,8 +478,10 @@ fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     ))(i)
 }
 
+/// Innermost parser for an expression: either a parenthesised expression,
+/// or a single term.
 fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary, reduce(map(term, Expr::Value), " ,\n);")))(i)
+    alt((unary_parens, reduce(map(term, Expr::Value), " ,\n);")))(i)
 }
 
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
@@ -500,6 +491,19 @@ fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
     })
 }
 
+/// Top-lever parser for an expression. Expression parsers are layered in
+/// order to support operator precedence (see https://en.wikipedia.org/wiki/Operator-precedence_parser).
+///
+/// See https://github.com/biscuit-auth/biscuit/blob/master/SPECIFICATIONS.md#grammar
+/// for the precedence order of operators in biscuit datalog.
+///
+/// The operators with the lowest precedence are parsed at the outer level,
+/// and their operands delegate to parsers that progressively handle more
+/// tightly binding operators.
+///
+/// This level handles the last operator in the precedence list: `||`
+/// `||` is left associative, so multiple `||` expressions can be combined:
+/// `a || b || c <=> (a || b) || c`
 pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr1(i)?;
 
@@ -508,6 +512,9 @@ pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `&&`
+/// `&&` is left associative, so multiple `&&` expressions can be combined:
+/// `a && b && c <=> (a && b) && c`
 fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr2(i)?;
 
@@ -516,14 +523,29 @@ fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles comparison operators (`==`, `>`, `>=`, `<`, `<=`).
+/// Those operators are _not_ associative and require explicit grouping
+/// with parentheses.
 fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr3(i)?;
 
-    let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
-
-    Ok((i, fold_exprs(initial, remainder)))
+    if let Ok((i, (op, remainder))) = tuple((preceded(space0, binary_op_2), expr3))(i) {
+        Ok((
+            i,
+            Expr::Binary(
+                builder::Op::Binary(op),
+                Box::new(initial),
+                Box::new(remainder),
+            ),
+        ))
+    } else {
+        Ok((i, initial))
+    }
 }
 
+/// This level handles `+` and `-`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a + b - c <=> (a + b) - c`
 fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr4(i)?;
 
@@ -532,25 +554,69 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `*` and `/`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a * b / c <=> (a * b) / c`
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr5(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_4), expr5)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `!` (prefix negation)
+fn expr5(i: &str) -> IResult<&str, Expr, Error> {
+    alt((unary_negate, expr6))(i)
+}
+
+/// This level handles methods. Methods can take either zero or one
+/// argument in addition to the expression they are called on.
+/// The name of the method decides its arity.
+fn expr6(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
 
     if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let (i, op) = binary_op_4(i)?;
-
-        let (i, _) = char('(')(i)?;
-        let (i, _) = space0(i)?;
-        // we only support a single argument for now
-        let (i, arg) = expr(i)?;
-        let (i, _) = space0(i)?;
-        let (i, _) = char(')')(i)?;
-
-        let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
-
-        Ok((i, e))
+        let bin_result = binary_method(i);
+        let un_result = unary_method(i);
+        match (bin_result, un_result) {
+            (Ok((i, (op, arg))), _) => {
+                let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                Ok((i, e))
+            }
+            (_, Ok((i, op))) => {
+                let e = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
+                Ok((i, e))
+            }
+            (_, Err(e)) => Err(e),
+        }
     } else {
         Ok((i, initial))
     }
+}
+
+fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
+    let (i, op) = binary_op_5(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    // we only support a single argument for now
+    let (i, arg) = expr(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, (op, arg)))
+}
+
+fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
+    use builder::Unary;
+    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, op))
 }
 
 fn name(i: &str) -> IResult<&str, &str, Error> {
@@ -1106,7 +1172,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{date, int, set, string, var, Binary, Op, Unary};
+        use builder::{boolean, date, int, set, string, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
         use std::time::{Duration, SystemTime};
 
@@ -1195,6 +1261,100 @@ mod tests {
                     Op::Value(int(1)),
                     Op::Binary(Binary::Equal),
                 ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!$0 == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!false && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(false)),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("true || true && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                    Op::Binary(Binary::Or),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Equal),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 + 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Add),
+                    Op::Binary(Binary::GreaterThan),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                " == 3",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                ]
             ))
         );
 
