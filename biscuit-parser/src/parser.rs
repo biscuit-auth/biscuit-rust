@@ -455,15 +455,30 @@ fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
 
 fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
+    value(Binary::BitwiseXor, tag("^"))(i)
 }
 
 fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
+    value(Binary::BitwiseOr, tag("|"))(i)
 }
 
 fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::BitwiseAnd, tag("&"))(i)
+}
+
+fn binary_op_6(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
+}
+
+fn binary_op_7(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
+}
+
+fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
     alt((
@@ -541,9 +556,9 @@ fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     }
 }
 
-/// This level handles `+` and `-`.
-/// They are left associative, so multiple expressions can be combined:
-/// `a + b - c <=> (a + b) - c`
+/// This level handles `|`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a | b | c <=> (a | b) | c`
 fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr4(i)?;
 
@@ -552,9 +567,9 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-/// This level handles `*` and `/`.
-/// They are left associative, so multiple expressions can be combined:
-/// `a * b / c <=> (a * b) / c`
+/// This level handles `^`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a ^ b ^ c <=> (a ^ b) ^ c`
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr5(i)?;
 
@@ -563,15 +578,48 @@ fn expr4(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
-/// This level handles `!` (prefix negation)
+/// This level handles `&`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a & b & c <=> (a & b) & c`
 fn expr5(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary_negate, expr6))(i)
+    let (i, initial) = expr6(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_5), expr6)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `+` and `-`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a + b - c <=> (a + b) - c`
+fn expr6(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr7(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_6), expr7)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `*` and `/`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a * b / c <=> (a * b) / c`
+fn expr7(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr8(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_7), expr8)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `!` (prefix negation)
+fn expr8(i: &str) -> IResult<&str, Expr, Error> {
+    alt((unary_negate, expr9))(i)
 }
 
 /// This level handles methods. Methods can take either zero or one
 /// argument in addition to the expression they are called on.
 /// The name of the method decides its arity.
-fn expr6(i: &str) -> IResult<&str, Expr, Error> {
+fn expr9(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr_term(i)?;
 
     if let Ok((i, _)) = char::<_, ()>('.')(i) {
@@ -594,7 +642,7 @@ fn expr6(i: &str) -> IResult<&str, Expr, Error> {
 }
 
 fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
-    let (i, op) = binary_op_5(i)?;
+    let (i, op) = binary_op_8(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
@@ -1484,6 +1532,24 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 + 2 | 4 * 3 & 4").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::Add),
+                    Op::Value(int(4)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Mul),
+                    Op::Value(int(4)),
+                    Op::Binary(Binary::BitwiseAnd),
+                    Op::Binary(Binary::BitwiseOr),
                 ],
             ))
         );

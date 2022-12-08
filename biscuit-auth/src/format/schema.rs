@@ -230,6 +230,9 @@ pub mod op_binary {
         Or = 14,
         Intersection = 15,
         Union = 16,
+        BitwiseAnd = 17,
+        BitwiseOr = 18,
+        BitwiseXor = 19,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -1296,6 +1296,8 @@ fn expressions<T: Rng + CryptoRng>(
         check if 3 == 3;
         //integer add sub mul div
         check if 1 + 2 * 3 - 4 /2 == 5;
+        //integer bitwise and or xor
+        check if 1 | 2 ^ 3 == 0;
 
         // string prefix and suffix
         check if "hello world".starts_with("hello") && "hello world".ends_with("world");

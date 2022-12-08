@@ -1,7 +1,7 @@
 //! Logic language implementation for checks
 use crate::builder::{CheckKind, Convert};
 use crate::time::Instant;
-use crate::token::Scope;
+use crate::token::{Scope, MIN_SCHEMA_VERSION};
 use crate::{builder, error};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
@@ -786,6 +786,86 @@ impl RuleSet {
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
     }
+}
+
+pub struct SchemaVersion {
+    contains_scopes: bool,
+    contains_bitwise: bool,
+    contains_check_all: bool,
+}
+
+impl SchemaVersion {
+    pub fn version(&self) -> u32 {
+        if self.contains_scopes || self.contains_bitwise || self.contains_check_all {
+            4
+        } else {
+            MIN_SCHEMA_VERSION
+        }
+    }
+
+    pub fn check_compatibility(&self, version: u32) -> Result<(), error::Format> {
+        if version < 4 {
+            if self.contains_scopes {
+                Err(error::Format::DeserializationError("v3 blocks must not have scopes".to_string()))
+            } else if self.contains_bitwise {
+                Err(error::Format::DeserializationError("v3 blocks must not have bitwise operators".to_string()))
+            } else if self.contains_check_all {
+                Err(error::Format::DeserializationError("v3 blocks must not have use all".to_string()))
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
+        }
+    }
+}
+
+/// Determine the schema version given the elements of a block.
+pub fn get_schema_version(
+    _facts: &[Fact],
+    rules: &[Rule],
+    checks: &[Check],
+    scopes: &[Scope],
+) -> SchemaVersion {
+    let contains_scopes = !scopes.is_empty()
+        || rules.iter().any(|r: &Rule| !r.scopes.is_empty())
+        || checks
+            .iter()
+            .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
+
+    let contains_check_all = checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+
+    let contains_bitwise = rules
+        .iter()
+        .any(|rule| contains_bitwise_op(&rule.expressions))
+        || checks.iter().any(|check| {
+            check
+                .queries
+                .iter()
+                .any(|query| contains_bitwise_op(&query.expressions))
+        });
+
+    SchemaVersion {
+        contains_scopes,
+        contains_bitwise,
+        contains_check_all,
+    }
+}
+
+/// Determine whether any of the expression contain a bitwise operator.
+/// Bitwise operators are only supported in biscuits v4+
+pub fn contains_bitwise_op(expressions: &[Expression]) -> bool {
+    expressions.iter().any(|expression| {
+        expression.ops.iter().any(|op| {
+            if let Op::Binary(binary) = op {
+                match binary {
+                    Binary::BitwiseAnd | Binary::BitwiseOr | Binary::BitwiseXor => return true,
+                    _ => return false,
+                }
+            }
+            return false;
+        })
+    })
 }
 
 #[cfg(test)]
