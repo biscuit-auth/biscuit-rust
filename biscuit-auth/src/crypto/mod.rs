@@ -11,8 +11,9 @@ use crate::{error::Format, format::schema};
 
 use super::error;
 use ed25519_dalek::*;
+use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, hash::Hash, ops::Drop};
+use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, str::FromStr};
 use zeroize::Zeroize;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -162,7 +163,7 @@ impl PublicKey {
     }
 
     pub fn print(&self) -> String {
-        format!("ed25519/{}", hex::encode(&self.to_bytes()))
+        self.to_string()
     }
 }
 
@@ -176,6 +177,23 @@ impl Hash for PublicKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
         self.0.to_bytes().hash(state);
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, bytes) = biscuit_parser::parser::public_key(s)
+            .finish()
+            .map_err(biscuit_parser::error::LanguageError::from)?;
+        Ok(PublicKey::from_bytes(&bytes)?)
+    }
+}
+
+impl Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ed25519/{}", hex::encode(&self.to_bytes()))
     }
 }
 
