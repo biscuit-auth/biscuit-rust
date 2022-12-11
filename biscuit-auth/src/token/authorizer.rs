@@ -26,19 +26,18 @@ use std::{
 ///
 /// can be created from [Biscuit::authorizer] or [Authorizer::new]
 #[derive(Clone)]
-pub struct Authorizer<'t> {
+pub struct Authorizer {
     authorizer_block_builder: BlockBuilder,
     world: datalog::World,
     pub(crate) symbols: datalog::SymbolTable,
-    token_checks: Vec<Vec<datalog::Check>>,
+    token_origins: TrustedOrigins,
     policies: Vec<Policy>,
-    token: Option<&'t Biscuit>,
-    blocks: Vec<Block>,
+    blocks: Option<Vec<Block>>,
     public_key_to_block_id: HashMap<usize, Vec<usize>>,
 }
 
-impl<'t> Authorizer<'t> {
-    pub(crate) fn from_token(token: &'t Biscuit) -> Result<Self, error::Token> {
+impl Authorizer {
+    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
         let mut v = Authorizer::new();
         v.add_token(token)?;
 
@@ -63,10 +62,9 @@ impl<'t> Authorizer<'t> {
             authorizer_block_builder,
             world,
             symbols,
-            token_checks: vec![],
+            token_origins: TrustedOrigins::default(),
             policies: vec![],
-            token: None,
-            blocks: vec![],
+            blocks: None,
             public_key_to_block_id: HashMap::new(),
         }
     }
@@ -114,8 +112,8 @@ impl<'t> Authorizer<'t> {
     }
 
     /// add a token to an empty authorizer
-    pub fn add_token(&mut self, token: &'t Biscuit) -> Result<(), error::Token> {
-        if self.token.is_some() {
+    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Token> {
+        if self.blocks.is_some() {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
 
@@ -133,7 +131,7 @@ impl<'t> Authorizer<'t> {
 
         let mut blocks = Vec::new();
 
-        let authority = token.block(0)?;
+        let mut authority = token.block(0)?;
 
         let mut authority_origin = Origin::default();
         authority_origin.insert(0);
@@ -167,9 +165,14 @@ impl<'t> Authorizer<'t> {
             self.world.rules.insert(0, &rule_trusted_origins, rule);
         }
 
+        for check in authority.checks.iter_mut() {
+            let c = Check::convert_from(check, &token.symbols)?;
+            *check = c.convert(&mut self.symbols);
+        }
+
         blocks.push(authority);
         for i in 1..token.block_count() {
-            let block = token.block(i)?;
+            let mut block = token.block(i)?;
 
             // if it is a 3rd party block, it should not affect the main symbol table
             let block_symbols = if block.external_key.is_none() {
@@ -211,11 +214,21 @@ impl<'t> Authorizer<'t> {
                 self.world.rules.insert(i, &rule_trusted_origins, rule);
             }
 
+            for check in block.checks.iter_mut() {
+                let c = Check::convert_from(check, &block_symbols)?;
+                *check = c.convert(&mut self.symbols);
+            }
+
             blocks.push(block);
         }
 
-        self.blocks = blocks;
-        self.token = Some(token);
+        self.blocks = Some(blocks);
+        self.token_origins = TrustedOrigins::from_scopes(
+            &[token::Scope::Previous],
+            &TrustedOrigins::default(),
+            token.block_count(),
+            &self.public_key_to_block_id,
+        );
 
         Ok(())
     }
@@ -232,10 +245,12 @@ impl<'t> Authorizer<'t> {
             .iter()
             .map(|c| c.convert(&mut symbols))
             .collect();
-        for block_checks in &self.token_checks {
-            checks.extend_from_slice(&block_checks[..]);
-        }
 
+        if let Some(blocks) = &self.blocks {
+            for block in blocks {
+                checks.extend(block.checks.clone().into_iter());
+            }
+        }
         todo!();
         /*
         let policies = AuthorizerPolicies {
@@ -566,19 +581,8 @@ impl<'t> Authorizer<'t> {
             .run_with_limits(&self.symbols, limits.into())
             .map_err(error::Token::RunLimit)?;
 
-        let all_origins = if let Some(t) = self.token {
-            TrustedOrigins::from_scopes(
-                &[token::Scope::Previous],
-                &TrustedOrigins::default(),
-                t.block_count(),
-                &self.public_key_to_block_id,
-            )
-        } else {
-            TrustedOrigins::default()
-        };
-
         let rule_trusted_origins = if rule.scopes.is_empty() {
-            all_origins
+            self.token_origins.clone()
         } else {
             TrustedOrigins::from_scopes(
                 &rule.scopes,
@@ -762,15 +766,12 @@ impl<'t> Authorizer<'t> {
             }
         }
 
-        if let Some(token) = self.token.as_ref() {
-            for (j, check) in self.blocks[0].checks.iter().enumerate() {
+        if let Some(blocks) = self.blocks.as_ref() {
+            for (j, check) in blocks[0].checks.iter().enumerate() {
                 let mut successful = false;
 
-                let c = Check::convert_from(check, &token.symbols)?;
-                let check = c.convert(&mut self.symbols);
-
                 let authority_trusted_origins = TrustedOrigins::from_scopes(
-                    &self.blocks[0].scopes,
+                    &blocks[0].scopes,
                     &TrustedOrigins::default(),
                     0,
                     &self.public_key_to_block_id,
@@ -847,15 +848,8 @@ impl<'t> Authorizer<'t> {
             }
         }
 
-        if let Some(token) = self.token.as_ref() {
-            for (i, block) in (&self.blocks[1..]).iter().enumerate() {
-                // if it is a 3rd party block, it should not affect the main symbol table
-                let block_symbols = if block.external_key.is_none() {
-                    &token.symbols
-                } else {
-                    &block.symbols
-                };
-
+        if let Some(blocks) = self.blocks.as_ref() {
+            for (i, block) in (&blocks[1..]).iter().enumerate() {
                 let block_trusted_origins = TrustedOrigins::from_scopes(
                     &block.scopes,
                     &TrustedOrigins::default(),
@@ -869,8 +863,6 @@ impl<'t> Authorizer<'t> {
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
-                    let c = Check::convert_from(check, block_symbols)?;
-                    let check = c.convert(&mut self.symbols);
 
                     for query in check.queries.iter() {
                         let rule_trusted_origins = TrustedOrigins::from_scopes(
@@ -971,14 +963,16 @@ impl<'t> Authorizer<'t> {
             checks.push(format!("Authorizer[{}]: {}", index, check));
         }
 
-        for (i, block_checks) in self.token_checks.iter().enumerate() {
-            for (j, check) in block_checks.iter().enumerate() {
-                checks.push(format!(
-                    "Block[{}][{}]: {}",
-                    i,
-                    j,
-                    self.symbols.print_check(check)
-                ));
+        if let Some(blocks) = &self.blocks {
+            for (i, block) in blocks.iter().enumerate() {
+                for (j, check) in block.checks.iter().enumerate() {
+                    checks.push(format!(
+                        "Block[{}][{}]: {}",
+                        i,
+                        j,
+                        self.symbols.print_check(check)
+                    ));
+                }
             }
         }
 
@@ -996,12 +990,16 @@ impl<'t> Authorizer<'t> {
     /// returns all of the data loaded in the authorizer
     pub fn dump(&self) -> (Vec<Fact>, Vec<Rule>, Vec<Check>, Vec<Policy>) {
         let mut checks = self.authorizer_block_builder.checks.clone();
-        checks.extend(
-            self.token_checks
-                .iter()
-                .flatten()
-                .map(|c| Check::convert_from(c, &self.symbols).unwrap()),
-        );
+        if let Some(blocks) = &self.blocks {
+            for block in blocks {
+                checks.extend(
+                    block
+                        .checks
+                        .iter()
+                        .map(|c| Check::convert_from(c, &self.symbols).unwrap()),
+                );
+            }
+        }
 
         let mut facts = self
             .world
@@ -1100,7 +1098,7 @@ impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
     }
 }
 
-impl BuilderExt for Authorizer<'_> {
+impl BuilderExt for Authorizer {
     fn add_resource(&mut self, name: &str) {
         let f = fact("resource", &[string(name)]);
         self.add_fact(f).unwrap();
@@ -1195,7 +1193,7 @@ impl BuilderExt for Authorizer<'_> {
     }
 }
 
-impl AuthorizerExt for Authorizer<'_> {
+impl AuthorizerExt for Authorizer {
     fn add_allow_all(&mut self) {
         self.add_policy("allow if true").unwrap();
     }
