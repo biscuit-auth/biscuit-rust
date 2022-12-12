@@ -5,7 +5,7 @@ language = "C"
 # An optional string of text to output at the beginning of the generated file
 # default: doesn't emit anything
 header = '''/*
- * Copyright 2020 Clever Cloud
+ * Copyright 2020 Clever Cloud, 2021 Geoffroy Couprie
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
