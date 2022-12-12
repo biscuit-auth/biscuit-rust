@@ -129,6 +129,7 @@ World {
   rules: {}
   checks: [
     "Authorizer[0]: check if right(\"efgh\")",
+    "Block[1][0]: check if operation(\"read\")",
 ]
   policies: [
     "allow if true",

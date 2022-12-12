@@ -291,7 +291,7 @@ pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
 pub struct BiscuitBuilder(crate::token::builder::BiscuitBuilder);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Authorizer<'t>(crate::token::authorizer::Authorizer<'t>);
+pub struct Authorizer(crate::token::authorizer::Authorizer);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -950,9 +950,9 @@ pub unsafe extern "C" fn biscuit_append_block(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_authorizer<'a, 'b>(
+pub unsafe extern "C" fn biscuit_authorizer<'a>(
     biscuit: Option<&'a Biscuit>,
-) -> Option<Box<Authorizer<'a>>> {
+) -> Option<Box<Authorizer>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
     }
