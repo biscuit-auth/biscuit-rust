@@ -948,11 +948,24 @@ impl Authorizer {
             write!(&mut result, "// Rules:\n");
         }
 
-        for (origin, ruleset) in &self.world.rules.inner {
-            write!(&mut result, "// origin: {origin}\n");
+        let mut rules_map: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        for ruleset in self.world.rules.inner.values() {
+            for (origin, rule) in ruleset {
+                rules_map
+                    .entry(*origin)
+                    .or_default()
+                    .push(self.symbols.print_rule(&rule));
+            }
+        }
+        for (origin, rule_list) in &rules_map {
+            if *origin == usize::MAX {
+                write!(&mut result, "// origin: authorizer\n");
+            } else {
+                write!(&mut result, "// origin: {origin}\n");
+            }
 
-            for (_, rule) in ruleset {
-                write!(&mut result, "{};\n", self.symbols.print_rule(&rule));
+            for rule in rule_list {
+                write!(&mut result, "{};\n", rule);
             }
         }
 

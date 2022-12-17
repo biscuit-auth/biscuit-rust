@@ -143,9 +143,3 @@ impl<'a> FromIterator<&'a usize> for TrustedOrigins {
         Self(iter.into_iter().cloned().collect())
     }
 }
-
-impl Display for TrustedOrigins {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
