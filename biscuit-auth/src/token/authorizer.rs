@@ -70,45 +70,8 @@ impl Authorizer {
     }
 
     /// creates an `Authorizer` from a serialized [crate::format::schema::AuthorizerPolicies]
-    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
-        let data = crate::format::schema::AuthorizerPolicies::decode(slice).map_err(|e| {
-            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-        })?;
-
-        let AuthorizerPolicies {
-            version: _,
-            symbols,
-            facts,
-            rules,
-            checks,
-            policies,
-        } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
-
-        let mut authorizer = Self::new();
-
-        for fact in facts {
-            authorizer
-                .authorizer_block_builder
-                .add_fact(Fact::convert_from(&fact, &symbols)?)?;
-        }
-
-        for rule in rules {
-            authorizer
-                .authorizer_block_builder
-                .add_rule(Rule::convert_from(&rule, &symbols)?)?;
-        }
-
-        for check in checks {
-            authorizer
-                .authorizer_block_builder
-                .add_check(Check::convert_from(&check, &symbols)?)?;
-        }
-
-        for policy in policies {
-            authorizer.policies.push(policy);
-        }
-
-        Ok(authorizer)
+    pub fn from(data: &[u8]) -> Result<Self, error::Token> {
+        AuthorizerPolicies::deserialize(data)?.try_into()
     }
 
     /// add a token to an empty authorizer
@@ -236,43 +199,36 @@ impl Authorizer {
     /// serializes a authorizer's content
     ///
     /// you can use this to save a set of policies and load them quickly before
-    /// verification, or to store a verification context to debug it later
-    pub fn save(&self) -> Result<Vec<u8>, error::Token> {
-        let mut symbols = self.symbols.clone();
-        let mut checks: Vec<datalog::Check> = self
+    /// verification. This will not store data obtained or generated from a token.
+    pub fn save(&self) -> Result<AuthorizerPolicies, error::Token> {
+        let facts = self
+            .authorizer_block_builder
+            .facts
+            .iter()
+            .cloned()
+            .collect();
+
+        let rules = self
+            .authorizer_block_builder
+            .rules
+            .iter()
+            .cloned()
+            .collect();
+
+        let checks = self
             .authorizer_block_builder
             .checks
             .iter()
-            .map(|c| c.convert(&mut symbols))
+            .cloned()
             .collect();
 
-        if let Some(blocks) = &self.blocks {
-            for block in blocks {
-                checks.extend(block.checks.clone().into_iter());
-            }
-        }
-        todo!();
-        /*
-        let policies = AuthorizerPolicies {
+        Ok(AuthorizerPolicies {
             version: crate::token::MAX_SCHEMA_VERSION,
-            symbols,
-            //FIXME
-            facts: self.world.facts.iter().cloned().collect(),
-            rules: self.world.rules.clone(),
+            facts,
+            rules,
             checks,
             policies: self.policies.clone(),
-        };
-
-        let proto = crate::format::convert::authorizer_to_proto_authorizer(&policies);
-
-        let mut v = Vec::new();
-
-        proto
-            .encode(&mut v)
-            .map(|_| v)
-            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
-            .map_err(error::Token::Format)
-            */
+        })
     }
 
     /// Add the rules, facts, checks, and policies of another `Authorizer`.
@@ -1053,18 +1009,74 @@ impl Authorizer {
     }
 }
 
+impl TryFrom<AuthorizerPolicies> for Authorizer {
+    type Error = error::Token;
+
+    fn try_from(authorizer_policies: AuthorizerPolicies) -> Result<Self, Self::Error> {
+        let AuthorizerPolicies {
+            version: _,
+            facts,
+            rules,
+            checks,
+            policies,
+        } = authorizer_policies;
+
+        let mut authorizer = Self::new();
+
+        for fact in facts.into_iter() {
+            authorizer.authorizer_block_builder.add_fact(fact)?;
+        }
+
+        for rule in rules.into_iter() {
+            authorizer.authorizer_block_builder.add_rule(rule)?;
+        }
+
+        for check in checks.into_iter() {
+            authorizer.authorizer_block_builder.add_check(check)?;
+        }
+
+        for policy in policies {
+            authorizer.policies.push(policy);
+        }
+
+        Ok(authorizer)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AuthorizerPolicies {
     pub version: u32,
-    /// list of symbols introduced by this block
-    pub symbols: datalog::SymbolTable,
     /// list of facts provided by this block
-    pub facts: Vec<datalog::Fact>,
+    pub facts: Vec<Fact>,
     /// list of rules provided by blocks
-    pub rules: Vec<datalog::Rule>,
+    pub rules: Vec<Rule>,
     /// checks that the token and ambient data must validate
-    pub checks: Vec<datalog::Check>,
+    pub checks: Vec<Check>,
     pub policies: Vec<Policy>,
+}
+
+impl AuthorizerPolicies {
+    pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
+        let proto = crate::format::convert::authorizer_to_proto_authorizer(self);
+
+        let mut v = Vec::new();
+
+        proto
+            .encode(&mut v)
+            .map(|_| v)
+            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
+            .map_err(error::Token::Format)
+    }
+
+    pub fn deserialize(data: &[u8]) -> Result<Self, error::Token> {
+        let data = crate::format::schema::AuthorizerPolicies::decode(data).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+
+        Ok(crate::format::convert::proto_authorizer_to_authorizer(
+            &data,
+        )?)
+    }
 }
 
 /// runtime limits for the Datalog engine

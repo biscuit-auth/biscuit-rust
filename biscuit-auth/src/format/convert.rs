@@ -3,6 +3,7 @@
 use self::v2::proto_scope_to_token_scope;
 
 use super::schema;
+use crate::builder::Convert;
 use crate::crypto::PublicKey;
 use crate::datalog::*;
 use crate::error;
@@ -113,7 +114,29 @@ pub fn proto_block_to_token_block(
 }
 
 pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::AuthorizerPolicies {
-    let mut symbols = input.symbols.clone();
+    let mut symbols = SymbolTable::default();
+
+    let facts = input
+        .facts
+        .iter()
+        .map(|f| f.convert(&mut symbols))
+        .map(|f| v2::token_fact_to_proto_fact(&f))
+        .collect();
+
+    let rules = input
+        .rules
+        .iter()
+        .map(|r| r.convert(&mut symbols))
+        .map(|r| v2::token_rule_to_proto_rule(&r))
+        .collect();
+
+    let checks = input
+        .checks
+        .iter()
+        .map(|c| c.convert(&mut symbols))
+        .map(|c| v2::token_check_to_proto_check(&c))
+        .collect();
+
     let policies = input
         .policies
         .iter()
@@ -123,21 +146,9 @@ pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::Aut
     schema::AuthorizerPolicies {
         symbols: symbols.strings(),
         version: Some(input.version),
-        facts: input
-            .facts
-            .iter()
-            .map(v2::token_fact_to_proto_fact)
-            .collect(),
-        rules: input
-            .rules
-            .iter()
-            .map(v2::token_rule_to_proto_rule)
-            .collect(),
-        checks: input
-            .checks
-            .iter()
-            .map(v2::token_check_to_proto_check)
-            .collect(),
+        facts,
+        rules,
+        checks,
         policies,
     }
 }
@@ -162,15 +173,24 @@ pub fn proto_authorizer_to_authorizer(
     let mut policies = vec![];
 
     for fact in input.facts.iter() {
-        facts.push(v2::proto_fact_to_token_fact(fact)?);
+        facts.push(crate::builder::Fact::convert_from(
+            &v2::proto_fact_to_token_fact(fact)?,
+            &symbols,
+        )?);
     }
 
     for rule in input.rules.iter() {
-        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
+        rules.push(crate::builder::Rule::convert_from(
+            &v2::proto_rule_to_token_rule(rule, version)?.0,
+            &symbols,
+        )?);
     }
 
     for check in input.checks.iter() {
-        checks.push(v2::proto_check_to_token_check(check, version)?);
+        checks.push(crate::builder::Check::convert_from(
+            &v2::proto_check_to_token_check(check, version)?,
+            &symbols,
+        )?);
     }
 
     for policy in input.policies.iter() {
@@ -179,7 +199,6 @@ pub fn proto_authorizer_to_authorizer(
 
     Ok(AuthorizerPolicies {
         version,
-        symbols,
         facts,
         rules,
         checks,
