@@ -7,7 +7,7 @@ use crate::token::Scope;
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Origin {
-    inner: BTreeSet<usize>,
+    pub(crate) inner: BTreeSet<usize>,
 }
 
 impl Origin {

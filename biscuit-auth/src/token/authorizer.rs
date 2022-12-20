@@ -22,6 +22,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+mod snapshot;
+pub use snapshot::*;
+
 /// used to check authorization policies on a token
 ///
 /// can be created from [Biscuit::authorizer] or [Authorizer::new]

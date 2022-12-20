@@ -280,3 +280,46 @@ pub struct ThirdPartyBlockContents {
     #[prost(message, required, tag="2")]
     pub external_signature: ExternalSignature,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuthorizerSnapshot {
+    #[prost(string, repeated, tag="1")]
+    pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="2")]
+    pub version: ::core::option::Option<u32>,
+    #[prost(message, repeated, tag="3")]
+    pub facts: ::prost::alloc::vec::Vec<SnapshotFacts>,
+    #[prost(message, repeated, tag="4")]
+    pub rules: ::prost::alloc::vec::Vec<SnapshotRules>,
+    #[prost(message, repeated, tag="5")]
+    pub checks: ::prost::alloc::vec::Vec<SnapshotChecks>,
+    #[prost(message, repeated, tag="6")]
+    pub policies: ::prost::alloc::vec::Vec<Policy>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Origin {
+    #[prost(bool, optional, tag="1")]
+    pub authorizer: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag="2")]
+    pub origin: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SnapshotFacts {
+    #[prost(message, repeated, tag="1")]
+    pub origins: ::prost::alloc::vec::Vec<Origin>,
+    #[prost(message, repeated, tag="2")]
+    pub facts: ::prost::alloc::vec::Vec<FactV2>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SnapshotRules {
+    #[prost(message, required, tag="1")]
+    pub origin: Origin,
+    #[prost(message, repeated, tag="2")]
+    pub rules: ::prost::alloc::vec::Vec<RuleV2>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SnapshotChecks {
+    #[prost(message, required, tag="1")]
+    pub origin: Origin,
+    #[prost(message, repeated, tag="2")]
+    pub checks: ::prost::alloc::vec::Vec<CheckV2>,
+}
