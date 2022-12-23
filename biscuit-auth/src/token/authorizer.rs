@@ -124,9 +124,11 @@ impl Authorizer {
     ) -> Result<(), error::Token> {
         // if it is a 3rd party block, it should not affect the main symbol table
         let block_symbols = if i == 0 || block.external_key.is_none() {
-            &token_symbols
+            token_symbols.clone()
         } else {
-            &block.symbols
+            let mut symbols = block.symbols.clone();
+            symbols.public_keys = token_symbols.public_keys.clone();
+            symbols
         };
 
         let mut block_origin = Origin::default();
@@ -140,17 +142,17 @@ impl Authorizer {
         );
 
         for fact in block.facts.iter() {
-            let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
+            let fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
             self.world.facts.insert(&block_origin, fact);
         }
 
         for rule in block.rules.iter() {
-            if let Err(_message) = rule.validate_variables(block_symbols) {
+            if let Err(_message) = rule.validate_variables(&block_symbols) {
                 return Err(
                     error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
                 );
             }
-            let rule = rule.translate(block_symbols, &mut self.symbols)?;
+            let rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
             let rule_trusted_origins = TrustedOrigins::from_scopes(
                 &rule.scopes,

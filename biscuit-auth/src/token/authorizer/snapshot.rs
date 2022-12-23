@@ -69,11 +69,16 @@ impl super::Authorizer {
         let mut token_symbols = default_symbol_table();
         let mut blocks = Vec::new();
         for (i, block) in input.blocks.iter().enumerate() {
-            if external_keys.get(&i).is_none() {
+            let token_symbols = if external_keys.get(&i).is_none() {
+                authorizer.symbols.clone()
+            } else {
+                let mut token_symbols = default_symbol_table();
                 for symbol in &block.symbols {
                     token_symbols.insert(symbol);
                 }
-            }
+                token_symbols.public_keys = authorizer.symbols.public_keys.clone();
+                token_symbols
+            };
 
             let mut block = proto_block_to_token_block(block, external_keys.get(&i).cloned())?;
 
@@ -97,8 +102,7 @@ impl super::Authorizer {
 
             for fact in &facts {
                 let fact = proto_fact_to_token_fact(fact)?;
-                let fact =
-                    Fact::convert_from(&fact, &token_symbols)?.convert(&mut authorizer.symbols);
+                //let fact = Fact::convert_from(&fact, &symbols)?.convert(&mut authorizer.symbols);
                 authorizer.world.facts.insert(&origin, fact);
             }
         }
@@ -119,14 +123,19 @@ impl super::Authorizer {
         symbols.extend(&authorizer_block.symbols)?;
         symbols.public_keys.extend(&authorizer_block.public_keys)?;
 
+        println!("will serialize authorizer block: {:?}", authorizer_block);
         let authorizer_block = token_block_to_proto_block(&authorizer_block);
 
         let blocks = match self.blocks.as_ref() {
             None => Vec::new(),
             Some(blocks) => blocks
                 .iter()
-                .map(|block| token_block_to_proto_block(&block))
-                .collect(),
+                .map(|block| {
+                    block
+                        .translate(&self.symbols, &mut symbols)
+                        .map(|block| token_block_to_proto_block(&block))
+                })
+                .collect::<Result<Vec<_>, error::Format>>()?,
         };
 
         let generated_facts: Vec<schema::GeneratedFacts> = self

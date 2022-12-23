@@ -1,6 +1,8 @@
 use crate::{
+    builder::{self, Convert},
     crypto::PublicKey,
     datalog::{Check, Fact, Rule, SymbolTable, Term},
+    error,
 };
 
 use super::{public_keys::PublicKeys, Scope};
@@ -65,5 +67,47 @@ impl Block {
         }
 
         res
+    }
+
+    pub(crate) fn translate(
+        &self,
+        from_symbols: &SymbolTable,
+        to_symbols: &mut SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(Block {
+            symbols: SymbolTable::new(),
+            facts: self
+                .facts
+                .iter()
+                .map(|f| {
+                    builder::Fact::convert_from(f, from_symbols).map(|f| f.convert(to_symbols))
+                })
+                .collect::<Result<Vec<Fact>, error::Format>>()?,
+            rules: self
+                .rules
+                .iter()
+                .map(|r| {
+                    builder::Rule::convert_from(r, from_symbols).map(|r| r.convert(to_symbols))
+                })
+                .collect::<Result<Vec<Rule>, error::Format>>()?,
+            checks: self
+                .checks
+                .iter()
+                .map(|c| {
+                    builder::Check::convert_from(c, from_symbols).map(|c| c.convert(to_symbols))
+                })
+                .collect::<Result<Vec<Check>, error::Format>>()?,
+            context: self.context.clone(),
+            version: self.version.clone(),
+            external_key: self.external_key.clone(),
+            public_keys: self.public_keys.clone(),
+            scopes: self
+                .scopes
+                .iter()
+                .map(|s| {
+                    builder::Scope::convert_from(s, from_symbols).map(|s| s.convert(to_symbols))
+                })
+                .collect::<Result<Vec<Scope>, error::Format>>()?,
+        })
     }
 }
