@@ -7,7 +7,7 @@ use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
 use crate::builder::{CheckKind, Convert};
 use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits, TrustedOrigins};
+use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
@@ -97,93 +97,10 @@ impl Authorizer {
 
         let mut blocks = Vec::new();
 
-        let mut authority = token.block(0)?;
-
-        let mut authority_origin = Origin::default();
-        authority_origin.insert(0);
-
-        let authority_trusted_origins = TrustedOrigins::from_scopes(
-            &authority.scopes,
-            &TrustedOrigins::default(),
-            0,
-            &self.public_key_to_block_id,
-        );
-        // add authority facts and rules right away to make them available to queries
-        for fact in authority.facts.iter() {
-            let fact = Fact::convert_from(fact, &token.symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&authority_origin, fact);
-        }
-
-        for rule in authority.rules.iter() {
-            if let Err(_message) = rule.validate_variables(&token.symbols) {
-                return Err(
-                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(rule)).into(),
-                );
-            }
-
-            let rule = rule.translate(&token.symbols, &mut self.symbols)?;
-            let rule_trusted_origins = TrustedOrigins::from_scopes(
-                &rule.scopes,
-                &authority_trusted_origins,
-                0,
-                &self.public_key_to_block_id,
-            );
-            self.world.rules.insert(0, &rule_trusted_origins, rule);
-        }
-
-        for check in authority.checks.iter_mut() {
-            let c = Check::convert_from(check, &token.symbols)?;
-            *check = c.convert(&mut self.symbols);
-        }
-
-        blocks.push(authority);
-        for i in 1..token.block_count() {
+        for i in 0..token.block_count() {
             let mut block = token.block(i)?;
 
-            // if it is a 3rd party block, it should not affect the main symbol table
-            let block_symbols = if block.external_key.is_none() {
-                &token.symbols
-            } else {
-                &block.symbols
-            };
-
-            let mut block_origin = Origin::default();
-            block_origin.insert(i);
-
-            let block_trusted_origins = TrustedOrigins::from_scopes(
-                &block.scopes,
-                &TrustedOrigins::default(),
-                i,
-                &self.public_key_to_block_id,
-            );
-
-            for fact in block.facts.iter() {
-                let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
-                self.world.facts.insert(&block_origin, fact);
-            }
-
-            for rule in block.rules.iter() {
-                if let Err(_message) = rule.validate_variables(block_symbols) {
-                    return Err(
-                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
-                    );
-                }
-                let rule = rule.translate(block_symbols, &mut self.symbols)?;
-
-                let rule_trusted_origins = TrustedOrigins::from_scopes(
-                    &rule.scopes,
-                    &block_trusted_origins,
-                    i,
-                    &self.public_key_to_block_id,
-                );
-
-                self.world.rules.insert(i, &rule_trusted_origins, rule);
-            }
-
-            for check in block.checks.iter_mut() {
-                let c = Check::convert_from(check, &block_symbols)?;
-                *check = c.convert(&mut self.symbols);
-            }
+            self.add_block(&mut block, i, &token.symbols)?;
 
             blocks.push(block);
         }
@@ -195,6 +112,60 @@ impl Authorizer {
             token.block_count(),
             &self.public_key_to_block_id,
         );
+
+        Ok(())
+    }
+
+    fn add_block(
+        &mut self,
+        block: &mut Block,
+        i: usize,
+        token_symbols: &SymbolTable,
+    ) -> Result<(), error::Token> {
+        // if it is a 3rd party block, it should not affect the main symbol table
+        let block_symbols = if i == 0 || block.external_key.is_none() {
+            &token_symbols
+        } else {
+            &block.symbols
+        };
+
+        let mut block_origin = Origin::default();
+        block_origin.insert(i);
+
+        let block_trusted_origins = TrustedOrigins::from_scopes(
+            &block.scopes,
+            &TrustedOrigins::default(),
+            i,
+            &self.public_key_to_block_id,
+        );
+
+        for fact in block.facts.iter() {
+            let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
+            self.world.facts.insert(&block_origin, fact);
+        }
+
+        for rule in block.rules.iter() {
+            if let Err(_message) = rule.validate_variables(block_symbols) {
+                return Err(
+                    error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
+                );
+            }
+            let rule = rule.translate(block_symbols, &mut self.symbols)?;
+
+            let rule_trusted_origins = TrustedOrigins::from_scopes(
+                &rule.scopes,
+                &block_trusted_origins,
+                i,
+                &self.public_key_to_block_id,
+            );
+
+            self.world.rules.insert(i, &rule_trusted_origins, rule);
+        }
+
+        for check in block.checks.iter_mut() {
+            let c = Check::convert_from(check, &block_symbols)?;
+            *check = c.convert(&mut self.symbols);
+        }
 
         Ok(())
     }
