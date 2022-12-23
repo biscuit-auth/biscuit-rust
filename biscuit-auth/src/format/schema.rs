@@ -299,10 +299,18 @@ pub struct AuthorizerSnapshot {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Origin {
-    #[prost(bool, optional, tag="1")]
-    pub authorizer: ::core::option::Option<bool>,
-    #[prost(uint32, optional, tag="2")]
-    pub origin: ::core::option::Option<u32>,
+    #[prost(oneof="origin::Content", tags="1, 2")]
+    pub content: ::core::option::Option<origin::Content>,
+}
+/// Nested message and enum types in `Origin`.
+pub mod origin {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(bool, tag="1")]
+        Authorizer(bool),
+        #[prost(uint32, tag="2")]
+        Origin(u32),
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GeneratedFacts {

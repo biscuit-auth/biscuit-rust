@@ -190,14 +190,14 @@ message AuthorizerSnapshot {
   repeated GeneratedFacts generatedFacts = 5;
   repeated Policy policies = 6;
   repeated KeyMap publicKeyMap = 7;
-
 }
 
 message Origin {
-  optional bool authorizer = 1;
-  optional uint32 origin = 2;
+  oneof Content {
+    bool authorizer = 1;
+    uint32 origin = 2;
+  }
 }
-
 message GeneratedFacts {
   repeated Origin origins = 1;
   repeated FactV2 facts = 2;

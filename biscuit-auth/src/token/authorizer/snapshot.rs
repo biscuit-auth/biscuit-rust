@@ -173,13 +173,11 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
         .map(|o| {
             if *o == usize::MAX {
                 schema::Origin {
-                    authorizer: Some(true),
-                    origin: None,
+                    content: Some(schema::origin::Content::Authorizer(true)),
                 }
             } else {
                 schema::Origin {
-                    authorizer: None,
-                    origin: Some(*o as u32),
+                    content: Some(schema::origin::Content::Origin(*o as u32)),
                 }
             }
         })
@@ -189,10 +187,10 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
 fn proto_origin_to_authorizer_origin(origins: &[schema::Origin]) -> Result<Origin, error::Format> {
     let mut new_origin = Origin::default();
 
-    for schema::Origin { authorizer, origin } in origins {
-        match (authorizer, origin) {
-            (Some(true), None) => new_origin.insert(usize::MAX),
-            (_, Some(o)) => new_origin.insert(*o as usize),
+    for origin in origins {
+        match origin.content {
+            Some(schema::origin::Content::Authorizer(true)) => new_origin.insert(usize::MAX),
+            Some(schema::origin::Content::Origin(o)) => new_origin.insert(o as usize),
             _ => {
                 return Err(error::Format::DeserializationError(
                     "invalid origin".to_string(),
