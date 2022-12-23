@@ -223,6 +223,35 @@ impl BlockBuilder {
         }
     }
 
+    pub(crate) fn convert_from(
+        block: &Block,
+        symbols: &SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(BlockBuilder {
+            facts: block
+                .facts
+                .iter()
+                .map(|f| Fact::convert_from(f, &symbols))
+                .collect::<Result<Vec<Fact>, error::Format>>()?,
+            rules: block
+                .rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &symbols))
+                .collect::<Result<Vec<Rule>, error::Format>>()?,
+            checks: block
+                .checks
+                .iter()
+                .map(|c| Check::convert_from(c, &symbols))
+                .collect::<Result<Vec<Check>, error::Format>>()?,
+            scopes: block
+                .scopes
+                .iter()
+                .map(|s| Scope::convert_from(s, &symbols))
+                .collect::<Result<Vec<Scope>, error::Format>>()?,
+            context: block.context.clone(),
+        })
+    }
+
     // still used in tests but does not make sense for the public API
     #[cfg(test)]
     pub(crate) fn check_right(&mut self, right: &str) {
@@ -380,6 +409,13 @@ impl BiscuitBuilder {
 pub trait Convert<T>: Sized {
     fn convert(&self, symbols: &mut SymbolTable) -> T;
     fn convert_from(f: &T, symbols: &SymbolTable) -> Result<Self, error::Format>;
+    fn translate(
+        f: &T,
+        from_symbols: &SymbolTable,
+        to_symbols: &mut SymbolTable,
+    ) -> Result<T, error::Format> {
+        Ok(Self::convert_from(f, from_symbols)?.convert(to_symbols))
+    }
 }
 
 /// Builder for a Datalog value
