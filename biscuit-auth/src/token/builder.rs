@@ -931,6 +931,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::BitwiseAnd => Binary::BitwiseAnd,
             biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
             biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
+            biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
         }
     }
 }

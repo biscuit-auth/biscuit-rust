@@ -233,6 +233,7 @@ pub mod op_binary {
         BitwiseAnd = 17,
         BitwiseOr = 18,
         BitwiseXor = 19,
+        NotEqual = 20,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
