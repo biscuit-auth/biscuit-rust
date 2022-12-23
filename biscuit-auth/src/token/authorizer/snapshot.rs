@@ -141,16 +141,16 @@ impl super::Authorizer {
             .collect();
 
         let mut public_key_map = Vec::new();
-        for (key_id, block_ids) in &self.public_key_to_block_id {
-            let key = self
-                .symbols
-                .public_keys
-                .get_key(*key_id as u64)
-                .ok_or(error::Format::UnknownExternalKey)?;
+        for (key_id, key) in self.symbols.public_keys.keys.iter().enumerate() {
+            let block_ids = self
+                .public_key_to_block_id
+                .get(&key_id)
+                .map(|ids| ids.iter().map(|id| *id as u32).collect())
+                .unwrap_or_default();
 
             public_key_map.push(schema::KeyMap {
                 key: key.to_proto(),
-                block_ids: block_ids.iter().map(|id| *id as u32).collect(),
+                block_ids,
             });
         }
 
