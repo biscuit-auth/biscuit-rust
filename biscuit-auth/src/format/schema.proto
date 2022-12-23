@@ -189,6 +189,7 @@ message AuthorizerSnapshot {
   repeated SnapshotRules rules = 4;
   repeated SnapshotChecks checks = 5;
   repeated Policy policies = 6;
+  repeated KeyMap publicKeyMap = 7;
 }
 
 message Origin {
@@ -209,4 +210,9 @@ message SnapshotRules {
 message SnapshotChecks {
   required Origin origin = 1;
   repeated CheckV2 checks = 2;
+}
+
+message KeyMap {
+  required PublicKey key = 1;
+  repeated uint32 block_ids = 2;
 }

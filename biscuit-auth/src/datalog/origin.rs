@@ -65,6 +65,7 @@ impl TrustedOrigins {
         origins.insert(0);
         TrustedOrigins(origins)
     }
+
     pub fn from_scopes(
         rule_scopes: &[Scope],
         default_origins: &TrustedOrigins,

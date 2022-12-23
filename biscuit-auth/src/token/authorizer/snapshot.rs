@@ -2,21 +2,95 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     builder::{Check, Convert, Fact, Rule},
-    datalog::Origin,
+    datalog::{Origin, SymbolTable},
     error,
     format::{
         convert::v2::{
-            policy_to_proto_policy, token_check_to_proto_check, token_fact_to_proto_fact,
-            token_rule_to_proto_rule,
+            policy_to_proto_policy, proto_check_to_token_check, proto_fact_to_token_fact,
+            proto_policy_to_policy, proto_rule_to_token_rule, token_check_to_proto_check,
+            token_fact_to_proto_fact, token_rule_to_proto_rule,
         },
         schema::{self, SnapshotChecks, SnapshotFacts, SnapshotRules},
     },
-    token::MAX_SCHEMA_VERSION,
+    token::{MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION},
+    PublicKey,
 };
 
 impl super::Authorizer {
-    pub fn from_snapshot(data: schema::AuthorizerSnapshot) -> Result<Self, error::Format> {
-        todo!()
+    pub fn from_snapshot(input: schema::AuthorizerSnapshot) -> Result<Self, error::Format> {
+        let version = input.version.unwrap_or(0);
+        if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
+            return Err(error::Format::Version {
+                minimum: crate::token::MIN_SCHEMA_VERSION,
+                maximum: crate::token::MAX_SCHEMA_VERSION,
+                actual: version,
+            });
+        }
+
+        let input_symbols = SymbolTable::from(input.symbols.clone())?;
+        let mut authorizer = super::Authorizer::new();
+        authorizer.symbols = input_symbols;
+
+        /*
+        for (key_id, block_ids) in &token.public_key_to_block_id {
+            let key = token
+                .symbols
+                .public_keys
+                .get_key(*key_id as u64)
+                .ok_or(error::Format::UnknownExternalKey)?;
+            let new_key_id = self.symbols.public_keys.insert(key);
+
+            self.public_key_to_block_id
+                .insert(new_key_id as usize, block_ids.clone());
+        }
+        */
+        for schema::KeyMap { key, block_ids } in input.public_key_map {
+            let new_key_id = authorizer
+                .symbols
+                .public_keys
+                .insert(&PublicKey::from_proto(&key)?);
+            authorizer.public_key_to_block_id.insert(
+                new_key_id as usize,
+                block_ids.into_iter().map(|id| id as usize).collect(),
+            );
+        }
+
+        for SnapshotFacts { origins, facts } in input.facts {
+            let origin = proto_origin_to_authorizer_origin(&origins)?;
+
+            for fact in &facts {
+                authorizer
+                    .world
+                    .facts
+                    .insert(&origin, proto_fact_to_token_fact(fact)?);
+            }
+        }
+
+        for SnapshotRules { origin, rules } in input.rules {
+            //let origin = proto_origin_to_authorizer_origin(&origins)?;
+
+            for rule in rules {
+                let (rule, scopes) = proto_rule_to_token_rule(&rule, version)?;
+                let rule = Rule::convert_from(&rule, &input_symbols)?;
+            }
+        }
+
+        for SnapshotChecks { origin, checks } in input.checks {
+            //let origin = proto_origin_to_authorizer_origin(&origins)?;
+
+            for check in checks {
+                let check = proto_check_to_token_check(&check, version)?;
+                let check = Rule::convert_from(&check, &input_symbols)?;
+            }
+        }
+
+        for policy in input.policies {
+            authorizer
+                .policies
+                .push(proto_policy_to_policy(&policy, &input_symbols, version)?);
+        }
+
+        Ok(authorizer)
     }
 
     pub fn snapshot(&self) -> schema::AuthorizerSnapshot {
@@ -33,7 +107,7 @@ impl super::Authorizer {
             .collect();
 
         let mut rules_map: BTreeMap<usize, Vec<_>> = BTreeMap::new();
-        for ruleset in self.world.rules.inner.values() {
+        for (trusted_origins, ruleset) in self.world.rules.iter_all() {
             for (origin, rule) in ruleset {
                 rules_map.entry(*origin).or_default().push(rule);
             }
@@ -131,4 +205,22 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
             }
         })
         .collect()
+}
+
+fn proto_origin_to_authorizer_origin(origins: &[schema::Origin]) -> Result<Origin, error::Format> {
+    let mut new_origin = Origin::default();
+
+    for schema::Origin { authorizer, origin } in origins {
+        match (authorizer, origin) {
+            (Some(true), None) => new_origin.insert(usize::MAX),
+            (_, Some(o)) => new_origin.insert(*o as usize),
+            _ => {
+                return Err(error::Format::DeserializationError(
+                    "invalid origin".to_string(),
+                ))
+            }
+        }
+    }
+
+    Ok(new_origin)
 }
