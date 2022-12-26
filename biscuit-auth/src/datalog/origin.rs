@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
@@ -51,6 +52,29 @@ impl FromIterator<usize> for Origin {
         Self {
             inner: iter.into_iter().collect(),
         }
+    }
+}
+
+impl Display for Origin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut it = self.inner.iter();
+
+        if let Some(i) = it.next() {
+            if *i == usize::MAX {
+                write!(f, "authorizer")?;
+            } else {
+                write!(f, "{i}")?;
+            }
+        }
+
+        for i in it.next() {
+            if *i == usize::MAX {
+                write!(f, ", authorizer")?;
+            } else {
+                write!(f, ", {i}")?;
+            }
+        }
+        Ok(())
     }
 }
 

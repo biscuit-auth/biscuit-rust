@@ -926,6 +926,89 @@ impl Authorizer {
 
     /// prints the content of the authorizer
     pub fn print_world(&self) -> String {
+        let mut result = String::new();
+
+        if !self.world.facts.is_empty() {
+            write!(&mut result, "// Facts:\n");
+        }
+
+        for (origin, factset) in &self.world.facts.inner {
+            write!(&mut result, "// origin: {origin}\n");
+
+            for fact in factset {
+                write!(&mut result, "{};\n", self.symbols.print_fact(&fact));
+            }
+        }
+
+        if !self.world.facts.is_empty() {
+            write!(&mut result, "\n");
+        }
+
+        if !self.world.rules.inner.is_empty() {
+            write!(&mut result, "// Rules:\n");
+        }
+
+        let mut rules_map: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        for ruleset in self.world.rules.inner.values() {
+            for (origin, rule) in ruleset {
+                rules_map
+                    .entry(*origin)
+                    .or_default()
+                    .push(self.symbols.print_rule(&rule));
+            }
+        }
+        for (origin, rule_list) in &rules_map {
+            if *origin == usize::MAX {
+                write!(&mut result, "// origin: authorizer\n");
+            } else {
+                write!(&mut result, "// origin: {origin}\n");
+            }
+
+            for rule in rule_list {
+                write!(&mut result, "{};\n", rule);
+            }
+        }
+
+        if !self.world.rules.inner.is_empty() {
+            write!(&mut result, "\n");
+        }
+
+        // TODO: test blocks too
+        //if !self.authorizer_block_builder.checks.is_empty() {
+        write!(&mut result, "// Checks:\n");
+        //}
+
+        if !self.authorizer_block_builder.checks.is_empty() {
+            write!(&mut result, "// origin: authorizer\n");
+
+            for check in &self.authorizer_block_builder.checks {
+                write!(&mut result, "{check};\n");
+            }
+        }
+
+        if let Some(blocks) = &self.blocks {
+            for (i, block) in blocks.iter().enumerate() {
+                if !block.checks.is_empty() {
+                    write!(&mut result, "// origin: {i}\n");
+
+                    for check in &block.checks {
+                        write!(&mut result, "{};\n", self.symbols.print_check(check));
+                    }
+                }
+            }
+        }
+
+        if !self.authorizer_block_builder.checks.is_empty() {
+            write!(&mut result, "\n");
+        }
+
+        if !self.policies.is_empty() {
+            write!(&mut result, "// Policies:\n");
+        }
+        for policy in self.policies.iter() {
+            write!(&mut result, "{policy};\n");
+        }
+
         let facts: BTreeMap<_, _> = self
             .world
             .facts
@@ -984,7 +1067,8 @@ impl Authorizer {
         format!(
             "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
             facts, rules, checks, policies
-        )
+        );
+        result
     }
 
     /// returns all of the data loaded in the authorizer
