@@ -185,8 +185,8 @@ message ThirdPartyBlockContents {
 message AuthorizerSnapshot {
   repeated string symbols = 1;
   optional uint32 version = 2;
-  repeated Block blocks = 3;
-  required Block authorizerBlock = 4;
+  repeated SnapshotBlock blocks = 3;
+  required SnapshotBlock authorizerBlock = 4;
   repeated GeneratedFacts generatedFacts = 5;
   repeated Policy policies = 6;
   repeated KeyMap publicKeyMap = 7;
@@ -206,4 +206,14 @@ message GeneratedFacts {
 message KeyMap {
   required PublicKey key = 1;
   repeated uint32 block_ids = 2;
+}
+
+message SnapshotBlock {
+  optional string context = 1;
+  optional uint32 version = 2;
+  repeated FactV2 facts_v2 = 3;
+  repeated RuleV2 rules_v2 = 4;
+  repeated CheckV2 checks_v2 = 5;
+  repeated Scope scope = 6;
+  optional PublicKey externalKey = 7;
 }

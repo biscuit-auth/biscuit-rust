@@ -287,9 +287,9 @@ pub struct AuthorizerSnapshot {
     #[prost(uint32, optional, tag="2")]
     pub version: ::core::option::Option<u32>,
     #[prost(message, repeated, tag="3")]
-    pub blocks: ::prost::alloc::vec::Vec<Block>,
+    pub blocks: ::prost::alloc::vec::Vec<SnapshotBlock>,
     #[prost(message, required, tag="4")]
-    pub authorizer_block: Block,
+    pub authorizer_block: SnapshotBlock,
     #[prost(message, repeated, tag="5")]
     pub generated_facts: ::prost::alloc::vec::Vec<GeneratedFacts>,
     #[prost(message, repeated, tag="6")]
@@ -325,4 +325,21 @@ pub struct KeyMap {
     pub key: PublicKey,
     #[prost(uint32, repeated, packed="false", tag="2")]
     pub block_ids: ::prost::alloc::vec::Vec<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SnapshotBlock {
+    #[prost(string, optional, tag="1")]
+    pub context: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="2")]
+    pub version: ::core::option::Option<u32>,
+    #[prost(message, repeated, tag="3")]
+    pub facts_v2: ::prost::alloc::vec::Vec<FactV2>,
+    #[prost(message, repeated, tag="4")]
+    pub rules_v2: ::prost::alloc::vec::Vec<RuleV2>,
+    #[prost(message, repeated, tag="5")]
+    pub checks_v2: ::prost::alloc::vec::Vec<CheckV2>,
+    #[prost(message, repeated, tag="6")]
+    pub scope: ::prost::alloc::vec::Vec<Scope>,
+    #[prost(message, optional, tag="7")]
+    pub external_key: ::core::option::Option<PublicKey>,
 }

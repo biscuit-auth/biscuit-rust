@@ -113,6 +113,93 @@ pub fn proto_block_to_token_block(
     })
 }
 
+pub fn token_block_to_proto_snapshot_block(input: &Block) -> schema::SnapshotBlock {
+    schema::SnapshotBlock {
+        context: input.context.clone(),
+        version: Some(input.version),
+        facts_v2: input
+            .facts
+            .iter()
+            .map(v2::token_fact_to_proto_fact)
+            .collect(),
+        rules_v2: input
+            .rules
+            .iter()
+            .map(v2::token_rule_to_proto_rule)
+            .collect(),
+        checks_v2: input
+            .checks
+            .iter()
+            .map(v2::token_check_to_proto_check)
+            .collect(),
+        scope: input
+            .scopes
+            .iter()
+            .map(v2::token_scope_to_proto_scope)
+            .collect(),
+        external_key: input.external_key.map(|key| key.to_proto()),
+    }
+}
+
+pub fn proto_snapshot_block_to_token_block(
+    input: &schema::SnapshotBlock,
+    external_key: Option<PublicKey>,
+) -> Result<Block, error::Format> {
+    let version = input.version.unwrap_or(0);
+    if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
+        return Err(error::Format::Version {
+            minimum: crate::token::MIN_SCHEMA_VERSION,
+            maximum: crate::token::MAX_SCHEMA_VERSION,
+            actual: version,
+        });
+    }
+
+    let mut facts = vec![];
+    let mut rules = vec![];
+    let mut checks = vec![];
+    let mut scopes = vec![];
+    for fact in input.facts_v2.iter() {
+        facts.push(v2::proto_fact_to_token_fact(fact)?);
+    }
+
+    for rule in input.rules_v2.iter() {
+        rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
+    }
+
+    if version == MIN_SCHEMA_VERSION && input.checks_v2.iter().any(|c| c.kind.is_some()) {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: v3 blocks must not contain a check kind".to_string(),
+        ));
+    }
+
+    for check in input.checks_v2.iter() {
+        checks.push(v2::proto_check_to_token_check(check, version)?);
+    }
+    for scope in input.scope.iter() {
+        scopes.push(v2::proto_scope_to_token_scope(scope)?);
+    }
+
+    let context = input.context.clone();
+
+    let detected_schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
+
+    detected_schema_version.check_compatibility(version)?;
+
+    let scopes: Result<Vec<Scope>, _> =
+        input.scope.iter().map(proto_scope_to_token_scope).collect();
+
+    Ok(Block {
+        symbols: SymbolTable::new(),
+        facts,
+        rules,
+        checks,
+        context,
+        version,
+        external_key,
+        public_keys: PublicKeys::default(),
+        scopes: scopes?,
+    })
+}
 pub fn authorizer_to_proto_authorizer(input: &AuthorizerPolicies) -> schema::AuthorizerPolicies {
     let mut symbols = SymbolTable::default();
 

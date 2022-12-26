@@ -6,7 +6,8 @@ use crate::{
     error,
     format::{
         convert::{
-            proto_block_to_token_block, token_block_to_proto_block,
+            proto_block_to_token_block, proto_snapshot_block_to_token_block,
+            token_block_to_proto_block, token_block_to_proto_snapshot_block,
             v2::{
                 policy_to_proto_policy, proto_fact_to_token_fact, proto_policy_to_policy,
                 token_fact_to_proto_fact,
@@ -51,7 +52,7 @@ impl super::Authorizer {
             );
         }
 
-        let authorizer_block = proto_block_to_token_block(&input.authorizer_block, None)?;
+        let authorizer_block = proto_snapshot_block_to_token_block(&input.authorizer_block, None)?;
 
         let authorizer_block_builder = BlockBuilder::convert_from(&authorizer_block, &symbols)?;
         let policies = input
@@ -66,21 +67,18 @@ impl super::Authorizer {
         authorizer.policies = policies;
         authorizer.public_key_to_block_id = public_key_to_block_id;
 
-        let mut token_symbols = default_symbol_table();
         let mut blocks = Vec::new();
         for (i, block) in input.blocks.iter().enumerate() {
             let token_symbols = if external_keys.get(&i).is_none() {
                 authorizer.symbols.clone()
             } else {
-                let mut token_symbols = default_symbol_table();
-                for symbol in &block.symbols {
-                    token_symbols.insert(symbol);
-                }
+                let mut token_symbols = authorizer.symbols.clone();
                 token_symbols.public_keys = authorizer.symbols.public_keys.clone();
                 token_symbols
             };
 
-            let mut block = proto_block_to_token_block(block, external_keys.get(&i).cloned())?;
+            let mut block =
+                proto_snapshot_block_to_token_block(block, external_keys.get(&i).cloned())?;
 
             authorizer.add_block(&mut block, i, &token_symbols)?;
 
@@ -124,7 +122,7 @@ impl super::Authorizer {
         symbols.public_keys.extend(&authorizer_block.public_keys)?;
 
         println!("will serialize authorizer block: {:?}", authorizer_block);
-        let authorizer_block = token_block_to_proto_block(&authorizer_block);
+        let authorizer_block = token_block_to_proto_snapshot_block(&authorizer_block);
 
         let blocks = match self.blocks.as_ref() {
             None => Vec::new(),
@@ -133,7 +131,7 @@ impl super::Authorizer {
                 .map(|block| {
                     block
                         .translate(&self.symbols, &mut symbols)
-                        .map(|block| token_block_to_proto_block(&block))
+                        .map(|block| token_block_to_proto_snapshot_block(&block))
                 })
                 .collect::<Result<Vec<_>, error::Format>>()?,
         };
