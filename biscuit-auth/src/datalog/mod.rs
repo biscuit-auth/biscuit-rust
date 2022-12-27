@@ -46,7 +46,7 @@ impl AsRef<Term> for Term {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Predicate {
     pub name: SymbolIndex,
     pub terms: Vec<Term>,
@@ -67,7 +67,7 @@ impl AsRef<Predicate> for Predicate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fact {
     pub predicate: Predicate,
 }

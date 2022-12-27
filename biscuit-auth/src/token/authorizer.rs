@@ -864,7 +864,18 @@ impl Authorizer {
             write!(&mut result, "// Facts:\n");
         }
 
+        let mut all_facts = BTreeMap::new();
         for (origin, factset) in &self.world.facts.inner {
+            let mut facts = Vec::new();
+            for fact in factset {
+                facts.push(fact);
+            }
+            facts.sort();
+
+            all_facts.insert(origin, facts);
+        }
+
+        for (origin, factset) in &all_facts {
             write!(&mut result, "// origin: {origin}\n");
 
             for fact in factset {
