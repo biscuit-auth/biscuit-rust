@@ -44,7 +44,7 @@ impl super::Authorizer {
 
         let authorizer_block_builder = BlockBuilder::convert_from(&authorizer_block, &symbols)?;
         let policies = input
-            .policies
+            .authorizer_policies
             .iter()
             .map(|policy| proto_policy_to_policy(&policy, &symbols, version))
             .collect::<Result<Vec<Policy>, error::Format>>()?;
@@ -106,7 +106,7 @@ impl super::Authorizer {
     pub fn snapshot(&self) -> Result<schema::AuthorizerSnapshot, error::Format> {
         let mut symbols = default_symbol_table();
 
-        let policies = self
+        let authorizer_policies = self
             .policies
             .iter()
             .map(|policy| policy_to_proto_policy(policy, &mut symbols))
@@ -163,8 +163,8 @@ impl super::Authorizer {
                 .collect(),
             blocks,
             authorizer_block,
+            authorizer_policies,
             generated_facts,
-            policies,
         })
     }
 }
@@ -176,7 +176,7 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
         .map(|o| {
             if *o == usize::MAX {
                 schema::Origin {
-                    content: Some(schema::origin::Content::Authorizer(true)),
+                    content: Some(schema::origin::Content::Authorizer(schema::Empty {})),
                 }
             } else {
                 schema::Origin {
@@ -192,7 +192,9 @@ fn proto_origin_to_authorizer_origin(origins: &[schema::Origin]) -> Result<Origi
 
     for origin in origins {
         match origin.content {
-            Some(schema::origin::Content::Authorizer(true)) => new_origin.insert(usize::MAX),
+            Some(schema::origin::Content::Authorizer(schema::Empty {})) => {
+                new_origin.insert(usize::MAX)
+            }
             Some(schema::origin::Content::Origin(o)) => new_origin.insert(o as usize),
             _ => {
                 return Err(error::Format::DeserializationError(

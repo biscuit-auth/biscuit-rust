@@ -183,21 +183,24 @@ message ThirdPartyBlockContents {
 }
 
 message AuthorizerSnapshot {
-  repeated string symbols = 1;
-  optional uint32 version = 2;
-  repeated SnapshotBlock blocks = 3;
-  required SnapshotBlock authorizerBlock = 4;
-  repeated GeneratedFacts generatedFacts = 5;
-  repeated Policy policies = 6;
-  repeated PublicKey publicKeys = 7;
+  optional uint32 version = 1;
+  repeated string symbols = 2;
+  repeated PublicKey publicKeys = 3;
+  repeated SnapshotBlock blocks = 4;
+  required SnapshotBlock authorizerBlock = 5;
+  repeated Policy authorizerPolicies = 6;
+  repeated GeneratedFacts generatedFacts = 7;
 }
 
 message Origin {
   oneof Content {
-    bool authorizer = 1;
+    Empty authorizer = 1;
     uint32 origin = 2;
   }
 }
+
+message Empty {}
+
 message GeneratedFacts {
   repeated Origin origins = 1;
   repeated FactV2 facts = 2;

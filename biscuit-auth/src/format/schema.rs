@@ -282,20 +282,20 @@ pub struct ThirdPartyBlockContents {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AuthorizerSnapshot {
-    #[prost(string, repeated, tag="1")]
-    pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(uint32, optional, tag="2")]
+    #[prost(uint32, optional, tag="1")]
     pub version: ::core::option::Option<u32>,
+    #[prost(string, repeated, tag="2")]
+    pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="3")]
-    pub blocks: ::prost::alloc::vec::Vec<SnapshotBlock>,
-    #[prost(message, required, tag="4")]
-    pub authorizer_block: SnapshotBlock,
-    #[prost(message, repeated, tag="5")]
-    pub generated_facts: ::prost::alloc::vec::Vec<GeneratedFacts>,
-    #[prost(message, repeated, tag="6")]
-    pub policies: ::prost::alloc::vec::Vec<Policy>,
-    #[prost(message, repeated, tag="7")]
     pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    #[prost(message, repeated, tag="4")]
+    pub blocks: ::prost::alloc::vec::Vec<SnapshotBlock>,
+    #[prost(message, required, tag="5")]
+    pub authorizer_block: SnapshotBlock,
+    #[prost(message, repeated, tag="6")]
+    pub authorizer_policies: ::prost::alloc::vec::Vec<Policy>,
+    #[prost(message, repeated, tag="7")]
+    pub generated_facts: ::prost::alloc::vec::Vec<GeneratedFacts>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Origin {
@@ -306,11 +306,14 @@ pub struct Origin {
 pub mod origin {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Content {
-        #[prost(bool, tag="1")]
-        Authorizer(bool),
+        #[prost(message, tag="1")]
+        Authorizer(super::Empty),
         #[prost(uint32, tag="2")]
         Origin(u32),
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Empty {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GeneratedFacts {
