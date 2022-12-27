@@ -143,7 +143,6 @@ pub fn token_block_to_proto_snapshot_block(input: &Block) -> schema::SnapshotBlo
 
 pub fn proto_snapshot_block_to_token_block(
     input: &schema::SnapshotBlock,
-    external_key: Option<PublicKey>,
 ) -> Result<Block, error::Format> {
     let version = input.version.unwrap_or(0);
     if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
@@ -187,6 +186,11 @@ pub fn proto_snapshot_block_to_token_block(
 
     let scopes: Result<Vec<Scope>, _> =
         input.scope.iter().map(proto_scope_to_token_scope).collect();
+
+    let external_key = match &input.external_key {
+        None => None,
+        Some(key) => Some(PublicKey::from_proto(&key)?),
+    };
 
     Ok(Block {
         symbols: SymbolTable::new(),

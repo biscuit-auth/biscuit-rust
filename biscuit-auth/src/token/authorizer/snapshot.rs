@@ -34,24 +34,13 @@ impl super::Authorizer {
         for symbol in input.symbols {
             symbols.insert(&symbol);
         }
-
-        let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
-        let mut external_keys: HashMap<usize, PublicKey> = HashMap::new();
-        for schema::KeyMap { key, block_ids } in input.public_key_map {
-            let public_key = PublicKey::from_proto(&key)?;
-            let new_key_id = symbols.public_keys.insert(&public_key);
-
-            for id in &block_ids {
-                external_keys.insert(*id as usize, public_key);
-            }
-
-            public_key_to_block_id.insert(
-                new_key_id as usize,
-                block_ids.into_iter().map(|id| id as usize).collect(),
-            );
+        for public_key in input.public_keys {
+            symbols
+                .public_keys
+                .insert(&PublicKey::from_proto(&public_key)?);
         }
 
-        let authorizer_block = proto_snapshot_block_to_token_block(&input.authorizer_block, None)?;
+        let authorizer_block = proto_snapshot_block_to_token_block(&input.authorizer_block)?;
 
         let authorizer_block_builder = BlockBuilder::convert_from(&authorizer_block, &symbols)?;
         let policies = input
@@ -64,11 +53,11 @@ impl super::Authorizer {
         authorizer.symbols = symbols;
         authorizer.authorizer_block_builder = authorizer_block_builder;
         authorizer.policies = policies;
-        authorizer.public_key_to_block_id = public_key_to_block_id;
 
+        let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut blocks = Vec::new();
         for (i, block) in input.blocks.iter().enumerate() {
-            let token_symbols = if external_keys.get(&i).is_none() {
+            let token_symbols = if block.external_key.is_none() {
                 authorizer.symbols.clone()
             } else {
                 let mut token_symbols = authorizer.symbols.clone();
@@ -76,13 +65,20 @@ impl super::Authorizer {
                 token_symbols
             };
 
-            let mut block =
-                proto_snapshot_block_to_token_block(block, external_keys.get(&i).cloned())?;
+            let mut block = proto_snapshot_block_to_token_block(block)?;
+
+            if let Some(key) = block.external_key.as_ref() {
+                public_key_to_block_id
+                    .entry(authorizer.symbols.public_keys.insert(key) as usize)
+                    .or_default()
+                    .push(i);
+            }
 
             authorizer.add_block(&mut block, i, &token_symbols)?;
-
             blocks.push(block);
         }
+
+        authorizer.public_key_to_block_id = public_key_to_block_id;
 
         if !blocks.is_empty() {
             authorizer.token_origins = TrustedOrigins::from_scopes(
@@ -156,28 +152,19 @@ impl super::Authorizer {
             })
             .collect::<Result<Vec<GeneratedFacts>, error::Format>>()?;
 
-        let mut public_key_map = Vec::new();
-        for (key_id, key) in self.symbols.public_keys.keys.iter().enumerate() {
-            let block_ids = self
-                .public_key_to_block_id
-                .get(&key_id)
-                .map(|ids| ids.iter().map(|id| *id as u32).collect())
-                .unwrap_or_default();
-
-            public_key_map.push(schema::KeyMap {
-                key: key.to_proto(),
-                block_ids,
-            });
-        }
-
         Ok(schema::AuthorizerSnapshot {
             version: Some(MAX_SCHEMA_VERSION),
             symbols: symbols.strings(),
+            public_keys: symbols
+                .public_keys
+                .into_inner()
+                .into_iter()
+                .map(|key| key.to_proto())
+                .collect(),
             blocks,
             authorizer_block,
             generated_facts,
             policies,
-            public_key_map,
         })
     }
 }

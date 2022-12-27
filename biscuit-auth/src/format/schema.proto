@@ -189,7 +189,7 @@ message AuthorizerSnapshot {
   required SnapshotBlock authorizerBlock = 4;
   repeated GeneratedFacts generatedFacts = 5;
   repeated Policy policies = 6;
-  repeated KeyMap publicKeyMap = 7;
+  repeated PublicKey publicKeys = 7;
 }
 
 message Origin {
@@ -201,11 +201,6 @@ message Origin {
 message GeneratedFacts {
   repeated Origin origins = 1;
   repeated FactV2 facts = 2;
-}
-
-message KeyMap {
-  required PublicKey key = 1;
-  repeated uint32 block_ids = 2;
 }
 
 message SnapshotBlock {

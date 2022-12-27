@@ -295,7 +295,7 @@ pub struct AuthorizerSnapshot {
     #[prost(message, repeated, tag="6")]
     pub policies: ::prost::alloc::vec::Vec<Policy>,
     #[prost(message, repeated, tag="7")]
-    pub public_key_map: ::prost::alloc::vec::Vec<KeyMap>,
+    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Origin {
@@ -318,13 +318,6 @@ pub struct GeneratedFacts {
     pub origins: ::prost::alloc::vec::Vec<Origin>,
     #[prost(message, repeated, tag="2")]
     pub facts: ::prost::alloc::vec::Vec<FactV2>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct KeyMap {
-    #[prost(message, required, tag="1")]
-    pub key: PublicKey,
-    #[prost(uint32, repeated, packed="false", tag="2")]
-    pub block_ids: ::prost::alloc::vec::Vec<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SnapshotBlock {
