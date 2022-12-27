@@ -1053,10 +1053,15 @@ impl std::fmt::Display for Authorizer {
             write!(f, "\n")?;
         }
 
-        // TODO: test blocks too
-        //if !self.authorizer_block_builder.checks.is_empty() {
-        write!(f, "// Checks:\n")?;
-        //}
+        if !self.authorizer_block_builder.checks.is_empty()
+            || self
+                .blocks
+                .iter()
+                .flat_map(|blocks| blocks.iter())
+                .any(|block| !block.checks.is_empty())
+        {
+            write!(f, "// Checks:\n")?;
+        }
 
         if !self.authorizer_block_builder.checks.is_empty() {
             write!(f, "// origin: authorizer\n")?;
