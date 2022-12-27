@@ -868,7 +868,7 @@ impl Authorizer {
         for (origin, factset) in &self.world.facts.inner {
             let mut facts = Vec::new();
             for fact in factset {
-                facts.push(fact);
+                facts.push(self.symbols.print_fact(&fact));
             }
             facts.sort();
 
@@ -879,7 +879,7 @@ impl Authorizer {
             write!(&mut result, "// origin: {origin}\n");
 
             for fact in factset {
-                write!(&mut result, "{};\n", self.symbols.print_fact(&fact));
+                write!(&mut result, "{};\n", fact);
             }
         }
 

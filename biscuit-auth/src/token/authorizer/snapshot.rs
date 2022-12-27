@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    builder::{BlockBuilder, Convert, Fact, Policy},
+    builder::{BlockBuilder, Convert, Policy},
     datalog::{Origin, TrustedOrigins},
     error,
     format::{
         convert::{
-            proto_block_to_token_block, proto_snapshot_block_to_token_block,
-            token_block_to_proto_block, token_block_to_proto_snapshot_block,
+            proto_snapshot_block_to_token_block, token_block_to_proto_snapshot_block,
             v2::{
                 policy_to_proto_policy, proto_fact_to_token_fact, proto_policy_to_policy,
                 token_fact_to_proto_fact,
@@ -136,16 +135,26 @@ impl super::Authorizer {
                 .collect::<Result<Vec<_>, error::Format>>()?,
         };
 
-        let generated_facts: Vec<schema::GeneratedFacts> = self
+        let generated_facts = self
             .world
             .facts
             .inner
             .iter()
-            .map(|(origin, facts)| GeneratedFacts {
-                origins: authorizer_origin_to_proto_origin(origin),
-                facts: facts.iter().map(token_fact_to_proto_fact).collect(),
+            .map(|(origin, facts)| {
+                Ok(GeneratedFacts {
+                    origins: authorizer_origin_to_proto_origin(origin),
+                    facts: facts
+                        .iter()
+                        .map(|fact| {
+                            Ok(token_fact_to_proto_fact(
+                                &crate::builder::Fact::convert_from(fact, &self.symbols)?
+                                    .convert(&mut symbols),
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, error::Format>>()?,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<GeneratedFacts>, error::Format>>()?;
 
         let mut public_key_map = Vec::new();
         for (key_id, key) in self.symbols.public_keys.keys.iter().enumerate() {
