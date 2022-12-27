@@ -858,160 +858,7 @@ impl Authorizer {
 
     /// prints the content of the authorizer
     pub fn print_world(&self) -> String {
-        let mut result = String::new();
-
-        if !self.world.facts.is_empty() {
-            write!(&mut result, "// Facts:\n");
-        }
-
-        let mut all_facts = BTreeMap::new();
-        for (origin, factset) in &self.world.facts.inner {
-            let mut facts = Vec::new();
-            for fact in factset {
-                facts.push(self.symbols.print_fact(&fact));
-            }
-            facts.sort();
-
-            all_facts.insert(origin, facts);
-        }
-
-        for (origin, factset) in &all_facts {
-            write!(&mut result, "// origin: {origin}\n");
-
-            for fact in factset {
-                write!(&mut result, "{};\n", fact);
-            }
-        }
-
-        if !self.world.facts.is_empty() {
-            write!(&mut result, "\n");
-        }
-
-        if !self.world.rules.inner.is_empty() {
-            write!(&mut result, "// Rules:\n");
-        }
-
-        let mut rules_map: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-        for ruleset in self.world.rules.inner.values() {
-            for (origin, rule) in ruleset {
-                rules_map
-                    .entry(*origin)
-                    .or_default()
-                    .push(self.symbols.print_rule(&rule));
-            }
-        }
-        for (origin, rule_list) in &rules_map {
-            if *origin == usize::MAX {
-                write!(&mut result, "// origin: authorizer\n");
-            } else {
-                write!(&mut result, "// origin: {origin}\n");
-            }
-
-            for rule in rule_list {
-                write!(&mut result, "{};\n", rule);
-            }
-        }
-
-        if !self.world.rules.inner.is_empty() {
-            write!(&mut result, "\n");
-        }
-
-        // TODO: test blocks too
-        //if !self.authorizer_block_builder.checks.is_empty() {
-        write!(&mut result, "// Checks:\n");
-        //}
-
-        if !self.authorizer_block_builder.checks.is_empty() {
-            write!(&mut result, "// origin: authorizer\n");
-
-            for check in &self.authorizer_block_builder.checks {
-                write!(&mut result, "{check};\n");
-            }
-        }
-
-        if let Some(blocks) = &self.blocks {
-            for (i, block) in blocks.iter().enumerate() {
-                if !block.checks.is_empty() {
-                    write!(&mut result, "// origin: {i}\n");
-
-                    for check in &block.checks {
-                        write!(&mut result, "{};\n", self.symbols.print_check(check));
-                    }
-                }
-            }
-        }
-
-        if !self.authorizer_block_builder.checks.is_empty() {
-            write!(&mut result, "\n");
-        }
-
-        if !self.policies.is_empty() {
-            write!(&mut result, "// Policies:\n");
-        }
-        for policy in self.policies.iter() {
-            write!(&mut result, "{policy};\n");
-        }
-
-        let facts: BTreeMap<_, _> = self
-            .world
-            .facts
-            .inner
-            .iter()
-            .map(|(origin, facts)| {
-                (
-                    origin,
-                    facts
-                        .iter()
-                        .map(|f| self.symbols.print_fact(f))
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect();
-
-        let rules: BTreeMap<_, _> = self
-            .world
-            .rules
-            .inner
-            .iter()
-            .map(|(origin, rules)| {
-                (
-                    origin,
-                    rules
-                        .iter()
-                        .map(|(_, r)| self.symbols.print_rule(r))
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect();
-
-        let mut checks = Vec::new();
-        for (index, check) in self.authorizer_block_builder.checks.iter().enumerate() {
-            checks.push(format!("Authorizer[{}]: {}", index, check));
-        }
-
-        if let Some(blocks) = &self.blocks {
-            for (i, block) in blocks.iter().enumerate() {
-                for (j, check) in block.checks.iter().enumerate() {
-                    checks.push(format!(
-                        "Block[{}][{}]: {}",
-                        i,
-                        j,
-                        self.symbols.print_check(check)
-                    ));
-                }
-            }
-        }
-
-        let mut policies = Vec::new();
-        for policy in self.policies.iter() {
-            policies.push(policy.to_string());
-        }
-
-        format!(
-            "World {{\n  facts: {:#?}\n  rules: {:#?}\n  checks: {:#?}\n  policies: {:#?}\n}}",
-            facts, rules, checks, policies
-        );
-        result
+        self.to_string()
     }
 
     /// returns all of the data loaded in the authorizer
@@ -1077,6 +924,109 @@ impl Authorizer {
             let _ = writeln!(f, "{policy};");
         }
         f
+    }
+}
+
+impl std::fmt::Display for Authorizer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.world.facts.is_empty() {
+            write!(f, "// Facts:\n")?;
+        }
+
+        let mut all_facts = BTreeMap::new();
+        for (origin, factset) in &self.world.facts.inner {
+            let mut facts = Vec::new();
+            for fact in factset {
+                facts.push(self.symbols.print_fact(&fact));
+            }
+            facts.sort();
+
+            all_facts.insert(origin, facts);
+        }
+
+        for (origin, factset) in &all_facts {
+            write!(f, "// origin: {origin}\n")?;
+
+            for fact in factset {
+                write!(f, "{};\n", fact)?;
+            }
+        }
+
+        if !self.world.facts.is_empty() {
+            write!(f, "\n")?;
+        }
+
+        if !self.world.rules.inner.is_empty() {
+            write!(f, "// Rules:\n")?;
+        }
+
+        let mut rules_map: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        for ruleset in self.world.rules.inner.values() {
+            for (origin, rule) in ruleset {
+                rules_map
+                    .entry(*origin)
+                    .or_default()
+                    .push(self.symbols.print_rule(&rule));
+            }
+        }
+        for (origin, rule_list) in &rules_map {
+            if *origin == usize::MAX {
+                write!(f, "// origin: authorizer\n")?;
+            } else {
+                write!(f, "// origin: {origin}\n")?;
+            }
+
+            for rule in rule_list {
+                write!(f, "{};\n", rule)?;
+            }
+        }
+
+        if !self.world.rules.inner.is_empty() {
+            write!(f, "\n")?;
+        }
+
+        if !self.authorizer_block_builder.checks.is_empty()
+            || self
+                .blocks
+                .iter()
+                .flat_map(|blocks| blocks.iter())
+                .any(|block| !block.checks.is_empty())
+        {
+            write!(f, "// Checks:\n")?;
+        }
+
+        if !self.authorizer_block_builder.checks.is_empty() {
+            write!(f, "// origin: authorizer\n")?;
+
+            for check in &self.authorizer_block_builder.checks {
+                write!(f, "{check};\n")?;
+            }
+        }
+
+        if let Some(blocks) = &self.blocks {
+            for (i, block) in blocks.iter().enumerate() {
+                if !block.checks.is_empty() {
+                    write!(f, "// origin: {i}\n")?;
+
+                    for check in &block.checks {
+                        write!(f, "{};\n", self.symbols.print_check(check))?;
+                    }
+                }
+            }
+        }
+
+        if !self.authorizer_block_builder.checks.is_empty() {
+            write!(f, "\n")?;
+        }
+
+        if !self.policies.is_empty() {
+            write!(f, "// Policies:\n")?;
+        }
+        for policy in self.policies.iter() {
+            write!(f, "{policy};\n")?;
+        }
+
+        Ok(())
     }
 }
 
