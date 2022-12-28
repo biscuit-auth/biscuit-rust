@@ -212,6 +212,7 @@ pub enum Binary {
     BitwiseAnd,
     BitwiseOr,
     BitwiseXor,
+    NotEqual,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -260,6 +261,7 @@ impl ToTokens for Binary {
             Binary::BitwiseAnd => quote! { ::biscuit_auth::datalog::Binary::BitwiseAnd  },
             Binary::BitwiseOr => quote! { ::biscuit_auth::datalog::Binary::BitwiseOr  },
             Binary::BitwiseXor => quote! { ::biscuit_auth::datalog::Binary::BitwiseXor  },
+            Binary::NotEqual => quote! { ::biscuit_auth::datalog::Binary::NotEqual },
         });
     }
 }

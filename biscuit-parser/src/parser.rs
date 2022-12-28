@@ -452,6 +452,7 @@ fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::LessThan, tag("<")),
         value(Binary::GreaterThan, tag(">")),
         value(Binary::Equal, tag("==")),
+        value(Binary::NotEqual, tag("!=")),
     ))(i)
 }
 
