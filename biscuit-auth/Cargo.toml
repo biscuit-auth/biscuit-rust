@@ -50,6 +50,7 @@ biscuit-quote = { version = "0.2.0-alpha5", optional = true, path = "../biscuit-
 bencher = "0.1.5"
 rand = "0.7"
 colored-diff = "0.2"
+prost-build = "0.10"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.67"
 
