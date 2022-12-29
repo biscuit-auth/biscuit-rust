@@ -564,19 +564,19 @@ impl World {
     }
 
     pub fn run(&mut self, symbols: &SymbolTable) -> Result<(), crate::error::RunLimit> {
-        self.run_with_limits(symbols, RunLimits::default())
+        self.run_with_limits(symbols, &mut RunLimits::default())
     }
 
     pub fn run_with_limits(
         &mut self,
         symbols: &SymbolTable,
-        limits: RunLimits,
+        limits: &mut RunLimits,
     ) -> Result<(), crate::error::RunLimit> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
 
-        loop {
+        let res = loop {
             let mut new_facts = FactSet::default();
 
             for (scope, rules) in self.rules.inner.iter() {
@@ -590,25 +590,33 @@ impl World {
             let len = self.facts.len();
             self.facts.merge(new_facts);
             if self.facts.len() == len {
-                break;
+                break Ok(());
             }
 
             index += 1;
             if index == limits.max_iterations {
-                return Err(crate::error::RunLimit::TooManyIterations);
+                break Err(crate::error::RunLimit::TooManyIterations);
             }
 
             if self.facts.len() >= limits.max_facts as usize {
-                return Err(crate::error::RunLimit::TooManyFacts);
+                break Err(crate::error::RunLimit::TooManyFacts);
             }
 
             let now = Instant::now();
             if now >= time_limit {
-                return Err(crate::error::RunLimit::Timeout);
+                break Err(crate::error::RunLimit::Timeout);
             }
+        };
+
+        limits.max_iterations -= index;
+        if res == Err(crate::error::RunLimit::Timeout) {
+            limits.max_time = Duration::from_secs(0);
+        } else {
+            let now = Instant::now();
+            limits.max_time = limits.max_time - (now - start);
         }
 
-        Ok(())
+        res
     }
 
     /*pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
@@ -668,9 +676,14 @@ impl World {
     }
 }
 
+/// runtime limits for the Datalog engine
+#[derive(Debug, Clone)]
 pub struct RunLimits {
+    /// maximum number of Datalog facts (memory usage)
     pub max_facts: u32,
+    /// maximum number of iterations of the rules applications (prevents degenerate rules)
     pub max_iterations: u32,
+    /// maximum execution time
     pub max_time: Duration,
 }
 

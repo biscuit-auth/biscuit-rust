@@ -14,12 +14,13 @@ use crate::token;
 use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
+use std::time::Duration;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
     default::Default,
     fmt::Write,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 /// used to check authorization policies on a token
@@ -34,6 +35,7 @@ pub struct Authorizer {
     policies: Vec<Policy>,
     blocks: Option<Vec<Block>>,
     public_key_to_block_id: HashMap<usize, Vec<usize>>,
+    limits: AuthorizerLimits,
 }
 
 impl Authorizer {
@@ -66,6 +68,7 @@ impl Authorizer {
             policies: vec![],
             blocks: None,
             public_key_to_block_id: HashMap::new(),
+            limits: AuthorizerLimits::default(),
         }
     }
 
@@ -457,6 +460,14 @@ impl Authorizer {
         self.authorizer_block_builder.add_scope(scope);
     }
 
+    pub fn limits(&self) -> &AuthorizerLimits {
+        &self.limits
+    }
+
+    pub fn set_limits(&mut self, limits: AuthorizerLimits) {
+        self.limits = limits;
+    }
+
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// ```rust
@@ -482,7 +493,10 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.query_with_limits(rule, AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        let result = self.query_with_limits(rule, &mut limits);
+        self.limits = limits;
+        result
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
@@ -493,7 +507,7 @@ impl Authorizer {
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-        limits: AuthorizerLimits,
+        limits: &mut AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
@@ -511,14 +525,13 @@ impl Authorizer {
         );
 
         self.world
-            .run_with_limits(&self.symbols, limits.into())
+            .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
         let res = self
             .world
             .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols);
 
-        res //.drain(..)
-            .inner
+        res.inner
             .into_iter()
             .flat_map(|(_, set)| set.into_iter())
             .map(|f| Fact::convert_from(&f, &self.symbols))
@@ -555,7 +568,10 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.query_all_with_limits(rule, AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        let result = self.query_all_with_limits(rule, &mut limits);
+        self.limits = limits;
+        result
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
@@ -570,7 +586,7 @@ impl Authorizer {
     >(
         &mut self,
         rule: R,
-        limits: AuthorizerLimits,
+        limits: &mut AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
@@ -578,7 +594,7 @@ impl Authorizer {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
         self.world
-            .run_with_limits(&self.symbols, limits.into())
+            .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
@@ -643,7 +659,10 @@ impl Authorizer {
     /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
-        self.authorize_with_limits(AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        let result = self.authorize_with_limits(&mut limits);
+        self.limits = limits;
+        result
     }
 
     /// verifies the checks and policiies
@@ -654,7 +673,7 @@ impl Authorizer {
     /// todo consume the input to prevent further direct use
     pub fn authorize_with_limits(
         &mut self,
-        limits: AuthorizerLimits,
+        limits: &mut AuthorizerLimits,
     ) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
@@ -701,9 +720,8 @@ impl Authorizer {
         }
 
         self.world
-            .run_with_limits(&self.symbols, RunLimits::default())
+            .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
-        //self.world.rules.clear();
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -747,6 +765,7 @@ impl Authorizer {
 
                 let now = Instant::now();
                 if now >= time_limit {
+                    limits.max_time = Duration::from_secs(0);
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
@@ -800,6 +819,7 @@ impl Authorizer {
 
                     let now = Instant::now();
                     if now >= time_limit {
+                        limits.max_time = Duration::from_secs(0);
                         return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                     }
 
@@ -835,6 +855,7 @@ impl Authorizer {
 
                 let now = Instant::now();
                 if now >= time_limit {
+                    limits.max_time = Duration::from_secs(0);
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
@@ -858,7 +879,7 @@ impl Authorizer {
                 );
 
                 self.world
-                    .run_with_limits(&self.symbols, RunLimits::default())
+                    .run_with_limits(&self.symbols, limits)
                     .map_err(error::Token::RunLimit)?;
 
                 for (j, check) in block.checks.iter().enumerate() {
@@ -888,6 +909,7 @@ impl Authorizer {
 
                         let now = Instant::now();
                         if now >= time_limit {
+                            limits.max_time = Duration::from_secs(0);
                             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                         }
 
@@ -1112,36 +1134,7 @@ pub struct AuthorizerPolicies {
     pub policies: Vec<Policy>,
 }
 
-/// runtime limits for the Datalog engine
-#[derive(Debug, Clone)]
-pub struct AuthorizerLimits {
-    /// maximum number of Datalog facts (memory usage)
-    pub max_facts: u32,
-    /// maximum number of iterations of the rules applications (prevents degenerate rules)
-    pub max_iterations: u32,
-    /// maximum execution time
-    pub max_time: Duration,
-}
-
-impl Default for AuthorizerLimits {
-    fn default() -> Self {
-        AuthorizerLimits {
-            max_facts: 1000,
-            max_iterations: 100,
-            max_time: Duration::from_millis(1),
-        }
-    }
-}
-
-impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
-    fn from(limits: AuthorizerLimits) -> Self {
-        crate::datalog::RunLimits {
-            max_facts: limits.max_facts,
-            max_iterations: limits.max_iterations,
-            max_time: limits.max_time,
-        }
-    }
-}
+pub type AuthorizerLimits = RunLimits;
 
 impl BuilderExt for Authorizer {
     fn add_resource(&mut self, name: &str) {
@@ -1249,6 +1242,8 @@ impl AuthorizerExt for Authorizer {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::{builder::BlockBuilder, KeyPair};
 
     use super::*;
@@ -1480,7 +1475,7 @@ mod tests {
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
 
-        let res = authorizer.authorize_with_limits(AuthorizerLimits {
+        let res = authorizer.authorize_with_limits(&mut AuthorizerLimits {
             max_time: Duration::from_millis(5), //Set 5 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
             ..Default::default()
         });
