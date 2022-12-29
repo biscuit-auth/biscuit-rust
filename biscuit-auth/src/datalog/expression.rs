@@ -72,6 +72,7 @@ pub enum Binary {
     BitwiseAnd,
     BitwiseOr,
     BitwiseXor,
+    NotEqual,
 }
 
 impl Binary {
@@ -90,6 +91,7 @@ impl Binary {
                 Some(Term::Bool(i >= j))
             }
             (Binary::Equal, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i != j)),
             (Binary::Add, Term::Integer(i), Term::Integer(j)) => {
                 i.checked_add(j).map(Term::Integer)
             }
@@ -144,6 +146,7 @@ impl Binary {
                 }
             }
             (Binary::Equal, Term::Str(i), Term::Str(j)) => Some(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Str(i), Term::Str(j)) => Some(Term::Bool(i != j)),
 
             // date
             (Binary::LessThan, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i < j)),
@@ -151,14 +154,17 @@ impl Binary {
             (Binary::LessOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i <= j)),
             (Binary::GreaterOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i >= j)),
             (Binary::Equal, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i != j)),
 
             // symbol
 
             // byte array
             (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Some(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Bytes(i), Term::Bytes(j)) => Some(Term::Bool(i != j)),
 
             // set
             (Binary::Equal, Term::Set(set), Term::Set(s)) => Some(Term::Bool(set == s)),
+            (Binary::NotEqual, Term::Set(set), Term::Set(s)) => Some(Term::Bool(set != s)),
             (Binary::Intersection, Term::Set(set), Term::Set(s)) => {
                 Some(Term::Set(set.intersection(&s).cloned().collect()))
             }
@@ -201,6 +207,7 @@ impl Binary {
             Binary::LessOrEqual => format!("{} <= {}", left, right),
             Binary::GreaterOrEqual => format!("{} >= {}", left, right),
             Binary::Equal => format!("{} == {}", left, right),
+            Binary::NotEqual => format!("{} != {}", left, right),
             Binary::Contains => format!("{}.contains({})", left, right),
             Binary::Prefix => format!("{}.starts_with({})", left, right),
             Binary::Suffix => format!("{}.ends_with({})", left, right),

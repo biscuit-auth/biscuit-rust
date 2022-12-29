@@ -1294,6 +1294,8 @@ fn expressions<T: Rng + CryptoRng>(
         check if 2 >= 2;
         //integer equal
         check if 3 == 3;
+        //integer not equal
+        check if 1 != 3;
         //integer add sub mul div
         check if 1 + 2 * 3 - 4 /2 == 5;
         //integer bitwise and or xor
@@ -1309,6 +1311,8 @@ fn expressions<T: Rng + CryptoRng>(
         check if "aaabde" == "aaa" + "b" + "de";
         // string equal
         check if "abcD12" == "abcD12";
+        // string not equal
+        check if "abcD12x" != "abcD12";
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
@@ -1322,9 +1326,13 @@ fn expressions<T: Rng + CryptoRng>(
         check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00;
         //date equal
         check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00;
+        //date not equal
+        check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
 
         //bytes equal
         check if hex:12ab == hex:12ab;
+        //bytes not equal
+        check if hex:12abcd != hex:12ab;
 
         // set contains
         check if [1, 2].contains(2);
@@ -1332,6 +1340,10 @@ fn expressions<T: Rng + CryptoRng>(
         check if [true, false, true].contains(true);
         check if ["abc", "def"].contains("abc");
         check if [hex:12ab, hex:34de].contains(hex:34de);
+        // set equal
+        check if [1, 2] == [1, 2];
+        // set not equal
+        check if [1, 4] != [1, 2];
     "#)
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();

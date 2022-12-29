@@ -473,3 +473,30 @@ impl SerializedBiscuit {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Read;
+
+    #[test]
+    fn proto() {
+        prost_build::compile_protos(&["src/format/schema.proto"], &["src/"]).unwrap();
+        let mut file =
+            std::fs::File::open(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs")).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+
+        let commited_schema = include_str!("schema.rs");
+
+        if &contents != commited_schema {
+            println!(
+                "{}",
+                colored_diff::PrettyDifference {
+                    expected: &contents,
+                    actual: commited_schema
+                }
+            );
+            panic!();
+        }
+    }
+}

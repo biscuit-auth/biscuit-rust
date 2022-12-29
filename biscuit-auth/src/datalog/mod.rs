@@ -790,13 +790,13 @@ impl RuleSet {
 
 pub struct SchemaVersion {
     contains_scopes: bool,
-    contains_bitwise: bool,
+    contains_v4: bool,
     contains_check_all: bool,
 }
 
 impl SchemaVersion {
     pub fn version(&self) -> u32 {
-        if self.contains_scopes || self.contains_bitwise || self.contains_check_all {
+        if self.contains_scopes || self.contains_v4 || self.contains_check_all {
             4
         } else {
             MIN_SCHEMA_VERSION
@@ -806,11 +806,17 @@ impl SchemaVersion {
     pub fn check_compatibility(&self, version: u32) -> Result<(), error::Format> {
         if version < 4 {
             if self.contains_scopes {
-                Err(error::Format::DeserializationError("v3 blocks must not have scopes".to_string()))
-            } else if self.contains_bitwise {
-                Err(error::Format::DeserializationError("v3 blocks must not have bitwise operators".to_string()))
+                Err(error::Format::DeserializationError(
+                    "v3 blocks must not have scopes".to_string(),
+                ))
+            } else if self.contains_v4 {
+                Err(error::Format::DeserializationError(
+                    "v3 blocks must not have v4 operators (bitwise operators or !=)".to_string(),
+                ))
             } else if self.contains_check_all {
-                Err(error::Format::DeserializationError("v3 blocks must not have use all".to_string()))
+                Err(error::Format::DeserializationError(
+                    "v3 blocks must not have use all".to_string(),
+                ))
             } else {
                 Ok(())
             }
@@ -835,31 +841,32 @@ pub fn get_schema_version(
 
     let contains_check_all = checks.iter().any(|c: &Check| c.kind == CheckKind::All);
 
-    let contains_bitwise = rules
-        .iter()
-        .any(|rule| contains_bitwise_op(&rule.expressions))
+    let contains_v4 = rules.iter().any(|rule| contains_v4_op(&rule.expressions))
         || checks.iter().any(|check| {
             check
                 .queries
                 .iter()
-                .any(|query| contains_bitwise_op(&query.expressions))
+                .any(|query| contains_v4_op(&query.expressions))
         });
 
     SchemaVersion {
         contains_scopes,
-        contains_bitwise,
+        contains_v4,
         contains_check_all,
     }
 }
 
-/// Determine whether any of the expression contain a bitwise operator.
-/// Bitwise operators are only supported in biscuits v4+
-pub fn contains_bitwise_op(expressions: &[Expression]) -> bool {
+/// Determine whether any of the expression contain a v4 operator.
+/// Bitwise operators and != are only supported in biscuits v4+
+pub fn contains_v4_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| {
             if let Op::Binary(binary) = op {
                 match binary {
-                    Binary::BitwiseAnd | Binary::BitwiseOr | Binary::BitwiseXor => return true,
+                    Binary::BitwiseAnd
+                    | Binary::BitwiseOr
+                    | Binary::BitwiseXor
+                    | Binary::NotEqual => return true,
                     _ => return false,
                 }
             }
