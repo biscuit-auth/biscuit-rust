@@ -462,10 +462,16 @@ impl Authorizer {
         self.authorizer_block_builder.add_scope(scope);
     }
 
+    /// Returns the runtime limits of the authorizer
+    ///
+    /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
     pub fn limits(&self) -> &AuthorizerLimits {
         &self.limits
     }
 
+    /// Sets the runtime limits of the authorizer
+    ///
+    /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
     pub fn set_limits(&mut self, limits: AuthorizerLimits) {
         self.limits = limits;
     }
@@ -509,7 +515,7 @@ impl Authorizer {
     ///
     /// this only sees facts from the authorizer and the authority block
     ///
-    /// this method can specify custom runtime limits
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
@@ -600,7 +606,7 @@ impl Authorizer {
     ///
     /// this has access to the facts generated when evaluating all the blocks
     ///
-    /// this method can specify custom runtime limits
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn query_all_with_limits<
         R: TryInto<Rule>,
         T: TryFrom<Fact, Error = E>,
@@ -688,7 +694,7 @@ impl Authorizer {
         self.add_policy("deny if true")
     }
 
-    /// verifies the checks and policiies
+    /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
@@ -703,12 +709,12 @@ impl Authorizer {
         self.authorize_with_limits(limits)
     }
 
-    /// verifies the checks and policiies
+    /// TODO: consume the input to prevent further direct use
+    /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
     ///
-    /// this method can specify custom runtime limits
-    /// todo consume the input to prevent further direct use
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn authorize_with_limits(
         &mut self,
         limits: AuthorizerLimits,
