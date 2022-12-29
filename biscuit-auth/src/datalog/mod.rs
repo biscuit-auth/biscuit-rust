@@ -548,6 +548,7 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
 pub struct World {
     pub facts: FactSet,
     pub rules: RuleSet,
+    pub iterations: u32,
 }
 
 impl World {
@@ -576,7 +577,7 @@ impl World {
         let time_limit = start + limits.max_time;
         let mut index = 0;
 
-        loop {
+        let res = loop {
             let mut new_facts = FactSet::default();
 
             for (scope, rules) in self.rules.inner.iter() {
@@ -590,25 +591,27 @@ impl World {
             let len = self.facts.len();
             self.facts.merge(new_facts);
             if self.facts.len() == len {
-                break;
+                break Ok(());
             }
 
             index += 1;
             if index == limits.max_iterations {
-                return Err(crate::error::RunLimit::TooManyIterations);
+                break Err(crate::error::RunLimit::TooManyIterations);
             }
 
             if self.facts.len() >= limits.max_facts as usize {
-                return Err(crate::error::RunLimit::TooManyFacts);
+                break Err(crate::error::RunLimit::TooManyFacts);
             }
 
             let now = Instant::now();
             if now >= time_limit {
-                return Err(crate::error::RunLimit::Timeout);
+                break Err(crate::error::RunLimit::Timeout);
             }
-        }
+        };
 
-        Ok(())
+        self.iterations += index;
+
+        res
     }
 
     /*pub fn query(&self, pred: Predicate) -> Vec<&Fact> {
@@ -668,9 +671,14 @@ impl World {
     }
 }
 
+/// runtime limits for the Datalog engine
+#[derive(Debug, Clone)]
 pub struct RunLimits {
+    /// maximum number of Datalog facts (memory usage)
     pub max_facts: u32,
+    /// maximum number of iterations of the rules applications (prevents degenerate rules)
     pub max_iterations: u32,
+    /// maximum execution time
     pub max_time: Duration,
 }
 
