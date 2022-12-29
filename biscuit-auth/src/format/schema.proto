@@ -184,6 +184,18 @@ message ThirdPartyBlockContents {
 }
 
 message AuthorizerSnapshot {
+  required RunLimits limits = 1;
+  required uint64 executionTime = 2;
+  required AuthorizerWorld world = 3;
+}
+
+message RunLimits {
+  required uint64 maxFacts = 1;
+  required uint64 maxIterations = 2;
+  required uint64 maxTime = 3;
+}
+
+message AuthorizerWorld {
   optional uint32 version = 1;
   repeated string symbols = 2;
   repeated PublicKey publicKeys = 3;
@@ -191,6 +203,7 @@ message AuthorizerSnapshot {
   required SnapshotBlock authorizerBlock = 5;
   repeated Policy authorizerPolicies = 6;
   repeated GeneratedFacts generatedFacts = 7;
+  required uint64 iterations = 8;
 }
 
 message Origin {

@@ -283,6 +283,24 @@ pub struct ThirdPartyBlockContents {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AuthorizerSnapshot {
+    #[prost(message, required, tag="1")]
+    pub limits: RunLimits,
+    #[prost(uint64, required, tag="2")]
+    pub execution_time: u64,
+    #[prost(message, required, tag="3")]
+    pub world: AuthorizerWorld,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunLimits {
+    #[prost(uint64, required, tag="1")]
+    pub max_facts: u64,
+    #[prost(uint64, required, tag="2")]
+    pub max_iterations: u64,
+    #[prost(uint64, required, tag="3")]
+    pub max_time: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuthorizerWorld {
     #[prost(uint32, optional, tag="1")]
     pub version: ::core::option::Option<u32>,
     #[prost(string, repeated, tag="2")]
@@ -297,6 +315,8 @@ pub struct AuthorizerSnapshot {
     pub authorizer_policies: ::prost::alloc::vec::Vec<Policy>,
     #[prost(message, repeated, tag="7")]
     pub generated_facts: ::prost::alloc::vec::Vec<GeneratedFacts>,
+    #[prost(uint64, required, tag="8")]
+    pub iterations: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Origin {

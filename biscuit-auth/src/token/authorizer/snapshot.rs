@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use crate::{
     builder::{BlockBuilder, Convert, Policy},
-    datalog::{Origin, TrustedOrigins},
+    datalog::{Origin, RunLimits, TrustedOrigins},
     error,
     format::{
         convert::{
@@ -20,7 +20,21 @@ use crate::{
 
 impl super::Authorizer {
     pub fn from_snapshot(input: schema::AuthorizerSnapshot) -> Result<Self, error::Token> {
-        let version = input.version.unwrap_or(0);
+        let schema::AuthorizerSnapshot {
+            limits,
+            execution_time,
+            world,
+        } = input;
+
+        let limits = RunLimits {
+            max_facts: limits.max_facts,
+            max_iterations: limits.max_iterations,
+            max_time: Duration::from_nanos(limits.max_time),
+        };
+
+        let execution_time = Duration::from_nanos(execution_time);
+
+        let version = world.version.unwrap_or(0);
         if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
             return Err(error::Format::Version {
                 minimum: crate::token::MIN_SCHEMA_VERSION,
@@ -31,19 +45,19 @@ impl super::Authorizer {
         }
 
         let mut symbols = default_symbol_table();
-        for symbol in input.symbols {
+        for symbol in world.symbols {
             symbols.insert(&symbol);
         }
-        for public_key in input.public_keys {
+        for public_key in world.public_keys {
             symbols
                 .public_keys
                 .insert(&PublicKey::from_proto(&public_key)?);
         }
 
-        let authorizer_block = proto_snapshot_block_to_token_block(&input.authorizer_block)?;
+        let authorizer_block = proto_snapshot_block_to_token_block(&world.authorizer_block)?;
 
         let authorizer_block_builder = BlockBuilder::convert_from(&authorizer_block, &symbols)?;
-        let policies = input
+        let policies = world
             .authorizer_policies
             .iter()
             .map(|policy| proto_policy_to_policy(&policy, &symbols, version))
@@ -53,10 +67,12 @@ impl super::Authorizer {
         authorizer.symbols = symbols;
         authorizer.authorizer_block_builder = authorizer_block_builder;
         authorizer.policies = policies;
+        authorizer.limits = limits;
+        authorizer.execution_time = execution_time;
 
         let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut blocks = Vec::new();
-        for (i, block) in input.blocks.iter().enumerate() {
+        for (i, block) in world.blocks.iter().enumerate() {
             let token_symbols = if block.external_key.is_none() {
                 authorizer.symbols.clone()
             } else {
@@ -90,7 +106,7 @@ impl super::Authorizer {
             authorizer.blocks = Some(blocks);
         }
 
-        for GeneratedFacts { origins, facts } in input.generated_facts {
+        for GeneratedFacts { origins, facts } in world.generated_facts {
             let origin = proto_origin_to_authorizer_origin(&origins)?;
 
             for fact in &facts {
@@ -99,6 +115,8 @@ impl super::Authorizer {
                 authorizer.world.facts.insert(&origin, fact);
             }
         }
+
+        authorizer.world.iterations = world.iterations;
 
         Ok(authorizer)
     }
@@ -152,7 +170,7 @@ impl super::Authorizer {
             })
             .collect::<Result<Vec<GeneratedFacts>, error::Format>>()?;
 
-        Ok(schema::AuthorizerSnapshot {
+        let world = schema::AuthorizerWorld {
             version: Some(MAX_SCHEMA_VERSION),
             symbols: symbols.strings(),
             public_keys: symbols
@@ -165,6 +183,17 @@ impl super::Authorizer {
             authorizer_block,
             authorizer_policies,
             generated_facts,
+            iterations: self.world.iterations,
+        };
+
+        Ok(schema::AuthorizerSnapshot {
+            world,
+            execution_time: self.execution_time.as_nanos() as u64,
+            limits: schema::RunLimits {
+                max_facts: self.limits.max_facts,
+                max_iterations: self.limits.max_iterations,
+                max_time: self.limits.max_time.as_nanos() as u64,
+            },
         })
     }
 }
