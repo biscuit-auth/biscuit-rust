@@ -434,7 +434,7 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
@@ -525,7 +525,7 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
@@ -632,7 +632,7 @@ impl Authorizer {
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
