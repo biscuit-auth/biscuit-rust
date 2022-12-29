@@ -36,6 +36,7 @@ pub struct Authorizer {
     blocks: Option<Vec<Block>>,
     public_key_to_block_id: HashMap<usize, Vec<usize>>,
     limits: AuthorizerLimits,
+    execution_time: Duration,
 }
 
 impl Authorizer {
@@ -69,6 +70,7 @@ impl Authorizer {
             blocks: None,
             public_key_to_block_id: HashMap::new(),
             limits: AuthorizerLimits::default(),
+            execution_time: Duration::default(),
         }
     }
 
@@ -494,8 +496,16 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        let result = self.query_with_limits(rule, &mut limits);
-        self.limits = limits;
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        let start = Instant::now();
+        let result = self.query_with_limits(rule, limits);
+        self.execution_time += start.elapsed();
+
         result
     }
 
@@ -507,7 +517,7 @@ impl Authorizer {
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
-        limits: &mut AuthorizerLimits,
+        limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
@@ -569,8 +579,16 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        let result = self.query_all_with_limits(rule, &mut limits);
-        self.limits = limits;
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        let start = Instant::now();
+        let result = self.query_all_with_limits(rule, limits);
+        self.execution_time += start.elapsed();
+
         result
     }
 
@@ -586,7 +604,7 @@ impl Authorizer {
     >(
         &mut self,
         rule: R,
-        limits: &mut AuthorizerLimits,
+        limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
@@ -660,8 +678,16 @@ impl Authorizer {
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
         let mut limits = self.limits.clone();
-        let result = self.authorize_with_limits(&mut limits);
-        self.limits = limits;
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        let start = Instant::now();
+        let result = self.authorize_with_limits(limits);
+        self.execution_time += start.elapsed();
+
         result
     }
 
@@ -673,10 +699,12 @@ impl Authorizer {
     /// todo consume the input to prevent further direct use
     pub fn authorize_with_limits(
         &mut self,
-        limits: &mut AuthorizerLimits,
+        mut limits: AuthorizerLimits,
     ) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
+        let mut current_iterations = self.world.iterations;
+
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
@@ -719,8 +747,9 @@ impl Authorizer {
                 .insert(usize::MAX, &rule_trusted_origins, rule);
         }
 
+        limits.max_time = time_limit - Instant::now();
         self.world
-            .run_with_limits(&self.symbols, limits)
+            .run_with_limits(&self.symbols, limits.clone())
             .map_err(error::Token::RunLimit)?;
 
         let authorizer_scopes: Vec<token::Scope> = self
@@ -765,7 +794,6 @@ impl Authorizer {
 
                 let now = Instant::now();
                 if now >= time_limit {
-                    limits.max_time = Duration::from_secs(0);
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
@@ -819,7 +847,6 @@ impl Authorizer {
 
                     let now = Instant::now();
                     if now >= time_limit {
-                        limits.max_time = Duration::from_secs(0);
                         return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                     }
 
@@ -855,7 +882,6 @@ impl Authorizer {
 
                 let now = Instant::now();
                 if now >= time_limit {
-                    limits.max_time = Duration::from_secs(0);
                     return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                 }
 
@@ -878,8 +904,12 @@ impl Authorizer {
                     &self.public_key_to_block_id,
                 );
 
+                limits.max_time = time_limit - Instant::now();
+                limits.max_iterations -= self.world.iterations - current_iterations;
+                current_iterations = self.world.iterations;
+
                 self.world
-                    .run_with_limits(&self.symbols, limits)
+                    .run_with_limits(&self.symbols, limits.clone())
                     .map_err(error::Token::RunLimit)?;
 
                 for (j, check) in block.checks.iter().enumerate() {
@@ -909,7 +939,6 @@ impl Authorizer {
 
                         let now = Instant::now();
                         if now >= time_limit {
-                            limits.max_time = Duration::from_secs(0);
                             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
                         }
 
@@ -1475,10 +1504,12 @@ mod tests {
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
 
-        let res = authorizer.authorize_with_limits(&mut AuthorizerLimits {
-            max_time: Duration::from_millis(5), //Set 5 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+        authorizer.set_limits(AuthorizerLimits {
+            max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
             ..Default::default()
         });
+
+        let res = authorizer.authorize();
         println!("world after:\n{}", authorizer.print_world());
 
         res.unwrap();

@@ -548,6 +548,7 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
 pub struct World {
     pub facts: FactSet,
     pub rules: RuleSet,
+    pub iterations: u32,
 }
 
 impl World {
@@ -564,13 +565,13 @@ impl World {
     }
 
     pub fn run(&mut self, symbols: &SymbolTable) -> Result<(), crate::error::RunLimit> {
-        self.run_with_limits(symbols, &mut RunLimits::default())
+        self.run_with_limits(symbols, RunLimits::default())
     }
 
     pub fn run_with_limits(
         &mut self,
         symbols: &SymbolTable,
-        limits: &mut RunLimits,
+        limits: RunLimits,
     ) -> Result<(), crate::error::RunLimit> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
@@ -608,13 +609,7 @@ impl World {
             }
         };
 
-        limits.max_iterations -= index;
-        if res == Err(crate::error::RunLimit::Timeout) {
-            limits.max_time = Duration::from_secs(0);
-        } else {
-            let now = Instant::now();
-            limits.max_time = limits.max_time - (now - start);
-        }
+        self.iterations += index;
 
         res
     }

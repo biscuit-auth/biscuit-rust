@@ -1375,11 +1375,10 @@ mod tests {
             .unwrap();
         authorizer.deny().unwrap();
 
-        let res =
-            authorizer.authorize_with_limits(&mut crate::token::authorizer::AuthorizerLimits {
-                max_time: Duration::from_secs(1),
-                ..Default::default()
-            });
+        let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
+            max_time: Duration::from_secs(1),
+            ..Default::default()
+        });
         println!("res1: {:?}", res);
         println!("authorizer:\n{}", authorizer.print_world());
 
