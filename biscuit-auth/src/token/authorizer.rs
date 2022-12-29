@@ -502,11 +502,7 @@ impl Authorizer {
         }
         limits.max_time -= self.execution_time;
 
-        let start = Instant::now();
-        let result = self.query_with_limits(rule, limits);
-        self.execution_time += start.elapsed();
-
-        result
+        self.query_with_limits(rule, limits)
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
@@ -524,6 +520,18 @@ impl Authorizer {
     {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
+        let start = Instant::now();
+        let result = self.query_inner(rule, limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn query_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: datalog::Rule,
+        limits: AuthorizerLimits,
+    ) -> Result<Vec<T>, error::Token> {
         let rule_trusted_origins = TrustedOrigins::from_scopes(
             &rule.scopes,
             &TrustedOrigins::default(), // for queries, we don't want to default on the authorizer trust
@@ -585,11 +593,7 @@ impl Authorizer {
         }
         limits.max_time -= self.execution_time;
 
-        let start = Instant::now();
-        let result = self.query_all_with_limits(rule, limits);
-        self.execution_time += start.elapsed();
-
-        result
+        self.query_all_with_limits(rule, limits)
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
@@ -611,6 +615,18 @@ impl Authorizer {
     {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
+        let start = Instant::now();
+        let result = self.query_all_inner(rule, limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn query_all_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: datalog::Rule,
+        limits: AuthorizerLimits,
+    ) -> Result<Vec<T>, error::Token> {
         self.world
             .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
@@ -684,11 +700,7 @@ impl Authorizer {
         }
         limits.max_time -= self.execution_time;
 
-        let start = Instant::now();
-        let result = self.authorize_with_limits(limits);
-        self.execution_time += start.elapsed();
-
-        result
+        self.authorize_with_limits(limits)
     }
 
     /// verifies the checks and policiies
@@ -699,8 +711,16 @@ impl Authorizer {
     /// todo consume the input to prevent further direct use
     pub fn authorize_with_limits(
         &mut self,
-        mut limits: AuthorizerLimits,
+        limits: AuthorizerLimits,
     ) -> Result<usize, error::Token> {
+        let start = Instant::now();
+        let result = self.authorize_inner(limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn authorize_inner(&mut self, mut limits: AuthorizerLimits) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut current_iterations = self.world.iterations;
