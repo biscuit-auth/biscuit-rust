@@ -14,12 +14,13 @@ use crate::token;
 use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
+use std::time::Duration;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
     default::Default,
     fmt::Write,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 /// used to check authorization policies on a token
@@ -34,6 +35,8 @@ pub struct Authorizer {
     policies: Vec<Policy>,
     blocks: Option<Vec<Block>>,
     public_key_to_block_id: HashMap<usize, Vec<usize>>,
+    limits: AuthorizerLimits,
+    execution_time: Duration,
 }
 
 impl Authorizer {
@@ -66,6 +69,8 @@ impl Authorizer {
             policies: vec![],
             blocks: None,
             public_key_to_block_id: HashMap::new(),
+            limits: AuthorizerLimits::default(),
+            execution_time: Duration::default(),
         }
     }
 
@@ -457,6 +462,20 @@ impl Authorizer {
         self.authorizer_block_builder.add_scope(scope);
     }
 
+    /// Returns the runtime limits of the authorizer
+    ///
+    /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
+    pub fn limits(&self) -> &AuthorizerLimits {
+        &self.limits
+    }
+
+    /// Sets the runtime limits of the authorizer
+    ///
+    /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
+    pub fn set_limits(&mut self, limits: AuthorizerLimits) {
+        self.limits = limits;
+    }
+
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// ```rust
@@ -482,14 +501,21 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.query_with_limits(rule, AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        self.query_with_limits(rule, limits)
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// this only sees facts from the authorizer and the authority block
     ///
-    /// this method can specify custom runtime limits
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn query_with_limits<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: R,
@@ -500,6 +526,18 @@ impl Authorizer {
     {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
+        let start = Instant::now();
+        let result = self.query_inner(rule, limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn query_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: datalog::Rule,
+        limits: AuthorizerLimits,
+    ) -> Result<Vec<T>, error::Token> {
         let rule_trusted_origins = TrustedOrigins::from_scopes(
             &rule.scopes,
             &TrustedOrigins::default(), // for queries, we don't want to default on the authorizer trust
@@ -511,14 +549,13 @@ impl Authorizer {
         );
 
         self.world
-            .run_with_limits(&self.symbols, limits.into())
+            .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
         let res = self
             .world
             .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols);
 
-        res //.drain(..)
-            .inner
+        res.inner
             .into_iter()
             .flat_map(|(_, set)| set.into_iter())
             .map(|f| Fact::convert_from(&f, &self.symbols))
@@ -555,14 +592,21 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.query_all_with_limits(rule, AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        self.query_all_with_limits(rule, limits)
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// this has access to the facts generated when evaluating all the blocks
     ///
-    /// this method can specify custom runtime limits
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn query_all_with_limits<
         R: TryInto<Rule>,
         T: TryFrom<Fact, Error = E>,
@@ -577,8 +621,20 @@ impl Authorizer {
     {
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
+        let start = Instant::now();
+        let result = self.query_all_inner(rule, limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn query_all_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: datalog::Rule,
+        limits: AuthorizerLimits,
+    ) -> Result<Vec<T>, error::Token> {
         self.world
-            .run_with_limits(&self.symbols, limits.into())
+            .run_with_limits(&self.symbols, limits)
             .map_err(error::Token::RunLimit)?;
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
@@ -638,26 +694,43 @@ impl Authorizer {
         self.add_policy("deny if true")
     }
 
-    /// verifies the checks and policiies
+    /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
-        self.authorize_with_limits(AuthorizerLimits::default())
+        let mut limits = self.limits.clone();
+        limits.max_iterations -= self.world.iterations as u32;
+        if self.execution_time >= limits.max_time {
+            return Err(error::Token::RunLimit(error::RunLimit::Timeout));
+        }
+        limits.max_time -= self.execution_time;
+
+        self.authorize_with_limits(limits)
     }
 
-    /// verifies the checks and policiies
+    /// TODO: consume the input to prevent further direct use
+    /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
     ///
-    /// this method can specify custom runtime limits
-    /// todo consume the input to prevent further direct use
+    /// this method overrides the authorizer's runtime limits, just for this calls
     pub fn authorize_with_limits(
         &mut self,
         limits: AuthorizerLimits,
     ) -> Result<usize, error::Token> {
         let start = Instant::now();
+        let result = self.authorize_inner(limits);
+        self.execution_time += start.elapsed();
+
+        result
+    }
+
+    fn authorize_inner(&mut self, mut limits: AuthorizerLimits) -> Result<usize, error::Token> {
+        let start = Instant::now();
         let time_limit = start + limits.max_time;
+        let mut current_iterations = self.world.iterations;
+
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
@@ -700,10 +773,10 @@ impl Authorizer {
                 .insert(usize::MAX, &rule_trusted_origins, rule);
         }
 
+        limits.max_time = time_limit - Instant::now();
         self.world
-            .run_with_limits(&self.symbols, RunLimits::default())
+            .run_with_limits(&self.symbols, limits.clone())
             .map_err(error::Token::RunLimit)?;
-        //self.world.rules.clear();
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -857,8 +930,12 @@ impl Authorizer {
                     &self.public_key_to_block_id,
                 );
 
+                limits.max_time = time_limit - Instant::now();
+                limits.max_iterations -= self.world.iterations - current_iterations;
+                current_iterations = self.world.iterations;
+
                 self.world
-                    .run_with_limits(&self.symbols, RunLimits::default())
+                    .run_with_limits(&self.symbols, limits.clone())
                     .map_err(error::Token::RunLimit)?;
 
                 for (j, check) in block.checks.iter().enumerate() {
@@ -1112,36 +1189,7 @@ pub struct AuthorizerPolicies {
     pub policies: Vec<Policy>,
 }
 
-/// runtime limits for the Datalog engine
-#[derive(Debug, Clone)]
-pub struct AuthorizerLimits {
-    /// maximum number of Datalog facts (memory usage)
-    pub max_facts: u32,
-    /// maximum number of iterations of the rules applications (prevents degenerate rules)
-    pub max_iterations: u32,
-    /// maximum execution time
-    pub max_time: Duration,
-}
-
-impl Default for AuthorizerLimits {
-    fn default() -> Self {
-        AuthorizerLimits {
-            max_facts: 1000,
-            max_iterations: 100,
-            max_time: Duration::from_millis(1),
-        }
-    }
-}
-
-impl std::convert::From<AuthorizerLimits> for crate::datalog::RunLimits {
-    fn from(limits: AuthorizerLimits) -> Self {
-        crate::datalog::RunLimits {
-            max_facts: limits.max_facts,
-            max_iterations: limits.max_iterations,
-            max_time: limits.max_time,
-        }
-    }
-}
+pub type AuthorizerLimits = RunLimits;
 
 impl BuilderExt for Authorizer {
     fn add_resource(&mut self, name: &str) {
@@ -1249,6 +1297,8 @@ impl AuthorizerExt for Authorizer {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::{builder::BlockBuilder, KeyPair};
 
     use super::*;
@@ -1480,10 +1530,12 @@ mod tests {
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
 
-        let res = authorizer.authorize_with_limits(AuthorizerLimits {
-            max_time: Duration::from_millis(5), //Set 5 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+        authorizer.set_limits(AuthorizerLimits {
+            max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
             ..Default::default()
         });
+
+        let res = authorizer.authorize();
         println!("world after:\n{}", authorizer.print_world());
 
         res.unwrap();
