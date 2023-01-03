@@ -110,6 +110,8 @@ fn main() {
 
     results.push(public_keys_interning(&mut rng, &target, &root, test));
 
+    results.push(integer_wraparound(&mut rng, &target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1966,6 +1968,57 @@ fn public_keys_interning<T: Rng + CryptoRng>(
                 k2 = &external2.public().to_bytes_hex(),
             ),
         ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn integer_wraparound<T: Rng + CryptoRng>(
+    rng: &mut T,
+    target: &str,
+    root: &KeyPair,
+    test: bool,
+) -> TestResult {
+    let title = "integer wraparound".to_string();
+    let filename = "test027_integer_wraparound.bc".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+          // integer overflows must abort evaluating the whole expression
+          // todo update this test when integer overflows abort
+          // the whole datalog evaluation
+          check if true || 10000000000 * 10000000000 != 0;
+          check if true || 9223372036854775807 + 1 != 0;
+          check if true || -9223372036854775808 - 1 != 0;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit);
+
+    let data = if test {
+        let v = load_testcase(target, "test027_integer_wraparound");
+        let expected = Biscuit::from(&v[..], root.public()).unwrap();
+        print_diff(&biscuit.print(), &expected.print());
+        v
+    } else {
+        let data = biscuit.to_vec().unwrap();
+        write_testcase(target, "test027_integer_wraparound", &data[..]);
+
+        data
+    };
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], &format!(r#"allow if true;"#)),
     );
 
     TestResult {
