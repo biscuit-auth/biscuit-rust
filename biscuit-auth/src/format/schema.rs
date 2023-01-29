@@ -281,3 +281,82 @@ pub struct ThirdPartyBlockContents {
     #[prost(message, required, tag="2")]
     pub external_signature: ExternalSignature,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuthorizerSnapshot {
+    #[prost(message, required, tag="1")]
+    pub limits: RunLimits,
+    #[prost(uint64, required, tag="2")]
+    pub execution_time: u64,
+    #[prost(message, required, tag="3")]
+    pub world: AuthorizerWorld,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunLimits {
+    #[prost(uint64, required, tag="1")]
+    pub max_facts: u64,
+    #[prost(uint64, required, tag="2")]
+    pub max_iterations: u64,
+    #[prost(uint64, required, tag="3")]
+    pub max_time: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuthorizerWorld {
+    #[prost(uint32, optional, tag="1")]
+    pub version: ::core::option::Option<u32>,
+    #[prost(string, repeated, tag="2")]
+    pub symbols: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
+    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    #[prost(message, repeated, tag="4")]
+    pub blocks: ::prost::alloc::vec::Vec<SnapshotBlock>,
+    #[prost(message, required, tag="5")]
+    pub authorizer_block: SnapshotBlock,
+    #[prost(message, repeated, tag="6")]
+    pub authorizer_policies: ::prost::alloc::vec::Vec<Policy>,
+    #[prost(message, repeated, tag="7")]
+    pub generated_facts: ::prost::alloc::vec::Vec<GeneratedFacts>,
+    #[prost(uint64, required, tag="8")]
+    pub iterations: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Origin {
+    #[prost(oneof="origin::Content", tags="1, 2")]
+    pub content: ::core::option::Option<origin::Content>,
+}
+/// Nested message and enum types in `Origin`.
+pub mod origin {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(message, tag="1")]
+        Authorizer(super::Empty),
+        #[prost(uint32, tag="2")]
+        Origin(u32),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Empty {
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GeneratedFacts {
+    #[prost(message, repeated, tag="1")]
+    pub origins: ::prost::alloc::vec::Vec<Origin>,
+    #[prost(message, repeated, tag="2")]
+    pub facts: ::prost::alloc::vec::Vec<FactV2>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SnapshotBlock {
+    #[prost(string, optional, tag="1")]
+    pub context: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="2")]
+    pub version: ::core::option::Option<u32>,
+    #[prost(message, repeated, tag="3")]
+    pub facts_v2: ::prost::alloc::vec::Vec<FactV2>,
+    #[prost(message, repeated, tag="4")]
+    pub rules_v2: ::prost::alloc::vec::Vec<RuleV2>,
+    #[prost(message, repeated, tag="5")]
+    pub checks_v2: ::prost::alloc::vec::Vec<CheckV2>,
+    #[prost(message, repeated, tag="6")]
+    pub scope: ::prost::alloc::vec::Vec<Scope>,
+    #[prost(message, optional, tag="7")]
+    pub external_key: ::core::option::Option<PublicKey>,
+}

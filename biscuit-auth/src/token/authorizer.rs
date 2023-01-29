@@ -7,7 +7,7 @@ use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
 use crate::builder::{CheckKind, Convert};
 use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits, TrustedOrigins};
+use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
@@ -22,6 +22,9 @@ use std::{
     fmt::Write,
     time::SystemTime,
 };
+
+mod snapshot;
+pub use snapshot::*;
 
 /// used to check authorization policies on a token
 ///
@@ -75,45 +78,8 @@ impl Authorizer {
     }
 
     /// creates an `Authorizer` from a serialized [crate::format::schema::AuthorizerPolicies]
-    pub fn from(slice: &[u8]) -> Result<Self, error::Token> {
-        let data = crate::format::schema::AuthorizerPolicies::decode(slice).map_err(|e| {
-            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-        })?;
-
-        let AuthorizerPolicies {
-            version: _,
-            symbols,
-            facts,
-            rules,
-            checks,
-            policies,
-        } = crate::format::convert::proto_authorizer_to_authorizer(&data)?;
-
-        let mut authorizer = Self::new();
-
-        for fact in facts {
-            authorizer
-                .authorizer_block_builder
-                .add_fact(Fact::convert_from(&fact, &symbols)?)?;
-        }
-
-        for rule in rules {
-            authorizer
-                .authorizer_block_builder
-                .add_rule(Rule::convert_from(&rule, &symbols)?)?;
-        }
-
-        for check in checks {
-            authorizer
-                .authorizer_block_builder
-                .add_check(Check::convert_from(&check, &symbols)?)?;
-        }
-
-        for policy in policies {
-            authorizer.policies.push(policy);
-        }
-
-        Ok(authorizer)
+    pub fn from(data: &[u8]) -> Result<Self, error::Token> {
+        AuthorizerPolicies::deserialize(data)?.try_into()
     }
 
     /// add a token to an empty authorizer
@@ -136,93 +102,10 @@ impl Authorizer {
 
         let mut blocks = Vec::new();
 
-        let mut authority = token.block(0)?;
-
-        let mut authority_origin = Origin::default();
-        authority_origin.insert(0);
-
-        let authority_trusted_origins = TrustedOrigins::from_scopes(
-            &authority.scopes,
-            &TrustedOrigins::default(),
-            0,
-            &self.public_key_to_block_id,
-        );
-        // add authority facts and rules right away to make them available to queries
-        for fact in authority.facts.iter() {
-            let fact = Fact::convert_from(fact, &token.symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&authority_origin, fact);
-        }
-
-        for rule in authority.rules.iter() {
-            if let Err(_message) = rule.validate_variables(&token.symbols) {
-                return Err(
-                    error::Logic::InvalidBlockRule(0, token.symbols.print_rule(rule)).into(),
-                );
-            }
-
-            let rule = rule.translate(&token.symbols, &mut self.symbols)?;
-            let rule_trusted_origins = TrustedOrigins::from_scopes(
-                &rule.scopes,
-                &authority_trusted_origins,
-                0,
-                &self.public_key_to_block_id,
-            );
-            self.world.rules.insert(0, &rule_trusted_origins, rule);
-        }
-
-        for check in authority.checks.iter_mut() {
-            let c = Check::convert_from(check, &token.symbols)?;
-            *check = c.convert(&mut self.symbols);
-        }
-
-        blocks.push(authority);
-        for i in 1..token.block_count() {
+        for i in 0..token.block_count() {
             let mut block = token.block(i)?;
 
-            // if it is a 3rd party block, it should not affect the main symbol table
-            let block_symbols = if block.external_key.is_none() {
-                &token.symbols
-            } else {
-                &block.symbols
-            };
-
-            let mut block_origin = Origin::default();
-            block_origin.insert(i);
-
-            let block_trusted_origins = TrustedOrigins::from_scopes(
-                &block.scopes,
-                &TrustedOrigins::default(),
-                i,
-                &self.public_key_to_block_id,
-            );
-
-            for fact in block.facts.iter() {
-                let fact = Fact::convert_from(fact, block_symbols)?.convert(&mut self.symbols);
-                self.world.facts.insert(&block_origin, fact);
-            }
-
-            for rule in block.rules.iter() {
-                if let Err(_message) = rule.validate_variables(block_symbols) {
-                    return Err(
-                        error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
-                    );
-                }
-                let rule = rule.translate(block_symbols, &mut self.symbols)?;
-
-                let rule_trusted_origins = TrustedOrigins::from_scopes(
-                    &rule.scopes,
-                    &block_trusted_origins,
-                    i,
-                    &self.public_key_to_block_id,
-                );
-
-                self.world.rules.insert(i, &rule_trusted_origins, rule);
-            }
-
-            for check in block.checks.iter_mut() {
-                let c = Check::convert_from(check, &block_symbols)?;
-                *check = c.convert(&mut self.symbols);
-            }
+            self.add_block(&mut block, i, &token.symbols)?;
 
             blocks.push(block);
         }
@@ -238,46 +121,95 @@ impl Authorizer {
         Ok(())
     }
 
+    fn add_block(
+        &mut self,
+        block: &mut Block,
+        i: usize,
+        token_symbols: &SymbolTable,
+    ) -> Result<(), error::Token> {
+        // if it is a 3rd party block, it should not affect the main symbol table
+        let block_symbols = if i == 0 || block.external_key.is_none() {
+            token_symbols.clone()
+        } else {
+            let mut symbols = block.symbols.clone();
+            symbols.public_keys = token_symbols.public_keys.clone();
+            symbols
+        };
+
+        let mut block_origin = Origin::default();
+        block_origin.insert(i);
+
+        let block_trusted_origins = TrustedOrigins::from_scopes(
+            &block.scopes,
+            &TrustedOrigins::default(),
+            i,
+            &self.public_key_to_block_id,
+        );
+
+        for fact in block.facts.iter() {
+            let fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
+            self.world.facts.insert(&block_origin, fact);
+        }
+
+        for rule in block.rules.iter() {
+            if let Err(_message) = rule.validate_variables(&block_symbols) {
+                return Err(
+                    error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
+                );
+            }
+            let rule = rule.translate(&block_symbols, &mut self.symbols)?;
+
+            let rule_trusted_origins = TrustedOrigins::from_scopes(
+                &rule.scopes,
+                &block_trusted_origins,
+                i,
+                &self.public_key_to_block_id,
+            );
+
+            self.world.rules.insert(i, &rule_trusted_origins, rule);
+        }
+
+        for check in block.checks.iter_mut() {
+            let c = Check::convert_from(check, &block_symbols)?;
+            *check = c.convert(&mut self.symbols);
+        }
+
+        Ok(())
+    }
+
     /// serializes a authorizer's content
     ///
     /// you can use this to save a set of policies and load them quickly before
-    /// verification, or to store a verification context to debug it later
-    pub fn save(&self) -> Result<Vec<u8>, error::Token> {
-        let mut symbols = self.symbols.clone();
-        let mut checks: Vec<datalog::Check> = self
+    /// verification. This will not store data obtained or generated from a token.
+    pub fn save(&self) -> Result<AuthorizerPolicies, error::Token> {
+        let facts = self
+            .authorizer_block_builder
+            .facts
+            .iter()
+            .cloned()
+            .collect();
+
+        let rules = self
+            .authorizer_block_builder
+            .rules
+            .iter()
+            .cloned()
+            .collect();
+
+        let checks = self
             .authorizer_block_builder
             .checks
             .iter()
-            .map(|c| c.convert(&mut symbols))
+            .cloned()
             .collect();
 
-        if let Some(blocks) = &self.blocks {
-            for block in blocks {
-                checks.extend(block.checks.clone().into_iter());
-            }
-        }
-        todo!();
-        /*
-        let policies = AuthorizerPolicies {
+        Ok(AuthorizerPolicies {
             version: crate::token::MAX_SCHEMA_VERSION,
-            symbols,
-            //FIXME
-            facts: self.world.facts.iter().cloned().collect(),
-            rules: self.world.rules.clone(),
+            facts,
+            rules,
             checks,
             policies: self.policies.clone(),
-        };
-
-        let proto = crate::format::convert::authorizer_to_proto_authorizer(&policies);
-
-        let mut v = Vec::new();
-
-        proto
-            .encode(&mut v)
-            .map(|_| v)
-            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
-            .map_err(error::Token::Format)
-            */
+        })
     }
 
     /// Add the rules, facts, checks, and policies of another `Authorizer`.
@@ -502,7 +434,7 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
@@ -593,7 +525,7 @@ impl Authorizer {
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
@@ -700,7 +632,7 @@ impl Authorizer {
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
         let mut limits = self.limits.clone();
-        limits.max_iterations -= self.world.iterations as u32;
+        limits.max_iterations -= self.world.iterations;
         if self.execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
@@ -1175,18 +1107,74 @@ impl std::fmt::Display for Authorizer {
     }
 }
 
+impl TryFrom<AuthorizerPolicies> for Authorizer {
+    type Error = error::Token;
+
+    fn try_from(authorizer_policies: AuthorizerPolicies) -> Result<Self, Self::Error> {
+        let AuthorizerPolicies {
+            version: _,
+            facts,
+            rules,
+            checks,
+            policies,
+        } = authorizer_policies;
+
+        let mut authorizer = Self::new();
+
+        for fact in facts.into_iter() {
+            authorizer.authorizer_block_builder.add_fact(fact)?;
+        }
+
+        for rule in rules.into_iter() {
+            authorizer.authorizer_block_builder.add_rule(rule)?;
+        }
+
+        for check in checks.into_iter() {
+            authorizer.authorizer_block_builder.add_check(check)?;
+        }
+
+        for policy in policies {
+            authorizer.policies.push(policy);
+        }
+
+        Ok(authorizer)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AuthorizerPolicies {
     pub version: u32,
-    /// list of symbols introduced by this block
-    pub symbols: datalog::SymbolTable,
     /// list of facts provided by this block
-    pub facts: Vec<datalog::Fact>,
+    pub facts: Vec<Fact>,
     /// list of rules provided by blocks
-    pub rules: Vec<datalog::Rule>,
+    pub rules: Vec<Rule>,
     /// checks that the token and ambient data must validate
-    pub checks: Vec<datalog::Check>,
+    pub checks: Vec<Check>,
     pub policies: Vec<Policy>,
+}
+
+impl AuthorizerPolicies {
+    pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
+        let proto = crate::format::convert::authorizer_to_proto_authorizer(self);
+
+        let mut v = Vec::new();
+
+        proto
+            .encode(&mut v)
+            .map(|_| v)
+            .map_err(|e| error::Format::SerializationError(format!("serialization error: {:?}", e)))
+            .map_err(error::Token::Format)
+    }
+
+    pub fn deserialize(data: &[u8]) -> Result<Self, error::Token> {
+        let data = crate::format::schema::AuthorizerPolicies::decode(data).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+
+        Ok(crate::format::convert::proto_authorizer_to_authorizer(
+            &data,
+        )?)
+    }
 }
 
 pub type AuthorizerLimits = RunLimits;

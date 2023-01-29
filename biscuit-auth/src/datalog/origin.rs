@@ -8,7 +8,7 @@ use crate::token::Scope;
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Origin {
-    inner: BTreeSet<usize>,
+    pub(crate) inner: BTreeSet<usize>,
 }
 
 impl Origin {
@@ -89,6 +89,7 @@ impl TrustedOrigins {
         origins.insert(0);
         TrustedOrigins(origins)
     }
+
     pub fn from_scopes(
         rule_scopes: &[Scope],
         default_origins: &TrustedOrigins,

@@ -46,7 +46,7 @@ impl AsRef<Term> for Term {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Predicate {
     pub name: SymbolIndex,
     pub terms: Vec<Term>,
@@ -67,7 +67,7 @@ impl AsRef<Predicate> for Predicate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fact {
     pub predicate: Predicate,
 }
@@ -548,7 +548,7 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
 pub struct World {
     pub facts: FactSet,
     pub rules: RuleSet,
-    pub iterations: u32,
+    pub iterations: u64,
 }
 
 impl World {
@@ -675,9 +675,9 @@ impl World {
 #[derive(Debug, Clone)]
 pub struct RunLimits {
     /// maximum number of Datalog facts (memory usage)
-    pub max_facts: u32,
+    pub max_facts: u64,
     /// maximum number of iterations of the rules applications (prevents degenerate rules)
-    pub max_iterations: u32,
+    pub max_iterations: u64,
     /// maximum execution time
     pub max_time: Duration,
 }
