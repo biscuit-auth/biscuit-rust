@@ -67,7 +67,7 @@ impl Display for Origin {
             }
         }
 
-        for i in it.next() {
+        for i in it {
             if *i == usize::MAX {
                 write!(f, ", authorizer")?;
             } else {

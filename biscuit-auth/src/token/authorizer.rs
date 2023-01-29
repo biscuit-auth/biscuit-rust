@@ -480,12 +480,10 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        self.world
-            .run_with_limits(&self.symbols, limits)
-            .map_err(error::Token::RunLimit)?;
+        self.world.run_with_limits(&self.symbols, limits)?;
         let res = self
             .world
-            .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols);
+            .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
 
         res.inner
             .into_iter()
@@ -565,9 +563,7 @@ impl Authorizer {
         rule: datalog::Rule,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
-        self.world
-            .run_with_limits(&self.symbols, limits)
-            .map_err(error::Token::RunLimit)?;
+        self.world.run_with_limits(&self.symbols, limits)?;
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
             self.token_origins.clone()
@@ -585,7 +581,7 @@ impl Authorizer {
 
         let res = self
             .world
-            .query_rule(rule, 0, &rule_trusted_origins, &self.symbols);
+            .query_rule(rule, 0, &rule_trusted_origins, &self.symbols)?;
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -706,9 +702,7 @@ impl Authorizer {
         }
 
         limits.max_time = time_limit - Instant::now();
-        self.world
-            .run_with_limits(&self.symbols, limits.clone())
-            .map_err(error::Token::RunLimit)?;
+        self.world.run_with_limits(&self.symbols, limits.clone())?;
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -743,10 +737,10 @@ impl Authorizer {
                         usize::MAX,
                         &rule_trusted_origins,
                         &self.symbols,
-                    ),
+                    )?,
                     CheckKind::All => {
                         self.world
-                            .query_match_all(query, &rule_trusted_origins, &self.symbols)
+                            .query_match_all(query, &rule_trusted_origins, &self.symbols)?
                     }
                 };
 
@@ -795,12 +789,12 @@ impl Authorizer {
                             0,
                             &rule_trusted_origins,
                             &self.symbols,
-                        ),
+                        )?,
                         CheckKind::All => self.world.query_match_all(
                             query.clone(),
                             &rule_trusted_origins,
                             &self.symbols,
-                        ),
+                        )?,
                     };
 
                     let now = Instant::now();
@@ -834,9 +828,12 @@ impl Authorizer {
                     &self.public_key_to_block_id,
                 );
 
-                let res =
-                    self.world
-                        .query_match(query, usize::MAX, &rule_trusted_origins, &self.symbols);
+                let res = self.world.query_match(
+                    query,
+                    usize::MAX,
+                    &rule_trusted_origins,
+                    &self.symbols,
+                )?;
 
                 let now = Instant::now();
                 if now >= time_limit {
@@ -866,9 +863,7 @@ impl Authorizer {
                 limits.max_iterations -= self.world.iterations - current_iterations;
                 current_iterations = self.world.iterations;
 
-                self.world
-                    .run_with_limits(&self.symbols, limits.clone())
-                    .map_err(error::Token::RunLimit)?;
+                self.world.run_with_limits(&self.symbols, limits.clone())?;
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
@@ -887,12 +882,12 @@ impl Authorizer {
                                 i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
-                            ),
+                            )?,
                             CheckKind::All => self.world.query_match_all(
                                 query.clone(),
                                 &rule_trusted_origins,
                                 &self.symbols,
-                            ),
+                            )?,
                         };
 
                         let now = Instant::now();
