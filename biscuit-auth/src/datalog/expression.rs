@@ -205,6 +205,10 @@ impl Binary {
             // boolean
             (Binary::And, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i & j)),
             (Binary::Or, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i | j)),
+
+            (Binary::Equal, _, _) => Ok(Term::Bool(false)),
+            (Binary::NotEqual, _, _) => Ok(Term::Bool(true)),
+
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
