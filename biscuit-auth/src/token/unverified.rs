@@ -306,12 +306,7 @@ impl UnverifiedBiscuit {
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-            error::Format::BlockSignatureDeserializationError(format!(
-                "block external signature deserialization error: {:?}",
-                e
-            ))
-        })?;
+        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
         let previous_key = self
             .container
             .blocks
