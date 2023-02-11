@@ -1,3 +1,5 @@
+use crate::error;
+
 use super::Term;
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
@@ -24,18 +26,23 @@ pub enum Unary {
 }
 
 impl Unary {
-    fn evaluate(&self, value: Term, symbols: &TemporarySymbolTable) -> Option<Term> {
+    fn evaluate(
+        &self,
+        value: Term,
+        symbols: &TemporarySymbolTable,
+    ) -> Result<Term, error::Expression> {
         match (self, value) {
-            (Unary::Negate, Term::Bool(b)) => Some(Term::Bool(!b)),
-            (Unary::Parens, i) => Some(i),
-            (Unary::Length, Term::Str(i)) => {
-                symbols.get_symbol(i).map(|s| Term::Integer(s.len() as i64))
-            }
-            (Unary::Length, Term::Bytes(s)) => Some(Term::Integer(s.len() as i64)),
-            (Unary::Length, Term::Set(s)) => Some(Term::Integer(s.len() as i64)),
+            (Unary::Negate, Term::Bool(b)) => Ok(Term::Bool(!b)),
+            (Unary::Parens, i) => Ok(i),
+            (Unary::Length, Term::Str(i)) => symbols
+                .get_symbol(i)
+                .map(|s| Term::Integer(s.len() as i64))
+                .ok_or(error::Expression::UnknownSymbol(i)),
+            (Unary::Length, Term::Bytes(s)) => Ok(Term::Integer(s.len() as i64)),
+            (Unary::Length, Term::Set(s)) => Ok(Term::Integer(s.len() as i64)),
             _ => {
                 //println!("unexpected value type on the stack");
-                None
+                Err(error::Expression::InvalidType)
             }
         }
     }
@@ -81,58 +88,64 @@ impl Binary {
         left: Term,
         right: Term,
         symbols: &mut TemporarySymbolTable,
-    ) -> Option<Term> {
+    ) -> Result<Term, error::Expression> {
         match (self, left, right) {
             // integer
-            (Binary::LessThan, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i < j)),
-            (Binary::GreaterThan, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i > j)),
-            (Binary::LessOrEqual, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i <= j)),
-            (Binary::GreaterOrEqual, Term::Integer(i), Term::Integer(j)) => {
-                Some(Term::Bool(i >= j))
-            }
-            (Binary::Equal, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Integer(i), Term::Integer(j)) => Some(Term::Bool(i != j)),
-            (Binary::Add, Term::Integer(i), Term::Integer(j)) => {
-                i.checked_add(j).map(Term::Integer)
-            }
-            (Binary::Sub, Term::Integer(i), Term::Integer(j)) => {
-                i.checked_sub(j).map(Term::Integer)
-            }
-            (Binary::Mul, Term::Integer(i), Term::Integer(j)) => {
-                i.checked_mul(j).map(Term::Integer)
-            }
-            (Binary::Div, Term::Integer(i), Term::Integer(j)) => {
-                i.checked_div(j).map(Term::Integer)
-            }
-            (Binary::BitwiseAnd, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i & j)),
-            (Binary::BitwiseOr, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i | j)),
-            (Binary::BitwiseXor, Term::Integer(i), Term::Integer(j)) => Some(Term::Integer(i ^ j)),
+            (Binary::LessThan, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i < j)),
+            (Binary::GreaterThan, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i > j)),
+            (Binary::LessOrEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i <= j)),
+            (Binary::GreaterOrEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i >= j)),
+            (Binary::Equal, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Add, Term::Integer(i), Term::Integer(j)) => i
+                .checked_add(j)
+                .map(Term::Integer)
+                .ok_or(error::Expression::Overflow),
+            (Binary::Sub, Term::Integer(i), Term::Integer(j)) => i
+                .checked_sub(j)
+                .map(Term::Integer)
+                .ok_or(error::Expression::Overflow),
+            (Binary::Mul, Term::Integer(i), Term::Integer(j)) => i
+                .checked_mul(j)
+                .map(Term::Integer)
+                .ok_or(error::Expression::Overflow),
+            (Binary::Div, Term::Integer(i), Term::Integer(j)) => i
+                .checked_div(j)
+                .map(Term::Integer)
+                .ok_or(error::Expression::DivideByZero),
+            (Binary::BitwiseAnd, Term::Integer(i), Term::Integer(j)) => Ok(Term::Integer(i & j)),
+            (Binary::BitwiseOr, Term::Integer(i), Term::Integer(j)) => Ok(Term::Integer(i | j)),
+            (Binary::BitwiseXor, Term::Integer(i), Term::Integer(j)) => Ok(Term::Integer(i ^ j)),
 
             // string
             (Binary::Prefix, Term::Str(s), Term::Str(pref)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(pref)) {
-                    (Some(s), Some(pref)) => Some(Term::Bool(s.starts_with(pref))),
-                    _ => None,
+                    (Some(s), Some(pref)) => Ok(Term::Bool(s.starts_with(pref))),
+                    (Some(_), None) => Err(error::Expression::UnknownSymbol(pref)),
+                    _ => Err(error::Expression::UnknownSymbol(s)),
                 }
             }
             (Binary::Suffix, Term::Str(s), Term::Str(suff)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(suff)) {
-                    (Some(s), Some(suff)) => Some(Term::Bool(s.ends_with(suff))),
-                    _ => None,
+                    (Some(s), Some(suff)) => Ok(Term::Bool(s.ends_with(suff))),
+                    (Some(_), None) => Err(error::Expression::UnknownSymbol(suff)),
+                    _ => Err(error::Expression::UnknownSymbol(s)),
                 }
             }
             (Binary::Regex, Term::Str(s), Term::Str(r)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(r)) {
-                    (Some(s), Some(r)) => Some(Term::Bool(
+                    (Some(s), Some(r)) => Ok(Term::Bool(
                         Regex::new(r).map(|re| re.is_match(s)).unwrap_or(false),
                     )),
-                    _ => None,
+                    (Some(_), None) => Err(error::Expression::UnknownSymbol(r)),
+                    _ => Err(error::Expression::UnknownSymbol(s)),
                 }
             }
             (Binary::Contains, Term::Str(s), Term::Str(pattern)) => {
                 match (symbols.get_symbol(s), symbols.get_symbol(pattern)) {
-                    (Some(s), Some(pattern)) => Some(Term::Bool(s.contains(pattern))),
-                    _ => None,
+                    (Some(s), Some(pattern)) => Ok(Term::Bool(s.contains(pattern))),
+                    (Some(_), None) => Err(error::Expression::UnknownSymbol(pattern)),
+                    _ => Err(error::Expression::UnknownSymbol(s)),
                 }
             }
             (Binary::Add, Term::Str(s1), Term::Str(s2)) => {
@@ -140,62 +153,61 @@ impl Binary {
                     (Some(s1), Some(s2)) => {
                         let s = format!("{}{}", s1, s2);
                         let sym = symbols.insert(&s);
-                        Some(Term::Str(sym))
+                        Ok(Term::Str(sym))
                     }
-                    _ => None,
+                    (Some(_), None) => Err(error::Expression::UnknownSymbol(s2)),
+                    _ => Err(error::Expression::UnknownSymbol(s1)),
                 }
             }
-            (Binary::Equal, Term::Str(i), Term::Str(j)) => Some(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Str(i), Term::Str(j)) => Some(Term::Bool(i != j)),
+            (Binary::Equal, Term::Str(i), Term::Str(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Str(i), Term::Str(j)) => Ok(Term::Bool(i != j)),
 
             // date
-            (Binary::LessThan, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i < j)),
-            (Binary::GreaterThan, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i > j)),
-            (Binary::LessOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i <= j)),
-            (Binary::GreaterOrEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i >= j)),
-            (Binary::Equal, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Date(i), Term::Date(j)) => Some(Term::Bool(i != j)),
+            (Binary::LessThan, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i < j)),
+            (Binary::GreaterThan, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i > j)),
+            (Binary::LessOrEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i <= j)),
+            (Binary::GreaterOrEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i >= j)),
+            (Binary::Equal, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i != j)),
 
             // symbol
 
             // byte array
-            (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Some(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Bytes(i), Term::Bytes(j)) => Some(Term::Bool(i != j)),
+            (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i != j)),
 
             // set
-            (Binary::Equal, Term::Set(set), Term::Set(s)) => Some(Term::Bool(set == s)),
-            (Binary::NotEqual, Term::Set(set), Term::Set(s)) => Some(Term::Bool(set != s)),
+            (Binary::Equal, Term::Set(set), Term::Set(s)) => Ok(Term::Bool(set == s)),
+            (Binary::NotEqual, Term::Set(set), Term::Set(s)) => Ok(Term::Bool(set != s)),
             (Binary::Intersection, Term::Set(set), Term::Set(s)) => {
-                Some(Term::Set(set.intersection(&s).cloned().collect()))
+                Ok(Term::Set(set.intersection(&s).cloned().collect()))
             }
             (Binary::Union, Term::Set(set), Term::Set(s)) => {
-                Some(Term::Set(set.union(&s).cloned().collect()))
+                Ok(Term::Set(set.union(&s).cloned().collect()))
             }
-            (Binary::Contains, Term::Set(set), Term::Set(s)) => {
-                Some(Term::Bool(set.is_superset(&s)))
-            }
+            (Binary::Contains, Term::Set(set), Term::Set(s)) => Ok(Term::Bool(set.is_superset(&s))),
             (Binary::Contains, Term::Set(set), Term::Integer(i)) => {
-                Some(Term::Bool(set.contains(&Term::Integer(i))))
+                Ok(Term::Bool(set.contains(&Term::Integer(i))))
             }
             (Binary::Contains, Term::Set(set), Term::Date(i)) => {
-                Some(Term::Bool(set.contains(&Term::Date(i))))
+                Ok(Term::Bool(set.contains(&Term::Date(i))))
             }
             (Binary::Contains, Term::Set(set), Term::Bool(i)) => {
-                Some(Term::Bool(set.contains(&Term::Bool(i))))
+                Ok(Term::Bool(set.contains(&Term::Bool(i))))
             }
             (Binary::Contains, Term::Set(set), Term::Str(i)) => {
-                Some(Term::Bool(set.contains(&Term::Str(i))))
+                Ok(Term::Bool(set.contains(&Term::Str(i))))
             }
             (Binary::Contains, Term::Set(set), Term::Bytes(i)) => {
-                Some(Term::Bool(set.contains(&Term::Bytes(i))))
+                Ok(Term::Bool(set.contains(&Term::Bytes(i))))
             }
 
             // boolean
-            (Binary::And, Term::Bool(i), Term::Bool(j)) => Some(Term::Bool(i & j)),
-            (Binary::Or, Term::Bool(i), Term::Bool(j)) => Some(Term::Bool(i | j)),
+            (Binary::And, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i & j)),
+            (Binary::Or, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i | j)),
             _ => {
                 //println!("unexpected value type on the stack");
-                None
+                Err(error::Expression::InvalidType)
             }
         }
     }
@@ -232,7 +244,7 @@ impl Expression {
         &self,
         values: &HashMap<u32, Term>,
         symbols: &mut TemporarySymbolTable,
-    ) -> Option<Term> {
+    ) -> Result<Term, error::Expression> {
         let mut stack: Vec<Term> = Vec::new();
 
         for op in self.ops.iter() {
@@ -242,39 +254,34 @@ impl Expression {
                     Some(term) => stack.push(term.clone()),
                     None => {
                         //println!("unknown variable {}", i);
-                        return None;
+                        return Err(error::Expression::UnknownVariable(*i));
                     }
                 },
                 Op::Value(term) => stack.push(term.clone()),
                 Op::Unary(unary) => match stack.pop() {
                     None => {
                         //println!("expected a value on the stack");
-                        return None;
+                        return Err(error::Expression::InvalidStack);
                     }
-                    Some(term) => match unary.evaluate(term, symbols) {
-                        Some(res) => stack.push(res),
-                        None => return None,
-                    },
+                    Some(term) => stack.push(unary.evaluate(term, symbols)?),
                 },
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
                     (Some(right_term), Some(left_term)) => {
-                        match binary.evaluate(left_term, right_term, symbols) {
-                            Some(res) => stack.push(res),
-                            None => return None,
-                        }
+                        stack.push(binary.evaluate(left_term, right_term, symbols)?)
                     }
+
                     _ => {
                         //println!("expected two values on the stack");
-                        return None;
+                        return Err(error::Expression::InvalidStack);
                     }
                 },
             }
         }
 
         if stack.len() == 1 {
-            Some(stack.remove(0))
+            Ok(stack.remove(0))
         } else {
-            None
+            Err(error::Expression::InvalidStack)
         }
     }
 
@@ -333,7 +340,7 @@ mod tests {
         println!("print: {}", e.print(&symbols).unwrap());
 
         let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, Some(Term::Bool(true)));
+        assert_eq!(res, Ok(Term::Bool(true)));
     }
 
     #[test]
@@ -363,7 +370,7 @@ mod tests {
             println!("print: {}", e.print(&symbols).unwrap());
 
             let res = e.evaluate(&HashMap::new(), &mut tmp_symbols);
-            assert_eq!(res, Some(Term::Integer(expected)));
+            assert_eq!(res, Ok(Term::Integer(expected)));
         }
     }
 
@@ -380,7 +387,7 @@ mod tests {
         let values = HashMap::new();
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, None);
+        assert_eq!(res, Err(error::Expression::DivideByZero));
 
         let ops = vec![
             Op::Value(Term::Integer(1)),
@@ -391,7 +398,7 @@ mod tests {
         let values = HashMap::new();
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, None);
+        assert_eq!(res, Err(error::Expression::Overflow));
 
         let ops = vec![
             Op::Value(Term::Integer(-10)),
@@ -402,7 +409,7 @@ mod tests {
         let values = HashMap::new();
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, None);
+        assert_eq!(res, Err(error::Expression::Overflow));
 
         let ops = vec![
             Op::Value(Term::Integer(2)),
@@ -413,7 +420,7 @@ mod tests {
         let values = HashMap::new();
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, None);
+        assert_eq!(res, Err(error::Expression::Overflow));
     }
 
     #[test]

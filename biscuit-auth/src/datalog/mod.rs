@@ -126,7 +126,7 @@ impl Rule {
         facts: IT,
         rule_origin: usize,
         symbols: &'a SymbolTable,
-    ) -> impl Iterator<Item = Result<(Origin, Fact), &'static str>> + 'a
+    ) -> impl Iterator<Item = Result<(Origin, Fact), error::Expression>> + 'a
     where
         IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
     {
@@ -138,11 +138,12 @@ impl Rule {
                     let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
-                            Some(Term::Bool(true)) => {}
-                            Some(Term::Bool(false)) => return Ok((origin, variables, false)),
-                            _res => {
+                            Ok(Term::Bool(true)) => {}
+                            Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
+                            Ok(_) => return Err(error::Expression::InvalidType.into()),
+                            Err(e) => {
                                 //println!("expr returned {:?}", res);
-                                return Err("expression failed");
+                                return Err(e);
                             }
                         }
                     }
@@ -209,13 +210,15 @@ impl Rule {
             let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
             for e in self.expressions.iter() {
                 match e.evaluate(&variables, &mut temporary_symbols) {
-                    Some(Term::Bool(true)) => {}
-
-                    Some(Term::Bool(false)) => {
+                    Ok(Term::Bool(true)) => {}
+                    Ok(Term::Bool(false)) => {
                         //println!("expr returned {:?}", res);
                         return Ok(false);
+                    },
+                    Ok(_) => return Err(error::Execution::Expression(error::Expression::InvalidType)),
+                    Err(e) => {
+                        return Err(error::Execution::Expression(e));
                     }
-                    _ => return Err(Execution::Expression("expression execution failure")),
                 }
             }
         }

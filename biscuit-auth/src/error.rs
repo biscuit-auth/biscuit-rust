@@ -27,7 +27,7 @@ pub enum Token {
     #[error("Cannot decode base64 token: {0}")]
     Base64(Base64Error),
     #[error("Datalog  execution failure: {0}")]
-    Execution(&'static str),
+    Execution(Expression),
 }
 
 impl From<Infallible> for Token {
@@ -229,7 +229,25 @@ pub enum Execution {
     #[error("Reached Datalog execution limits")]
     RunLimit(RunLimit),
     #[error("Expression execution failure")]
-    Expression(&'static str),
+    Expression(Expression),
+}
+
+/// Datalog expression execution failure
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum Expression {
+    #[error("Unknown symbol")]
+    UnknownSymbol(u64),
+    #[error("Unknown variable")]
+    UnknownVariable(u32),
+    #[error("Invalid type")]
+    InvalidType,
+    #[error("Overflow")]
+    Overflow,
+    #[error("Division by zero")]
+    DivideByZero,
+    #[error("Wrong number of elements on stack")]
+    InvalidStack,
 }
 
 /// runtime limits errors
