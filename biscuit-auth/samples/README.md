@@ -1660,5 +1660,5 @@ World {
 }
 ```
 
-result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check if true || 10000000000 * 10000000000 != 0" }), Block(FailedBlockCheck { block_id: 0, check_id: 1, rule: "check if true || 9223372036854775807 + 1 != 0" }), Block(FailedBlockCheck { block_id: 0, check_id: 2, rule: "check if true || -9223372036854775808 - 1 != 0" })] }))`
+result: `Err(Execution(Overflow))`
 
