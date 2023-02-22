@@ -96,6 +96,7 @@ pub enum ErrorKind {
     FormatBlockSignatureDeserializationError,
     FormatSignatureInvalidSignatureGeneration,
     AlreadySealed,
+    Execution,
 }
 
 #[no_mangle]
@@ -175,6 +176,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
                     Token::ConversionError(_) => ErrorKind::ConversionError,
                     Token::Base64(_) => ErrorKind::FormatDeserializationError,
+                    Token::Execution(_) => ErrorKind::Execution,
                 }
             }
         },
