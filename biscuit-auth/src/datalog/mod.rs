@@ -1,5 +1,6 @@
 //! Logic language implementation for checks
 use crate::builder::{CheckKind, Convert};
+use crate::error::Execution;
 use crate::time::Instant;
 use crate::token::{Scope, MIN_SCHEMA_VERSION};
 use crate::{builder, error};
@@ -125,7 +126,7 @@ impl Rule {
         facts: IT,
         rule_origin: usize,
         symbols: &'a SymbolTable,
-    ) -> impl Iterator<Item = (Origin, Fact)> + 'a
+    ) -> impl Iterator<Item = Result<(Origin, Fact), error::Expression>> + 'a
     where
         IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
     {
@@ -133,35 +134,45 @@ impl Rule {
         let variables = MatchedVariables::new(self.variables_set());
 
         CombineIt::new(variables, &self.body, facts, symbols)
-        .filter(move |(_, variables)| {
+        .map(move |(origin, variables)| {
                     let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
-                            Some(Term::Bool(true)) => {}
-                            _res => {
+                            Ok(Term::Bool(true)) => {}
+                            Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
+                            Ok(_) => return Err(error::Expression::InvalidType.into()),
+                            Err(e) => {
                                 //println!("expr returned {:?}", res);
-                                return false;
+                                return Err(e);
                             }
                         }
                     }
-            true
-        }).filter_map(move |(mut origin,h)| {
-            let mut p = head.clone();
-            for index in 0..p.terms.len() {
-                match &p.terms[index] {
-                    Term::Variable(i) => match h.get(i) {
-                      Some(val) => p.terms[index] = val.clone(),
-                      None => {
-                        println!("error: variables that appear in the head should appear in the body and constraints as well");
-                        return None;
-                      }
-                    },
-                    _ => continue,
-                };
+            Ok((origin, variables, true))
+        }).filter_map(move |res/*(mut origin,h, expression_res)*/| {
+            match res {
+                Ok((mut origin,h , expression_res)) => {
+                    if expression_res {
+                    let mut p = head.clone();
+                    for index in 0..p.terms.len() {
+                        match &p.terms[index] {
+                            Term::Variable(i) => match h.get(i) {
+                              Some(val) => p.terms[index] = val.clone(),
+                              None => {
+                                println!("error: variables that appear in the head should appear in the body and constraints as well");
+                                return None;
+                              }
+                            },
+                            _ => continue,
+                        };
+                    }
+        
+                    origin.insert(rule_origin);
+                    Some(Ok((origin, Fact { predicate: p })))
+                } else {None}
+                },
+                Err(e) => Some(Err(e))
             }
-
-            origin.insert(rule_origin);
-            Some((origin, Fact { predicate: p }))
+          
         })
     }
 
@@ -171,12 +182,16 @@ impl Rule {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
-    ) -> bool {
+    ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
         let mut it = self.apply(fact_it, origin, symbols);
 
         let next = it.next();
-        next.is_some()
+        match next {
+            None => Ok(false),
+            Some(Ok(_)) => Ok(true),
+            Some(Err(e)) => Err(Execution::Expression(e))
+        }
     }
 
     pub fn check_match_all(
@@ -184,7 +199,7 @@ impl Rule {
         facts: &FactSet,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
-    ) -> bool {
+    ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
         let variables = MatchedVariables::new(self.variables_set());
         let mut found = false;
@@ -195,16 +210,20 @@ impl Rule {
             let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
             for e in self.expressions.iter() {
                 match e.evaluate(&variables, &mut temporary_symbols) {
-                    Some(Term::Bool(true)) => {}
-                    _res => {
+                    Ok(Term::Bool(true)) => {}
+                    Ok(Term::Bool(false)) => {
                         //println!("expr returned {:?}", res);
-                        return false;
+                        return Ok(false);
+                    },
+                    Ok(_) => return Err(error::Execution::Expression(error::Expression::InvalidType)),
+                    Err(e) => {
+                        return Err(error::Execution::Expression(e));
                     }
                 }
             }
         }
 
-        found
+        Ok(found)
     }
 
     // use this to translate rules and checks from token to authorizer world without translating
@@ -564,7 +583,7 @@ impl World {
         self.rules.insert(origin, scope, rule);
     }
 
-    pub fn run(&mut self, symbols: &SymbolTable) -> Result<(), crate::error::RunLimit> {
+    pub fn run(&mut self, symbols: &SymbolTable) -> Result<(), crate::error::Execution> {
         self.run_with_limits(symbols, RunLimits::default())
     }
 
@@ -572,7 +591,7 @@ impl World {
         &mut self,
         symbols: &SymbolTable,
         limits: RunLimits,
-    ) -> Result<(), crate::error::RunLimit> {
+    ) -> Result<(), crate::error::Execution> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
         let mut index = 0;
@@ -583,7 +602,17 @@ impl World {
             for (scope, rules) in self.rules.inner.iter() {
                 let it = self.facts.iterator(scope);
                 for (origin, rule) in rules {
-                    new_facts.extend(rule.apply(it.clone(), *origin, symbols));
+                    for res in rule.apply(it.clone(), *origin, symbols) {
+                        match res {
+                            Ok((origin,fact)) => {
+                                new_facts.insert(&origin, fact);
+
+                            },
+                            Err(e)  => {
+                                return Err(Execution::Expression(e));
+                            }
+                        }
+                    }
                     //println!("new_facts after applying {:?}:\n{:#?}", rule, new_facts);
                 }
             }
@@ -596,16 +625,16 @@ impl World {
 
             index += 1;
             if index == limits.max_iterations {
-                break Err(crate::error::RunLimit::TooManyIterations);
+                break Err(Execution::RunLimit( crate::error::RunLimit::TooManyIterations));
             }
 
             if self.facts.len() >= limits.max_facts as usize {
-                break Err(crate::error::RunLimit::TooManyFacts);
+                break Err(Execution::RunLimit(crate::error::RunLimit::TooManyFacts));
             }
 
             let now = Instant::now();
             if now >= time_limit {
-                break Err(crate::error::RunLimit::Timeout);
+                break Err(Execution::RunLimit(crate::error::RunLimit::Timeout));
             }
         };
 
@@ -643,12 +672,23 @@ impl World {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
-    ) -> FactSet {
+    ) -> Result<FactSet, Execution> {
         let mut new_facts = FactSet::default();
         let it = self.facts.iterator(scope);
-        new_facts.extend(rule.apply(it, origin, symbols));
+        //new_facts.extend(rule.apply(it, origin, symbols));
+        for res in rule.apply(it.clone(), origin, symbols) {
+            match res {
+                Ok((origin,fact)) => {
+                    new_facts.insert(&origin, fact);
 
-        new_facts
+                },
+                Err(e)  => {
+                    return Err(Execution::Expression(e));
+                }
+            }
+        }
+
+        Ok(new_facts)
     }
 
     pub fn query_match(
@@ -657,7 +697,7 @@ impl World {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
-    ) -> bool {
+    ) -> Result<bool, Execution> {
         rule.find_match(&self.facts, origin, scope, symbols)
     }
 
@@ -666,7 +706,7 @@ impl World {
         rule: Rule,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
-    ) -> bool {
+    ) -> Result<bool, Execution> {
         rule.check_match_all(&self.facts, scope, symbols)
     }
 }
@@ -958,7 +998,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
 
         for (origin, fact) in res.iterator(&[0].iter().collect()) {
             println!("\t{:?}\t{}", origin, syms.print_fact(fact));
@@ -1007,7 +1047,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
         println!("grandparents after inserting parent(C, E): {:?}", res);
 
         let res = res
@@ -1080,7 +1120,8 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
+
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1126,7 +1167,8 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
+
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1210,7 +1252,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
-            )
+            ).unwrap()
             .iter_all()
             .map(|(_, fact)| fact.clone())
             .collect()
@@ -1289,7 +1331,7 @@ mod tests {
         );
 
         println!("testing r1: {}", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms);
+        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1327,7 +1369,7 @@ mod tests {
         );
 
         println!("testing r2: {}", syms.print_rule(&r2));
-        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms);
+        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms).unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1389,7 +1431,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
 
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
@@ -1438,7 +1480,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
 
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
@@ -1481,7 +1523,8 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
+
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1523,7 +1566,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
 
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
@@ -1544,7 +1587,7 @@ mod tests {
             0,
             &[0].iter().collect(),
             &syms,
-        );
+        ).unwrap();
 
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
@@ -1585,7 +1628,7 @@ mod tests {
 
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms);
+        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1624,7 +1667,7 @@ mod tests {
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms);
+        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
@@ -1640,7 +1683,7 @@ mod tests {
         let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
-        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms);
+        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms).unwrap();
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {

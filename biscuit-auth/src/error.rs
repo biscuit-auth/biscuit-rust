@@ -26,6 +26,8 @@ pub enum Token {
     ConversionError(String),
     #[error("Cannot decode base64 token: {0}")]
     Base64(Base64Error),
+    #[error("Datalog  execution failure: {0}")]
+    Execution(Expression),
 }
 
 impl From<Infallible> for Token {
@@ -65,6 +67,15 @@ impl From<base64::DecodeError> for Token {
         };
 
         Token::Base64(err)
+    }
+}
+
+impl From<Execution> for Token {
+    fn from(e: Execution) -> Self {
+        match e {
+            Execution::RunLimit(limit) => Token::RunLimit(limit),
+            Execution::Expression(e) => Token::Execution(e),
+        }
     }
 }
 
@@ -209,6 +220,34 @@ pub struct FailedAuthorizerCheck {
     pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
+}
+
+/// Datalog execution errors
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum Execution {
+    #[error("Reached Datalog execution limits")]
+    RunLimit(RunLimit),
+    #[error("Expression execution failure")]
+    Expression(Expression),
+}
+
+/// Datalog expression execution failure
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
+pub enum Expression {
+    #[error("Unknown symbol")]
+    UnknownSymbol(u64),
+    #[error("Unknown variable")]
+    UnknownVariable(u32),
+    #[error("Invalid type")]
+    InvalidType,
+    #[error("Overflow")]
+    Overflow,
+    #[error("Division by zero")]
+    DivideByZero,
+    #[error("Wrong number of elements on stack")]
+    InvalidStack,
 }
 
 /// runtime limits errors
