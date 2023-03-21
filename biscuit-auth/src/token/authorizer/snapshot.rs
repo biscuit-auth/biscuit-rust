@@ -134,7 +134,6 @@ impl super::Authorizer {
         symbols.extend(&authorizer_block.symbols)?;
         symbols.public_keys.extend(&authorizer_block.public_keys)?;
 
-        println!("will serialize authorizer block: {:?}", authorizer_block);
         let authorizer_block = token_block_to_proto_snapshot_block(&authorizer_block);
 
         let blocks = match self.blocks.as_ref() {
