@@ -1,3 +1,4 @@
+use prost::Message;
 use std::{collections::HashMap, time::Duration};
 
 use crate::{
@@ -121,6 +122,18 @@ impl super::Authorizer {
         Ok(authorizer)
     }
 
+    pub fn from_raw_snapshot(input: &[u8]) -> Result<Self, error::Token> {
+        let snapshot = schema::AuthorizerSnapshot::decode(input).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+        Self::from_snapshot(snapshot)
+    }
+
+    pub fn from_base64_snapshot(input: &str) -> Result<Self, error::Token> {
+        let bytes = base64::decode_config(input, base64::URL_SAFE)?;
+        Self::from_raw_snapshot(&bytes)
+    }
+
     pub fn snapshot(&self) -> Result<schema::AuthorizerSnapshot, error::Format> {
         let mut symbols = default_symbol_table();
 
@@ -134,7 +147,6 @@ impl super::Authorizer {
         symbols.extend(&authorizer_block.symbols)?;
         symbols.public_keys.extend(&authorizer_block.public_keys)?;
 
-        println!("will serialize authorizer block: {:?}", authorizer_block);
         let authorizer_block = token_block_to_proto_snapshot_block(&authorizer_block);
 
         let blocks = match self.blocks.as_ref() {
@@ -195,6 +207,20 @@ impl super::Authorizer {
                 max_time: self.limits.max_time.as_nanos() as u64,
             },
         })
+    }
+
+    pub fn to_raw_snapshot(&self) -> Result<Vec<u8>, error::Format> {
+        let snapshot = self.snapshot()?;
+        let mut bytes = Vec::new();
+        snapshot.encode(&mut bytes).map_err(|e| {
+            error::Format::SerializationError(format!("serialization error: {:?}", e))
+        })?;
+        Ok(bytes)
+    }
+
+    pub fn to_base64_snapshot(&self) -> Result<String, error::Format> {
+        let snapshot_bytes = self.to_raw_snapshot()?;
+        Ok(base64::encode_config(snapshot_bytes, base64::URL_SAFE))
     }
 }
 
