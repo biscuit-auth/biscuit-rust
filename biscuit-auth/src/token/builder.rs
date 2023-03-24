@@ -2281,6 +2281,16 @@ impl BuilderExt for BlockBuilder {
     }
 }
 
+impl fmt::Display for BiscuitBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.root_key_id {
+            None => writeln!(f, "// no root key id set")?,
+            Some(id) => writeln!(f, "// root key id: {}", id)?,
+        }
+        self.inner.fmt(f)
+    }
+}
+
 impl BuilderExt for BiscuitBuilder {
     fn add_resource(&mut self, name: &str) {
         self.inner.add_resource(name);

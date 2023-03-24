@@ -97,12 +97,25 @@ fn biscuit_macro() {
         my_key_bytes = s.into_bytes(),
         pubkey = pubkey,
     );
+    b.set_root_key_id(2);
 
     biscuit_merge!(
         &mut b,
         r#"appended(true);
         check if true;
       "#
+    );
+
+    assert_eq!(
+        b.to_string(),
+        r#"// root key id: 2
+fact("test", hex:aabbcc, [true], "my_value", hex:6d795f76616c7565);
+appended(true);
+rule($0, true) <- fact($0, $1, $2, "my_value", hex:6d795f76616c7565);
+check if "my_value".starts_with("my") trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
+check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
+check if true;
+"#,
     );
 
     assert_eq!(
