@@ -529,7 +529,7 @@ impl fmt::Display for Term {
             }
             Term::Set(s) => {
                 let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
-                write!(f, "[ {}]", terms.join(", "))
+                write!(f, "[{}]", terms.join(", "))
             }
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)

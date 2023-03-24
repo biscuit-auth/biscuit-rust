@@ -1444,7 +1444,7 @@
         "A, B": {
           "world": {
             "facts": [
-              "allowed_operations([ \"A\", \"B\"])",
+              "allowed_operations([\"A\", \"B\"])",
               "operation(\"A\")",
               "operation(\"B\")"
             ],
@@ -1467,7 +1467,7 @@
         "A, invalid": {
           "world": {
             "facts": [
-              "allowed_operations([ \"A\", \"B\"])",
+              "allowed_operations([\"A\", \"B\"])",
               "operation(\"A\")",
               "operation(\"invalid\")"
             ],
