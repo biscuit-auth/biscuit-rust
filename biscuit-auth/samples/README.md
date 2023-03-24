@@ -1450,7 +1450,7 @@ authorizer world:
 ```
 World {
   facts: {
-    "allowed_operations([ \"A\", \"B\"])",
+    "allowed_operations([\"A\", \"B\"])",
     "operation(\"A\")",
     "operation(\"B\")",
 }
@@ -1482,7 +1482,7 @@ authorizer world:
 ```
 World {
   facts: {
-    "allowed_operations([ \"A\", \"B\"])",
+    "allowed_operations([\"A\", \"B\"])",
     "operation(\"A\")",
     "operation(\"invalid\")",
 }

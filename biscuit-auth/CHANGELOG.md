@@ -1,5 +1,6 @@
 # `3.0.0` (Unreleased)
 
+- Fix rendering of set terms (#140) (Clément Delafargue)
 - handle expression execution failure (#135) (Geoffroy Couprie)
 - support for authorizer snapshots (#127, #133, #137) (Geoffroy Couprie, Clément Delafargue)
 - Add support for != in datalog (#128) (Clément Delafargue)
