@@ -2037,6 +2037,19 @@ impl TryFrom<Term> for SystemTime {
     }
 }
 
+impl From<BTreeSet<Term>> for Term {
+    fn from(value: BTreeSet<Term>) -> Term {
+        set(value)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for BTreeSet<Term> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -2322,15 +2335,19 @@ mod tests {
     #[test]
     fn set_rule_parameters() {
         let mut rule = Rule::try_from(
-            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
+            "fact($var1, {p2}, {p5}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
         rule.set("p4", 0i64).unwrap();
         rule.set("p4", 1i64).unwrap();
 
+        let mut term_set = BTreeSet::new();
+        term_set.insert(int(0i64));
+        rule.set("p5", term_set).unwrap();
+
         let s = rule.to_string();
-        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+        assert_eq!(s, "fact($var1, \"hello\", [0]) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
     }
 
     #[test]

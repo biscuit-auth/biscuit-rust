@@ -1,9 +1,13 @@
+use biscuit_auth::builder;
 use biscuit_quote::{authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge};
+use std::collections::BTreeSet;
 
 #[test]
 fn block_macro() {
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
     let mut b = block!(
-        r#"fact("test", hex:aabbcc, [true], {my_key});
+        r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set});
             rule($0, true) <- fact($0, $1, $2, {my_key});
             check if {my_key}.starts_with("my");
             "#,
@@ -14,7 +18,7 @@ fn block_macro() {
 
     assert_eq!(
         b.to_string(),
-        r#"fact("test", hex:aabbcc, [true], "my_value");
+        r#"fact("test", hex:aabbcc, [true], "my_value", [0]);
 appended(true);
 rule($0, true) <- fact($0, $1, $2, "my_value");
 check if "my_value".starts_with("my");
