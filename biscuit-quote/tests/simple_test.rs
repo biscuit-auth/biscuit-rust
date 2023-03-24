@@ -6,15 +6,16 @@ use std::collections::BTreeSet;
 fn block_macro() {
     let mut term_set = BTreeSet::new();
     term_set.insert(builder::int(0i64));
+    let my_key = "my_value";
     let mut b = block!(
         r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set});
             rule($0, true) <- fact($0, $1, $2, {my_key});
             check if {my_key}.starts_with("my");
             "#,
-        my_key = "my_value",
     );
 
-    block_merge!(&mut b, r#"appended(true);"#);
+    let is_true = true;
+    block_merge!(&mut b, r#"appended({is_true});"#);
 
     assert_eq!(
         b.to_string(),
@@ -39,19 +40,20 @@ fn block_macro_trailing_comma() {
 #[test]
 fn authorizer_macro() {
     let external_key = "test";
+    let my_key = "my_value";
     let mut b = authorizer!(
         r#"fact({external_key}, hex:aabbcc, [true], {my_key});
         rule($0, true) <- fact($0, $1, $2, {my_key});
         check if {my_key}.starts_with("my");
         allow if {other_key};
         "#,
-        my_key = "my_value",
         other_key = false,
     );
 
+    let is_true = true;
     authorizer_merge!(
         &mut b,
-        r#"appended(true);
+        r#"appended({is_true});
         allow if true;
       "#
     );
@@ -91,21 +93,21 @@ fn biscuit_macro() {
     .unwrap();
 
     let s = String::from("my_value");
+    let my_key = "my_value";
     let mut b = biscuit!(
         r#"fact("test", hex:aabbcc, [true], {my_key}, {my_key_bytes});
         rule($0, true) <- fact($0, $1, $2, {my_key}, {my_key_bytes});
         check if {my_key}.starts_with("my") trusting {pubkey};
         check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
         "#,
-        my_key = "my_value",
         my_key_bytes = s.into_bytes(),
-        pubkey = pubkey,
     );
     b.set_root_key_id(2);
 
+    let is_true = true;
     biscuit_merge!(
         &mut b,
-        r#"appended(true);
+        r#"appended({is_true});
         check if true;
       "#
     );
