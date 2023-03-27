@@ -1,6 +1,6 @@
 [package]
 name = "biscuit-auth"
-version = "3.0.0-alpha4"
+version = "3.0.0"
 description = "an authorization token with decentralized verification and offline attenuation"
 authors = ["Geoffroy Couprie <contact@geoffroycouprie.com>"]
 edition = "2018"
