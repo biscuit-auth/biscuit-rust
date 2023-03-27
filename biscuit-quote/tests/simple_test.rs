@@ -1,5 +1,7 @@
 use biscuit_auth::builder;
-use biscuit_quote::{authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge};
+use biscuit_quote::{
+    authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, rule,
+};
 use std::collections::BTreeSet;
 
 #[test]
@@ -143,5 +145,25 @@ fn biscuit_macro_trailing_comma() {
         b.dump_code(),
         r#"fact("test", "my_value");
 "#,
+    );
+}
+
+#[test]
+fn rule_macro() {
+    use biscuit_auth::PublicKey;
+    let pubkey = PublicKey::from_bytes(
+        &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+    )
+    .unwrap();
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let b = rule!(
+        r#"rule($0, true) <- fact($0, $1, $2, {my_key}, {term_set}) trusting {pubkey}"#,
+        my_key = "my_value",
+    );
+
+    assert_eq!(
+        b.to_string(),
+        r#"rule($0, true) <- fact($0, $1, $2, "my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }
