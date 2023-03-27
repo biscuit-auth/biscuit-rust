@@ -10,7 +10,7 @@ license = "Apache-2.0"
 proc-macro = true
 
 [dependencies]
-biscuit-parser = { path = "../biscuit-parser", features = ["datalog-macro"], version = "0.1.0-alpha4" }
+biscuit-parser = { path = "../biscuit-parser", features = ["datalog-macro"], version = "0.1.0" }
 proc-macro2 = "1"
 quote = "1.0.14"
 syn = { version = "1.0.85", features = ["full", "extra-traits"] }
