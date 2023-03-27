@@ -5,12 +5,15 @@
 //!
 //! let root = KeyPair::new();
 //!
+//! let user_id = "1234";
 //! let biscuit = biscuit!(
 //!   r#"
+//!   // you can directly reference in-scope variables
 //!   user({user_id});
-//!   right({user_id}, "file1", "read");
+//!   right({user_id}, "file1", {operation});
 //!   "#,
-//!   user_id = "1234",
+//!   // you can also declare bindings manually
+//!   operation = "read",
 //! ).build(&root).expect("Failed to create biscuit");
 //!
 //! let new_biscuit = biscuit.append(block!(
