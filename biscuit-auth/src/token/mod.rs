@@ -381,6 +381,7 @@ impl Biscuit {
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
+        panic!("reached here");
         self.append_third_party_with_keypair(external_key, response, &next_keypair)
     }
     pub fn append_third_party_with_keypair(
