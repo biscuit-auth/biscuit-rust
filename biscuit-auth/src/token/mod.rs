@@ -376,23 +376,23 @@ impl Biscuit {
 
     pub fn append_third_party(
         &self,
-        external_key: PublicKey,
-        response: ThirdPartyBlock,
+        external_key: &PublicKey,
+        response: &ThirdPartyBlock,
     ) -> Result<Self, error::Token> {
         let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
 
-        self.append_third_party_with_keypair(external_key, response, next_keypair)
+        self.append_third_party_with_keypair(external_key, response, &next_keypair)
     }
     pub fn append_third_party_with_keypair(
         &self,
-        external_key: PublicKey,
-        response: ThirdPartyBlock,
-        next_keypair: KeyPair,
+        external_key: &PublicKey,
+        response: &ThirdPartyBlock,
+        next_keypair: &KeyPair,
     ) -> Result<Self, error::Token> {
         let ThirdPartyBlockContents {
             payload,
             external_signature,
-        } = response.0;
+        } = response.0.clone();
 
         if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
         {
@@ -439,7 +439,7 @@ impl Biscuit {
         })?;
 
         let external_signature = crypto::ExternalSignature {
-            public_key: external_key,
+            public_key: external_key.clone(),
             signature,
         };
 
@@ -451,7 +451,7 @@ impl Biscuit {
             self.container
                 .append_serialized(&next_keypair, payload, Some(external_signature))?;
 
-        let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
+        let token_block = proto_block_to_token_block(&block, Some(external_key.clone())).unwrap();
         for key in &token_block.public_keys.keys {
             symbols.public_keys.insert_fallible(key)?;
         }
