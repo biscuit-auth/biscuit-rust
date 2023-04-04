@@ -162,7 +162,7 @@ impl ThirdPartyRequest {
 ///
 /// this must be integrated with the token that created the [`ThirdPartyRequest`]
 /// using [`Biscuit::append_third_party`](crate::Biscuit::append_third_party)
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ThirdPartyBlock(pub(crate) schema::ThirdPartyBlockContents);
 
 impl ThirdPartyBlock {
