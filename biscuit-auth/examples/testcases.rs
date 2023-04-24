@@ -1280,9 +1280,12 @@ fn expressions<T: Rng + CryptoRng>(
         //boolean and
         check if !false && true;
         //boolean or
-        check if false or true;
+        check if false || true;
         //boolean parens
         check if (true || false) && true;
+        // boolean equality
+        check if true == true;
+        check if false == false;
 
         //integer less than
         check if 1 < 2;
@@ -1342,10 +1345,15 @@ fn expressions<T: Rng + CryptoRng>(
         check if [true, false, true].contains(true);
         check if ["abc", "def"].contains("abc");
         check if [hex:12ab, hex:34de].contains(hex:34de);
+        check if [1, 2].contains([2]);
         // set equal
         check if [1, 2] == [1, 2];
         // set not equal
         check if [1, 4] != [1, 2];
+        // set intersection
+        check if [1, 2].intersection([2, 3]) == [2];
+        // set union
+        check if [1, 2].union([2, 3]) == [1, 2, 3];
     "#)
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();

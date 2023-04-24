@@ -901,8 +901,10 @@ public keys: []
 check if true;
 check if !false;
 check if !false && true;
-check if false or true;
+check if false || true;
 check if (true || false) && true;
+check if true == true;
+check if false == false;
 check if 1 < 2;
 check if 2 > 1;
 check if 1 <= 2;
@@ -934,8 +936,11 @@ check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:
 check if [false, true].contains(true);
 check if ["abc", "def"].contains("abc");
 check if [hex:12ab, hex:34de].contains(hex:34de);
+check if [1, 2].contains([2]);
 check if [1, 2] == [1, 2];
 check if [1, 4] != [1, 2];
+check if [1, 2].intersection([2, 3]) == [2];
+check if [1, 2].union([2, 3]) == [1, 2, 3];
 ```
 
 ### validation
@@ -946,7 +951,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3e51db5f0453929a596485b59e89bf628a301a33d476132c48a1c0a208805809f15bdf99593733c1b5f30e8c1f473ee2f78042f81fd0557081bafb5370e65d0c`
+- `ca25bd0ec8929d6a0095401f8a6d923bcfee2ba4661d34b1eb10decbf23c20ad0005b166e912d3be2fc6a2224ad1c786e2f90d2f67e85417aba90f6f4b096606`
 
 authorizer world:
 ```
@@ -983,14 +988,19 @@ World {
     "check if [\"abc\", \"def\"].contains(\"abc\")",
     "check if [1, 2] == [1, 2]",
     "check if [1, 2].contains(2)",
+    "check if [1, 2].contains([2])",
+    "check if [1, 2].intersection([2, 3]) == [2]",
+    "check if [1, 2].union([2, 3]) == [1, 2, 3]",
     "check if [1, 4] != [1, 2]",
     "check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z)",
     "check if [false, true].contains(true)",
     "check if [hex:12ab, hex:34de].contains(hex:34de)",
-    "check if false or true",
+    "check if false == false",
+    "check if false || true",
     "check if hex:12ab == hex:12ab",
     "check if hex:12abcd != hex:12ab",
     "check if true",
+    "check if true == true",
 }
   policies: {
     "allow if true",
