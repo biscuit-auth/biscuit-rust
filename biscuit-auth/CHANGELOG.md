@@ -1,4 +1,9 @@
-# `3.0.0` (Unreleased)
+# `3.1.0`
+
+- Add missing support for equality on booleans (#149) (Geoffroy Couprie)
+- `ThirdPartyBlock` can be cloned (#145) (Clément Delafargue)
+
+# `3.0.0`
 
 - Fix rendering of set terms (#140) (Clément Delafargue)
 - handle expression execution failure (#135) (Geoffroy Couprie)
