@@ -2066,7 +2066,7 @@ mod tests {
           fact("string");
           fact2(1234);
 
-          rule_head($var0) <- fact($var0, $var1), 1 < 2; // line comment
+    rule_head($var0) <- fact($var0, $var1), 1 < 2; // line comment
     check if 1 == 2; /*
                       other comment
                      */
@@ -2167,4 +2167,24 @@ mod tests {
             expected_checks
         );
     }*/
+
+
+    #[test]
+    fn chained_calls() {
+        use builder::{int, set, Binary, Op};
+
+        assert_eq!(
+            super::expr("[1].intersection([1]).contains(1);").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Value(int(1)),
+                    Op::Binary(Binary::Contains)
+                ],
+            ))
+        );
+    }
 }
