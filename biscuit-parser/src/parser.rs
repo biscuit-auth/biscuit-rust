@@ -623,24 +623,28 @@ fn expr8(i: &str) -> IResult<&str, Expr, Error> {
 /// argument in addition to the expression they are called on.
 /// The name of the method decides its arity.
 fn expr9(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, initial) = expr_term(i)?;
+    let (mut input, mut initial) = expr_term(i)?;
 
-    if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let bin_result = binary_method(i);
-        let un_result = unary_method(i);
-        match (bin_result, un_result) {
-            (Ok((i, (op, arg))), _) => {
-                let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
-                Ok((i, e))
+    loop {
+        if let Ok((i, _)) = char::<_, ()>('.')(input) {
+            let bin_result = binary_method(i);
+            let un_result = unary_method(i);
+            match (bin_result, un_result) {
+                (Ok((i, (op, arg))), _) => {
+                    input = i;
+                    initial =
+                        Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                }
+                (_, Ok((i, op))) => {
+                    input = i;
+
+                    initial = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
+                }
+                (_, Err(e)) => return Err(e),
             }
-            (_, Ok((i, op))) => {
-                let e = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
-                Ok((i, e))
-            }
-            (_, Err(e)) => Err(e),
+        } else {
+            return Ok((input, initial));
         }
-    } else {
-        Ok((i, initial))
     }
 }
 
@@ -2174,7 +2178,7 @@ mod tests {
         use builder::{int, set, Binary, Op};
 
         assert_eq!(
-            super::expr("[1].intersection([1]).contains(1);").map(|(i, o)| (i, o.opcodes())),
+            super::expr("[1].intersection([1]).contains(1)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
