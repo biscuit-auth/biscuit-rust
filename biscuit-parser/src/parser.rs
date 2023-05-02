@@ -819,11 +819,10 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((
-                parameter, string, date, variable, integer, bytes, boolean, set,
-            )),
+            alt((parameter, string, date, integer, bytes, boolean, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
+                Some('$') => "variables are not allowed in facts".to_string(),
                 _ => "expected a valid term".to_string(),
             },
             " ,)\n;",
@@ -1569,6 +1568,19 @@ mod tests {
                     &[builder::string("file1"), builder::string("read")]
                 )
             ))
+        );
+    }
+
+    #[test]
+    fn fact_with_variable() {
+        use nom::error::ErrorKind;
+        assert_eq!(
+            super::fact("right( \"file1\", $operation )"),
+            Err(nom::Err::Failure(super::Error {
+                code: ErrorKind::Char,
+                input: "$operation",
+                message: Some("variables are not allowed in facts".to_string()),
+            }))
         );
     }
 
