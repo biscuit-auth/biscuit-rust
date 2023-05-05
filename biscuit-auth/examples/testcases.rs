@@ -1354,6 +1354,10 @@ fn expressions<T: Rng + CryptoRng>(
         check if [1, 2].intersection([2, 3]) == [2];
         // set union
         check if [1, 2].union([2, 3]) == [1, 2, 3];
+        // chained method calls
+        check if [1, 2, 3].intersection([1, 2]).contains(1);
+        // chained method calls with unary method
+        check if [1, 2, 3].intersection([1, 2]).length() == 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), rng)
         .unwrap();

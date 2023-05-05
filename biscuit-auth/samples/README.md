@@ -941,6 +941,8 @@ check if [1, 2] == [1, 2];
 check if [1, 4] != [1, 2];
 check if [1, 2].intersection([2, 3]) == [2];
 check if [1, 2].union([2, 3]) == [1, 2, 3];
+check if [1, 2, 3].intersection([1, 2]).contains(1);
+check if [1, 2, 3].intersection([1, 2]).length() == 2;
 ```
 
 ### validation
@@ -951,7 +953,7 @@ allow if true;
 ```
 
 revocation ids:
-- `ca25bd0ec8929d6a0095401f8a6d923bcfee2ba4661d34b1eb10decbf23c20ad0005b166e912d3be2fc6a2224ad1c786e2f90d2f67e85417aba90f6f4b096606`
+- `ab9260f18992071823f77ae6a953fad59abe0949b06d2c59259d4599c9c3f13e778bc34da5c5bb45be3de675c2155aacc315bc613c0b7d587f387d46b7bb070e`
 
 authorizer world:
 ```
@@ -986,6 +988,8 @@ World {
     "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
     "check if 3 == 3",
     "check if [\"abc\", \"def\"].contains(\"abc\")",
+    "check if [1, 2, 3].intersection([1, 2]).contains(1)",
+    "check if [1, 2, 3].intersection([1, 2]).length() == 2",
     "check if [1, 2] == [1, 2]",
     "check if [1, 2].contains(2)",
     "check if [1, 2].contains([2])",
