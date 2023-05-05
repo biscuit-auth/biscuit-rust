@@ -1048,7 +1048,9 @@ impl std::fmt::Display for Authorizer {
                 write!(f, "// origin: {origin}\n")?;
             }
 
-            for rule in rule_list {
+            let mut sorted_rule_list = rule_list.clone();
+            sorted_rule_list.sort();
+            for rule in sorted_rule_list {
                 write!(f, "{};\n", rule)?;
             }
         }
