@@ -1178,7 +1178,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::builder;
+    use crate::builder::{self, Unary};
 
     #[test]
     fn name() {
@@ -2178,15 +2178,45 @@ mod tests {
         use builder::{int, set, Binary, Op};
 
         assert_eq!(
-            super::expr("[1].intersection([1]).contains(1)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("[1].intersection([2]).contains(3)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
                     Op::Value(set([int(1)].into_iter().collect())),
-                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
                     Op::Binary(Binary::Intersection),
-                    Op::Value(int(1)),
+                    Op::Value(int(3)),
                     Op::Binary(Binary::Contains)
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("[1].intersection([2]).union([3]).length()").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Value(set([int(3)].into_iter().collect())),
+                    Op::Binary(Binary::Union),
+                    Op::Unary(Unary::Length),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("[1].intersection([2]).length().union([3])").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Unary(Unary::Length),
+                    Op::Value(set([int(3)].into_iter().collect())),
+                    Op::Binary(Binary::Union),
                 ],
             ))
         );
