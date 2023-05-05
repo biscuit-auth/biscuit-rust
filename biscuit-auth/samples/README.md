@@ -45,10 +45,30 @@ authorizer world:
 ```
 World {
   facts: {
-    "resource(\"file1\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file1\", \"write\")",
-    "right(\"file2\", \"read\")",
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file1\", \"write\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -273,14 +293,42 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "owner(\"alice\", \"file1\")",
-    "owner(\"alice\", \"file2\")",
-    "resource(\"file2\")",
-    "user_id(\"alice\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "owner(\"alice\", \"file1\")",
+        {
+            0,
+        },
+    ),
+    (
+        "owner(\"alice\", \"file2\")",
+        {
+            2,
+        },
+    ),
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "user_id(\"alice\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {
-    "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
+    (
+        "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
+        1,
+    ),
 }
   checks: {
     "check if resource($0), operation(\"read\"), right($0, \"read\")",
@@ -345,10 +393,30 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file2\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file2\", \"read\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            2,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -405,9 +473,24 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file1\")",
-    "time(2020-12-21T09:23:12Z)",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "time(2020-12-21T09:23:12Z)",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -466,10 +549,30 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file2\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file2\", \"read\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            1,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -517,9 +620,24 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file2\")",
-    "right(\"file1\", \"read\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -565,8 +683,18 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file1\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -596,8 +724,18 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file2\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -656,15 +794,47 @@ authorizer world:
 ```
 World {
   facts: {
-    "resource(\"file1\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file2\", \"read\")",
-    "time(2020-12-21T09:23:12Z)",
-    "valid_date(\"file1\")",
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "time(2020-12-21T09:23:12Z)",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "valid_date(\"file1\")",
+        {
+            1,
+            18446744073709551615,
+        },
+    ),
 }
   rules: {
-    "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-    "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+    (
+        "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+        1,
+    ),
+    (
+        "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+        1,
+    ),
 }
   checks: {
     "check if valid_date($0), resource($0)",
@@ -694,14 +864,40 @@ authorizer world:
 ```
 World {
   facts: {
-    "resource(\"file2\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file2\", \"read\")",
-    "time(2020-12-21T09:23:12Z)",
+    (
+        "resource(\"file2\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "time(2020-12-21T09:23:12Z)",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {
-    "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-    "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+    (
+        "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+        1,
+    ),
+    (
+        "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+        1,
+    ),
 }
   checks: {
     "check if valid_date($0), resource($0)",
@@ -745,7 +941,12 @@ authorizer world:
 ```
 World {
   facts: {
-    "resource(\"file1\")",
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -774,7 +975,12 @@ authorizer world:
 ```
 World {
   facts: {
-    "resource(\"file123.txt\")",
+    (
+        "resource(\"file123.txt\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -819,7 +1025,12 @@ authorizer world:
 ```
 World {
   facts: {
-    "must_be_present(\"hello\")",
+    (
+        "must_be_present(\"hello\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -872,7 +1083,12 @@ authorizer world:
 ```
 World {
   facts: {
-    "query(\"test\")",
+    (
+        "query(\"test\")",
+        {
+            1,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1079,11 +1295,25 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "operation(\"write\")",
+    (
+        "operation(\"read\")",
+        {
+            1,
+            18446744073709551615,
+        },
+    ),
+    (
+        "operation(\"write\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {
-    "operation(\"read\") <- operation($any)",
+    (
+        "operation(\"read\") <- operation($any)",
+        1,
+    ),
 }
   checks: {
     "check if operation(\"read\")",
@@ -1140,11 +1370,36 @@ authorizer world:
 ```
 World {
   facts: {
-    "operation(\"read\")",
-    "resource(\"file1\")",
-    "right(\"file1\", \"read\")",
-    "right(\"file1\", \"write\")",
-    "right(\"file2\", \"read\")",
+    (
+        "operation(\"read\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "resource(\"file1\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "right(\"file1\", \"read\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file1\", \"write\")",
+        {
+            0,
+        },
+    ),
+    (
+        "right(\"file2\", \"read\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1189,7 +1444,12 @@ authorizer world:
 ```
 World {
   facts: {
-    "ns::fact_123(\"hello é\t😁\")",
+    (
+        "ns::fact_123(\"hello é\t😁\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1261,34 +1521,174 @@ authorizer world:
 ```
 World {
   facts: {
-    "admin(13)",
-    "client(18)",
-    "client_ip(19)",
-    "cluster(23)",
-    "domain(20)",
-    "email(14)",
-    "group(15)",
-    "hostname(25)",
-    "ip_address(17)",
-    "member(16)",
-    "namespace(9)",
-    "node(24)",
-    "nonce(26)",
-    "operation(3)",
-    "owner(7)",
-    "path(21)",
-    "query(27)",
-    "read(0)",
-    "resource(2)",
-    "right(4)",
-    "role(6)",
-    "service(12)",
-    "team(11)",
-    "tenant(8)",
-    "time(5)",
-    "user(10)",
-    "version(22)",
-    "write(1)",
+    (
+        "admin(13)",
+        {
+            0,
+        },
+    ),
+    (
+        "client(18)",
+        {
+            0,
+        },
+    ),
+    (
+        "client_ip(19)",
+        {
+            0,
+        },
+    ),
+    (
+        "cluster(23)",
+        {
+            0,
+        },
+    ),
+    (
+        "domain(20)",
+        {
+            0,
+        },
+    ),
+    (
+        "email(14)",
+        {
+            0,
+        },
+    ),
+    (
+        "group(15)",
+        {
+            0,
+        },
+    ),
+    (
+        "hostname(25)",
+        {
+            0,
+        },
+    ),
+    (
+        "ip_address(17)",
+        {
+            0,
+        },
+    ),
+    (
+        "member(16)",
+        {
+            0,
+        },
+    ),
+    (
+        "namespace(9)",
+        {
+            0,
+        },
+    ),
+    (
+        "node(24)",
+        {
+            0,
+        },
+    ),
+    (
+        "nonce(26)",
+        {
+            0,
+        },
+    ),
+    (
+        "operation(3)",
+        {
+            0,
+        },
+    ),
+    (
+        "owner(7)",
+        {
+            0,
+        },
+    ),
+    (
+        "path(21)",
+        {
+            0,
+        },
+    ),
+    (
+        "query(27)",
+        {
+            0,
+        },
+    ),
+    (
+        "read(0)",
+        {
+            0,
+        },
+    ),
+    (
+        "resource(2)",
+        {
+            0,
+        },
+    ),
+    (
+        "right(4)",
+        {
+            0,
+        },
+    ),
+    (
+        "role(6)",
+        {
+            0,
+        },
+    ),
+    (
+        "service(12)",
+        {
+            0,
+        },
+    ),
+    (
+        "team(11)",
+        {
+            0,
+        },
+    ),
+    (
+        "tenant(8)",
+        {
+            0,
+        },
+    ),
+    (
+        "time(5)",
+        {
+            0,
+        },
+    ),
+    (
+        "user(10)",
+        {
+            0,
+        },
+    ),
+    (
+        "version(22)",
+        {
+            0,
+        },
+    ),
+    (
+        "write(1)",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1352,8 +1752,18 @@ authorizer world:
 ```
 World {
   facts: {
-    "authority_fact(1)",
-    "block1_fact(1)",
+    (
+        "authority_fact(1)",
+        {
+            0,
+        },
+    ),
+    (
+        "block1_fact(1)",
+        {
+            1,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1411,8 +1821,18 @@ authorizer world:
 ```
 World {
   facts: {
-    "group(\"admin\")",
-    "right(\"read\")",
+    (
+        "group(\"admin\")",
+        {
+            1,
+        },
+    ),
+    (
+        "right(\"read\")",
+        {
+            0,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1460,9 +1880,24 @@ authorizer world:
 ```
 World {
   facts: {
-    "allowed_operations([\"A\", \"B\"])",
-    "operation(\"A\")",
-    "operation(\"B\")",
+    (
+        "allowed_operations([\"A\", \"B\"])",
+        {
+            0,
+        },
+    ),
+    (
+        "operation(\"A\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "operation(\"B\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1492,9 +1927,24 @@ authorizer world:
 ```
 World {
   facts: {
-    "allowed_operations([\"A\", \"B\"])",
-    "operation(\"A\")",
-    "operation(\"invalid\")",
+    (
+        "allowed_operations([\"A\", \"B\"])",
+        {
+            0,
+        },
+    ),
+    (
+        "operation(\"A\")",
+        {
+            18446744073709551615,
+        },
+    ),
+    (
+        "operation(\"invalid\")",
+        {
+            18446744073709551615,
+        },
+    ),
 }
   rules: {}
   checks: {
@@ -1598,15 +2048,49 @@ authorizer world:
 ```
 World {
   facts: {
-    "query(0)",
-    "query(1)",
-    "query(1, 2)",
-    "query(2)",
-    "query(3)",
-    "query(4)",
+    (
+        "query(0)",
+        {
+            0,
+        },
+    ),
+    (
+        "query(1)",
+        {
+            1,
+        },
+    ),
+    (
+        "query(1, 2)",
+        {
+            1,
+            2,
+        },
+    ),
+    (
+        "query(2)",
+        {
+            2,
+        },
+    ),
+    (
+        "query(3)",
+        {
+            3,
+        },
+    ),
+    (
+        "query(4)",
+        {
+            4,
+        },
+    ),
 }
   rules: {
-    "query(1, 2) <- query(1), query(2) trusting ed25519/ecfb8ed11fd9e6be133ca4dd8d229d39c7dcb2d659704c39e82fd7acf0d12dee",
+    (
+        "query(1, 2) <- query(1), query(2) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59",
+        1,
+    ),
 }
   checks: {
     "check if query(1) trusting ed25519/3c8aeced6363b8a862552fb2b0b4b8b0f8244e8cef3c11c3e55fd553f3a90f59",
