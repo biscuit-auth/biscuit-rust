@@ -5,10 +5,11 @@ extern crate biscuit_auth as biscuit;
 use biscuit::builder::BlockBuilder;
 use biscuit::datalog::SymbolTable;
 use biscuit::error;
+use biscuit::format::convert::v2 as convert;
 use biscuit::macros::*;
 use biscuit::Authorizer;
-use biscuit::KeyPair;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
+use biscuit::{KeyPair, PublicKey};
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
@@ -221,8 +222,8 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<String>,
-    pub rules: BTreeSet<String>,
+    pub facts: BTreeSet<(String, BTreeSet<usize>)>,
+    pub rules: BTreeSet<(String, usize)>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
 }
@@ -270,12 +271,60 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
     let res = authorizer.authorize();
     //println!("authorizer world:\n{}", authorizer.print_world());
-    let (mut facts, mut rules, mut checks, mut policies) = authorizer.dump();
+    let (_, _, mut checks, mut policies) = authorizer.dump();
+    let snapshot = authorizer.snapshot().unwrap();
+
+    let symbols = SymbolTable::from_symbols_and_public_keys(
+        snapshot.world.symbols,
+        snapshot
+            .world
+            .public_keys
+            .iter()
+            .map(|k| PublicKey::from_proto(k).unwrap())
+            .collect(),
+    )
+    .unwrap();
+
+    let mut facts = BTreeSet::new();
+    let mut rules = BTreeSet::new();
+    for (i, block) in snapshot.world.blocks.iter().enumerate() {
+        let mut origin = BTreeSet::new();
+        origin.insert(i);
+        for rule in block.rules_v2.iter() {
+            let r =
+                convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
+            rules.insert((symbols.print_rule(&r.0), i));
+        }
+    }
+
+    let mut authorizer_origin = BTreeSet::new();
+    authorizer_origin.insert(usize::MAX);
+    for rule in snapshot.world.authorizer_block.rules_v2 {
+        let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
+        rules.insert((symbols.print_rule(&r.0), usize::MAX));
+    }
+
+    for factset in snapshot.world.generated_facts {
+        use biscuit_auth::format::schema::origin::Content;
+        let mut origin = BTreeSet::new();
+
+        for o in factset.origins {
+            match o.content.unwrap() {
+                Content::Authorizer(_) => origin.insert(usize::MAX),
+                Content::Origin(i) => origin.insert(i as usize),
+            };
+        }
+
+        for fact in factset.facts {
+            let f = convert::proto_fact_to_token_fact(&fact).unwrap();
+            facts.insert((symbols.print_fact(&f), origin.clone()));
+        }
+    }
 
     Validation {
         world: Some(AuthorizerWorld {
-            facts: facts.drain(..).map(|f| f.to_string()).collect(),
-            rules: rules.drain(..).map(|r| r.to_string()).collect(),
+            facts,
+            rules,
             checks: checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
