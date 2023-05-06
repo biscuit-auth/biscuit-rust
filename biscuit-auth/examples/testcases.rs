@@ -57,61 +57,59 @@ fn main() {
     let root = KeyPair::new_with_rng(&mut rng);
 
     let mut results = Vec::new();
-    results.push(basic_token(&mut rng, &target, &root, test));
+    results.push(basic_token(&target, &root, test));
 
-    results.push(different_root_key(&mut rng, &target, &root, test));
+    results.push(different_root_key(&target, &root, test));
 
-    results.push(invalid_signature_format(&mut rng, &target, &root, test));
+    results.push(invalid_signature_format(&target, &root, test));
 
-    results.push(random_block(&mut rng, &target, &root, test));
+    results.push(random_block(&target, &root, test));
 
-    results.push(invalid_signature(&mut rng, &target, &root, test));
+    results.push(invalid_signature(&target, &root, test));
 
-    results.push(reordered_blocks(&mut rng, &target, &root, test));
+    results.push(reordered_blocks(&target, &root, test));
 
-    results.push(scoped_rules(&mut rng, &target, &root, test));
+    results.push(scoped_rules(&target, &root, test));
 
-    results.push(scoped_checks(&mut rng, &target, &root, test));
+    results.push(scoped_checks(&target, &root, test));
 
-    results.push(expired_token(&mut rng, &target, &root, test));
+    results.push(expired_token(&target, &root, test));
 
-    results.push(authorizer_scope(&mut rng, &target, &root, test));
+    results.push(authorizer_scope(&target, &root, test));
 
-    results.push(authorizer_authority_checks(&mut rng, &target, &root, test));
+    results.push(authorizer_authority_checks(&target, &root, test));
 
-    results.push(authority_checks(&mut rng, &target, &root, test));
+    results.push(authority_checks(&target, &root, test));
 
-    results.push(block_rules(&mut rng, &target, &root, test));
+    results.push(block_rules(&target, &root, test));
 
-    results.push(regex_constraint(&mut rng, &target, &root, test));
+    results.push(regex_constraint(&target, &root, test));
 
-    results.push(multi_queries_checks(&mut rng, &target, &root, test));
+    results.push(multi_queries_checks(&target, &root, test));
 
-    results.push(check_head_name(&mut rng, &target, &root, test));
+    results.push(check_head_name(&target, &root, test));
 
-    results.push(expressions(&mut rng, &target, &root, test));
+    results.push(expressions(&target, &root, test));
 
-    results.push(unbound_variables_in_rule(&mut rng, &target, &root, test));
+    results.push(unbound_variables_in_rule(&target, &root, test));
 
-    results.push(generating_ambient_from_variables(
-        &mut rng, &target, &root, test,
-    ));
+    results.push(generating_ambient_from_variables(&target, &root, test));
 
-    results.push(sealed_token(&mut rng, &target, &root, test));
+    results.push(sealed_token(&target, &root, test));
 
-    results.push(parsing(&mut rng, &target, &root, test));
+    results.push(parsing(&target, &root, test));
 
-    results.push(default_symbols(&mut rng, &target, &root, test));
+    results.push(default_symbols(&target, &root, test));
 
-    results.push(execution_scope(&mut rng, &target, &root, test));
+    results.push(execution_scope(&target, &root, test));
 
-    results.push(third_party(&mut rng, &target, &root, test));
+    results.push(third_party(&target, &root, test));
 
-    results.push(check_all(&mut rng, &target, &root, test));
+    results.push(check_all(&target, &root, test));
 
-    results.push(public_keys_interning(&mut rng, &target, &root, test));
+    results.push(public_keys_interning(&target, &root, test));
 
-    results.push(integer_wraparound(&mut rng, &target, &root, test));
+    results.push(integer_wraparound(&target, &root, test));
 
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
@@ -376,12 +374,8 @@ fn write_or_load_testcase(
     }
 }
 
-fn basic_token<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn basic_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "basic token".to_string();
     let filename = "test001_basic".to_string();
     let token;
@@ -393,10 +387,10 @@ fn basic_token<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -445,27 +439,24 @@ fn basic_token<T: Rng + CryptoRng>(
     }
 }
 
-fn different_root_key<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn different_root_key(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    // using a different seed otherwise it would generate the same root key
+    let mut rng: StdRng = SeedableRng::seed_from_u64(5678);
     let title = "different root key".to_string();
     let filename = "test002_different_root_key".to_string();
     let token;
 
-    let root2 = KeyPair::new_with_rng(rng);
+    let root2 = KeyPair::new_with_rng(&mut rng);
 
     let biscuit1 = biscuit!(
         r#"
         right("file1", "read");
     "#
     )
-    .build_with_rng(&root2, SymbolTable::default(), rng)
+    .build_with_rng(&root2, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -509,12 +500,8 @@ fn different_root_key<T: Rng + CryptoRng>(
     }
 }
 
-fn invalid_signature_format<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn invalid_signature_format(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "invalid signature format".to_string();
     let filename = "test003_invalid_signature_format".to_string();
     let token;
@@ -526,10 +513,10 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -565,12 +552,8 @@ fn invalid_signature_format<T: Rng + CryptoRng>(
     }
 }
 
-fn random_block<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn random_block(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "random block".to_string();
     let filename = "test004_random_block".to_string();
     let token;
@@ -582,10 +565,10 @@ fn random_block<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -624,12 +607,8 @@ fn random_block<T: Rng + CryptoRng>(
     }
 }
 
-fn invalid_signature<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn invalid_signature(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "invalid signature".to_string();
     let filename = "test005_invalid_signature".to_string();
     let token;
@@ -641,10 +620,10 @@ fn invalid_signature<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -682,12 +661,8 @@ fn invalid_signature<T: Rng + CryptoRng>(
     }
 }
 
-fn reordered_blocks<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn reordered_blocks(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "reordered blocks".to_string();
     let filename = "test006_reordered_blocks".to_string();
     let token;
@@ -699,10 +674,10 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -710,7 +685,7 @@ fn reordered_blocks<T: Rng + CryptoRng>(
         )
         .unwrap();
 
-    let keypair3 = KeyPair::new_with_rng(rng);
+    let keypair3 = KeyPair::new_with_rng(&mut rng);
     let biscuit3 = biscuit2
         .append_with_keypair(&keypair3, block!(r#"check if resource("file1")"#))
         .unwrap();
@@ -745,12 +720,8 @@ fn reordered_blocks<T: Rng + CryptoRng>(
     }
 }
 
-fn scoped_rules<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn scoped_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "scoped rules".to_string();
     let filename = "test007_scoped_rules".to_string();
     let token;
@@ -761,10 +732,10 @@ fn scoped_rules<T: Rng + CryptoRng>(
         owner("alice", "file1");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -781,7 +752,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
 
     block3.add_fact(r#"owner("alice", "file2")"#).unwrap();
 
-    let keypair3 = KeyPair::new_with_rng(rng);
+    let keypair3 = KeyPair::new_with_rng(&mut rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
@@ -809,12 +780,8 @@ fn scoped_rules<T: Rng + CryptoRng>(
     }
 }
 
-fn scoped_checks<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn scoped_checks(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "scoped checks".to_string();
     let filename = "test008_scoped_checks".to_string();
     let token;
@@ -824,10 +791,10 @@ fn scoped_checks<T: Rng + CryptoRng>(
         right("file1", "read");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -835,7 +802,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
         )
         .unwrap();
 
-    let keypair3 = KeyPair::new_with_rng(rng);
+    let keypair3 = KeyPair::new_with_rng(&mut rng);
     let biscuit3 = biscuit2
         .append_with_keypair(&keypair3, block!(r#"right("file2", "read")"#))
         .unwrap();
@@ -865,19 +832,15 @@ fn scoped_checks<T: Rng + CryptoRng>(
     }
 }
 
-fn expired_token<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn expired_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "expired token".to_string();
     let filename = "test009_expired_token".to_string();
     let token;
 
     let builder = Biscuit::builder();
     let biscuit1 = builder
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
     let mut block2 = block!(r#"check if resource("file1");"#);
@@ -889,7 +852,7 @@ fn expired_token<T: Rng + CryptoRng>(
             .unwrap(),
     );
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
@@ -918,12 +881,8 @@ fn expired_token<T: Rng + CryptoRng>(
     }
 }
 
-fn authorizer_scope<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn authorizer_scope(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "authorizer scope".to_string();
     let filename = "test010_authorizer_scope".to_string();
     let token;
@@ -933,10 +892,10 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         right("file1", "read");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(&keypair2, block!(r#"right("file2", "read")"#))
         .unwrap();
@@ -966,12 +925,9 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         validations,
     }
 }
-fn authorizer_authority_checks<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+
+fn authorizer_authority_checks(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "authorizer authority checks".to_string();
     let filename = "test011_authorizer_authority_caveats".to_string();
     let token;
@@ -981,7 +937,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
         right("file1", "read");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1010,18 +966,14 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     }
 }
 
-fn authority_checks<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn authority_checks(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "authority checks".to_string();
     let filename = "test012_authority_caveats".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource("file1")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1062,12 +1014,8 @@ fn authority_checks<T: Rng + CryptoRng>(
     }
 }
 
-fn block_rules<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn block_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "block rules".to_string();
     let filename = "test013_block_rules".to_string();
     let token;
@@ -1078,10 +1026,10 @@ fn block_rules<T: Rng + CryptoRng>(
         right("file2", "read");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block!(r#"
         // generate valid_date("file1") if before Thursday, December 31, 2030 12:59:59 PM UTC
         valid_date("file1") <- time($0), resource("file1"), $0 <= 2030-12-31T12:59:59Z;
@@ -1131,18 +1079,14 @@ fn block_rules<T: Rng + CryptoRng>(
     }
 }
 
-fn regex_constraint<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn regex_constraint(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "regex_constraint".to_string();
     let filename = "test014_regex_constraint".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource($0), $0.matches("file[0-9]+.txt")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1166,18 +1110,14 @@ fn regex_constraint<T: Rng + CryptoRng>(
     }
 }
 
-fn multi_queries_checks<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn multi_queries_checks(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "multi queries checks".to_string();
     let filename = "test015_multi_queries_caveats".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"must_be_present("hello")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1200,21 +1140,17 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
     }
 }
 
-fn check_head_name<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn check_head_name(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "check head name should be independent from fact names".to_string();
     let filename = "test016_caveat_head_name".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if resource("hello")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(&keypair2, block!(r#"query("test")"#))
         .unwrap();
@@ -1235,12 +1171,8 @@ fn check_head_name<T: Rng + CryptoRng>(
     }
 }
 
-fn expressions<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "test expression syntax and all available operations".to_string();
     let filename = "test017_expressions".to_string();
     let token;
@@ -1332,7 +1264,7 @@ fn expressions<T: Rng + CryptoRng>(
         // chained method calls with unary method
         check if [1, 2, 3].intersection([1, 2]).length() == 2;
     "#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     token = print_blocks(&biscuit);
 
@@ -1352,18 +1284,14 @@ fn expressions<T: Rng + CryptoRng>(
     }
 }
 
-fn unbound_variables_in_rule<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn unbound_variables_in_rule(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "invalid block rule with unbound_variables".to_string();
     let filename = "test018_unbound_variables_in_rule".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if operation("read")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
     let mut block2 = BlockBuilder::new();
@@ -1377,7 +1305,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
         ))
         .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
@@ -1396,22 +1324,18 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     }
 }
 
-fn generating_ambient_from_variables<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn generating_ambient_from_variables(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "invalid block rule generating an #authority or #ambient symbol with a variable"
         .to_string();
     let filename = "test019_generating_ambient_from_variables".to_string();
     let token;
 
     let biscuit1 = biscuit!(r#"check if operation("read")"#)
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(&keypair2, block!(r#"operation("read") <- operation($any)"#))
         .unwrap();
@@ -1432,12 +1356,8 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
     }
 }
 
-fn sealed_token<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn sealed_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "sealed token".to_string();
     let filename = "test020_sealed".to_string();
     let token;
@@ -1449,10 +1369,10 @@ fn sealed_token<T: Rng + CryptoRng>(
         right("file1", "write");
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(
             &keypair2,
@@ -1494,18 +1414,14 @@ fn sealed_token<T: Rng + CryptoRng>(
     }
 }
 
-fn parsing<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn parsing(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "parsing".to_string();
     let filename = "test021_parsing".to_string();
     let token;
 
     let biscuit1 = biscuit!("ns::fact_123(\"hello é\t😁\")")
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1529,12 +1445,8 @@ fn parsing<T: Rng + CryptoRng>(
     }
 }
 
-fn default_symbols<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn default_symbols(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "default_symbols".to_string();
     let filename = "test022_default_symbols".to_string();
     let token;
@@ -1546,7 +1458,7 @@ fn default_symbols<T: Rng + CryptoRng>(
     ip_address(17);client(18);client_ip(19);domain(20);path(21);
     version(22);cluster(23);node(24);hostname(25);nonce(26);query(27)"#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
     token = print_blocks(&biscuit1);
 
@@ -1577,26 +1489,22 @@ fn default_symbols<T: Rng + CryptoRng>(
     }
 }
 
-fn execution_scope<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn execution_scope(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "execution scope".to_string();
     let filename = "test023_execution_scope".to_string();
     let token;
 
     let biscuit1 = biscuit!("authority_fact(1)")
-        .build_with_rng(&root, SymbolTable::default(), rng)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_with_keypair(&keypair2, block!("block1_fact(1)"))
         .unwrap();
 
-    let keypair3 = KeyPair::new_with_rng(rng);
+    let keypair3 = KeyPair::new_with_rng(&mut rng);
     let biscuit3 = biscuit2
         .append_with_keypair(
             &keypair3,
@@ -1626,17 +1534,13 @@ fn execution_scope<T: Rng + CryptoRng>(
     }
 }
 
-fn third_party<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn third_party(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "third party".to_string();
     let filename = "test024_third_party".to_string();
     let token;
 
-    let external = KeyPair::new_with_rng(rng);
+    let external = KeyPair::new_with_rng(&mut rng);
     let biscuit1 = biscuit!(
         r#"
         right("read");
@@ -1644,7 +1548,7 @@ fn third_party<T: Rng + CryptoRng>(
     "#,
         external_pub = external.public()
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
     let req = biscuit1.third_party_request().unwrap();
@@ -1660,7 +1564,7 @@ fn third_party<T: Rng + CryptoRng>(
             ),
         )
         .unwrap();
-    let keypair2 = KeyPair::new_with_rng(rng);
+    let keypair2 = KeyPair::new_with_rng(&mut rng);
     let biscuit2 = biscuit1
         .append_third_party_with_keypair(external.public(), res, keypair2)
         .unwrap();
@@ -1683,12 +1587,8 @@ fn third_party<T: Rng + CryptoRng>(
     }
 }
 
-fn check_all<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn check_all(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "block rules".to_string();
     let filename = "test025_check_all".to_string();
     let token;
@@ -1699,7 +1599,7 @@ fn check_all<T: Rng + CryptoRng>(
         check all operation($op), allowed_operations($allowed), $allowed.contains($op);
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
     token = print_blocks(&biscuit1);
@@ -1741,19 +1641,15 @@ fn check_all<T: Rng + CryptoRng>(
     }
 }
 
-fn public_keys_interning<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn public_keys_interning(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "public keys interning".to_string();
     let filename = "test026_public_keys_interning".to_string();
     let token;
 
-    let external1 = KeyPair::new_with_rng(rng);
-    let external2 = KeyPair::new_with_rng(rng);
-    let external3 = KeyPair::new_with_rng(rng);
+    let external1 = KeyPair::new_with_rng(&mut rng);
+    let external2 = KeyPair::new_with_rng(&mut rng);
+    let external3 = KeyPair::new_with_rng(&mut rng);
 
     let biscuit1 = biscuit!(
         r#"
@@ -1762,7 +1658,7 @@ fn public_keys_interning<T: Rng + CryptoRng>(
     "#,
         k1 = external1.public()
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
     let req1 = biscuit1.third_party_request().unwrap();
@@ -1784,7 +1680,7 @@ fn public_keys_interning<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit2 = biscuit1
-        .append_third_party_with_keypair(external1.public(), res1, KeyPair::new_with_rng(rng))
+        .append_third_party_with_keypair(external1.public(), res1, KeyPair::new_with_rng(&mut rng))
         .unwrap();
 
     let req2 = biscuit2.third_party_request().unwrap();
@@ -1804,7 +1700,7 @@ fn public_keys_interning<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit3 = biscuit2
-        .append_third_party_with_keypair(external2.public(), res2, KeyPair::new_with_rng(rng))
+        .append_third_party_with_keypair(external2.public(), res2, KeyPair::new_with_rng(&mut rng))
         .unwrap();
 
     let req3 = biscuit3.third_party_request().unwrap();
@@ -1824,12 +1720,12 @@ fn public_keys_interning<T: Rng + CryptoRng>(
         .unwrap();
 
     let biscuit4 = biscuit3
-        .append_third_party_with_keypair(external2.public(), res3, KeyPair::new_with_rng(rng))
+        .append_third_party_with_keypair(external2.public(), res3, KeyPair::new_with_rng(&mut rng))
         .unwrap();
 
     let biscuit5 = biscuit4
         .append_with_keypair(
-            &KeyPair::new_with_rng(rng),
+            &KeyPair::new_with_rng(&mut rng),
             block!(
                 r#"
             query(4);
@@ -1874,12 +1770,8 @@ fn public_keys_interning<T: Rng + CryptoRng>(
     }
 }
 
-fn integer_wraparound<T: Rng + CryptoRng>(
-    rng: &mut T,
-    target: &str,
-    root: &KeyPair,
-    test: bool,
-) -> TestResult {
+fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "integer wraparound".to_string();
     let filename = "test027_integer_wraparound".to_string();
     let token;
@@ -1894,7 +1786,7 @@ fn integer_wraparound<T: Rng + CryptoRng>(
           check if true || -9223372036854775808 - 1 != 0;
     "#
     )
-    .build_with_rng(&root, SymbolTable::default(), rng)
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
     token = print_blocks(&biscuit);
