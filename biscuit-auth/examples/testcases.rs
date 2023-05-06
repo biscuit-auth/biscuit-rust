@@ -356,6 +356,26 @@ fn print_diff(actual: &str, expected: &str) {
     }
 }
 
+fn write_or_load_testcase(
+    target: &str,
+    filename: &str,
+    root: &KeyPair,
+    token: &Biscuit,
+    test: bool,
+) -> Vec<u8> {
+    if test {
+        let v = load_testcase(target, &filename);
+        let expected = Biscuit::from(&v[..], root.public()).unwrap();
+        print_diff(&token.print(), &expected.print());
+        v
+    } else {
+        let data = token.to_vec().unwrap();
+        write_testcase(target, &filename, &data[..]);
+
+        data
+    }
+}
+
 fn basic_token<T: Rng + CryptoRng>(
     rng: &mut T,
     target: &str,
@@ -765,17 +785,7 @@ fn scoped_rules<T: Rng + CryptoRng>(
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
     token = print_blocks(&biscuit3);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit3.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit3, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -831,17 +841,7 @@ fn scoped_checks<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit3);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit3.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit3, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -893,17 +893,7 @@ fn expired_token<T: Rng + CryptoRng>(
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -952,17 +942,7 @@ fn authorizer_scope<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1005,16 +985,7 @@ fn authorizer_authority_checks<T: Rng + CryptoRng>(
     .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1054,16 +1025,7 @@ fn authority_checks<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1132,17 +1094,7 @@ fn block_rules<T: Rng + CryptoRng>(
 
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1194,16 +1146,7 @@ fn regex_constraint<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1238,17 +1181,7 @@ fn multi_queries_checks<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1287,16 +1220,7 @@ fn check_head_name<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1412,16 +1336,7 @@ fn expressions<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1466,16 +1381,7 @@ fn unbound_variables_in_rule<T: Rng + CryptoRng>(
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1511,16 +1417,7 @@ fn generating_ambient_from_variables<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1612,16 +1509,7 @@ fn parsing<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1662,16 +1550,7 @@ fn default_symbols<T: Rng + CryptoRng>(
     .unwrap();
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1731,17 +1610,7 @@ fn execution_scope<T: Rng + CryptoRng>(
         .unwrap();
     token = print_blocks(&biscuit3);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit3.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit3.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit3, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1798,17 +1667,7 @@ fn third_party<T: Rng + CryptoRng>(
 
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit2.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1845,17 +1704,7 @@ fn check_all<T: Rng + CryptoRng>(
 
     token = print_blocks(&biscuit1);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit1.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit1.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit1, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -1995,17 +1844,7 @@ fn public_keys_interning<T: Rng + CryptoRng>(
 
     token = print_blocks(&biscuit5);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit5.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit5.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit5, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -2060,17 +1899,7 @@ fn integer_wraparound<T: Rng + CryptoRng>(
 
     token = print_blocks(&biscuit);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&biscuit.print(), &expected.print());
-        v
-    } else {
-        let data = biscuit.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
