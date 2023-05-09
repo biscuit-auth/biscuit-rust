@@ -146,9 +146,9 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        for fact in block.facts.iter() {
-            let fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&block_origin, fact);
+        for fact in block.facts.iter_mut() {
+            *fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
+            self.world.facts.insert(&block_origin, fact.clone());
         }
 
         for rule in block.rules.iter_mut() {
