@@ -363,8 +363,9 @@ fn write_or_load_testcase(
 ) -> Vec<u8> {
     if test {
         let v = load_testcase(target, &filename);
-        let expected = Biscuit::from(&v[..], root.public()).unwrap();
-        print_diff(&token.print(), &expected.print());
+        if let Ok(expected) = Biscuit::from(&v[..], root.public()) {
+            print_diff(&token.print(), &expected.print());
+        }
         v
     } else {
         let data = token.to_vec().unwrap();
@@ -404,19 +405,7 @@ fn basic_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        let t = Biscuit::from(&v[..], root.public()).unwrap();
-
-        let actual = biscuit2.print();
-        let expected = t.print();
-        print_diff(&actual, &expected);
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
@@ -470,14 +459,7 @@ fn different_root_key(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     token = print_blocks(&biscuit2);
 
-    let data = if test {
-        let v = load_testcase(target, &filename);
-        v
-    } else {
-        let data = biscuit2.to_vec().unwrap();
-        write_testcase(target, &filename, &data[..]);
-        data
-    };
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
 
     let mut validations = BTreeMap::new();
     validations.insert(
