@@ -151,13 +151,13 @@ impl Authorizer {
             self.world.facts.insert(&block_origin, fact);
         }
 
-        for rule in block.rules.iter() {
+        for rule in block.rules.iter_mut() {
             if let Err(_message) = rule.validate_variables(&block_symbols) {
                 return Err(
                     error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
                 );
             }
-            let rule = rule.translate(&block_symbols, &mut self.symbols)?;
+            *rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
             let rule_trusted_origins = TrustedOrigins::from_scopes(
                 &rule.scopes,
@@ -166,7 +166,9 @@ impl Authorizer {
                 &self.public_key_to_block_id,
             );
 
-            self.world.rules.insert(i, &rule_trusted_origins, rule);
+            self.world
+                .rules
+                .insert(i, &rule_trusted_origins, rule.clone());
         }
 
         for check in block.checks.iter_mut() {
