@@ -222,8 +222,8 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<(String, BTreeSet<usize>)>,
-    pub rules: BTreeSet<(String, usize)>,
+    pub facts: BTreeSet<(String, BTreeSet<Option<usize>>)>,
+    pub rules: BTreeSet<(String, Option<usize>)>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
 }
@@ -293,7 +293,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         for rule in block.rules_v2.iter() {
             let r =
                 convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-            rules.insert((symbols.print_rule(&r.0), i));
+            rules.insert((symbols.print_rule(&r.0), Some(i)));
         }
     }
 
@@ -301,7 +301,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     authorizer_origin.insert(usize::MAX);
     for rule in snapshot.world.authorizer_block.rules_v2 {
         let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-        rules.insert((symbols.print_rule(&r.0), usize::MAX));
+        rules.insert((symbols.print_rule(&r.0), None));
     }
 
     for factset in snapshot.world.generated_facts {
@@ -310,8 +310,8 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
         for o in factset.origins {
             match o.content.unwrap() {
-                Content::Authorizer(_) => origin.insert(usize::MAX),
-                Content::Origin(i) => origin.insert(i as usize),
+                Content::Authorizer(_) => origin.insert(None),
+                Content::Origin(i) => origin.insert(Some(i as usize)),
             };
         }
 

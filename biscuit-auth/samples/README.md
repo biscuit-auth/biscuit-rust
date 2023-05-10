@@ -48,25 +48,31 @@ World {
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file1\", \"write\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -296,38 +302,46 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "owner(\"alice\", \"file1\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "owner(\"alice\", \"file2\")",
         {
-            2,
+            Some(
+                2,
+            ),
         },
     ),
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "user_id(\"alice\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
   rules: {
     (
         "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
-        1,
+        Some(
+            1,
+        ),
     ),
 }
   checks: {
@@ -396,25 +410,29 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            2,
+            Some(
+                2,
+            ),
         },
     ),
 }
@@ -476,19 +494,19 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "time(2020-12-21T09:23:12Z)",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -552,25 +570,29 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            1,
+            Some(
+                1,
+            ),
         },
     ),
 }
@@ -623,19 +645,21 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -686,13 +710,13 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -727,13 +751,13 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -797,43 +821,53 @@ World {
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "time(2020-12-21T09:23:12Z)",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "valid_date(\"file1\")",
         {
-            1,
-            18446744073709551615,
+            None,
+            Some(
+                1,
+            ),
         },
     ),
 }
   rules: {
     (
         "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-        1,
+        Some(
+            1,
+        ),
     ),
     (
         "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-        1,
+        Some(
+            1,
+        ),
     ),
 }
   checks: {
@@ -867,36 +901,44 @@ World {
     (
         "resource(\"file2\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "time(2020-12-21T09:23:12Z)",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
   rules: {
     (
         "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-        1,
+        Some(
+            1,
+        ),
     ),
     (
         "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-        1,
+        Some(
+            1,
+        ),
     ),
 }
   checks: {
@@ -944,7 +986,7 @@ World {
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -978,7 +1020,7 @@ World {
     (
         "resource(\"file123.txt\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -1028,7 +1070,9 @@ World {
     (
         "must_be_present(\"hello\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -1086,7 +1130,9 @@ World {
     (
         "query(\"test\")",
         {
-            1,
+            Some(
+                1,
+            ),
         },
     ),
 }
@@ -1290,21 +1336,25 @@ World {
     (
         "operation(\"read\")",
         {
-            1,
-            18446744073709551615,
+            None,
+            Some(
+                1,
+            ),
         },
     ),
     (
         "operation(\"write\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
   rules: {
     (
         "operation(\"read\") <- operation($any)",
-        1,
+        Some(
+            1,
+        ),
     ),
 }
   checks: {
@@ -1365,31 +1415,37 @@ World {
     (
         "operation(\"read\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "resource(\"file1\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "right(\"file1\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file1\", \"write\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(\"file2\", \"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -1439,7 +1495,9 @@ World {
     (
         "ns::fact_123(\"hello é\t😁\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -1516,169 +1574,225 @@ World {
     (
         "admin(13)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "client(18)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "client_ip(19)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "cluster(23)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "domain(20)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "email(14)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "group(15)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "hostname(25)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "ip_address(17)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "member(16)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "namespace(9)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "node(24)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "nonce(26)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "operation(3)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "owner(7)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "path(21)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "query(27)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "read(0)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "resource(2)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "right(4)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "role(6)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "service(12)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "team(11)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "tenant(8)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "time(5)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "user(10)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "version(22)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "write(1)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -1747,13 +1861,17 @@ World {
     (
         "authority_fact(1)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "block1_fact(1)",
         {
-            1,
+            Some(
+                1,
+            ),
         },
     ),
 }
@@ -1816,13 +1934,17 @@ World {
     (
         "group(\"admin\")",
         {
-            1,
+            Some(
+                1,
+            ),
         },
     ),
     (
         "right(\"read\")",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
 }
@@ -1875,19 +1997,21 @@ World {
     (
         "allowed_operations([\"A\", \"B\"])",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "operation(\"A\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "operation(\"B\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -1922,19 +2046,21 @@ World {
     (
         "allowed_operations([\"A\", \"B\"])",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "operation(\"A\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
     (
         "operation(\"invalid\")",
         {
-            18446744073709551615,
+            None,
         },
     ),
 }
@@ -2043,45 +2169,61 @@ World {
     (
         "query(0)",
         {
-            0,
+            Some(
+                0,
+            ),
         },
     ),
     (
         "query(1)",
         {
-            1,
+            Some(
+                1,
+            ),
         },
     ),
     (
         "query(1, 2)",
         {
-            1,
-            2,
+            Some(
+                1,
+            ),
+            Some(
+                2,
+            ),
         },
     ),
     (
         "query(2)",
         {
-            2,
+            Some(
+                2,
+            ),
         },
     ),
     (
         "query(3)",
         {
-            3,
+            Some(
+                3,
+            ),
         },
     ),
     (
         "query(4)",
         {
-            4,
+            Some(
+                4,
+            ),
         },
     ),
 }
   rules: {
     (
         "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
-        1,
+        Some(
+            1,
+        ),
     ),
 }
   checks: {
