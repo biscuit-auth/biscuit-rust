@@ -1109,7 +1109,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 ### token
 
 authority:
-symbols: ["hello world", "hello", "world", "aaabde", "a*c?.e", "abd", "aaa", "b", "de", "abcD12", "abcD12x", "abc", "def"]
+symbols: ["hello world", "hello", "world", "aaabde", "a*c?.e", "abd", "aaa", "b", "de", "abcD12", "abc", "def"]
 
 public keys: []
 
@@ -1128,15 +1128,12 @@ check if 1 <= 1;
 check if 2 >= 1;
 check if 2 >= 2;
 check if 3 == 3;
-check if 1 != 3;
 check if 1 + 2 * 3 - 4 / 2 == 5;
-check if 1 | 2 ^ 3 == 0;
 check if "hello world".starts_with("hello") && "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
 check if "aaabde" == "aaa" + "b" + "de";
 check if "abcD12" == "abcD12";
-check if "abcD12x" != "abcD12";
 check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;
 check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;
@@ -1144,9 +1141,7 @@ check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z;
-check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;
 check if hex:12ab == hex:12ab;
-check if hex:12abcd != hex:12ab;
 check if [1, 2].contains(2);
 check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z);
 check if [false, true].contains(true);
@@ -1154,7 +1149,6 @@ check if ["abc", "def"].contains("abc");
 check if [hex:12ab, hex:34de].contains(hex:34de);
 check if [1, 2].contains([2]);
 check if [1, 2] == [1, 2];
-check if [1, 4] != [1, 2];
 check if [1, 2].intersection([2, 3]) == [2];
 check if [1, 2].union([2, 3]) == [1, 2, 3];
 check if [1, 2, 3].intersection([1, 2]).contains(1);
@@ -1169,7 +1163,7 @@ allow if true;
 ```
 
 revocation ids:
-- `5225e558b5a73751f79681d19d0cc359b0992e930428709be811087d4b329640080a745df0f9024fb68e6b02ddb22a30fb7d483a38f4c2e174b427de4d74950c`
+- `a0fdd27c0d21292a4d944a86a9e97cfee7513969a209729ebcff2dec50b8725816dad3b9d7fc004d3f6dc705399c303c1a76a8b955a5f23d2045132b68b4d50b`
 
 authorizer world:
 ```
@@ -1183,15 +1177,12 @@ World {
     "check if \"aaabde\".contains(\"abd\")",
     "check if \"aaabde\".matches(\"a*c?.e\")",
     "check if \"abcD12\" == \"abcD12\"",
-    "check if \"abcD12x\" != \"abcD12\"",
     "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
     "check if (true || false) && true",
-    "check if 1 != 3",
     "check if 1 + 2 * 3 - 4 / 2 == 5",
     "check if 1 < 2",
     "check if 1 <= 1",
     "check if 1 <= 2",
-    "check if 1 | 2 ^ 3 == 0",
     "check if 2 > 1",
     "check if 2 >= 1",
     "check if 2 >= 2",
@@ -1201,7 +1192,6 @@ World {
     "check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z",
     "check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z",
     "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
-    "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
     "check if 3 == 3",
     "check if [\"abc\", \"def\"].contains(\"abc\")",
     "check if [1, 2, 3].intersection([1, 2]).contains(1)",
@@ -1211,14 +1201,12 @@ World {
     "check if [1, 2].contains([2])",
     "check if [1, 2].intersection([2, 3]) == [2]",
     "check if [1, 2].union([2, 3]) == [1, 2, 3]",
-    "check if [1, 4] != [1, 2]",
     "check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z)",
     "check if [false, true].contains(true)",
     "check if [hex:12ab, hex:34de].contains(hex:34de)",
     "check if false == false",
     "check if false || true",
     "check if hex:12ab == hex:12ab",
-    "check if hex:12abcd != hex:12ab",
     "check if true",
     "check if true == true",
 }
@@ -2159,4 +2147,55 @@ World {
 ```
 
 result: `Err(Execution(Overflow))`
+
+
+------------------------------
+
+## test expression syntax and all available operations (v4 blocks): test028_expressions_v4.bc
+### token
+
+authority:
+symbols: ["abcD12x", "abcD12"]
+
+public keys: []
+
+```
+check if 1 != 3;
+check if 1 | 2 ^ 3 == 0;
+check if "abcD12x" != "abcD12";
+check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;
+check if hex:12abcd != hex:12ab;
+check if [1, 4] != [1, 2];
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `56ff3e571202e641dfb84955adb6700b61e42e1100412b3e0e957f1693875fbb8fdeaeb008092b2f42c5c7ded97cde638eeaf3ab73df678273f6ba970916ad00`
+
+authorizer world:
+```
+World {
+  facts: {}
+  rules: {}
+  checks: {
+    "check if \"abcD12x\" != \"abcD12\"",
+    "check if 1 != 3",
+    "check if 1 | 2 ^ 3 == 0",
+    "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
+    "check if [1, 4] != [1, 2]",
+    "check if hex:12abcd != hex:12ab",
+}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Ok(0)`
 
