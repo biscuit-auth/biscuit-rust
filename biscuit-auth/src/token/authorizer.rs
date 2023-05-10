@@ -105,7 +105,7 @@ impl Authorizer {
         for i in 0..token.block_count() {
             let mut block = token.block(i)?;
 
-            self.add_block(&mut block, i, &token.symbols)?;
+            self.load_and_translate_block(&mut block, i, &token.symbols)?;
 
             blocks.push(block);
         }
@@ -121,7 +121,8 @@ impl Authorizer {
         Ok(())
     }
 
-    fn add_block(
+    /// we need to modify the block loaded from the token, because the authorizer's and th token's symbol table can differ
+    fn load_and_translate_block(
         &mut self,
         block: &mut Block,
         i: usize,
