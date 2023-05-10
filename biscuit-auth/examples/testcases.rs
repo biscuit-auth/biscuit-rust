@@ -111,6 +111,8 @@ fn main() {
 
     results.push(integer_wraparound(&target, &root, test));
 
+    results.push(expressions_v4(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1186,12 +1188,8 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if 2 >= 2;
         //integer equal
         check if 3 == 3;
-        //integer not equal
-        check if 1 != 3;
         //integer add sub mul div
         check if 1 + 2 * 3 - 4 /2 == 5;
-        //integer bitwise and or xor
-        check if 1 | 2 ^ 3 == 0;
 
         // string prefix and suffix
         check if "hello world".starts_with("hello") && "hello world".ends_with("world");
@@ -1203,8 +1201,6 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if "aaabde" == "aaa" + "b" + "de";
         // string equal
         check if "abcD12" == "abcD12";
-        // string not equal
-        check if "abcD12x" != "abcD12";
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
@@ -1218,13 +1214,9 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00;
         //date equal
         check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00;
-        //date not equal
-        check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
 
         //bytes equal
         check if hex:12ab == hex:12ab;
-        //bytes not equal
-        check if hex:12abcd != hex:12ab;
 
         // set contains
         check if [1, 2].contains(2);
@@ -1235,8 +1227,6 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [1, 2].contains([2]);
         // set equal
         check if [1, 2] == [1, 2];
-        // set not equal
-        check if [1, 4] != [1, 2];
         // set intersection
         check if [1, 2].intersection([2, 3]) == [2];
         // set union
@@ -1779,6 +1769,48 @@ fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "".to_string(),
         validate_token(root, &data[..], &format!(r#"allow if true;"#)),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test expression syntax and all available operations (v4 blocks)".to_string();
+    let filename = "test028_expressions_v4".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        //integer not equal
+        check if 1 != 3;
+        //integer bitwise and or xor
+        check if 1 | 2 ^ 3 == 0;
+        // string not equal
+        check if "abcD12x" != "abcD12";
+        //date not equal
+        check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
+        //bytes not equal
+        check if hex:12abcd != hex:12ab;
+        // set not equal
+        check if [1, 4] != [1, 2];
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
