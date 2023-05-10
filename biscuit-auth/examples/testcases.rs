@@ -57,61 +57,70 @@ fn main() {
     let root = KeyPair::new_with_rng(&mut rng);
 
     let mut results = Vec::new();
-    results.push(basic_token(&target, &root, test));
+    add_test_result(&mut results, basic_token(&target, &root, test));
 
-    results.push(different_root_key(&target, &root, test));
+    add_test_result(&mut results, different_root_key(&target, &root, test));
 
-    results.push(invalid_signature_format(&target, &root, test));
+    add_test_result(&mut results, invalid_signature_format(&target, &root, test));
 
-    results.push(random_block(&target, &root, test));
+    add_test_result(&mut results, random_block(&target, &root, test));
 
-    results.push(invalid_signature(&target, &root, test));
+    add_test_result(&mut results, invalid_signature(&target, &root, test));
 
-    results.push(reordered_blocks(&target, &root, test));
+    add_test_result(&mut results, reordered_blocks(&target, &root, test));
 
-    results.push(scoped_rules(&target, &root, test));
+    add_test_result(&mut results, scoped_rules(&target, &root, test));
 
-    results.push(scoped_checks(&target, &root, test));
+    add_test_result(&mut results, scoped_checks(&target, &root, test));
 
-    results.push(expired_token(&target, &root, test));
+    add_test_result(&mut results, expired_token(&target, &root, test));
 
-    results.push(authorizer_scope(&target, &root, test));
+    add_test_result(&mut results, authorizer_scope(&target, &root, test));
 
-    results.push(authorizer_authority_checks(&target, &root, test));
+    add_test_result(
+        &mut results,
+        authorizer_authority_checks(&target, &root, test),
+    );
 
-    results.push(authority_checks(&target, &root, test));
+    add_test_result(&mut results, authority_checks(&target, &root, test));
 
-    results.push(block_rules(&target, &root, test));
+    add_test_result(&mut results, block_rules(&target, &root, test));
 
-    results.push(regex_constraint(&target, &root, test));
+    add_test_result(&mut results, regex_constraint(&target, &root, test));
 
-    results.push(multi_queries_checks(&target, &root, test));
+    add_test_result(&mut results, multi_queries_checks(&target, &root, test));
 
-    results.push(check_head_name(&target, &root, test));
+    add_test_result(&mut results, check_head_name(&target, &root, test));
 
-    results.push(expressions(&target, &root, test));
+    add_test_result(&mut results, expressions(&target, &root, test));
 
-    results.push(unbound_variables_in_rule(&target, &root, test));
+    add_test_result(
+        &mut results,
+        unbound_variables_in_rule(&target, &root, test),
+    );
 
-    results.push(generating_ambient_from_variables(&target, &root, test));
+    add_test_result(
+        &mut results,
+        generating_ambient_from_variables(&target, &root, test),
+    );
 
-    results.push(sealed_token(&target, &root, test));
+    add_test_result(&mut results, sealed_token(&target, &root, test));
 
-    results.push(parsing(&target, &root, test));
+    add_test_result(&mut results, parsing(&target, &root, test));
 
-    results.push(default_symbols(&target, &root, test));
+    add_test_result(&mut results, default_symbols(&target, &root, test));
 
-    results.push(execution_scope(&target, &root, test));
+    add_test_result(&mut results, execution_scope(&target, &root, test));
 
-    results.push(third_party(&target, &root, test));
+    add_test_result(&mut results, third_party(&target, &root, test));
 
-    results.push(check_all(&target, &root, test));
+    add_test_result(&mut results, check_all(&target, &root, test));
 
-    results.push(public_keys_interning(&target, &root, test));
+    add_test_result(&mut results, public_keys_interning(&target, &root, test));
 
-    results.push(integer_wraparound(&target, &root, test));
+    add_test_result(&mut results, integer_wraparound(&target, &root, test));
 
-    results.push(expressions_v4(&target, &root, test));
+    add_test_result(&mut results, expressions_v4(&target, &root, test));
 
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
@@ -173,7 +182,7 @@ impl TestResult {
         use std::fmt::Write;
         let mut s = String::new();
 
-        writeln!(&mut s, "## {}: {}.bc", self.title, self.filename);
+        writeln!(&mut s, "## {}: {}", self.title, self.filename);
 
         writeln!(&mut s, "### token\n");
         for (i, block) in self.token.iter().enumerate() {
@@ -222,8 +231,8 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<(String, BTreeSet<usize>)>,
-    pub rules: BTreeSet<(String, usize)>,
+    pub facts: BTreeSet<(String, BTreeSet<Option<usize>>)>,
+    pub rules: BTreeSet<(String, Option<usize>)>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
 }
@@ -293,7 +302,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         for rule in block.rules_v2.iter() {
             let r =
                 convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-            rules.insert((symbols.print_rule(&r.0), i));
+            rules.insert((symbols.print_rule(&r.0), Some(i)));
         }
     }
 
@@ -301,7 +310,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     authorizer_origin.insert(usize::MAX);
     for rule in snapshot.world.authorizer_block.rules_v2 {
         let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-        rules.insert((symbols.print_rule(&r.0), usize::MAX));
+        rules.insert((symbols.print_rule(&r.0), None));
     }
 
     for factset in snapshot.world.generated_facts {
@@ -310,8 +319,8 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
         for o in factset.origins {
             match o.content.unwrap() {
-                Content::Authorizer(_) => origin.insert(usize::MAX),
-                Content::Origin(i) => origin.insert(i as usize),
+                Content::Authorizer(_) => origin.insert(None),
+                Content::Origin(i) => origin.insert(Some(i as usize)),
             };
         }
 
@@ -335,6 +344,11 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         authorizer_code,
         revocation_ids,
     }
+}
+
+fn add_test_result(results: &mut Vec<TestResult>, mut testcase: TestResult) {
+    testcase.filename = format!("{}.bc", testcase.filename);
+    results.push(testcase);
 }
 
 fn write_testcase(target: &str, name: &str, data: &[u8]) {

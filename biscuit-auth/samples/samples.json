@@ -4,7 +4,7 @@
   "testcases": [
     {
       "title": "basic token",
-      "filename": "test001_basic",
+      "filename": "test001_basic.bc",
       "token": [
         {
           "symbols": [
@@ -31,7 +31,7 @@
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -91,7 +91,7 @@
     },
     {
       "title": "different root key",
-      "filename": "test002_different_root_key",
+      "filename": "test002_different_root_key.bc",
       "token": [
         {
           "symbols": [
@@ -129,7 +129,7 @@
     },
     {
       "title": "invalid signature format",
-      "filename": "test003_invalid_signature_format",
+      "filename": "test003_invalid_signature_format.bc",
       "token": [
         {
           "symbols": [
@@ -166,7 +166,7 @@
     },
     {
       "title": "random block",
-      "filename": "test004_random_block",
+      "filename": "test004_random_block.bc",
       "token": [
         {
           "symbols": [
@@ -205,7 +205,7 @@
     },
     {
       "title": "invalid signature",
-      "filename": "test005_invalid_signature",
+      "filename": "test005_invalid_signature.bc",
       "token": [
         {
           "symbols": [
@@ -244,7 +244,7 @@
     },
     {
       "title": "reordered blocks",
-      "filename": "test006_reordered_blocks",
+      "filename": "test006_reordered_blocks.bc",
       "token": [
         {
           "symbols": [
@@ -289,7 +289,7 @@
     },
     {
       "title": "scoped rules",
-      "filename": "test007_scoped_rules",
+      "filename": "test007_scoped_rules.bc",
       "token": [
         {
           "symbols": [
@@ -326,7 +326,7 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -344,7 +344,7 @@
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -398,7 +398,7 @@
     },
     {
       "title": "scoped checks",
-      "filename": "test008_scoped_checks",
+      "filename": "test008_scoped_checks.bc",
       "token": [
         {
           "symbols": [
@@ -432,13 +432,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -493,7 +493,7 @@
     },
     {
       "title": "expired token",
-      "filename": "test009_expired_token",
+      "filename": "test009_expired_token.bc",
       "token": [
         {
           "symbols": [],
@@ -518,19 +518,19 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "time(2020-12-21T09:23:12Z)",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -573,7 +573,7 @@
     },
     {
       "title": "authorizer scope",
-      "filename": "test010_authorizer_scope",
+      "filename": "test010_authorizer_scope.bc",
       "token": [
         {
           "symbols": [
@@ -599,13 +599,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -658,7 +658,7 @@
     },
     {
       "title": "authorizer authority checks",
-      "filename": "test011_authorizer_authority_caveats",
+      "filename": "test011_authorizer_authority_caveats.bc",
       "token": [
         {
           "symbols": [
@@ -676,13 +676,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -728,7 +728,7 @@
     },
     {
       "title": "authority checks",
-      "filename": "test012_authority_caveats",
+      "filename": "test012_authority_caveats.bc",
       "token": [
         {
           "symbols": [
@@ -746,13 +746,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -778,13 +778,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -825,7 +825,7 @@
     },
     {
       "title": "block rules",
-      "filename": "test013_block_rules",
+      "filename": "test013_block_rules.bc",
       "token": [
         {
           "symbols": [
@@ -854,7 +854,7 @@
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -872,14 +872,14 @@
               [
                 "time(2020-12-21T09:23:12Z)",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "valid_date(\"file1\")",
                 [
-                  1,
-                  18446744073709551615
+                  null,
+                  1
                 ]
               ]
             ],
@@ -915,7 +915,7 @@
               [
                 "resource(\"file2\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -933,7 +933,7 @@
               [
                 "time(2020-12-21T09:23:12Z)",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -984,7 +984,7 @@
     },
     {
       "title": "regex_constraint",
-      "filename": "test014_regex_constraint",
+      "filename": "test014_regex_constraint.bc",
       "token": [
         {
           "symbols": [
@@ -1003,7 +1003,7 @@
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -1046,7 +1046,7 @@
               [
                 "resource(\"file123.txt\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -1070,7 +1070,7 @@
     },
     {
       "title": "multi queries checks",
-      "filename": "test015_multi_queries_caveats",
+      "filename": "test015_multi_queries_caveats.bc",
       "token": [
         {
           "symbols": [
@@ -1113,7 +1113,7 @@
     },
     {
       "title": "check head name should be independent from fact names",
-      "filename": "test016_caveat_head_name",
+      "filename": "test016_caveat_head_name.bc",
       "token": [
         {
           "symbols": [
@@ -1181,7 +1181,7 @@
     },
     {
       "title": "test expression syntax and all available operations",
-      "filename": "test017_expressions",
+      "filename": "test017_expressions.bc",
       "token": [
         {
           "symbols": [
@@ -1264,7 +1264,7 @@
     },
     {
       "title": "invalid block rule with unbound_variables",
-      "filename": "test018_unbound_variables_in_rule",
+      "filename": "test018_unbound_variables_in_rule.bc",
       "token": [
         {
           "symbols": [],
@@ -1306,7 +1306,7 @@
     },
     {
       "title": "invalid block rule generating an #authority or #ambient symbol with a variable",
-      "filename": "test019_generating_ambient_from_variables",
+      "filename": "test019_generating_ambient_from_variables.bc",
       "token": [
         {
           "symbols": [],
@@ -1330,14 +1330,14 @@
               [
                 "operation(\"read\")",
                 [
-                  1,
-                  18446744073709551615
+                  null,
+                  1
                 ]
               ],
               [
                 "operation(\"write\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -1384,7 +1384,7 @@
     },
     {
       "title": "sealed token",
-      "filename": "test020_sealed",
+      "filename": "test020_sealed.bc",
       "token": [
         {
           "symbols": [
@@ -1411,13 +1411,13 @@
               [
                 "operation(\"read\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "resource(\"file1\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
@@ -1460,7 +1460,7 @@
     },
     {
       "title": "parsing",
-      "filename": "test021_parsing",
+      "filename": "test021_parsing.bc",
       "token": [
         {
           "symbols": [
@@ -1503,7 +1503,7 @@
     },
     {
       "title": "default_symbols",
-      "filename": "test022_default_symbols",
+      "filename": "test022_default_symbols.bc",
       "token": [
         {
           "symbols": [],
@@ -1705,7 +1705,7 @@
     },
     {
       "title": "execution scope",
-      "filename": "test023_execution_scope",
+      "filename": "test023_execution_scope.bc",
       "token": [
         {
           "symbols": [
@@ -1789,7 +1789,7 @@
     },
     {
       "title": "third party",
-      "filename": "test024_third_party",
+      "filename": "test024_third_party.bc",
       "token": [
         {
           "symbols": [],
@@ -1845,7 +1845,7 @@
     },
     {
       "title": "block rules",
-      "filename": "test025_check_all",
+      "filename": "test025_check_all.bc",
       "token": [
         {
           "symbols": [
@@ -1873,13 +1873,13 @@
               [
                 "operation(\"A\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "operation(\"B\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -1911,13 +1911,13 @@
               [
                 "operation(\"A\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ],
               [
                 "operation(\"invalid\")",
                 [
-                  18446744073709551615
+                  null
                 ]
               ]
             ],
@@ -1958,7 +1958,7 @@
     },
     {
       "title": "public keys interning",
-      "filename": "test026_public_keys_interning",
+      "filename": "test026_public_keys_interning.bc",
       "token": [
         {
           "symbols": [],
@@ -2076,7 +2076,7 @@
     },
     {
       "title": "integer wraparound",
-      "filename": "test027_integer_wraparound",
+      "filename": "test027_integer_wraparound.bc",
       "token": [
         {
           "symbols": [],
@@ -2113,7 +2113,7 @@
     },
     {
       "title": "test expression syntax and all available operations (v4 blocks)",
-      "filename": "test028_expressions_v4",
+      "filename": "test028_expressions_v4.bc",
       "token": [
         {
           "symbols": [
