@@ -91,7 +91,7 @@ impl super::Authorizer {
                     .push(i);
             }
 
-            authorizer.add_block(&mut block, i, &token_symbols)?;
+            authorizer.load_and_translate_block(&mut block, i, &token_symbols)?;
             blocks.push(block);
         }
 
