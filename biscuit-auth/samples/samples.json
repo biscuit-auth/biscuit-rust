@@ -2048,7 +2048,7 @@
             ],
             "rules": [
               [
-                "query(1, 2) <- query(1), query(2) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+                "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
                 1
               ]
             ],

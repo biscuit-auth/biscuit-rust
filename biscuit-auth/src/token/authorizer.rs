@@ -105,7 +105,7 @@ impl Authorizer {
         for i in 0..token.block_count() {
             let mut block = token.block(i)?;
 
-            self.add_block(&mut block, i, &token.symbols)?;
+            self.load_and_translate_block(&mut block, i, &token.symbols)?;
 
             blocks.push(block);
         }
@@ -121,7 +121,8 @@ impl Authorizer {
         Ok(())
     }
 
-    fn add_block(
+    /// we need to modify the block loaded from the token, because the authorizer's and th token's symbol table can differ
+    fn load_and_translate_block(
         &mut self,
         block: &mut Block,
         i: usize,
@@ -146,18 +147,18 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        for fact in block.facts.iter() {
-            let fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&block_origin, fact);
+        for fact in block.facts.iter_mut() {
+            *fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
+            self.world.facts.insert(&block_origin, fact.clone());
         }
 
-        for rule in block.rules.iter() {
+        for rule in block.rules.iter_mut() {
             if let Err(_message) = rule.validate_variables(&block_symbols) {
                 return Err(
                     error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
                 );
             }
-            let rule = rule.translate(&block_symbols, &mut self.symbols)?;
+            *rule = rule.translate(&block_symbols, &mut self.symbols)?;
 
             let rule_trusted_origins = TrustedOrigins::from_scopes(
                 &rule.scopes,
@@ -166,7 +167,9 @@ impl Authorizer {
                 &self.public_key_to_block_id,
             );
 
-            self.world.rules.insert(i, &rule_trusted_origins, rule);
+            self.world
+                .rules
+                .insert(i, &rule_trusted_origins, rule.clone());
         }
 
         for check in block.checks.iter_mut() {
