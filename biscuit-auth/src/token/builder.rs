@@ -2274,9 +2274,10 @@ impl BuilderExt for BlockBuilder {
     }
 
     fn check_expiration_date(&mut self, exp: SystemTime) {
+        let empty: Vec<Term> = Vec::new();
         let check = constrained_rule(
-            "expiration",
-            &[var("time")],
+            "query",
+            &empty,
             &[pred("time", &[var("time")])],
             &[Expression {
                 ops: vec![

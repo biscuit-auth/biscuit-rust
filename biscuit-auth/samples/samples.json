@@ -503,8 +503,7 @@
         },
         {
           "symbols": [
-            "file1",
-            "expiration"
+            "file1"
           ],
           "public_keys": [],
           "external_key": null,
@@ -566,7 +565,7 @@
           "authorizer_code": "resource(\"file1\");\noperation(\"read\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
           "revocation_ids": [
             "ceb1a909c91d558a962c23d9d1c60aa06279f9dff1cc546ca6b2b6bf17db6fe4a03a04e9c1ed9131b7c6f3e609d5f17abab289909ae46f5e66f8876a5946a20c",
-            "73e270352f08a98007b383ac85192f878a098c7ae55bbd1b7da67a44d9e94a5192aa02277707ec6747ec973aa0d7e270cd73bb0b46df2d8e434e4b9a06571208"
+            "8419da0abe321d3a830ffc93aa159140138a2c4b61dfd4b05328b69567aae23d357764672d114940cabb9bd465c4d2d4766e52c8805b0acdccc22b60e00c860c"
           ]
         }
       }
