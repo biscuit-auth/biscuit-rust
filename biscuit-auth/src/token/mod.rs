@@ -659,6 +659,12 @@ pub trait RootKeyProvider {
     fn choose(&self, key_id: Option<u32>) -> Result<PublicKey, error::Format>;
 }
 
+impl RootKeyProvider for Box<dyn RootKeyProvider> {
+    fn choose(&self, key_id: Option<u32>) -> Result<PublicKey, error::Format> {
+        self.as_ref().choose(key_id)
+    }
+}
+
 impl RootKeyProvider for PublicKey {
     fn choose(&self, _: Option<u32>) -> Result<PublicKey, error::Format> {
         Ok(*self)
