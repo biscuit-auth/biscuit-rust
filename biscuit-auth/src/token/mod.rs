@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use self::public_keys::PublicKeys;
 
@@ -660,6 +661,12 @@ pub trait RootKeyProvider {
 }
 
 impl RootKeyProvider for Box<dyn RootKeyProvider> {
+    fn choose(&self, key_id: Option<u32>) -> Result<PublicKey, error::Format> {
+        self.as_ref().choose(key_id)
+    }
+}
+
+impl RootKeyProvider for Rc<dyn RootKeyProvider> {
     fn choose(&self, key_id: Option<u32>) -> Result<PublicKey, error::Format> {
         self.as_ref().choose(key_id)
     }
