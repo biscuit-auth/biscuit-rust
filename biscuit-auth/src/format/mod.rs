@@ -40,7 +40,7 @@ pub struct SerializedBiscuit {
 }
 
 impl SerializedBiscuit {
-    pub fn from_slice<KP>(slice: &[u8], key_provider: KP) -> Result<Self, error::Format>
+    pub fn from_slice<KP>(slice: &[u8], key_provider: &KP) -> Result<Self, error::Format>
     where
         KP: RootKeyProvider,
     {

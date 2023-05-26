@@ -92,7 +92,7 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
+    pub fn from<T, KP>(slice: T, key_provider: &KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
         KP: RootKeyProvider,
@@ -101,7 +101,7 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
+    pub fn from_base64<T, KP>(slice: T, key_provider: &KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
         KP: RootKeyProvider,
@@ -263,7 +263,7 @@ impl Biscuit {
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
     fn from_with_symbols<KP>(
         slice: &[u8],
-        key_provider: KP,
+        key_provider: &KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
     where
@@ -296,7 +296,7 @@ impl Biscuit {
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
     fn from_base64_with_symbols<T, KP>(
         slice: T,
-        key_provider: KP,
+        key_provider: &KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
     where
@@ -794,7 +794,7 @@ mod tests {
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
         let serialized3 = {
-            let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
+            let biscuit2_deser = Biscuit::from(&serialized2, &root.public()).unwrap();
 
             // new check: can only access file1
             let mut block3 = BlockBuilder::new();
@@ -1352,7 +1352,7 @@ mod tests {
         //panic!();
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, |_| Ok(root.public())).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, &root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = BlockBuilder::new();
