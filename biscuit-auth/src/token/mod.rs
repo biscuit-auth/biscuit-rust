@@ -172,6 +172,11 @@ impl Biscuit {
         res
     }
 
+    /// returns an (optional) root key identifier. It provides a hint for public key selection during verification
+    pub fn root_key_id(&self) -> Option<u32> {
+        self.root_key_id
+    }
+
     /// returns a list of revocation identifiers for each block, in order
     ///
     /// revocation identifiers are unique: tokens generated separately with
