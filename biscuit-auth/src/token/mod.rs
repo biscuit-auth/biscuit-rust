@@ -1,4 +1,5 @@
 //! main structures to interact with Biscuit tokens
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Display;
@@ -92,19 +93,19 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from<T, KP>(slice: T, key_provider: &KP) -> Result<Self, error::Token>
+    pub fn from<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
-        KP: RootKeyProvider,
+        KP: Borrow<dyn RootKeyProvider>,
     {
         Biscuit::from_with_symbols(slice.as_ref(), key_provider, default_symbol_table())
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T, KP>(slice: T, key_provider: &KP) -> Result<Self, error::Token>
+    pub fn from_base64<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
-        KP: RootKeyProvider,
+        KP: Borrow<dyn RootKeyProvider>,
     {
         Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table())
     }
@@ -263,11 +264,11 @@ impl Biscuit {
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
     fn from_with_symbols<KP>(
         slice: &[u8],
-        key_provider: &KP,
+        key_provider: KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
     where
-        KP: RootKeyProvider,
+        KP: Borrow<dyn RootKeyProvider>,
     {
         let container =
             SerializedBiscuit::from_slice(slice, key_provider).map_err(error::Token::Format)?;
@@ -296,12 +297,12 @@ impl Biscuit {
     /// deserializes a token and validates the signature using the root public key, with a custom symbol table
     fn from_base64_with_symbols<T, KP>(
         slice: T,
-        key_provider: &KP,
+        key_provider: KP,
         symbols: SymbolTable,
     ) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
-        KP: RootKeyProvider,
+        KP: Borrow<dyn RootKeyProvider>,
     {
         let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
         Biscuit::from_with_symbols(&decoded, key_provider, symbols)
@@ -691,6 +692,18 @@ impl RootKeyProvider for &PublicKey {
     }
 }
 
+impl Borrow<dyn RootKeyProvider> for PublicKey {
+    fn borrow(&self) -> &(dyn RootKeyProvider + 'static) {
+        self
+    }
+}
+
+impl Borrow<dyn RootKeyProvider> for &PublicKey {
+    fn borrow(&self) -> &(dyn RootKeyProvider + 'static) {
+        *self
+    }
+}
+
 impl<F: Fn(Option<u32>) -> Result<PublicKey, error::Format>> RootKeyProvider for F {
     fn choose(&self, root_key_id: Option<u32>) -> Result<PublicKey, error::Format> {
         self(root_key_id)
@@ -819,7 +832,7 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
             let mut authorizer = final_token.authorizer().unwrap();
@@ -1044,7 +1057,7 @@ mod tests {
         let sealed = biscuit2.seal().unwrap().to_vec().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
-        let biscuit3 = Biscuit::from(&sealed, &root.public()).unwrap();
+        let biscuit3 = Biscuit::from(&sealed, root.public()).unwrap();
 
         {
             let mut authorizer = biscuit3.authorizer().unwrap();
@@ -1352,7 +1365,7 @@ mod tests {
         //panic!();
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, &root.public()).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = BlockBuilder::new();
@@ -1384,7 +1397,7 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
-        let final_token = Biscuit::from(&serialized2, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized2, root.public()).unwrap();
         println!("final token:\n{}", final_token);
 
         let mut authorizer = final_token.authorizer().unwrap();
