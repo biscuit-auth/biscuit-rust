@@ -1,4 +1,4 @@
-# `3.2.0` (not released yet)
+# `3.2.0`
 
 - Support for chained method calls (#153) (Geoffroy Couprie)
 - Prevent facts from carrying variables (#154) (Clément Delafargue)
