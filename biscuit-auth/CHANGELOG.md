@@ -1,3 +1,7 @@
+# not released
+
+- Optional support for Biscuit Web Key representation (#173) (Clément Delafargue)
+
 # `3.2.0`
 
 - Support for chained method calls (#153) (Geoffroy Couprie)

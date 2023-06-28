@@ -241,6 +241,11 @@ mod capi;
 #[cfg(cargo_c)]
 pub use capi::*;
 
+#[cfg(bwk)]
+mod bwk;
+#[cfg(bwk)]
+pub use bwk::*;
+
 mod time;
 
 /// Procedural macros to construct Datalog policies
