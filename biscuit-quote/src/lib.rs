@@ -720,3 +720,81 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     })
     .into()
 }
+
+/// Create a `Fact` from a datalog string and optional parameters.
+/// The datalog string is parsed at compile time and replaced by manual
+/// block building.
+///
+/// ```rust
+/// use biscuit_auth::Biscuit;
+/// use biscuit_quote::{fact};
+///
+/// let b = fact!(
+///   r#"user({user_id})"#,
+///   user_id = "1234"
+/// );
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ParsedCreateNew {
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
+
+    // here we reuse the machinery made for managing parameter substitution
+    // for whole blocks. Of course, we're only interested in a single fact
+    // here. The block management happens only at compile-time, so it won't
+    // affect runtime performance.
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
+    let builder = Builder::block_source(ty, None, &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    let mut fact_item = if let Some(f) = builder.facts.first() {
+        if builder.facts.len() == 1 {
+            Item::fact(&f)
+        } else {
+            abort_call_site!("The fact macro only accepts a single fact as input")
+        }
+    } else {
+        abort_call_site!("The fact macro only accepts a single fact as input")
+    };
+
+    // here we are only interested in returning the fact, not adding it to a
+    // builder, so we override the default behaviour and just return the fact
+    // instead of calling `add_fact`
+    fact_item.end = quote! {
+      __biscuit_auth_item
+    };
+
+    let params_quote = {
+        let (ident, expr): (Vec<_>, Vec<_>) = builder
+            .parameters
+            .iter()
+            .map(|(name, expr)| {
+                let ident = Ident::new(&name, Span::call_site());
+                (ident, expr)
+            })
+            .unzip();
+
+        // Bind all parameters "in parallel". If this were a sequence of let bindings,
+        // earlier bindings would affect the scope of later bindings.
+        quote! {
+            let (#(#ident),*) = (#(#expr),*);
+        }
+    };
+
+    for param in &builder.datalog_parameters {
+        if fact_item.needs_param(param) {
+            fact_item.add_param(&param, false);
+        }
+    }
+
+    (quote! {
+        {
+            #params_quote
+            #fact_item
+        }
+    })
+    .into()
+}
