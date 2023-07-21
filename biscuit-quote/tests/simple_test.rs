@@ -1,6 +1,6 @@
 use biscuit_auth::builder;
 use biscuit_quote::{
-    authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, rule,
+    authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, fact, rule,
 };
 use std::collections::BTreeSet;
 
@@ -166,4 +166,13 @@ fn rule_macro() {
         b.to_string(),
         r#"rule($0, true) <- fact($0, $1, $2, "my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
+}
+
+#[test]
+fn fact_macro() {
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let b = fact!(r#"fact({my_key}, {term_set})"#, my_key = "my_value",);
+
+    assert_eq!(b.to_string(), r#"fact("my_value", [0])"#,);
 }
