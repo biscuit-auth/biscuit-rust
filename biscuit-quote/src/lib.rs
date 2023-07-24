@@ -200,7 +200,7 @@ pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// use biscuit_quote::{authorizer};
 /// use std::time::SystemTime;
 ///
-/// let b = authorizer!(
+/// let a = authorizer!(
 ///   r#"
 ///     time({now});
 ///     allow if true;
@@ -644,13 +644,13 @@ impl ToTokens for Builder {
 
 /// Create a `Rule` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
-/// block building.
+/// builder calls.
 ///
 /// ```rust
 /// use biscuit_auth::Biscuit;
 /// use biscuit_quote::{rule};
 ///
-/// let b = rule!(
+/// let r = rule!(
 ///   r#"is_allowed($operation) <- user({user_id}), right({user_id}, $operation)
 ///   "#,
 ///   user_id = "1234"
@@ -723,13 +723,13 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 /// Create a `Fact` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
-/// block building.
+/// builder calls.
 ///
 /// ```rust
 /// use biscuit_auth::Biscuit;
 /// use biscuit_quote::{fact};
 ///
-/// let b = fact!(
+/// let f = fact!(
 ///   r#"user({user_id})"#,
 ///   user_id = "1234"
 /// );
