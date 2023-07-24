@@ -1,6 +1,7 @@
 use biscuit_auth::builder;
 use biscuit_quote::{
-    authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, fact, rule,
+    authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,
+    rule,
 };
 use std::collections::BTreeSet;
 
@@ -172,7 +173,47 @@ fn rule_macro() {
 fn fact_macro() {
     let mut term_set = BTreeSet::new();
     term_set.insert(builder::int(0i64));
-    let b = fact!(r#"fact({my_key}, {term_set})"#, my_key = "my_value",);
+    let f = fact!(r#"fact({my_key}, {term_set})"#, my_key = "my_value",);
 
-    assert_eq!(b.to_string(), r#"fact("my_value", [0])"#,);
+    assert_eq!(f.to_string(), r#"fact("my_value", [0])"#,);
+}
+
+#[test]
+fn check_macro() {
+    use biscuit_auth::PublicKey;
+    let pubkey = PublicKey::from_bytes(
+        &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+    )
+    .unwrap();
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let c = check!(
+        r#"check if fact({my_key}, {term_set}) trusting {pubkey}"#,
+        my_key = "my_value",
+    );
+
+    assert_eq!(
+        c.to_string(),
+        r#"check if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+    );
+}
+
+#[test]
+fn policy_macro() {
+    use biscuit_auth::PublicKey;
+    let pubkey = PublicKey::from_bytes(
+        &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+    )
+    .unwrap();
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let p = policy!(
+        r#"allow if fact({my_key}, {term_set}) trusting {pubkey}"#,
+        my_key = "my_value",
+    );
+
+    assert_eq!(
+        p.to_string(),
+        r#"allow if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+    );
 }
