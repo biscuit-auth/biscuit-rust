@@ -673,7 +673,7 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut rule_item = if let Some(r) = builder.rules.first() {
-        if builder.rules.len() == 1 {
+        if builder.rules.len() == 1 && builder.facts.is_empty() && builder.checks.is_empty() {
             Item::rule(r)
         } else {
             abort_call_site!("The rule macro only accepts a single rule as input")
@@ -751,7 +751,7 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut fact_item = if let Some(f) = builder.facts.first() {
-        if builder.facts.len() == 1 {
+        if builder.facts.len() == 1 && builder.rules.is_empty() && builder.checks.is_empty() {
             Item::fact(f)
         } else {
             abort_call_site!("The fact macro only accepts a single fact as input")
@@ -829,7 +829,7 @@ pub fn check(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut check_item = if let Some(c) = builder.checks.first() {
-        if builder.checks.len() == 1 {
+        if builder.checks.len() == 1 && builder.facts.is_empty() && builder.rules.is_empty() {
             Item::check(c)
         } else {
             abort_call_site!("The check macro only accepts a single check as input")
@@ -907,7 +907,11 @@ pub fn policy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut policy_item = if let Some(p) = builder.policies.first() {
-        if builder.policies.len() == 1 {
+        if builder.policies.len() == 1
+            && builder.facts.is_empty()
+            && builder.rules.is_empty()
+            && builder.checks.is_empty()
+        {
             Item::policy(p)
         } else {
             abort_call_site!("The policy macro only accepts a single policy as input")
