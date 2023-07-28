@@ -695,7 +695,10 @@ fn parse_string_internal(i: &str) -> IResult<&str, String, Error> {
 }
 
 fn parse_string(i: &str) -> IResult<&str, String, Error> {
-    delimited(char('"'), parse_string_internal, char('"'))(i)
+    alt((
+        value("".to_string(), tag("\"\"")),
+        delimited(char('"'), parse_string_internal, char('"')),
+    ))(i)
 }
 
 fn string(i: &str) -> IResult<&str, builder::Term, Error> {
@@ -1193,6 +1196,11 @@ mod tests {
             super::string("\"file1 a hello - 123_\""),
             Ok(("", builder::string("file1 a hello - 123_")))
         );
+    }
+
+    #[test]
+    fn empty_string() {
+        assert_eq!(super::string("\"\""), Ok(("", builder::string(""))));
     }
 
     #[test]
