@@ -148,7 +148,7 @@ pub fn block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = syn::parse_macro_input!(input as ParsedCreateNew);
 
     let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
-    let builder = Builder::block_source(ty, None, &datalog, parameters)
+    let builder = Builder::block_source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -186,7 +186,7 @@ pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = syn::parse_macro_input!(input as ParsedMerge);
 
     let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
-    let builder = Builder::block_source(ty, Some(target), &datalog, parameters)
+    let builder = Builder::block_source(ty, Some(target), datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -200,7 +200,7 @@ pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// use biscuit_quote::{authorizer};
 /// use std::time::SystemTime;
 ///
-/// let b = authorizer!(
+/// let a = authorizer!(
 ///   r#"
 ///     time({now});
 ///     allow if true;
@@ -217,7 +217,7 @@ pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = syn::parse_macro_input!(input as ParsedCreateNew);
 
     let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
-    let builder = Builder::source(ty, None, &datalog, parameters)
+    let builder = Builder::source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -255,7 +255,7 @@ pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     } = syn::parse_macro_input!(input as ParsedMerge);
 
     let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
-    let builder = Builder::source(ty, Some(target), &datalog, parameters)
+    let builder = Builder::source(ty, Some(target), datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -289,7 +289,7 @@ pub fn biscuit(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = syn::parse_macro_input!(input as ParsedCreateNew);
 
     let ty = syn::parse_quote!(::biscuit_auth::builder::BiscuitBuilder);
-    let builder = Builder::block_source(ty, None, &datalog, parameters)
+    let builder = Builder::block_source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -333,7 +333,7 @@ pub fn biscuit_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     } = syn::parse_macro_input!(input as ParsedMerge);
 
     let ty = syn::parse_quote!(::biscuit_auth::builder::BiscuitBuilder);
-    let builder = Builder::block_source(ty, Some(target), &datalog, parameters)
+    let builder = Builder::block_source(ty, Some(target), datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     builder.into_token_stream().into()
@@ -558,7 +558,7 @@ impl Item {
     }
 
     fn add_param(&mut self, name: &str, clone: bool) {
-        let ident = Ident::new(&name, Span::call_site());
+        let ident = Ident::new(name, Span::call_site());
 
         let expr = if clone {
             quote! { ::core::clone::Clone::clone(&#ident) }
@@ -587,7 +587,7 @@ impl ToTokens for Builder {
                 .parameters
                 .iter()
                 .map(|(name, expr)| {
-                    let ident = Ident::new(&name, Span::call_site());
+                    let ident = Ident::new(name, Span::call_site());
                     (ident, expr)
                 })
                 .unzip();
@@ -613,8 +613,8 @@ impl ToTokens for Builder {
 
             loop {
                 match (items.next(), items.peek()) {
-                    (Some(cur), Some(_next)) => cur.add_param(&param, true),
-                    (Some(cur), None) => cur.add_param(&param, false),
+                    (Some(cur), Some(_next)) => cur.add_param(param, true),
+                    (Some(cur), None) => cur.add_param(param, false),
                     (None, _) => break,
                 }
             }
@@ -644,13 +644,13 @@ impl ToTokens for Builder {
 
 /// Create a `Rule` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
-/// block building.
+/// builder calls.
 ///
 /// ```rust
 /// use biscuit_auth::Biscuit;
 /// use biscuit_quote::{rule};
 ///
-/// let b = rule!(
+/// let r = rule!(
 ///   r#"is_allowed($operation) <- user({user_id}), right({user_id}, $operation)
 ///   "#,
 ///   user_id = "1234"
@@ -673,8 +673,8 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut rule_item = if let Some(r) = builder.rules.first() {
-        if builder.rules.len() == 1 {
-            Item::rule(&r)
+        if builder.rules.len() == 1 && builder.facts.is_empty() && builder.checks.is_empty() {
+            Item::rule(r)
         } else {
             abort_call_site!("The rule macro only accepts a single rule as input")
         }
@@ -694,7 +694,7 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             .parameters
             .iter()
             .map(|(name, expr)| {
-                let ident = Ident::new(&name, Span::call_site());
+                let ident = Ident::new(name, Span::call_site());
                 (ident, expr)
             })
             .unzip();
@@ -708,7 +708,7 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     for param in &builder.datalog_parameters {
         if rule_item.needs_param(param) {
-            rule_item.add_param(&param, false);
+            rule_item.add_param(param, false);
         }
     }
 
@@ -723,13 +723,13 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 /// Create a `Fact` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
-/// block building.
+/// builder calls.
 ///
 /// ```rust
 /// use biscuit_auth::Biscuit;
 /// use biscuit_quote::{fact};
 ///
-/// let b = fact!(
+/// let f = fact!(
 ///   r#"user({user_id})"#,
 ///   user_id = "1234"
 /// );
@@ -751,8 +751,8 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut fact_item = if let Some(f) = builder.facts.first() {
-        if builder.facts.len() == 1 {
-            Item::fact(&f)
+        if builder.facts.len() == 1 && builder.rules.is_empty() && builder.checks.is_empty() {
+            Item::fact(f)
         } else {
             abort_call_site!("The fact macro only accepts a single fact as input")
         }
@@ -772,7 +772,7 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             .parameters
             .iter()
             .map(|(name, expr)| {
-                let ident = Ident::new(&name, Span::call_site());
+                let ident = Ident::new(name, Span::call_site());
                 (ident, expr)
             })
             .unzip();
@@ -786,7 +786,7 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     for param in &builder.datalog_parameters {
         if fact_item.needs_param(param) {
-            fact_item.add_param(&param, false);
+            fact_item.add_param(param, false);
         }
     }
 
@@ -794,6 +794,166 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         {
             #params_quote
             #fact_item
+        }
+    })
+    .into()
+}
+
+/// Create a `Check` from a datalog string and optional parameters.
+/// The datalog string is parsed at compile time and replaced by manual
+/// builder calls.
+///
+/// ```rust
+/// use biscuit_auth::Biscuit;
+/// use biscuit_quote::{check};
+///
+/// let c = check!(
+///   r#"check if user({user_id})"#,
+///   user_id = "1234"
+/// );
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn check(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ParsedCreateNew {
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
+
+    // here we reuse the machinery made for managing parameter substitution
+    // for whole blocks. Of course, we're only interested in a single check
+    // here. The block management happens only at compile-time, so it won't
+    // affect runtime performance.
+    let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
+    let builder = Builder::block_source(ty, None, &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    let mut check_item = if let Some(c) = builder.checks.first() {
+        if builder.checks.len() == 1 && builder.facts.is_empty() && builder.rules.is_empty() {
+            Item::check(c)
+        } else {
+            abort_call_site!("The check macro only accepts a single check as input")
+        }
+    } else {
+        abort_call_site!("The check macro only accepts a single check as input")
+    };
+
+    // here we are only interested in returning the check, not adding it to a
+    // builder, so we override the default behaviour and just return the check
+    // instead of calling `add_check`
+    check_item.end = quote! {
+      __biscuit_auth_item
+    };
+
+    let params_quote = {
+        let (ident, expr): (Vec<_>, Vec<_>) = builder
+            .parameters
+            .iter()
+            .map(|(name, expr)| {
+                let ident = Ident::new(name, Span::call_site());
+                (ident, expr)
+            })
+            .unzip();
+
+        // Bind all parameters "in parallel". If this were a sequence of let bindings,
+        // earlier bindings would affect the scope of later bindings.
+        quote! {
+            let (#(#ident),*) = (#(#expr),*);
+        }
+    };
+
+    for param in &builder.datalog_parameters {
+        if check_item.needs_param(param) {
+            check_item.add_param(param, false);
+        }
+    }
+
+    (quote! {
+        {
+            #params_quote
+            #check_item
+        }
+    })
+    .into()
+}
+
+/// Create a `Policy` from a datalog string and optional parameters.
+/// The datalog string is parsed at compile time and replaced by manual
+/// builder calls.
+///
+/// ```rust
+/// use biscuit_auth::Biscuit;
+/// use biscuit_quote::{policy};
+///
+/// let p = policy!(
+///   r#"allow if user({user_id})"#,
+///   user_id = "1234"
+/// );
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn policy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ParsedCreateNew {
+        datalog,
+        parameters,
+    } = syn::parse_macro_input!(input as ParsedCreateNew);
+
+    // here we reuse the machinery made for managing parameter substitution
+    // for whole blocks. Of course, we're only interested in a single policy
+    // here. The block management happens only at compile-time, so it won't
+    // affect runtime performance.
+    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let builder = Builder::source(ty, None, &datalog, parameters)
+        .unwrap_or_else(|e| abort_call_site!(e.to_string()));
+
+    let mut policy_item = if let Some(p) = builder.policies.first() {
+        if builder.policies.len() == 1
+            && builder.facts.is_empty()
+            && builder.rules.is_empty()
+            && builder.checks.is_empty()
+        {
+            Item::policy(p)
+        } else {
+            abort_call_site!("The policy macro only accepts a single policy as input")
+        }
+    } else {
+        abort_call_site!("The policy macro only accepts a single policy as input")
+    };
+
+    // here we are only interested in returning the policy, not adding it to a
+    // builder, so we override the default behaviour and just return the policy
+    // instead of calling `add_policy`
+    policy_item.end = quote! {
+      __biscuit_auth_item
+    };
+
+    let params_quote = {
+        let (ident, expr): (Vec<_>, Vec<_>) = builder
+            .parameters
+            .iter()
+            .map(|(name, expr)| {
+                let ident = Ident::new(name, Span::call_site());
+                (ident, expr)
+            })
+            .unzip();
+
+        // Bind all parameters "in parallel". If this were a sequence of let bindings,
+        // earlier bindings would affect the scope of later bindings.
+        quote! {
+            let (#(#ident),*) = (#(#expr),*);
+        }
+    };
+
+    for param in &builder.datalog_parameters {
+        if policy_item.needs_param(param) {
+            policy_item.add_param(param, false);
+        }
+    }
+
+    (quote! {
+        {
+            #params_quote
+            #policy_item
         }
     })
     .into()
