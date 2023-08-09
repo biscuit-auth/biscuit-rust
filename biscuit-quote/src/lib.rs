@@ -1,46 +1,4 @@
-//! ```rust
-//! use biscuit_auth::KeyPair;
-//! use biscuit_quote::{authorizer, biscuit, block};
-//! use std::time::{Duration, SystemTime};
-//!
-//! let root = KeyPair::new();
-//!
-//! let user_id = "1234";
-//! let biscuit = biscuit!(
-//!   r#"
-//!   // you can directly reference in-scope variables
-//!   user({user_id});
-//!   right({user_id}, "file1", {operation});
-//!   "#,
-//!   // you can also declare bindings manually
-//!   operation = "read",
-//! ).build(&root).expect("Failed to create biscuit");
-//!
-//! let new_biscuit = biscuit.append(block!(
-//!   r#"
-//!     check if time($time), $time < {expiration};
-//!   "#,
-//!   expiration = SystemTime::now() + Duration::from_secs(86_400),
-//! )).expect("Failed to append block");
-//!
-//! new_biscuit.authorize(&authorizer!(
-//!   r#"
-//!      time({now});
-//!      operation({operation});
-//!      resource({resource});
-//!
-//!      is_allowed($user_id) <- right($user_id, $resource, $operation),
-//!                              resource($resource),
-//!                              operation($operation);
-//!
-//!      allow if is_allowed({user_id});
-//!   "#,
-//!   now = SystemTime::now(),
-//!   operation = "read",
-//!   resource = "file1",
-//!   user_id = "1234",
-//! )).expect("Failed to authorize biscuit");
-//! ```
+//! Procedural macros to build biscuit-auth tokens and authorizers
 
 use biscuit_parser::{
     builder::{Check, Fact, Policy, Rule},
@@ -126,19 +84,6 @@ impl Parse for ParsedMerge {
 /// Create a `BlockBuilder` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{block};
-///
-/// let b = block!(
-///   r#"
-///     user({user_id});
-///     check if user($id);
-///   "#,
-///   user_id = "1234"
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -157,25 +102,6 @@ pub fn block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Merge facts, rules, and checks into a `BlockBuilder` from a datalog
 /// string and optional parameters. The datalog string is parsed at compile time
 /// and replaced by manual block building.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{block, block_merge};
-///
-/// let mut b = block!(
-///   r#"
-///     user({user_id});
-///   "#,
-///   user_id = "1234"
-/// );
-///
-/// block_merge!(
-///   &mut b,
-///   r#"
-///     check if user($id);
-///   "#
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -195,19 +121,6 @@ pub fn block_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Create an `Authorizer` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
-///
-/// ```rust
-/// use biscuit_quote::{authorizer};
-/// use std::time::SystemTime;
-///
-/// let a = authorizer!(
-///   r#"
-///     time({now});
-///     allow if true;
-///   "#,
-///   now = SystemTime::now(),
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -226,25 +139,6 @@ pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Merge facts, rules, checks, and policies into an `Authorizer` from a datalog
 /// string and optional parameters. The datalog string is parsed at compile time
 /// and replaced by manual block building.
-///
-/// ```rust
-/// use biscuit_quote::{authorizer, authorizer_merge};
-/// use std::time::SystemTime;
-///
-/// let mut b = authorizer!(
-///   r#"
-///     time({now});
-///   "#,
-///   now = SystemTime::now()
-/// );
-///
-/// authorizer_merge!(
-///   &mut b,
-///   r#"
-///     allow if true;
-///   "#
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -264,22 +158,6 @@ pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// Create an `BiscuitBuilder` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// block building.
-///
-/// ```rust
-/// use biscuit_auth::{Biscuit, KeyPair};
-/// use biscuit_quote::{biscuit};
-/// use std::time::{SystemTime, Duration};
-///
-/// let root = KeyPair::new();
-/// let biscuit = biscuit!(
-///   r#"
-///     user({user_id});
-///     check if time($time), $time < {expiration}
-///   "#,
-///   user_id = "1234",
-///   expiration = SystemTime::now() + Duration::from_secs(86_400)
-/// ).build(&root);
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn biscuit(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -298,31 +176,6 @@ pub fn biscuit(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Merge facts, rules, and checks into a `BiscuitBuilder` from a datalog
 /// string and optional parameters. The datalog string is parsed at compile time
 /// and replaced by manual block building.
-///
-/// ```rust
-/// use biscuit_auth::{Biscuit, KeyPair};
-/// use biscuit_quote::{biscuit, biscuit_merge};
-/// use std::time::{SystemTime, Duration};
-///
-/// let root = KeyPair::new();
-///
-/// let mut b = biscuit!(
-///   r#"
-///     user({user_id});
-///   "#,
-///   user_id = "1234"
-/// );
-///
-/// biscuit_merge!(
-///   &mut b,
-///   r#"
-///     check if time($time), $time < {expiration}
-///   "#,
-///   expiration = SystemTime::now() + Duration::from_secs(86_400)
-/// );
-///
-/// let biscuit = b.build(&root);
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn biscuit_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -645,17 +498,6 @@ impl ToTokens for Builder {
 /// Create a `Rule` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// builder calls.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{rule};
-///
-/// let r = rule!(
-///   r#"is_allowed($operation) <- user({user_id}), right({user_id}, $operation)
-///   "#,
-///   user_id = "1234"
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -724,16 +566,6 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Create a `Fact` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// builder calls.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{fact};
-///
-/// let f = fact!(
-///   r#"user({user_id})"#,
-///   user_id = "1234"
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -802,16 +634,6 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Create a `Check` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// builder calls.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{check};
-///
-/// let c = check!(
-///   r#"check if user({user_id})"#,
-///   user_id = "1234"
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn check(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -880,16 +702,6 @@ pub fn check(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Create a `Policy` from a datalog string and optional parameters.
 /// The datalog string is parsed at compile time and replaced by manual
 /// builder calls.
-///
-/// ```rust
-/// use biscuit_auth::Biscuit;
-/// use biscuit_quote::{policy};
-///
-/// let p = policy!(
-///   r#"allow if user({user_id})"#,
-///   user_id = "1234"
-/// );
-/// ```
 #[proc_macro]
 #[proc_macro_error]
 pub fn policy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
