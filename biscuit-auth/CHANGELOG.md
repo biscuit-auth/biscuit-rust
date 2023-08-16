@@ -1,3 +1,14 @@
+# `3.2.0`
+
+- Support for chained method calls (#153) (Geoffroy Couprie)
+- Prevent facts from carrying variables (#154) (Clément Delafargue)
+- Make the authorizer text representation stable (#155) (Clément Delafargue)
+- Improve samples (#156, #158, #160, #161) (Clément Delafargue, Geoffroy Couprie)
+- Fix rule symbol translation in snapshots (#159) (Geoffroy Couprie)
+- Make the TTL check helper more compact (#162) (Clément Delafargue)
+- Root key provider improvements (#164, #168) (Tristan Germain)
+- Allow reading a token root key id (#167) (Clément Delafargue)
+
 # `3.1.0`
 
 - Add missing support for equality on booleans (#149) (Geoffroy Couprie)

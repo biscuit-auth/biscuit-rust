@@ -246,6 +246,4 @@ mod time;
 /// Procedural macros to construct Datalog policies
 #[cfg(feature = "datalog-macro")]
 #[cfg_attr(feature = "docsrs", doc(cfg(feature = "datalog-macro")))]
-pub mod macros {
-    pub use biscuit_quote::*;
-}
+pub mod macros;
