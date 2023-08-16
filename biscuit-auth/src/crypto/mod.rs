@@ -19,7 +19,7 @@ use zeroize::Zeroize;
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
 pub struct KeyPair {
-    pub kp: ed25519_dalek::SigningKey,
+    pub(crate) kp: ed25519_dalek::SigningKey,
 }
 
 impl KeyPair {
