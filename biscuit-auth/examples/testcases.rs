@@ -68,8 +68,8 @@ fn main() {
         None => {}
     };
 
-    if let Some(key) = root_key {
-        root = KeyPair::from(&PrivateKey::from_bytes_hex(&key).unwrap());
+    let root = if let Some(key) = root_key {
+        KeyPair::from(&PrivateKey::from_bytes_hex(&key).unwrap())
     } else {
         let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
         KeyPair::new_with_rng(&mut rng)
