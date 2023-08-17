@@ -9,7 +9,7 @@ use biscuit::format::convert::v2 as convert;
 use biscuit::macros::*;
 use biscuit::Authorizer;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
-use biscuit::{KeyPair, PublicKey};
+use biscuit::{KeyPair, PrivateKey, PublicKey};
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
@@ -33,9 +33,12 @@ fn main() {
 
     let mut test = false;
     let mut json = false;
+    let mut root_key = None;
+
     match args.next().as_deref() {
         Some("--test") => test = true,
         Some("--json") => json = true,
+        Some("--key") => root_key = args.next(),
         Some(arg) => {
             println!("unknown argument: {}", arg);
             return;
@@ -46,6 +49,7 @@ fn main() {
     match args.next().as_deref() {
         Some("--test") => test = true,
         Some("--json") => json = true,
+        Some("--key") => root_key = args.next(),
         Some(arg) => {
             println!("unknown argument: {}", arg);
             return;
@@ -53,8 +57,23 @@ fn main() {
         None => {}
     };
 
-    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let root = KeyPair::new_with_rng(&mut rng);
+    match args.next().as_deref() {
+        Some("--test") => test = true,
+        Some("--json") => json = true,
+        Some("--key") => root_key = args.next(),
+        Some(arg) => {
+            println!("unknown argument: {}", arg);
+            return;
+        }
+        None => {}
+    };
+
+    let root = if let Some(key) = root_key {
+        KeyPair::from(&PrivateKey::from_bytes_hex(&key).unwrap())
+    } else {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+        KeyPair::new_with_rng(&mut rng)
+    };
 
     let mut results = Vec::new();
     add_test_result(&mut results, basic_token(&target, &root, test));
