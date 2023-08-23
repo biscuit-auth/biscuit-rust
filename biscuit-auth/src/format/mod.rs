@@ -6,7 +6,7 @@
 //! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{self, KeyPair, PrivateKey, PublicKey, TokenNext};
 
-use ed25519_dalek::ed25519::signature::Signature;
+use ed25519_dalek::Signer;
 use prost::Message;
 
 use super::error;
@@ -14,7 +14,6 @@ use super::token::Block;
 use crate::crypto::ExternalSignature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
-use ed25519_dalek::Signer;
 use std::collections::HashMap;
 use std::convert::TryInto;
 
@@ -63,12 +62,7 @@ impl SerializedBiscuit {
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(data.authority.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-            error::Format::SignatureDeserializationError(format!(
-                "signature deserialization error: {:?}",
-                e
-            ))
-        })?;
+        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
 
         if data.authority.external_signature.is_some() {
             return Err(error::Format::DeserializationError(
@@ -91,12 +85,7 @@ impl SerializedBiscuit {
                 .try_into()
                 .map_err(|_| error::Format::InvalidSignatureSize(block.signature.len()))?;
 
-            let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-                error::Format::BlockSignatureDeserializationError(format!(
-                    "block signature deserialization error: {:?}",
-                    e
-                ))
-            })?;
+            let signature = ed25519_dalek::Signature::from_bytes(&bytes);
 
             let external_signature = if let Some(ex) = block.external_signature.as_ref() {
                 let public_key = PublicKey::from_proto(&ex.public_key)?;
@@ -105,12 +94,7 @@ impl SerializedBiscuit {
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
 
-                let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-                    error::Format::BlockSignatureDeserializationError(format!(
-                        "block external signature deserialization error: {:?}",
-                        e
-                    ))
-                })?;
+                let signature = ed25519_dalek::Signature::from_bytes(&bytes);
 
                 Some(ExternalSignature {
                     public_key,
@@ -141,12 +125,7 @@ impl SerializedBiscuit {
                 let bytes: [u8; 64] = (&v[..])
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(v.len()))?;
-                let signature = ed25519_dalek::Signature::from_bytes(&bytes).map_err(|e| {
-                    error::Format::SignatureDeserializationError(format!(
-                        "final signature deserialization error: {:?}",
-                        e
-                    ))
-                })?;
+                let signature = ed25519_dalek::Signature::from_bytes(&bytes);
                 TokenNext::Seal(signature)
             }
         };
@@ -336,7 +315,7 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
         if let Some(signature) = &external_signature {
-            v.extend_from_slice(signature.signature.as_bytes());
+            v.extend_from_slice(&signature.signature.to_bytes());
         }
 
         let signature = crypto::sign(&keypair, next_keypair, &v)?;
@@ -369,7 +348,7 @@ impl SerializedBiscuit {
 
         let mut v = block.clone();
         if let Some(signature) = &external_signature {
-            v.extend_from_slice(signature.signature.as_bytes());
+            v.extend_from_slice(&signature.signature.to_bytes());
         }
 
         let signature = crypto::sign(&keypair, next_keypair, &v)?;

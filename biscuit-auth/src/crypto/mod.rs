@@ -19,7 +19,7 @@ use zeroize::Zeroize;
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
 pub struct KeyPair {
-    pub kp: ed25519_dalek::Keypair,
+    pub(crate) kp: ed25519_dalek::SigningKey,
 }
 
 impl KeyPair {
@@ -28,40 +28,30 @@ impl KeyPair {
     }
 
     pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let kp = ed25519_dalek::Keypair::generate(rng);
+        let kp = ed25519_dalek::SigningKey::generate(rng);
 
         KeyPair { kp }
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
-
-        let public = (&key.0).into();
-
         KeyPair {
-            kp: ed25519_dalek::Keypair { secret, public },
+            kp: ed25519_dalek::SigningKey::from_bytes(&key.0),
         }
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
+        let secret = self.kp.to_bytes();
         PrivateKey(secret)
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.public)
+        PublicKey(self.kp.verifying_key())
     }
 }
 
 impl std::default::Default for KeyPair {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Drop for KeyPair {
-    fn drop(&mut self) {
-        self.kp.secret.zeroize();
     }
 }
 
@@ -72,7 +62,7 @@ pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 impl PrivateKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        self.0
     }
 
     /// serializes to an hex-encoded string
@@ -85,10 +75,7 @@ impl PrivateKey {
         let bytes: [u8; 32] = bytes
             .try_into()
             .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-        SecretKey::from_bytes(&bytes)
-            .map(PrivateKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+        Ok(PrivateKey(bytes))
     }
 
     /// deserializes from an hex-encoded string
@@ -99,7 +86,7 @@ impl PrivateKey {
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey((&self.0).into())
+        PublicKey(SigningKey::from_bytes(&self.0).verifying_key())
     }
 }
 
@@ -117,7 +104,7 @@ impl Drop for PrivateKey {
 
 /// the public part of a [KeyPair]
 #[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(pub(crate) ed25519_dalek::PublicKey);
+pub struct PublicKey(pub(crate) ed25519_dalek::VerifyingKey);
 
 impl PublicKey {
     /// serializes to a byte array
@@ -132,7 +119,11 @@ impl PublicKey {
 
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        ed25519_dalek::PublicKey::from_bytes(bytes)
+        let bytes: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
+
+        ed25519_dalek::VerifyingKey::from_bytes(&bytes)
             .map(PublicKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
@@ -245,13 +236,11 @@ pub fn sign(
 }
 
 pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
-    use ed25519_dalek::ed25519::signature::Signature;
-
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
 
     if let Some(signature) = block.external_signature.as_ref() {
-        to_verify.extend_from_slice(signature.signature.as_bytes());
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
