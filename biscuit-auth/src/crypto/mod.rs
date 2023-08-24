@@ -12,6 +12,7 @@ use crate::format::schema;
 use super::error;
 mod ed25519;
 mod p256;
+use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
 use std::{fmt::Display, hash::Hash, str::FromStr};
 

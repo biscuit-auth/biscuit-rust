@@ -232,6 +232,6 @@ mod tests {
         deserialized_pub
             .verify_signature(message.as_bytes(), &signature)
             .unwrap();
-        panic!();
+        //panic!();
     }
 }

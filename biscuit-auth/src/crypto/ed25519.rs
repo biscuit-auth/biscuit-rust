@@ -20,7 +20,7 @@ use zeroize::Zeroize;
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
 pub struct KeyPair {
-    kp: ed25519_dalek::Keypair,
+    kp: ed25519_dalek::SigningKey,
 }
 
 impl KeyPair {
@@ -29,31 +29,24 @@ impl KeyPair {
     }
 
     pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let kp = ed25519_dalek::Keypair::generate(rng);
-
+        let kp = ed25519_dalek::SigningKey::generate(rng);
         KeyPair { kp }
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        let secret = SecretKey::from_bytes(&key.0.to_bytes()).unwrap();
-
-        let public = (&key.0).into();
-
         KeyPair {
-            kp: ed25519_dalek::Keypair { secret, public },
+            kp: ed25519_dalek::SigningKey::from_bytes(&key.0),
         }
     }
 
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let secret = SecretKey::from_bytes(bytes)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)?;
-
-        let public = (&secret).into();
+        let bytes: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
 
         Ok(KeyPair {
-            kp: ed25519_dalek::Keypair { secret, public },
+            kp: ed25519_dalek::SigningKey::from_bytes(&bytes),
         })
     }
 
@@ -70,12 +63,11 @@ impl KeyPair {
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = SecretKey::from_bytes(&self.kp.secret.to_bytes()).unwrap();
-        PrivateKey(secret)
+        PrivateKey(self.kp.to_bytes())
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.public)
+        PublicKey(self.kp.verifying_key())
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
@@ -89,25 +81,19 @@ impl std::default::Default for KeyPair {
     }
 }
 
-impl Drop for KeyPair {
-    fn drop(&mut self) {
-        self.kp.secret.zeroize();
-    }
-}
-
 /// the private part of a [KeyPair]
 #[derive(Debug)]
-pub struct PrivateKey(ed25519_dalek::SecretKey);
+pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
 
 impl PrivateKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_bytes().to_vec()
+        self.0.to_vec()
     }
 
     /// serializes to an hex-encoded string
     pub fn to_bytes_hex(&self) -> String {
-        hex::encode(self.to_bytes())
+        hex::encode(self.0)
     }
 
     /// deserializes from a byte array
@@ -115,10 +101,7 @@ impl PrivateKey {
         let bytes: [u8; 32] = bytes
             .try_into()
             .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-        SecretKey::from_bytes(&bytes)
-            .map(PrivateKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+        Ok(PrivateKey(bytes))
     }
 
     /// deserializes from an hex-encoded string
@@ -129,7 +112,7 @@ impl PrivateKey {
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey((&self.0).into())
+        PublicKey(SigningKey::from_bytes(&self.0).verifying_key())
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
@@ -151,7 +134,7 @@ impl Drop for PrivateKey {
 
 /// the public part of a [KeyPair]
 #[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(ed25519_dalek::PublicKey);
+pub struct PublicKey(ed25519_dalek::VerifyingKey);
 
 impl PublicKey {
     /// serializes to a byte array
@@ -166,7 +149,11 @@ impl PublicKey {
 
     /// deserializes from a byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        ed25519_dalek::PublicKey::from_bytes(bytes)
+        let bytes: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
+
+        ed25519_dalek::VerifyingKey::from_bytes(&bytes)
             .map(PublicKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
@@ -201,12 +188,13 @@ impl PublicKey {
         data: &[u8],
         signature: &Signature,
     ) -> Result<(), error::Format> {
-        let sig = ed25519_dalek::Signature::from_bytes(&signature.0).map_err(|e| {
+        let signature_bytes: [u8; 64] = signature.0.clone().try_into().map_err(|e| {
             error::Format::BlockSignatureDeserializationError(format!(
                 "block signature deserialization error: {:?}",
                 e
             ))
         })?;
+        let sig = ed25519_dalek::Signature::from_bytes(&signature_bytes);
 
         self.0
             .verify_strict(&data, &sig)
