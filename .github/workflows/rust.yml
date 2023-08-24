@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -59,7 +59,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: cargo-c
+        args: cargo-c --version 0.9.14+cargo-0.66
     - name: Run cargo-c tests
       uses: actions-rs/cargo@v1
       with:

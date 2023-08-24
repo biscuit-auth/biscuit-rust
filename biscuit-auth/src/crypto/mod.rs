@@ -13,7 +13,7 @@ use super::error;
 mod ed25519;
 mod p256;
 use rand_core::{CryptoRng, RngCore};
-use std::hash::Hash;
+use std::{fmt::Display, hash::Hash, str::FromStr};
 
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
@@ -226,7 +226,7 @@ impl PublicKey {
     }
 
     pub fn print(&self) -> String {
-        format!("ed25519/{}", hex::encode(&self.to_bytes()))
+        self.to_string()
     }
 }
 
@@ -240,6 +240,23 @@ impl Signature {
 
     pub fn to_bytes(&self) -> &[u8] {
         &self.0[..]
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, bytes) = biscuit_parser::parser::public_key(s)
+            .finish()
+            .map_err(biscuit_parser::error::LanguageError::from)?;
+        Ok(PublicKey::from_bytes(&bytes)?)
+    }
+}
+
+impl Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ed25519/{}", hex::encode(&self.to_bytes()))
     }
 }
 

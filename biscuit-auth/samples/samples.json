@@ -1,0 +1,2155 @@
+{
+  "root_private_key": "99e87b0e9158531eeeb503ff15266e2b23c2a2507b138c9d1b1f2ab458df2d61",
+  "root_public_key": "1055c750b1a1505937af1537c626ba3263995c33a64758aaafb1275b0312e284",
+  "testcases": [
+    {
+      "title": "basic token",
+      "filename": "test001_basic.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file1\", \"write\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource($0), operation(\"read\"), right($0, \"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 1,
+                        "check_id": 0,
+                        "rule": "check if resource($0), operation(\"read\"), right($0, \"read\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file1\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "7595a112a1eb5b81a6e398852e6118b7f5b8cbbff452778e655100e5fb4faa8d3a2af52fe2c4f9524879605675fae26adbc4783e0cafc43522fa82385f396c03",
+            "45f4c14f9d9e8fa044d68be7a2ec8cddb835f575c7b913ec59bd636c70acae9a90db9064ba0b3084290ed0c422bbb7170092a884f5e0202b31e9235bbcc1650d"
+          ]
+        }
+      }
+    },
+    {
+      "title": "different root key",
+      "filename": "test002_different_root_key.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "Format": {
+                "Signature": {
+                  "InvalidSignature": "signature error: Verification equation was not satisfied"
+                }
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": []
+        }
+      }
+    },
+    {
+      "title": "invalid signature format",
+      "filename": "test003_invalid_signature_format.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "Format": {
+                "InvalidSignatureSize": 16
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": []
+        }
+      }
+    },
+    {
+      "title": "random block",
+      "filename": "test004_random_block.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "Format": {
+                "Signature": {
+                  "InvalidSignature": "signature error: Verification equation was not satisfied"
+                }
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": []
+        }
+      }
+    },
+    {
+      "title": "invalid signature",
+      "filename": "test005_invalid_signature.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "Format": {
+                "Signature": {
+                  "InvalidSignature": "signature error: Verification equation was not satisfied"
+                }
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": []
+        }
+      }
+    },
+    {
+      "title": "reordered blocks",
+      "filename": "test006_reordered_blocks.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource(\"file1\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "Format": {
+                "Signature": {
+                  "InvalidSignature": "signature error: Verification equation was not satisfied"
+                }
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": []
+        }
+      }
+    },
+    {
+      "title": "scoped rules",
+      "filename": "test007_scoped_rules.bc",
+      "token": [
+        {
+          "symbols": [
+            "user_id",
+            "alice",
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "user_id(\"alice\");\nowner(\"alice\", \"file1\");\n"
+        },
+        {
+          "symbols": [
+            "0",
+            "1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0);\ncheck if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        },
+        {
+          "symbols": [
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "owner(\"alice\", \"file2\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "owner(\"alice\", \"file1\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "owner(\"alice\", \"file2\")",
+                [
+                  2
+                ]
+              ],
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "user_id(\"alice\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [
+              [
+                "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
+                1
+              ]
+            ],
+            "checks": [
+              "check if resource($0), operation(\"read\"), right($0, \"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 1,
+                        "check_id": 0,
+                        "rule": "check if resource($0), operation(\"read\"), right($0, \"read\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\noperation(\"read\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "4d86c9af808dc2e0583f47282e6f5df3e09dc264d5231ec360b4519e15ddaeec60b25a9bbcb22e8d192f4d36a0da3f9243711e30535b00ee55c53cb1395f230a",
+            "63208c668c66f3ba6927140ba37533593b25e03459447805d4b2a8b75adeef45794c3d7249afe506ed77ccee276160bb4052a4009302bd34871a440f070b4509",
+            "d8da982888eae8c038e4894a8c06fc57d8e5f06ad2e972b9cf4bde49ad60804558a0d1938192596c702d8e4f7f12ec19201d7c33d0cd77774a0d879a33880d02"
+          ]
+        }
+      }
+    },
+    {
+      "title": "scoped checks",
+      "filename": "test008_scoped_checks.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        },
+        {
+          "symbols": [
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file2\", \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  2
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource($0), operation(\"read\"), right($0, \"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 1,
+                        "check_id": 0,
+                        "rule": "check if resource($0), operation(\"read\"), right($0, \"read\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\noperation(\"read\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "a80c985ddef895518c216f64c65dcd50a5d97d012a94453d79159aed2981654b1fe9748c686c5667604026a94fb8db8a1d02de747df61e99fa9a63ff2878ad00",
+            "77df45442be86a416aa02fd9d98d6d4703c634a9e3b1d293b41f5dc97849afbe7faeec8c22a210574888acc008fb64fe691ec9e8d2655586f970d9a6b6577000",
+            "b31398aefe97d3db41ebc445760f216fb3aa7bf7439adcfc3a07489bfcc163970af3f4e20f5460aa24cf841101a5ab114d21acc0ee8d442bae7793b121284900"
+          ]
+        }
+      }
+    },
+    {
+      "title": "expired token",
+      "filename": "test009_expired_token.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": ""
+        },
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource(\"file1\");\ncheck if time($time), $time <= 2018-12-20T00:00:00Z;\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "time(2020-12-21T09:23:12Z)",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource(\"file1\")",
+              "check if time($time), $time <= 2018-12-20T00:00:00Z"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 1,
+                        "check_id": 1,
+                        "rule": "check if time($time), $time <= 2018-12-20T00:00:00Z"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file1\");\noperation(\"read\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
+          "revocation_ids": [
+            "c248907bb6e5f433bbb5edf6367b399ebefca0d321d0b2ea9fc67f66dc1064ce926adb0c05d90c3e8a2833328b3578f79c4e1bca43583d9bcfb2ba6c37303d00",
+            "a4edf7aaea8658bb9ae19b3ffe2adcc77cc9f16c249aeb0a85a584b5362f89f27f7c67ac0af16d7170673d6d1fb1563d1934b25ec5a461f6c01fa49805cd5e07"
+          ]
+        }
+      }
+    },
+    {
+      "title": "authorizer scope",
+      "filename": "test010_authorizer_scope.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\n"
+        },
+        {
+          "symbols": [
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file2\", \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  1
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if right($0, $1), resource($0), operation($1)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Authorizer": {
+                        "check_id": 0,
+                        "rule": "check if right($0, $1), resource($0), operation($1)"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\noperation(\"read\");\n\ncheck if right($0, $1), resource($0), operation($1);\n\nallow if true;\n",
+          "revocation_ids": [
+            "a80c985ddef895518c216f64c65dcd50a5d97d012a94453d79159aed2981654b1fe9748c686c5667604026a94fb8db8a1d02de747df61e99fa9a63ff2878ad00",
+            "966eceb2aa937c41b25368808bab6e0698c02a4038de669d007c9c3d43602638a640083558d1576ac80cf3eb2ac6a7585527e0f6c1a65402f0935cf7f4df8005"
+          ]
+        }
+      }
+    },
+    {
+      "title": "authorizer authority checks",
+      "filename": "test011_authorizer_authority_caveats.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if right($0, $1), resource($0), operation($1)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Authorizer": {
+                        "check_id": 0,
+                        "rule": "check if right($0, $1), resource($0), operation($1)"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\noperation(\"read\");\n\ncheck if right($0, $1), resource($0), operation($1);\n\nallow if true;\n",
+          "revocation_ids": [
+            "a80c985ddef895518c216f64c65dcd50a5d97d012a94453d79159aed2981654b1fe9748c686c5667604026a94fb8db8a1d02de747df61e99fa9a63ff2878ad00"
+          ]
+        }
+      }
+    },
+    {
+      "title": "authority checks",
+      "filename": "test012_authority_caveats.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource(\"file1\");\n"
+        }
+      ],
+      "validations": {
+        "file1": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource(\"file1\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "resource(\"file1\");\noperation(\"read\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "6a8f90dad67ae2ac188460463914ae7326fda431c80785755f4edcc15f1a53911f7366e606ad80cbbeba94672e42713e88632a932128f1d796ce9ba7d7a0b80a"
+          ]
+        },
+        "file2": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource(\"file1\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "check if resource(\"file1\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\noperation(\"read\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "6a8f90dad67ae2ac188460463914ae7326fda431c80785755f4edcc15f1a53911f7366e606ad80cbbeba94672e42713e88632a932128f1d796ce9ba7d7a0b80a"
+          ]
+        }
+      }
+    },
+    {
+      "title": "block rules",
+      "filename": "test013_block_rules.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\n"
+        },
+        {
+          "symbols": [
+            "valid_date",
+            "0",
+            "1"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z;\nvalid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1);\ncheck if valid_date($0), resource($0);\n"
+        }
+      ],
+      "validations": {
+        "file1": {
+          "world": {
+            "facts": [
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "time(2020-12-21T09:23:12Z)",
+                [
+                  null
+                ]
+              ],
+              [
+                "valid_date(\"file1\")",
+                [
+                  null,
+                  1
+                ]
+              ]
+            ],
+            "rules": [
+              [
+                "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+                1
+              ],
+              [
+                "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+                1
+              ]
+            ],
+            "checks": [
+              "check if valid_date($0), resource($0)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "resource(\"file1\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
+          "revocation_ids": [
+            "c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006",
+            "a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00"
+          ]
+        },
+        "file2": {
+          "world": {
+            "facts": [
+              [
+                "resource(\"file2\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "time(2020-12-21T09:23:12Z)",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [
+              [
+                "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+                1
+              ],
+              [
+                "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+                1
+              ]
+            ],
+            "checks": [
+              "check if valid_date($0), resource($0)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 1,
+                        "check_id": 0,
+                        "rule": "check if valid_date($0), resource($0)"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file2\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
+          "revocation_ids": [
+            "c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006",
+            "a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00"
+          ]
+        }
+      }
+    },
+    {
+      "title": "regex_constraint",
+      "filename": "test014_regex_constraint.bc",
+      "token": [
+        {
+          "symbols": [
+            "0",
+            "file[0-9]+.txt"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), $0.matches(\"file[0-9]+.txt\");\n"
+        }
+      ],
+      "validations": {
+        "file1": {
+          "world": {
+            "facts": [
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource($0), $0.matches(\"file[0-9]+.txt\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "check if resource($0), $0.matches(\"file[0-9]+.txt\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "resource(\"file1\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "da42718ad2631c12d3a44b7710dcc76c6c7809c6bc3a2d7eb0378c4154eae10e0884a8d54a2cd25ca3dfe01091d816ebbb9d246227baf7a359a787cb2344ad07"
+          ]
+        },
+        "file123": {
+          "world": {
+            "facts": [
+              [
+                "resource(\"file123.txt\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource($0), $0.matches(\"file[0-9]+.txt\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "resource(\"file123.txt\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "da42718ad2631c12d3a44b7710dcc76c6c7809c6bc3a2d7eb0378c4154eae10e0884a8d54a2cd25ca3dfe01091d816ebbb9d246227baf7a359a787cb2344ad07"
+          ]
+        }
+      }
+    },
+    {
+      "title": "multi queries checks",
+      "filename": "test015_multi_queries_caveats.bc",
+      "token": [
+        {
+          "symbols": [
+            "must_be_present",
+            "hello"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "must_be_present(\"hello\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "must_be_present(\"hello\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if must_be_present($0) or must_be_present($0)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "check if must_be_present($0) or must_be_present($0);\n\nallow if true;\n",
+          "revocation_ids": [
+            "b0d466d31e015fa85a075fa875f7e1c9017edd503fee9f62a5f033e1fcfa811074b6e39dfe5af2f452043db97a3f98650592a370f5685b62c5d6abf9dd10b603"
+          ]
+        }
+      }
+    },
+    {
+      "title": "check head name should be independent from fact names",
+      "filename": "test016_caveat_head_name.bc",
+      "token": [
+        {
+          "symbols": [
+            "hello"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource(\"hello\");\n"
+        },
+        {
+          "symbols": [
+            "test"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "query(\"test\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "query(\"test\")",
+                [
+                  1
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource(\"hello\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "check if resource(\"hello\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "ce6f804f4390e693a8853d9a4a10bd4f3c94b86b7c6d671993a6e19346bc4d20bbb52cc945e5d0d02e4e75fa5da2caa99764050190353564a0a0b4b276809402",
+            "916d566cc724e0773046fc5266e9d0d804311435b8d6955b332f823ab296be9a78dfea190447732ac9f6217234cf5726becf88f65169c6de56a766af55451b0f"
+          ]
+        }
+      }
+    },
+    {
+      "title": "test expression syntax and all available operations",
+      "filename": "test017_expressions.bc",
+      "token": [
+        {
+          "symbols": [
+            "hello world",
+            "hello",
+            "world",
+            "aaabde",
+            "a*c?.e",
+            "abd",
+            "aaa",
+            "b",
+            "de",
+            "abcD12",
+            "abc",
+            "def"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if true;\ncheck if !false;\ncheck if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if true == true;\ncheck if false == false;\ncheck if 1 < 2;\ncheck if 2 > 1;\ncheck if 1 <= 2;\ncheck if 1 <= 1;\ncheck if 2 >= 1;\ncheck if 2 >= 2;\ncheck if 3 == 3;\ncheck if 1 + 2 * 3 - 4 / 2 == 5;\ncheck if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\");\ncheck if \"aaabde\".matches(\"a*c?.e\");\ncheck if \"aaabde\".contains(\"abd\");\ncheck if \"aaabde\" == \"aaa\" + \"b\" + \"de\";\ncheck if \"abcD12\" == \"abcD12\";\ncheck if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;\ncheck if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z;\ncheck if hex:12ab == hex:12ab;\ncheck if [1, 2].contains(2);\ncheck if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z);\ncheck if [false, true].contains(true);\ncheck if [\"abc\", \"def\"].contains(\"abc\");\ncheck if [hex:12ab, hex:34de].contains(hex:34de);\ncheck if [1, 2].contains([2]);\ncheck if [1, 2] == [1, 2];\ncheck if [1, 2].intersection([2, 3]) == [2];\ncheck if [1, 2].union([2, 3]) == [1, 2, 3];\ncheck if [1, 2, 3].intersection([1, 2]).contains(1);\ncheck if [1, 2, 3].intersection([1, 2]).length() == 2;\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              "check if !false",
+              "check if !false && true",
+              "check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"",
+              "check if \"aaabde\".contains(\"abd\")",
+              "check if \"aaabde\".matches(\"a*c?.e\")",
+              "check if \"abcD12\" == \"abcD12\"",
+              "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
+              "check if (true || false) && true",
+              "check if 1 + 2 * 3 - 4 / 2 == 5",
+              "check if 1 < 2",
+              "check if 1 <= 1",
+              "check if 1 <= 2",
+              "check if 2 > 1",
+              "check if 2 >= 1",
+              "check if 2 >= 2",
+              "check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z",
+              "check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z",
+              "check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z",
+              "check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z",
+              "check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z",
+              "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
+              "check if 3 == 3",
+              "check if [\"abc\", \"def\"].contains(\"abc\")",
+              "check if [1, 2, 3].intersection([1, 2]).contains(1)",
+              "check if [1, 2, 3].intersection([1, 2]).length() == 2",
+              "check if [1, 2] == [1, 2]",
+              "check if [1, 2].contains(2)",
+              "check if [1, 2].contains([2])",
+              "check if [1, 2].intersection([2, 3]) == [2]",
+              "check if [1, 2].union([2, 3]) == [1, 2, 3]",
+              "check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z)",
+              "check if [false, true].contains(true)",
+              "check if [hex:12ab, hex:34de].contains(hex:34de)",
+              "check if false == false",
+              "check if false || true",
+              "check if hex:12ab == hex:12ab",
+              "check if true",
+              "check if true == true"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "f61b4cb4fc58777fec6c8d39fe62259dc3c78511868236c391e9f67ffd03a3a8b8e3042d4bacce0d5756d053f5afccd4c5e4df0597af44b36bdfab492e5fe50e"
+          ]
+        }
+      }
+    },
+    {
+      "title": "invalid block rule with unbound_variables",
+      "filename": "test018_unbound_variables_in_rule.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if operation(\"read\");\n"
+        },
+        {
+          "symbols": [
+            "unbound",
+            "any1",
+            "any2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "operation($unbound, \"read\") <- operation($any1, $any2);\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": null,
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "InvalidBlockRule": [
+                  0,
+                  "operation($unbound, \"read\") <- operation($any1, $any2)"
+                ]
+              }
+            }
+          },
+          "authorizer_code": "",
+          "revocation_ids": [
+            "a44210c6a01e55eadefc7d8540c2e6eff80ab6eeedde4751de734f9d780435780680d3f42d826b7e0f0dcf4a5ba303fd4c116984bb30978813d46ed867924307",
+            "b0a33e3f4cd0994c0766c196c4d11c15e5a0f9bfba79a3a2b35ddd04ddb890282a7c63336ada5c680b9f9c940c1fa7127d2699754cbc77c21e1a2d85c5ef700c"
+          ]
+        }
+      }
+    },
+    {
+      "title": "invalid block rule generating an #authority or #ambient symbol with a variable",
+      "filename": "test019_generating_ambient_from_variables.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if operation(\"read\");\n"
+        },
+        {
+          "symbols": [
+            "any"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "operation(\"read\") <- operation($any);\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null,
+                  1
+                ]
+              ],
+              [
+                "operation(\"write\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [
+              [
+                "operation(\"read\") <- operation($any)",
+                1
+              ]
+            ],
+            "checks": [
+              "check if operation(\"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "check if operation(\"read\")"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "operation(\"write\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "a44210c6a01e55eadefc7d8540c2e6eff80ab6eeedde4751de734f9d780435780680d3f42d826b7e0f0dcf4a5ba303fd4c116984bb30978813d46ed867924307",
+            "d3f8822a9b9bc0ee3933283c493ca9e711be5dd8339b5fe2eba1de3805aad4e84d3e2fb4affb4a743f1289915c167582b9425343635e45b70573ea1ee7a1ea03"
+          ]
+        }
+      }
+    },
+    {
+      "title": "sealed token",
+      "filename": "test020_sealed.bc",
+      "token": [
+        {
+          "symbols": [
+            "file1",
+            "file2"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+        },
+        {
+          "symbols": [
+            "0"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "operation(\"read\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "resource(\"file1\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "right(\"file1\", \"read\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file1\", \"write\")",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(\"file2\", \"read\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if resource($0), operation(\"read\"), right($0, \"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "resource(\"file1\");\noperation(\"read\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "7595a112a1eb5b81a6e398852e6118b7f5b8cbbff452778e655100e5fb4faa8d3a2af52fe2c4f9524879605675fae26adbc4783e0cafc43522fa82385f396c03",
+            "45f4c14f9d9e8fa044d68be7a2ec8cddb835f575c7b913ec59bd636c70acae9a90db9064ba0b3084290ed0c422bbb7170092a884f5e0202b31e9235bbcc1650d"
+          ]
+        }
+      }
+    },
+    {
+      "title": "parsing",
+      "filename": "test021_parsing.bc",
+      "token": [
+        {
+          "symbols": [
+            "ns::fact_123",
+            "hello é\t😁"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "ns::fact_123(\"hello é\t😁\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "ns::fact_123(\"hello é\t😁\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if ns::fact_123(\"hello é\t😁\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "check if ns::fact_123(\"hello é\t😁\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "d4b2f417b6e906434fdf5058afcabfcb98d3628f814f1c9dd7e64250d9beec4465aff51bd0cb2e85d0e67dc9f613c2a42af6158c678bc6f8b4684cd3a2d0d302"
+          ]
+        }
+      }
+    },
+    {
+      "title": "default_symbols",
+      "filename": "test022_default_symbols.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": "read(0);\nwrite(1);\nresource(2);\noperation(3);\nright(4);\ntime(5);\nrole(6);\nowner(7);\ntenant(8);\nnamespace(9);\nuser(10);\nteam(11);\nservice(12);\nadmin(13);\nemail(14);\ngroup(15);\nmember(16);\nip_address(17);\nclient(18);\nclient_ip(19);\ndomain(20);\npath(21);\nversion(22);\ncluster(23);\nnode(24);\nhostname(25);\nnonce(26);\nquery(27);\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "admin(13)",
+                [
+                  0
+                ]
+              ],
+              [
+                "client(18)",
+                [
+                  0
+                ]
+              ],
+              [
+                "client_ip(19)",
+                [
+                  0
+                ]
+              ],
+              [
+                "cluster(23)",
+                [
+                  0
+                ]
+              ],
+              [
+                "domain(20)",
+                [
+                  0
+                ]
+              ],
+              [
+                "email(14)",
+                [
+                  0
+                ]
+              ],
+              [
+                "group(15)",
+                [
+                  0
+                ]
+              ],
+              [
+                "hostname(25)",
+                [
+                  0
+                ]
+              ],
+              [
+                "ip_address(17)",
+                [
+                  0
+                ]
+              ],
+              [
+                "member(16)",
+                [
+                  0
+                ]
+              ],
+              [
+                "namespace(9)",
+                [
+                  0
+                ]
+              ],
+              [
+                "node(24)",
+                [
+                  0
+                ]
+              ],
+              [
+                "nonce(26)",
+                [
+                  0
+                ]
+              ],
+              [
+                "operation(3)",
+                [
+                  0
+                ]
+              ],
+              [
+                "owner(7)",
+                [
+                  0
+                ]
+              ],
+              [
+                "path(21)",
+                [
+                  0
+                ]
+              ],
+              [
+                "query(27)",
+                [
+                  0
+                ]
+              ],
+              [
+                "read(0)",
+                [
+                  0
+                ]
+              ],
+              [
+                "resource(2)",
+                [
+                  0
+                ]
+              ],
+              [
+                "right(4)",
+                [
+                  0
+                ]
+              ],
+              [
+                "role(6)",
+                [
+                  0
+                ]
+              ],
+              [
+                "service(12)",
+                [
+                  0
+                ]
+              ],
+              [
+                "team(11)",
+                [
+                  0
+                ]
+              ],
+              [
+                "tenant(8)",
+                [
+                  0
+                ]
+              ],
+              [
+                "time(5)",
+                [
+                  0
+                ]
+              ],
+              [
+                "user(10)",
+                [
+                  0
+                ]
+              ],
+              [
+                "version(22)",
+                [
+                  0
+                ]
+              ],
+              [
+                "write(1)",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if read(0), write(1), resource(2), operation(3), right(4), time(5), role(6), owner(7), tenant(8), namespace(9), user(10), team(11), service(12), admin(13), email(14), group(15), member(16), ip_address(17), client(18), client_ip(19), domain(20), path(21), version(22), cluster(23), node(24), hostname(25), nonce(26), query(27)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "check if read(0), write(1), resource(2), operation(3), right(4), time(5), role(6), owner(7), tenant(8), namespace(9), user(10), team(11), service(12), admin(13), email(14), group(15), member(16), ip_address(17), client(18), client_ip(19), domain(20), path(21), version(22), cluster(23), node(24), hostname(25), nonce(26), query(27);\n\nallow if true;\n",
+          "revocation_ids": [
+            "75ce48d496fd28f99905901783a1ba46d7ff8d69f9d364d1546fd73006026eae51849ad1190a4ae521a0a1269f9c6951e226afba8fcd24fa50f679162439ae09"
+          ]
+        }
+      }
+    },
+    {
+      "title": "execution scope",
+      "filename": "test023_execution_scope.bc",
+      "token": [
+        {
+          "symbols": [
+            "authority_fact"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "authority_fact(1);\n"
+        },
+        {
+          "symbols": [
+            "block1_fact"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "block1_fact(1);\n"
+        },
+        {
+          "symbols": [
+            "var"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if authority_fact($var);\ncheck if block1_fact($var);\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "authority_fact(1)",
+                [
+                  0
+                ]
+              ],
+              [
+                "block1_fact(1)",
+                [
+                  1
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if authority_fact($var)",
+              "check if block1_fact($var)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 2,
+                        "check_id": 1,
+                        "rule": "check if block1_fact($var)"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "f9b49866caef5ece7be14ec5a9b36d98ca81d06b306eb0b4c57cd7436af176f40ee972f40903f87ec4460ab8b1adfcbfa9b19b20a6955a1e8dae7d88b2076005",
+            "889054b9119e4440e54da1b63266a98d0f6646cde195fef206efd8b133cfb2ee7be49b32a9a5925ece452e64f9e6f6d80dab422e916c599675dd68cdea053802",
+            "0a85ffbf27e08aa23665ba0d96a985b274d747556c9f016fd7f590c641ed0e4133291521aa442b320ee9ce80f5ad701b914a0c87b3dfa0cc92629dce94201806"
+          ]
+        }
+      }
+    },
+    {
+      "title": "third party",
+      "filename": "test024_third_party.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [
+            "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
+          ],
+          "external_key": null,
+          "code": "right(\"read\");\ncheck if group(\"admin\") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+          "code": "group(\"admin\");\ncheck if right(\"read\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "group(\"admin\")",
+                [
+                  1
+                ]
+              ],
+              [
+                "right(\"read\")",
+                [
+                  0
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check if group(\"admin\") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+              "check if right(\"read\")"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "470e4bf7aa2a01ab39c98150bd06aa15b4aa5d86509044a8809a8634cd8cf2b42269a51a774b65d10bac9369d013070b00187925196a8e680108473f11cf8f03",
+            "93a7315ab1272da9eeef015f6fecbc9ac96fe4660e6204bf64ea2105ebe309e9c9cadc0a26c5604f13910fae3f2cd0800756afb6b6b208bf77adeb1ab2f42405"
+          ]
+        }
+      }
+    },
+    {
+      "title": "block rules",
+      "filename": "test025_check_all.bc",
+      "token": [
+        {
+          "symbols": [
+            "allowed_operations",
+            "A",
+            "B",
+            "op",
+            "allowed"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "allowed_operations([\"A\", \"B\"]);\ncheck all operation($op), allowed_operations($allowed), $allowed.contains($op);\n"
+        }
+      ],
+      "validations": {
+        "A, B": {
+          "world": {
+            "facts": [
+              [
+                "allowed_operations([\"A\", \"B\"])",
+                [
+                  0
+                ]
+              ],
+              [
+                "operation(\"A\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "operation(\"B\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check all operation($op), allowed_operations($allowed), $allowed.contains($op)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "operation(\"A\");\noperation(\"B\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d"
+          ]
+        },
+        "A, invalid": {
+          "world": {
+            "facts": [
+              [
+                "allowed_operations([\"A\", \"B\"])",
+                [
+                  0
+                ]
+              ],
+              [
+                "operation(\"A\")",
+                [
+                  null
+                ]
+              ],
+              [
+                "operation(\"invalid\")",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "check all operation($op), allowed_operations($allowed), $allowed.contains($op)"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "check all operation($op), allowed_operations($allowed), $allowed.contains($op)"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "operation(\"A\");\noperation(\"invalid\");\n\nallow if true;\n",
+          "revocation_ids": [
+            "c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d"
+          ]
+        }
+      }
+    },
+    {
+      "title": "public keys interning",
+      "filename": "test026_public_keys_interning.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [
+            "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
+          ],
+          "external_key": null,
+          "code": "query(0);\ncheck if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [
+            "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
+          ],
+          "external_key": "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+          "code": "query(1);\nquery(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+          "code": "query(2);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+          "code": "query(3);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+        },
+        {
+          "symbols": [],
+          "public_keys": [
+            "ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136"
+          ],
+          "external_key": null,
+          "code": "query(4);\ncheck if query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(4) trusting ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136;\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "query(0)",
+                [
+                  0
+                ]
+              ],
+              [
+                "query(1)",
+                [
+                  1
+                ]
+              ],
+              [
+                "query(1, 2)",
+                [
+                  1,
+                  2
+                ]
+              ],
+              [
+                "query(2)",
+                [
+                  2
+                ]
+              ],
+              [
+                "query(3)",
+                [
+                  3
+                ]
+              ],
+              [
+                "query(4)",
+                [
+                  4
+                ]
+              ]
+            ],
+            "rules": [
+              [
+                "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+                1
+              ]
+            ],
+            "checks": [
+              "check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+              "check if query(1, 2) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189, ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+              "check if query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+              "check if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+              "check if query(4) trusting ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136",
+              "check if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
+            ],
+            "policies": [
+              "allow if true",
+              "deny if query(0) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
+              "deny if query(1, 2)",
+              "deny if query(3)"
+            ]
+          },
+          "result": {
+            "Ok": 3
+          },
+          "authorizer_code": "check if query(1, 2) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189, ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\n\ndeny if query(3);\ndeny if query(1, 2);\ndeny if query(0) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\nallow if true;\n",
+          "revocation_ids": [
+            "3771cefe71beb21ead35a59c8116ee82627a5717c0295f35980662abccb159fe1b37848cb1818e548656bd4fd882d0094a2daab631c76b2b72e3a093914bfe04",
+            "45133b90f228a81fe4d3042a79f6c6b7608e656e903d6b1f4db32cd774b09b8315af360879a5f210ad7be37ff55e3eb34f237bcc9711407b6329ac6018bfb400",
+            "179f054f3c572646aba5013159ae192ac42f5666dbdd984129955f4652b6829e59f54aa251e451f96329d42a2524ce569c3e1ec52e708b642dd8994af51dd703",
+            "edab54789d6656936fcd28200b9c61643434842d531f09f209fad555e11ff53174db174dafba126e6de448983a56f78d2042bc5782d71a45799c022fe69fb30d",
+            "6a62306831e9dbe83e7b33db96b758c77dd690930f2d2d87e239b210b1944c5582bf6d7e1bfea8e7f928c27f2fff0e2ee2e0adc41e11e0c3abe8d7b96b9ede07"
+          ]
+        }
+      }
+    },
+    {
+      "title": "integer wraparound",
+      "filename": "test027_integer_wraparound.bc",
+      "token": [
+        {
+          "symbols": [],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if true || 10000000000 * 10000000000 != 0;\ncheck if true || 9223372036854775807 + 1 != 0;\ncheck if true || -9223372036854775808 - 1 != 0;\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              "check if true || -9223372036854775808 - 1 != 0",
+              "check if true || 10000000000 * 10000000000 != 0",
+              "check if true || 9223372036854775807 + 1 != 0"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "Execution": "Overflow"
+            }
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "3346a22aae0abfc1ffa526f02f7650e90af909e5e519989026441e78cdc245b7fd126503cfdc8831325fc04307edc65238db319724477915f7040a2f6a719a05"
+          ]
+        }
+      }
+    },
+    {
+      "title": "test expression syntax and all available operations (v4 blocks)",
+      "filename": "test028_expressions_v4.bc",
+      "token": [
+        {
+          "symbols": [
+            "abcD12x",
+            "abcD12"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if 1 != 3;\ncheck if 1 | 2 ^ 3 == 0;\ncheck if \"abcD12x\" != \"abcD12\";\ncheck if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;\ncheck if hex:12abcd != hex:12ab;\ncheck if [1, 4] != [1, 2];\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              "check if \"abcD12x\" != \"abcD12\"",
+              "check if 1 != 3",
+              "check if 1 | 2 ^ 3 == 0",
+              "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
+              "check if [1, 4] != [1, 2]",
+              "check if hex:12abcd != hex:12ab"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "117fa653744c859561555e6a6f5990e3a8e7817f91b87aa6991b6d64297158b4e884c92d10f49f74c96069df722aa676839b72751ca9d1fe83a7025b591de00b"
+          ]
+        }
+      }
+    }
+  ]
+}

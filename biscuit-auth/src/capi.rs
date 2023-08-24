@@ -96,6 +96,7 @@ pub enum ErrorKind {
     FormatBlockSignatureDeserializationError,
     FormatSignatureInvalidSignatureGeneration,
     AlreadySealed,
+    Execution,
 }
 
 #[no_mangle]
@@ -175,6 +176,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
                     Token::ConversionError(_) => ErrorKind::ConversionError,
                     Token::Base64(_) => ErrorKind::FormatDeserializationError,
+                    Token::Execution(_) => ErrorKind::Execution,
                 }
             }
         },
@@ -291,7 +293,7 @@ pub struct KeyPair(crate::crypto::KeyPair);
 pub struct PublicKey(crate::crypto::PublicKey);
 pub struct BiscuitBuilder(crate::token::builder::BiscuitBuilder);
 pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Authorizer<'t>(crate::token::authorizer::Authorizer<'t>);
+pub struct Authorizer(crate::token::authorizer::Authorizer);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -950,9 +952,9 @@ pub unsafe extern "C" fn biscuit_append_block(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_authorizer<'a, 'b>(
+pub unsafe extern "C" fn biscuit_authorizer<'a>(
     biscuit: Option<&'a Biscuit>,
-) -> Option<Box<Authorizer<'a>>> {
+) -> Option<Box<Authorizer>> {
     if biscuit.is_none() {
         update_last_error(Error::InvalidArgument);
     }

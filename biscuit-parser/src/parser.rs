@@ -367,13 +367,15 @@ fn scope(i: &str) -> IResult<&str, builder::Scope, Error> {
     alt((
         map(tag("authority"), |_| builder::Scope::Authority),
         map(tag("previous"), |_| builder::Scope::Previous),
-        map(preceded(tag("ed25519/"), parse_hex), |bytes| {
-            builder::Scope::PublicKey(bytes)
-        }),
+        map(public_key, |bytes| builder::Scope::PublicKey(bytes)),
         map(delimited(char('{'), name, char('}')), |n| {
             builder::Scope::Parameter(n.to_string())
         }),
     ))(i)
+}
+
+pub fn public_key(i: &str) -> IResult<&str, builder::PublicKey, Error> {
+    preceded(tag("ed25519/"), parse_hex)(i)
 }
 
 #[derive(Debug, PartialEq)]
@@ -406,15 +408,11 @@ impl Expr {
     }
 }
 
-fn unary(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary_parens, unary_negate, unary_length))(i)
-}
-
 fn unary_negate(i: &str) -> IResult<&str, Expr, Error> {
     let (i, _) = space0(i)?;
     let (i, _) = tag("!")(i)?;
     let (i, _) = space0(i)?;
-    let (i, value) = expr(i)?;
+    let (i, value) = expr6(i)?;
 
     Ok((
         i,
@@ -436,24 +434,17 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
     ))
 }
 
-fn unary_length(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, _) = space0(i)?;
-    let (i, value) = alt((map(term, Expr::Value), unary_parens))(i)?;
-    let (i, _) = space0(i)?;
-    let (i, _) = tag(".length()")(i)?;
-
-    Ok((
-        i,
-        Expr::Unary(builder::Op::Unary(builder::Unary::Length), Box::new(value)),
-    ))
-}
-
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::And, tag("&&")), value(Binary::Or, tag("||"))))(i)
+    value(Binary::Or, tag("||"))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::And, tag("&&"))(i)
+}
+
+fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
     alt((
         value(Binary::LessOrEqual, tag("<=")),
@@ -461,20 +452,36 @@ fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::LessThan, tag("<")),
         value(Binary::GreaterThan, tag(">")),
         value(Binary::Equal, tag("==")),
+        value(Binary::NotEqual, tag("!=")),
     ))(i)
-}
-
-fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
-    use builder::Binary;
-    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
 }
 
 fn binary_op_3(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
+    value(Binary::BitwiseXor, tag("^"))(i)
 }
 
 fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::BitwiseOr, tag("|"))(i)
+}
+
+fn binary_op_5(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    value(Binary::BitwiseAnd, tag("&"))(i)
+}
+
+fn binary_op_6(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    alt((value(Binary::Add, tag("+")), value(Binary::Sub, tag("-"))))(i)
+}
+
+fn binary_op_7(i: &str) -> IResult<&str, builder::Binary, Error> {
+    use builder::Binary;
+    alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
+}
+
+fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
     alt((
@@ -487,8 +494,10 @@ fn binary_op_4(i: &str) -> IResult<&str, builder::Binary, Error> {
     ))(i)
 }
 
+/// Innermost parser for an expression: either a parenthesised expression,
+/// or a single term.
 fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
-    alt((unary, reduce(map(term, Expr::Value), " ,\n);")))(i)
+    alt((unary_parens, reduce(map(term, Expr::Value), " ,\n);")))(i)
 }
 
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
@@ -498,6 +507,19 @@ fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
     })
 }
 
+/// Top-lever parser for an expression. Expression parsers are layered in
+/// order to support operator precedence (see https://en.wikipedia.org/wiki/Operator-precedence_parser).
+///
+/// See https://github.com/biscuit-auth/biscuit/blob/master/SPECIFICATIONS.md#grammar
+/// for the precedence order of operators in biscuit datalog.
+///
+/// The operators with the lowest precedence are parsed at the outer level,
+/// and their operands delegate to parsers that progressively handle more
+/// tightly binding operators.
+///
+/// This level handles the last operator in the precedence list: `||`
+/// `||` is left associative, so multiple `||` expressions can be combined:
+/// `a || b || c <=> (a || b) || c`
 pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr1(i)?;
 
@@ -506,6 +528,9 @@ pub fn expr(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `&&`
+/// `&&` is left associative, so multiple `&&` expressions can be combined:
+/// `a && b && c <=> (a && b) && c`
 fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr2(i)?;
 
@@ -514,14 +539,29 @@ fn expr1(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles comparison operators (`==`, `>`, `>=`, `<`, `<=`).
+/// Those operators are _not_ associative and require explicit grouping
+/// with parentheses.
 fn expr2(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr3(i)?;
 
-    let (i, remainder) = many0(tuple((preceded(space0, binary_op_2), expr3)))(i)?;
-
-    Ok((i, fold_exprs(initial, remainder)))
+    if let Ok((i, (op, remainder))) = tuple((preceded(space0, binary_op_2), expr3))(i) {
+        Ok((
+            i,
+            Expr::Binary(
+                builder::Op::Binary(op),
+                Box::new(initial),
+                Box::new(remainder),
+            ),
+        ))
+    } else {
+        Ok((i, initial))
+    }
 }
 
+/// This level handles `|`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a | b | c <=> (a | b) | c`
 fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     let (i, initial) = expr4(i)?;
 
@@ -530,25 +570,106 @@ fn expr3(i: &str) -> IResult<&str, Expr, Error> {
     Ok((i, fold_exprs(initial, remainder)))
 }
 
+/// This level handles `^`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a ^ b ^ c <=> (a ^ b) ^ c`
 fn expr4(i: &str) -> IResult<&str, Expr, Error> {
-    let (i, initial) = expr_term(i)?;
+    let (i, initial) = expr5(i)?;
 
-    if let Ok((i, _)) = char::<_, ()>('.')(i) {
-        let (i, op) = binary_op_4(i)?;
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_4), expr5)))(i)?;
 
-        let (i, _) = char('(')(i)?;
-        let (i, _) = space0(i)?;
-        // we only support a single argument for now
-        let (i, arg) = expr(i)?;
-        let (i, _) = space0(i)?;
-        let (i, _) = char(')')(i)?;
+    Ok((i, fold_exprs(initial, remainder)))
+}
 
-        let e = Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+/// This level handles `&`.
+/// It is left associative, so multiple expressions can be combined:
+/// `a & b & c <=> (a & b) & c`
+fn expr5(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr6(i)?;
 
-        Ok((i, e))
-    } else {
-        Ok((i, initial))
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_5), expr6)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `+` and `-`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a + b - c <=> (a + b) - c`
+fn expr6(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr7(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_6), expr7)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `*` and `/`.
+/// They are left associative, so multiple expressions can be combined:
+/// `a * b / c <=> (a * b) / c`
+fn expr7(i: &str) -> IResult<&str, Expr, Error> {
+    let (i, initial) = expr8(i)?;
+
+    let (i, remainder) = many0(tuple((preceded(space0, binary_op_7), expr8)))(i)?;
+
+    Ok((i, fold_exprs(initial, remainder)))
+}
+
+/// This level handles `!` (prefix negation)
+fn expr8(i: &str) -> IResult<&str, Expr, Error> {
+    alt((unary_negate, expr9))(i)
+}
+
+/// This level handles methods. Methods can take either zero or one
+/// argument in addition to the expression they are called on.
+/// The name of the method decides its arity.
+fn expr9(i: &str) -> IResult<&str, Expr, Error> {
+    let (mut input, mut initial) = expr_term(i)?;
+
+    loop {
+        if let Ok((i, _)) = char::<_, ()>('.')(input) {
+            let bin_result = binary_method(i);
+            let un_result = unary_method(i);
+            match (bin_result, un_result) {
+                (Ok((i, (op, arg))), _) => {
+                    input = i;
+                    initial =
+                        Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                }
+                (_, Ok((i, op))) => {
+                    input = i;
+
+                    initial = Expr::Unary(builder::Op::Unary(op), Box::new(initial));
+                }
+                (_, Err(e)) => return Err(e),
+            }
+        } else {
+            return Ok((input, initial));
+        }
     }
+}
+
+fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
+    let (i, op) = binary_op_8(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    // we only support a single argument for now
+    let (i, arg) = expr(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, (op, arg)))
+}
+
+fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
+    use builder::Unary;
+    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+
+    let (i, _) = char('(')(i)?;
+    let (i, _) = space0(i)?;
+    let (i, _) = char(')')(i)?;
+
+    Ok((i, op))
 }
 
 fn name(i: &str) -> IResult<&str, &str, Error> {
@@ -574,7 +695,10 @@ fn parse_string_internal(i: &str) -> IResult<&str, String, Error> {
 }
 
 fn parse_string(i: &str) -> IResult<&str, String, Error> {
-    delimited(char('"'), parse_string_internal, char('"'))(i)
+    alt((
+        value("".to_string(), tag("\"\"")),
+        delimited(char('"'), parse_string_internal, char('"')),
+    ))(i)
 }
 
 fn string(i: &str) -> IResult<&str, builder::Term, Error> {
@@ -702,11 +826,10 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((
-                parameter, string, date, variable, integer, bytes, boolean, set,
-            )),
+            alt((parameter, string, date, integer, bytes, boolean, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
+                Some('$') => "variables are not allowed in facts".to_string(),
                 _ => "expected a valid term".to_string(),
             },
             " ,)\n;",
@@ -1057,7 +1180,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::builder;
+    use crate::builder::{self, Unary};
 
     #[test]
     fn name() {
@@ -1073,6 +1196,11 @@ mod tests {
             super::string("\"file1 a hello - 123_\""),
             Ok(("", builder::string("file1 a hello - 123_")))
         );
+    }
+
+    #[test]
+    fn empty_string() {
+        assert_eq!(super::string("\"\""), Ok(("", builder::string(""))));
     }
 
     #[test]
@@ -1104,7 +1232,7 @@ mod tests {
 
     #[test]
     fn constraint() {
-        use builder::{date, int, set, string, var, Binary, Op, Unary};
+        use builder::{boolean, date, int, set, string, var, Binary, Op, Unary};
         use std::collections::BTreeSet;
         use std::time::{Duration, SystemTime};
 
@@ -1193,6 +1321,100 @@ mod tests {
                     Op::Value(int(1)),
                     Op::Binary(Binary::Equal),
                 ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!$0 == $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!false && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(false)),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("true || true && true").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Value(boolean(true)),
+                    Op::Binary(Binary::And),
+                    Op::Binary(Binary::Or),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Equal),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 + 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Add),
+                    Op::Binary(Binary::GreaterThan),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("1 > 2 == 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                " == 3",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                ]
             ))
         );
 
@@ -1327,6 +1549,24 @@ mod tests {
                 ],
             ))
         );
+
+        assert_eq!(
+            super::expr("1 + 2 | 4 * 3 & 4").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::Add),
+                    Op::Value(int(4)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Mul),
+                    Op::Value(int(4)),
+                    Op::Binary(Binary::BitwiseAnd),
+                    Op::Binary(Binary::BitwiseOr),
+                ],
+            ))
+        );
     }
 
     #[test]
@@ -1340,6 +1580,19 @@ mod tests {
                     &[builder::string("file1"), builder::string("read")]
                 )
             ))
+        );
+    }
+
+    #[test]
+    fn fact_with_variable() {
+        use nom::error::ErrorKind;
+        assert_eq!(
+            super::fact("right( \"file1\", $operation )"),
+            Err(nom::Err::Failure(super::Error {
+                code: ErrorKind::Char,
+                input: "$operation",
+                message: Some("variables are not allowed in facts".to_string()),
+            }))
         );
     }
 
@@ -1837,7 +2090,7 @@ mod tests {
           fact("string");
           fact2(1234);
 
-          rule_head($var0) <- fact($var0, $var1), 1 < 2; // line comment
+    rule_head($var0) <- fact($var0, $var1), 1 < 2; // line comment
     check if 1 == 2; /*
                       other comment
                      */
@@ -1938,4 +2191,54 @@ mod tests {
             expected_checks
         );
     }*/
+
+
+    #[test]
+    fn chained_calls() {
+        use builder::{int, set, Binary, Op};
+
+        assert_eq!(
+            super::expr("[1].intersection([2]).contains(3)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Contains)
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("[1].intersection([2]).union([3]).length()").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Value(set([int(3)].into_iter().collect())),
+                    Op::Binary(Binary::Union),
+                    Op::Unary(Unary::Length),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("[1].intersection([2]).length().union([3])").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set([int(1)].into_iter().collect())),
+                    Op::Value(set([int(2)].into_iter().collect())),
+                    Op::Binary(Binary::Intersection),
+                    Op::Unary(Unary::Length),
+                    Op::Value(set([int(3)].into_iter().collect())),
+                    Op::Binary(Binary::Union),
+                ],
+            ))
+        );
+    }
 }

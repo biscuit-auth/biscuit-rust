@@ -29,7 +29,7 @@ fn main() {
     let biscuit1 = builder
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
-    println!("{}", biscuit1.print());
+    println!("{}", biscuit1);
 
     let mut v = biscuit1.authorizer().expect("omg verifier");
     //v.add_resource("file2");

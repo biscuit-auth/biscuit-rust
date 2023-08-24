@@ -109,31 +109,21 @@ failed checks (2):
   Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")
 authorizer world:
-World {
-  facts: {
-    Origin {
-        inner: {
-            0,
-        },
-    }: [
-        "right(\"file1\", \"read\")",
-    ],
-    Origin {
-        inner: {
-            1,
-        },
-    }: [
-        "hello(\"world\")",
-    ],
-}
-  rules: {}
-  checks: [
-    "Authorizer[0]: check if right(\"efgh\")",
-]
-  policies: [
-    "allow if true",
-]
-}
+// Facts:
+// origin: 0
+right("file1", "read");
+// origin: 1
+hello("world");
+
+// Checks:
+// origin: authorizer
+check if right("efgh");
+// origin: 1
+check if operation("read");
+
+// Policies:
+allow if true;
+
 serialized size: 322
 wrote 322 bytes
 "#,

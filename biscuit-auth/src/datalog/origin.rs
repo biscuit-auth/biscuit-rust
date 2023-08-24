@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
@@ -7,7 +8,7 @@ use crate::token::Scope;
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Origin {
-    inner: BTreeSet<usize>,
+    pub(crate) inner: BTreeSet<usize>,
 }
 
 impl Origin {
@@ -54,6 +55,29 @@ impl FromIterator<usize> for Origin {
     }
 }
 
+impl Display for Origin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut it = self.inner.iter();
+
+        if let Some(i) = it.next() {
+            if *i == usize::MAX {
+                write!(f, "authorizer")?;
+            } else {
+                write!(f, "{i}")?;
+            }
+        }
+
+        for i in it {
+            if *i == usize::MAX {
+                write!(f, ", authorizer")?;
+            } else {
+                write!(f, ", {i}")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 /// This represents the sets of origins trusted by a rule
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TrustedOrigins(Origin);
@@ -65,6 +89,7 @@ impl TrustedOrigins {
         origins.insert(0);
         TrustedOrigins(origins)
     }
+
     pub fn from_scopes(
         rule_scopes: &[Scope],
         default_origins: &TrustedOrigins,

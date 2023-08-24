@@ -47,7 +47,7 @@
 //!     "#)
 //!       .build(&root)?; // the first block is signed
 //!
-//!     println!("biscuit (authority): {}", biscuit.print());
+//!     println!("biscuit (authority): {}", biscuit);
 //!
 //!     biscuit.to_vec()?
 //!   };
@@ -70,7 +70,7 @@
 //!       check if resource("/a/file1.txt"), operation("read");
 //!     "#))?;
 //!
-//!     println!("biscuit (authority): {}", biscuit.print());
+//!     println!("biscuit (authority): {}", biscuit);
 //!
 //!     biscuit.to_vec()?
 //!   };
@@ -232,6 +232,7 @@ pub use token::builder;
 pub use token::builder_ext;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
+pub use token::RootKeyProvider;
 pub use token::{ThirdPartyBlock, ThirdPartyRequest};
 
 #[cfg(cargo_c)]
@@ -245,6 +246,4 @@ mod time;
 /// Procedural macros to construct Datalog policies
 #[cfg(feature = "datalog-macro")]
 #[cfg_attr(feature = "docsrs", doc(cfg(feature = "datalog-macro")))]
-pub mod macros {
-    pub use biscuit_quote::*;
-}
+pub mod macros;

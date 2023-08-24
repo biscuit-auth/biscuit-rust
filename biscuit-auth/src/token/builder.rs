@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
-use crate::datalog::{self, SymbolTable};
+use crate::datalog::{self, get_schema_version, SymbolTable};
 use crate::error;
 use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
@@ -16,7 +16,7 @@ use std::{
 };
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{Binary, Unary};
+pub use crate::datalog::{Binary, Expression as DatalogExpression, Op as DatalogOp, Unary};
 
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
@@ -200,16 +200,15 @@ impl BlockBuilder {
         for check in &self.checks {
             checks.push(check.convert(&mut symbols));
         }
+
+        let mut scopes = Vec::new();
+        for scope in &self.scopes {
+            scopes.push(scope.convert(&mut symbols));
+        }
+
         let new_syms = symbols.split_at(symbols_start);
         let public_keys = symbols.public_keys.split_at(public_keys_start);
-
-        let needs_scopes = !self.scopes.is_empty()
-            || (&self.rules).iter().any(|r: &Rule| !r.scopes.is_empty())
-            || (&self.checks)
-                .iter()
-                .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
-
-        let has_check_all = self.checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+        let schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
 
         Block {
             symbols: new_syms,
@@ -217,19 +216,40 @@ impl BlockBuilder {
             rules,
             checks,
             context: self.context,
-            version: if needs_scopes || has_check_all {
-                super::MAX_SCHEMA_VERSION
-            } else {
-                super::MIN_SCHEMA_VERSION
-            },
+            version: schema_version.version(),
             external_key: None,
             public_keys,
-            scopes: self
-                .scopes
-                .into_iter()
-                .map(|scope| scope.convert(&mut symbols))
-                .collect(),
+            scopes,
         }
+    }
+
+    pub(crate) fn convert_from(
+        block: &Block,
+        symbols: &SymbolTable,
+    ) -> Result<Self, error::Format> {
+        Ok(BlockBuilder {
+            facts: block
+                .facts
+                .iter()
+                .map(|f| Fact::convert_from(f, &symbols))
+                .collect::<Result<Vec<Fact>, error::Format>>()?,
+            rules: block
+                .rules
+                .iter()
+                .map(|r| Rule::convert_from(r, &symbols))
+                .collect::<Result<Vec<Rule>, error::Format>>()?,
+            checks: block
+                .checks
+                .iter()
+                .map(|c| Check::convert_from(c, &symbols))
+                .collect::<Result<Vec<Check>, error::Format>>()?,
+            scopes: block
+                .scopes
+                .iter()
+                .map(|s| Scope::convert_from(s, &symbols))
+                .collect::<Result<Vec<Scope>, error::Format>>()?,
+            context: block.context.clone(),
+        })
     }
 
     // still used in tests but does not make sense for the public API
@@ -389,6 +409,13 @@ impl BiscuitBuilder {
 pub trait Convert<T>: Sized {
     fn convert(&self, symbols: &mut SymbolTable) -> T;
     fn convert_from(f: &T, symbols: &SymbolTable) -> Result<Self, error::Format>;
+    fn translate(
+        f: &T,
+        from_symbols: &SymbolTable,
+        to_symbols: &mut SymbolTable,
+    ) -> Result<T, error::Format> {
+        Ok(Self::convert_from(f, from_symbols)?.convert(to_symbols))
+    }
 }
 
 /// Builder for a Datalog value
@@ -502,7 +529,7 @@ impl fmt::Display for Term {
             }
             Term::Set(s) => {
                 let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
-                write!(f, "[ {}]", terms.join(", "))
+                write!(f, "[{}]", terms.join(", "))
             }
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)
@@ -937,6 +964,10 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::Or => Binary::Or,
             biscuit_parser::builder::Binary::Intersection => Binary::Intersection,
             biscuit_parser::builder::Binary::Union => Binary::Union,
+            biscuit_parser::builder::Binary::BitwiseAnd => Binary::BitwiseAnd,
+            biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
+            biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
+            biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
         }
     }
 }
@@ -2006,6 +2037,19 @@ impl TryFrom<Term> for SystemTime {
     }
 }
 
+impl From<BTreeSet<Term>> for Term {
+    fn from(value: BTreeSet<Term>) -> Term {
+        set(value)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for BTreeSet<Term> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
 impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
     type Error = error::Token;
     fn try_from(value: Term) -> Result<Self, Self::Error> {
@@ -2230,9 +2274,10 @@ impl BuilderExt for BlockBuilder {
     }
 
     fn check_expiration_date(&mut self, exp: SystemTime) {
+        let empty: Vec<Term> = Vec::new();
         let check = constrained_rule(
-            "expiration",
-            &[var("time")],
+            "query",
+            &empty,
             &[pred("time", &[var("time")])],
             &[Expression {
                 ops: vec![
@@ -2247,6 +2292,16 @@ impl BuilderExt for BlockBuilder {
             queries: vec![check],
             kind: CheckKind::One,
         });
+    }
+}
+
+impl fmt::Display for BiscuitBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.root_key_id {
+            None => writeln!(f, "// no root key id set")?,
+            Some(id) => writeln!(f, "// root key id: {}", id)?,
+        }
+        self.inner.fmt(f)
     }
 }
 
@@ -2281,15 +2336,19 @@ mod tests {
     #[test]
     fn set_rule_parameters() {
         let mut rule = Rule::try_from(
-            "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
+            "fact($var1, {p2}, {p5}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
         rule.set("p4", 0i64).unwrap();
         rule.set("p4", 1i64).unwrap();
 
+        let mut term_set = BTreeSet::new();
+        term_set.insert(int(0i64));
+        rule.set("p5", term_set).unwrap();
+
         let s = rule.to_string();
-        assert_eq!(s, "fact($var1, \"hello\") <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+        assert_eq!(s, "fact($var1, \"hello\", [0]) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
     }
 
     #[test]

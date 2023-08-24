@@ -172,6 +172,11 @@ impl UnverifiedBiscuit {
         })
     }
 
+    /// returns an (optional) root key identifier. It provides a hint for public key selection during verification
+    pub fn root_key_id(&self) -> Option<u32> {
+        self.container.root_key_id
+    }
+
     /// returns a list of revocation identifiers for each block, in order
     ///
     /// revocation identifiers are unique: tokens generated separately with
@@ -213,28 +218,18 @@ impl UnverifiedBiscuit {
 
     /// prints the content of a block as Datalog source code
     pub fn print_block_source(&self, index: usize) -> Result<String, error::Token> {
-        let block = self.authorizer_block(index)?;
-        let symbols = if block.external_key.is_some() {
-            &block.symbols
-        } else {
-            &self.symbols
-        };
-
-        Ok(block.print_source(symbols))
+        self.block(index).map(|block| {
+            let symbols = if block.external_key.is_some() {
+                &block.symbols
+            } else {
+                &self.symbols
+            };
+            block.print_source(symbols)
+        })
     }
 
-    /// creates a sealed version of the token
-    ///
-    /// sealed tokens cannot be attenuated
-    pub fn seal(&self) -> Result<UnverifiedBiscuit, error::Token> {
-        let container = self.container.seal()?;
-        let mut token = self.clone();
-        token.container = container;
-        Ok(token)
-    }
-
-    fn authorizer_block(&self, index: usize) -> Result<Block, error::Token> {
-        if index == 0 {
+    pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
+        let mut block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,
                 self.container
@@ -243,7 +238,7 @@ impl UnverifiedBiscuit {
                     .as_ref()
                     .map(|ex| ex.public_key),
             )
-            .map_err(error::Token::Format)
+            .map_err(error::Token::Format)?
         } else {
             if index > self.blocks.len() + 1 {
                 return Err(error::Token::Format(
@@ -258,8 +253,23 @@ impl UnverifiedBiscuit {
                     .as_ref()
                     .map(|ex| ex.public_key),
             )
-            .map_err(error::Token::Format)
-        }
+            .map_err(error::Token::Format)?
+        };
+
+        // we have to add the entire list of public keys here because
+        // they are used to validate 3rd party tokens
+        block.symbols.public_keys = self.symbols.public_keys.clone();
+        Ok(block)
+    }
+
+    /// creates a sealed version of the token
+    ///
+    /// sealed tokens cannot be attenuated
+    pub fn seal(&self) -> Result<UnverifiedBiscuit, error::Token> {
+        let container = self.container.seal()?;
+        let mut token = self.clone();
+        token.container = container;
+        Ok(token)
     }
 
     pub fn third_party_request(&self) -> Result<ThirdPartyRequest, error::Token> {
@@ -289,6 +299,7 @@ impl UnverifiedBiscuit {
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
         let signature = Signature::from_bytes(&bytes)?;
+
         let previous_key = self
             .container
             .blocks
