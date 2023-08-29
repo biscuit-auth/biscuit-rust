@@ -2,7 +2,7 @@
 
 # `4.0.0`
 
-- macros for individual statements: `fact!`, `check!`, `policy!` (#175, 176) (Clément Delafargue)
+- macros for individual statements: `fact!`, `check!`, `policy!` (#175, #176) (Clément Delafargue)
 - fix: parse empty strings (#177) (Clément Delafargue)
 - breaking: update ed25519-dalek to 2.0, rand_core to 0.6 and rand to 0.8 (#136) (Geoffroy Couprie)
 - Optional support for Biscuit Web Key representation (#173) (Clément Delafargue)
