@@ -625,6 +625,21 @@ impl Authorizer {
         self.add_policy("deny if true")
     }
 
+    /// returns the elapsed execution time
+    pub fn execution_time(&self) -> Duration {
+        self.execution_time
+    }
+
+    /// returns the number of fact generation iterations
+    pub fn iterations(&self) -> u64 {
+        self.world.iterations
+    }
+
+    /// returns the number of facts
+    pub fn fact_count(&self) -> usize {
+        self.world.facts.len()
+    }
+
     /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
