@@ -10,7 +10,7 @@ use crate::{
     error,
     format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
     token::{ThirdPartyBlockContents, ThirdPartyRequest},
-    KeyPair,
+    KeyPair, RootKeyProvider,
 };
 use prost::Message;
 
@@ -48,12 +48,12 @@ impl UnverifiedBiscuit {
     }
 
     /// checks the signature of the token and convert it to a [Biscuit] for authorization
-    pub fn check_signature<F>(self, f: F) -> Result<Biscuit, error::Format>
+    pub fn check_signature<KP>(self, key_provider: KP) -> Result<Biscuit, error::Format>
     where
-        F: Fn(Option<u32>) -> PublicKey,
+        KP: RootKeyProvider,
     {
-        let root = f(self.container.root_key_id);
-        self.container.verify(&root)?;
+        let key = key_provider.choose(self.root_key_id())?;
+        self.container.verify(&key)?;
 
         Ok(Biscuit {
             root_key_id: self.container.root_key_id,
