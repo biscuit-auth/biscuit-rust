@@ -19,7 +19,7 @@ use prost::Message;
 /// Use this if you want to attenuate or print the content of a token
 /// without verifying it.
 ///
-/// It can be converted to a [Biscuit] using [UnverifiedBiscuit::check_signature],
+/// It can be converted to a [Biscuit] using [UnverifiedBiscuit::verify],
 /// and then used for authorization
 #[derive(Clone, Debug)]
 pub struct UnverifiedBiscuit {
@@ -47,8 +47,17 @@ impl UnverifiedBiscuit {
         Self::from_base64_with_symbols(slice, default_symbol_table())
     }
 
+    #[deprecated(since = "4.1.0", note = "please use `verify` instead")]
     /// checks the signature of the token and convert it to a [Biscuit] for authorization
-    pub fn check_signature<KP>(self, key_provider: KP) -> Result<Biscuit, error::Format>
+    pub fn check_signature<F>(self, f: F) -> Result<Biscuit, error::Format>
+    where
+        F: Fn(Option<u32>) -> PublicKey,
+    {
+        self.verify(|kid| Ok(f(kid)))
+    }
+
+    /// checks the signature of the token and convert it to a [Biscuit] for authorization
+    pub fn verify<KP>(self, key_provider: KP) -> Result<Biscuit, error::Format>
     where
         KP: RootKeyProvider,
     {
