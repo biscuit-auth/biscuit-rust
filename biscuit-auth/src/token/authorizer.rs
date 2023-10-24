@@ -513,7 +513,7 @@ impl Authorizer {
     /// let biscuit = builder.build(&keypair).unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
-    /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
+    /// let res: Vec<(String, i64)> = authorizer.query_all("data($name, $id) <- user($name, $id)").unwrap();
     /// # assert_eq!(res.len(), 1);
     /// # assert_eq!(res[0].0, "John Doe");
     /// # assert_eq!(res[0].1, 42);
