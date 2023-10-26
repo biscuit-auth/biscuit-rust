@@ -114,7 +114,7 @@ biscuit append error? (null)
 authorizer creation error? (null)
 authorizer add check error? (null)
 authorizer add policy error? (null)
-authorizer error(code = 21): authorization failed
+authorizer error(code = 21): authorization failed: an allow policy matched (policy index: 0), and the following checks failed: Check n°0 in authorizer: check if right("efgh"), Check n°0 in block n°1: check if operation("read")
 failed checks (2):
   Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")
