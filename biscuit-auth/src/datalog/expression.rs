@@ -170,8 +170,6 @@ impl Binary {
             (Binary::Equal, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i == j)),
             (Binary::NotEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i != j)),
 
-            // symbol
-
             // byte array
             (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i == j)),
             (Binary::NotEqual, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i != j)),
@@ -207,6 +205,10 @@ impl Binary {
             (Binary::Or, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i | j)),
             (Binary::Equal, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i == j)),
             (Binary::NotEqual, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i != j)),
+
+            // catch-all for equal
+            (Binary::Equal, _, _) => Ok(Term::Bool(false)),
+            (Binary::NotEqual, _, _) => Ok(Term::Bool(true)),
 
             _ => {
                 //println!("unexpected value type on the stack");
