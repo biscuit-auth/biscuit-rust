@@ -2341,3 +2341,87 @@ World {
 
 result: `Ok(0)`
 
+
+------------------------------
+
+## test reject if: test029_reject_if.bc
+### token
+
+authority:
+symbols: ["test"]
+
+public keys: []
+
+```
+reject if test($test), $test;
+```
+
+### validation
+
+authorizer code:
+```
+test(false);
+
+allow if true;
+```
+
+revocation ids:
+- `2060031eb9968b492123440fa9cbc781f18be812961e765a34a8702d3eee0ed54910710efbb41b3141f60748a815012fe0e703a5b5604f4262d1ac7e79766b07`
+
+authorizer world:
+```
+World {
+  facts: {
+    (
+        "test(false)",
+        {
+            None,
+        },
+    ),
+}
+  rules: {}
+  checks: {
+    "reject if test($test), $test",
+}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Ok(0)`
+### validation for "rejection"
+
+authorizer code:
+```
+test(true);
+
+allow if true;
+```
+
+revocation ids:
+- `2060031eb9968b492123440fa9cbc781f18be812961e765a34a8702d3eee0ed54910710efbb41b3141f60748a815012fe0e703a5b5604f4262d1ac7e79766b07`
+
+authorizer world:
+```
+World {
+  facts: {
+    (
+        "test(true)",
+        {
+            None,
+        },
+    ),
+}
+  rules: {}
+  checks: {
+    "reject if test($test), $test",
+}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "reject if test($test), $test" })] }))`
+

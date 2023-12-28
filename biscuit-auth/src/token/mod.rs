@@ -32,7 +32,7 @@ pub use third_party::*;
 /// minimum supported version of the serialization format
 pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 4;
+pub const MAX_SCHEMA_VERSION: u32 = 5;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token

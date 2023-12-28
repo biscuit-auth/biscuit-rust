@@ -840,11 +840,14 @@ pub struct SchemaVersion {
     contains_scopes: bool,
     contains_v4: bool,
     contains_check_all: bool,
+    contains_reject_if: bool,
 }
 
 impl SchemaVersion {
     pub fn version(&self) -> u32 {
-        if self.contains_scopes || self.contains_v4 || self.contains_check_all {
+        if self.contains_reject_if {
+            5
+        } else if self.contains_scopes || self.contains_v4 || self.contains_check_all {
             4
         } else {
             MIN_SCHEMA_VERSION
@@ -863,11 +866,15 @@ impl SchemaVersion {
                 ))
             } else if self.contains_check_all {
                 Err(error::Format::DeserializationError(
-                    "v3 blocks must not have use all".to_string(),
+                    "v3 blocks must not have check all".to_string(),
                 ))
             } else {
                 Ok(())
             }
+        } else if version < 5 && self.contains_reject_if {
+            Err(error::Format::DeserializationError(
+                "v5 blocks must not have reject if".to_string(),
+            ))
         } else {
             Ok(())
         }
@@ -887,7 +894,16 @@ pub fn get_schema_version(
             .iter()
             .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
-    let contains_check_all = checks.iter().any(|c: &Check| c.kind == CheckKind::All);
+    let mut contains_check_all = false;
+    let mut contains_reject_if = false;
+
+    for c in checks.iter() {
+        if c.kind == CheckKind::All {
+            contains_check_all = true;
+        } else if c.kind == CheckKind::Reject {
+            contains_reject_if = true;
+        }
+    }
 
     let contains_v4 = rules.iter().any(|rule| contains_v4_op(&rule.expressions))
         || checks.iter().any(|check| {
@@ -901,6 +917,7 @@ pub fn get_schema_version(
         contains_scopes,
         contains_v4,
         contains_check_all,
+        contains_reject_if,
     }
 }
 

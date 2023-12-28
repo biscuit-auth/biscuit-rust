@@ -141,6 +141,8 @@ fn main() {
 
     add_test_result(&mut results, expressions_v4(&target, &root, test));
 
+    add_test_result(&mut results, reject_if(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1872,6 +1874,37 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "".to_string(),
         validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test reject if".to_string();
+    let filename = "test029_reject_if".to_string();
+    let token;
+
+    let biscuit = biscuit!(r#"reject if test($test), $test"#)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
+        .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "test(false); allow if true"),
+    );
+    validations.insert(
+        "rejection".to_string(),
+        validate_token(root, &data[..], "test(true); allow if true"),
     );
 
     TestResult {
