@@ -920,6 +920,8 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
+            datalog::Op::Suspend => todo!(),
+            datalog::Op::Unsuspend => todo!(),
         })
     }
 }
