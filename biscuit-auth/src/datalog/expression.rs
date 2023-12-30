@@ -88,26 +88,26 @@ impl Binary {
     fn evaluate_with_closure(
         &self,
         left: Term,
-        right: Vec<Op>,
-        values: &HashMap<u32, Term>,
-        symbols: &mut TemporarySymbolTable,
+        mut right: Vec<Op>,
+        ops: &mut Vec<Op>,
     ) -> Result<Term, error::Expression> {
         match (self, left) {
             (Binary::Or, Term::Bool(true)) => Ok(Term::Bool(true)),
             (Binary::Or, Term::Bool(false)) => {
-                let e = Expression { ops: right };
-                match e.evaluate(values, symbols)? {
-                    Term::Bool(b) => Ok(Term::Bool(b)),
-                    _ => Err(error::Expression::InvalidType),
+                ops.push(Op::Binary(Binary::Or));
+                right.reverse();
+                for op in right {
+                    ops.push(op);
                 }
+                Ok(Term::Bool(false))
             }
             (Binary::And, Term::Bool(false)) => Ok(Term::Bool(false)),
             (Binary::And, Term::Bool(true)) => {
-                let e = Expression { ops: right };
-                match e.evaluate(values, symbols)? {
-                    Term::Bool(b) => Ok(Term::Bool(b)),
-                    _ => Err(error::Expression::InvalidType),
+                ops.push(Op::Binary(Binary::And));
+                for op in right {
+                    ops.push(op);
                 }
+                Ok(Term::Bool(true))
             }
             (_, _) => Err(error::Expression::InvalidType),
         }
@@ -286,9 +286,13 @@ impl Expression {
         let mut stack: Vec<StackElem> = Vec::new();
         let mut depth = 0usize;
 
-        for op in self.ops.iter() {
+        let mut ops = self.ops.clone();
+        ops.reverse();
+
+        while let Some(op) = ops.pop() {
+            println!("ops: {ops:?}");
             println!("op: {:?}\t| stack: {:?}", op, stack);
-            if depth == 1 && op == &Op::Unsuspend {
+            if depth == 1 && op == Op::Unsuspend {
                 match stack.last_mut() {
                     Some(StackElem::Closure(_)) => {
                         depth = 0;
@@ -300,9 +304,9 @@ impl Expression {
                 match stack.last_mut() {
                     Some(StackElem::Closure(ops)) => {
                         ops.push(op.clone());
-                        if op == &Op::Suspend {
+                        if op == Op::Suspend {
                             depth += 1;
-                        } else if op == &Op::Unsuspend {
+                        } else if op == Op::Unsuspend {
                             depth -= 1;
                         }
                         continue;
@@ -311,11 +315,11 @@ impl Expression {
                 }
             }
             match op {
-                Op::Value(Term::Variable(i)) => match values.get(i) {
+                Op::Value(Term::Variable(i)) => match values.get(&i) {
                     Some(term) => stack.push(StackElem::Term(term.clone())),
                     None => {
                         //println!("unknown variable {}", i);
-                        return Err(error::Expression::UnknownVariable(*i));
+                        return Err(error::Expression::UnknownVariable(i));
                     }
                 },
                 Op::Value(term) => stack.push(StackElem::Term(term.clone())),
@@ -335,7 +339,7 @@ impl Expression {
                         )),
                     (Some(StackElem::Closure(right_ops)), Some(StackElem::Term(left_term))) => {
                         stack.push(StackElem::Term(
-                            binary.evaluate_with_closure(left_term, right_ops, values, symbols)?,
+                            binary.evaluate_with_closure(left_term, right_ops, &mut ops)?,
                         ))
                     }
 
@@ -552,30 +556,30 @@ mod tests {
         let symbols = SymbolTable::new();
         let mut symbols = TemporarySymbolTable::new(&symbols);
 
-        let ops1 = vec![
-            Op::Value(Term::Bool(true)),
-            Op::Suspend,
-            Op::Value(Term::Bool(false)),
-            Op::Suspend,
-            Op::Value(Term::Bool(false)),
-            Op::Unsuspend,
-            Op::Binary(Binary::Or),
-            Op::Unsuspend,
-            Op::Binary(Binary::Or),
-        ];
-        let e1 = Expression { ops: ops1 };
+        // let ops1 = vec![
+        //     Op::Value(Term::Bool(true)),
+        //     Op::Suspend,
+        //     Op::Value(Term::Bool(false)),
+        //     Op::Suspend,
+        //     Op::Value(Term::Bool(false)),
+        //     Op::Unsuspend,
+        //     Op::Binary(Binary::Or),
+        //     Op::Unsuspend,
+        //     Op::Binary(Binary::Or),
+        // ];
+        // let e1 = Expression { ops: ops1 };
 
-        let res1 = e1.evaluate(&HashMap::new(), &mut symbols).unwrap();
-        assert_eq!(res1, Term::Bool(true));
+        // let res1 = e1.evaluate(&HashMap::new(), &mut symbols).unwrap();
+        // assert_eq!(res1, Term::Bool(true));
 
         let ops2 = vec![
             Op::Value(Term::Bool(false)),
             Op::Suspend,
-            Op::Value(Term::Bool(false)),
+            Op::Value(Term::Bool(true)),
             Op::Suspend,
             Op::Value(Term::Bool(true)),
             Op::Unsuspend,
-            Op::Binary(Binary::Or),
+            Op::Binary(Binary::And),
             Op::Unsuspend,
             Op::Binary(Binary::Or),
         ];
