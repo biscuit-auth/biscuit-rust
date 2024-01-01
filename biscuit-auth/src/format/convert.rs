@@ -616,11 +616,13 @@ pub mod v2 {
                                     Binary::BitwiseOr => Kind::BitwiseOr,
                                     Binary::BitwiseXor => Kind::BitwiseXor,
                                     Binary::NotEqual => Kind::NotEqual,
+                                    Binary::Any => todo!(),
                                 } as i32,
                             })
                         }
                         Op::Suspend => todo!(),
                         Op::Unsuspend => todo!(),
+                        Op::Param(_)=> todo!(),
                     };
 
                     schema::Op {

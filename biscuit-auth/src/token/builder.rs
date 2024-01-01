@@ -922,6 +922,7 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
             datalog::Op::Suspend => todo!(),
             datalog::Op::Unsuspend => todo!(),
+            datalog::Op::Param(_) => todo!(),
         })
     }
 }

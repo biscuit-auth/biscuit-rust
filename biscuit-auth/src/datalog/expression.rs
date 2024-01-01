@@ -17,6 +17,7 @@ pub enum Op {
     Binary(Binary),
     Suspend,
     Unsuspend,
+    Param(u8),
 }
 
 /// Unary operation code
@@ -82,6 +83,7 @@ pub enum Binary {
     BitwiseOr,
     BitwiseXor,
     NotEqual,
+    Any,
 }
 
 impl Binary {
@@ -90,6 +92,8 @@ impl Binary {
         left: Term,
         mut right: Vec<Op>,
         ops: &mut Vec<Op>,
+        values: &HashMap<u32, Term>,
+        symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
         match (self, left) {
             (Binary::Or, Term::Bool(true)) => Ok(Term::Bool(true)),
@@ -108,6 +112,25 @@ impl Binary {
                     ops.push(op);
                 }
                 Ok(Term::Bool(true))
+            }
+            (Binary::Any, Term::Set(set_values)) => {
+                for value in set_values.iter() {
+                    let ops = right
+                        .clone()
+                        .iter()
+                        .map(|op| match op {
+                            Op::Param(0) => Op::Value(value.clone()),
+                            _ => op.clone(),
+                        })
+                        .collect::<Vec<_>>();
+                    let e = Expression { ops };
+                    match e.evaluate(values, symbols)? {
+                        Term::Bool(false) => {}
+                        Term::Bool(true) => return Ok(Term::Bool(true)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(false))
             }
             (_, _) => Err(error::Expression::InvalidType),
         }
@@ -267,6 +290,7 @@ impl Binary {
             Binary::BitwiseAnd => format!("{} & {}", left, right),
             Binary::BitwiseOr => format!("{} | {}", left, right),
             Binary::BitwiseXor => format!("{} ^ {}", left, right),
+            Binary::Any => todo!(),
         }
     }
 }
@@ -338,9 +362,9 @@ impl Expression {
                             binary.evaluate(left_term, right_term, symbols)?,
                         )),
                     (Some(StackElem::Closure(right_ops)), Some(StackElem::Term(left_term))) => {
-                        stack.push(StackElem::Term(
-                            binary.evaluate_with_closure(left_term, right_ops, &mut ops)?,
-                        ))
+                        stack.push(StackElem::Term(binary.evaluate_with_closure(
+                            left_term, right_ops, &mut ops, values, symbols,
+                        )?))
                     }
 
                     _ => {
@@ -353,6 +377,7 @@ impl Expression {
                     depth = 1;
                 }
                 Op::Unsuspend => {}
+                Op::Param(_) => todo!(),
             }
         }
         println!("stack: {stack:?}");
@@ -384,6 +409,7 @@ impl Expression {
                 },
                 Op::Suspend => {}
                 Op::Unsuspend => {}
+                Op::Param(_) => {}
             }
         }
 
@@ -552,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn suspend() {
+    fn laziness() {
         let symbols = SymbolTable::new();
         let mut symbols = TemporarySymbolTable::new(&symbols);
 
@@ -587,5 +613,23 @@ mod tests {
 
         let res2 = e2.evaluate(&HashMap::new(), &mut symbols).unwrap();
         assert_eq!(res2, Term::Bool(true));
+    }
+
+    #[test]
+    fn any() {
+        let symbols = SymbolTable::new();
+        let mut symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Bool(false), Term::Bool(true)].into())),
+            Op::Suspend,
+            Op::Param(0),
+            Op::Unsuspend,
+            Op::Binary(Binary::Any),
+        ];
+        let e1 = Expression { ops: ops1 };
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
     }
 }
