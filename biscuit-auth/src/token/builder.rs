@@ -904,6 +904,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 impl Convert<datalog::Op> for Op {
@@ -912,6 +913,10 @@ impl Convert<datalog::Op> for Op {
             Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
             Op::Unary(u) => datalog::Op::Unary(u.clone()),
             Op::Binary(b) => datalog::Op::Binary(b.clone()),
+            Op::Closure(ps, os) => datalog::Op::Closure(
+                ps.iter().map(|p| symbols.insert(p) as u32).collect(),
+                os.iter().map(|o| o.convert(symbols)).collect(),
+            ),
         }
     }
 
@@ -920,8 +925,14 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
-            datalog::Op::Closure(_, _) => todo!(),
-            datalog::Op::Param(_) => todo!(),
+            datalog::Op::Closure(ps, os) => Op::Closure(
+                ps.iter()
+                    .map(|p| symbols.print_symbol(*p as u64))
+                    .collect::<Result<_, _>>()?,
+                os.iter()
+                    .map(|o| Op::convert_from(o, symbols))
+                    .collect::<Result<_, _>>()?,
+            ),
         })
     }
 }
