@@ -620,9 +620,8 @@ pub mod v2 {
                                 } as i32,
                             })
                         }
-                        Op::Suspend => todo!(),
-                        Op::Unsuspend => todo!(),
-                        Op::Param(_)=> todo!(),
+                        Op::Closure(_, _) => todo!(),
+                        Op::Param(_) => todo!(),
                     };
 
                     schema::Op {

@@ -15,9 +15,8 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
-    Suspend,
-    Unsuspend,
-    Param(u8),
+    Param(String),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 /// Unary operation code
@@ -91,13 +90,14 @@ impl Binary {
         &self,
         left: Term,
         mut right: Vec<Op>,
+        params: &[String],
         ops: &mut Vec<Op>,
         values: &HashMap<u32, Term>,
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
-        match (self, left) {
-            (Binary::Or, Term::Bool(true)) => Ok(Term::Bool(true)),
-            (Binary::Or, Term::Bool(false)) => {
+        match (self, left, params) {
+            (Binary::Or, Term::Bool(true), []) => Ok(Term::Bool(true)),
+            (Binary::Or, Term::Bool(false), []) => {
                 ops.push(Op::Binary(Binary::Or));
                 right.reverse();
                 for op in right {
@@ -105,21 +105,21 @@ impl Binary {
                 }
                 Ok(Term::Bool(false))
             }
-            (Binary::And, Term::Bool(false)) => Ok(Term::Bool(false)),
-            (Binary::And, Term::Bool(true)) => {
+            (Binary::And, Term::Bool(false), []) => Ok(Term::Bool(false)),
+            (Binary::And, Term::Bool(true), []) => {
                 ops.push(Op::Binary(Binary::And));
                 for op in right {
                     ops.push(op);
                 }
                 Ok(Term::Bool(true))
             }
-            (Binary::Any, Term::Set(set_values)) => {
+            (Binary::Any, Term::Set(set_values), [param_name]) => {
                 for value in set_values.iter() {
                     let ops = right
                         .clone()
                         .iter()
                         .map(|op| match op {
-                            Op::Param(0) => Op::Value(value.clone()),
+                            Op::Param(p) if p == param_name => Op::Value(value.clone()),
                             _ => op.clone(),
                         })
                         .collect::<Vec<_>>();
@@ -132,7 +132,7 @@ impl Binary {
                 }
                 Ok(Term::Bool(false))
             }
-            (_, _) => Err(error::Expression::InvalidType),
+            (_, _, _) => Err(error::Expression::InvalidType),
         }
     }
     fn evaluate(
@@ -297,7 +297,7 @@ impl Binary {
 
 #[derive(Clone, Debug)]
 enum StackElem {
-    Closure(Vec<Op>),
+    Closure(Vec<String>, Vec<Op>),
     Term(Term),
 }
 
@@ -308,7 +308,6 @@ impl Expression {
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
         let mut stack: Vec<StackElem> = Vec::new();
-        let mut depth = 0usize;
 
         let mut ops = self.ops.clone();
         ops.reverse();
@@ -316,28 +315,7 @@ impl Expression {
         while let Some(op) = ops.pop() {
             println!("ops: {ops:?}");
             println!("op: {:?}\t| stack: {:?}", op, stack);
-            if depth == 1 && op == Op::Unsuspend {
-                match stack.last_mut() {
-                    Some(StackElem::Closure(_)) => {
-                        depth = 0;
-                        continue;
-                    }
-                    _ => return Err(error::Expression::InvalidStack),
-                }
-            } else if depth > 0 {
-                match stack.last_mut() {
-                    Some(StackElem::Closure(ops)) => {
-                        ops.push(op.clone());
-                        if op == Op::Suspend {
-                            depth += 1;
-                        } else if op == Op::Unsuspend {
-                            depth -= 1;
-                        }
-                        continue;
-                    }
-                    _ => return Err(error::Expression::InvalidStack),
-                }
-            }
+
             match op {
                 Op::Value(Term::Variable(i)) => match values.get(&i) {
                     Some(term) => stack.push(StackElem::Term(term.clone())),
@@ -361,22 +339,21 @@ impl Expression {
                         .push(StackElem::Term(
                             binary.evaluate(left_term, right_term, symbols)?,
                         )),
-                    (Some(StackElem::Closure(right_ops)), Some(StackElem::Term(left_term))) => {
-                        stack.push(StackElem::Term(binary.evaluate_with_closure(
-                            left_term, right_ops, &mut ops, values, symbols,
-                        )?))
-                    }
+                    (
+                        Some(StackElem::Closure(params, right_ops)),
+                        Some(StackElem::Term(left_term)),
+                    ) => stack.push(StackElem::Term(binary.evaluate_with_closure(
+                        left_term, right_ops, &params, &mut ops, values, symbols,
+                    )?)),
 
                     _ => {
                         //println!("expected two values on the stack");
                         return Err(error::Expression::InvalidStack);
                     }
                 },
-                Op::Suspend => {
-                    stack.push(StackElem::Closure(vec![]));
-                    depth = 1;
+                Op::Closure(param, ops) => {
+                    stack.push(StackElem::Closure(param, ops));
                 }
-                Op::Unsuspend => {}
                 Op::Param(_) => todo!(),
             }
         }
@@ -407,8 +384,7 @@ impl Expression {
                     (Some(right), Some(left)) => stack.push(binary.print(left, right, symbols)),
                     _ => return None,
                 },
-                Op::Suspend => {}
-                Op::Unsuspend => {}
+                Op::Closure(_, _) => stack.push("todo".to_owned()),
                 Op::Param(_) => {}
             }
         }
@@ -600,13 +576,14 @@ mod tests {
 
         let ops2 = vec![
             Op::Value(Term::Bool(false)),
-            Op::Suspend,
-            Op::Value(Term::Bool(true)),
-            Op::Suspend,
-            Op::Value(Term::Bool(true)),
-            Op::Unsuspend,
-            Op::Binary(Binary::And),
-            Op::Unsuspend,
+            Op::Closure(
+                vec![],
+                vec![
+                    Op::Value(Term::Bool(true)),
+                    Op::Closure(vec![], vec![Op::Value(Term::Bool(true))]),
+                    Op::Binary(Binary::And),
+                ],
+            ),
             Op::Binary(Binary::Or),
         ];
         let e2 = Expression { ops: ops2 };
@@ -622,9 +599,7 @@ mod tests {
 
         let ops1 = vec![
             Op::Value(Term::Set([Term::Bool(false), Term::Bool(true)].into())),
-            Op::Suspend,
-            Op::Param(0),
-            Op::Unsuspend,
+            Op::Closure(vec!["0".to_owned()], vec![Op::Param("0".to_owned())]),
             Op::Binary(Binary::Any),
         ];
         let e1 = Expression { ops: ops1 };
