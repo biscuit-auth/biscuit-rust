@@ -943,6 +943,9 @@ impl From<biscuit_parser::builder::Op> for Op {
             biscuit_parser::builder::Op::Value(t) => Op::Value(t.into()),
             biscuit_parser::builder::Op::Unary(u) => Op::Unary(u.into()),
             biscuit_parser::builder::Op::Binary(b) => Op::Binary(b.into()),
+            biscuit_parser::builder::Op::Closure(ps, os) => {
+                Op::Closure(ps, os.into_iter().map(|o| o.into()).collect())
+            }
         }
     }
 }
@@ -981,6 +984,10 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
             biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
             biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
+            biscuit_parser::builder::Binary::LazyAnd => Binary::LazyAnd,
+            biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
+            biscuit_parser::builder::Binary::All => Binary::All,
+            biscuit_parser::builder::Binary::Any => Binary::Any,
         }
     }
 }

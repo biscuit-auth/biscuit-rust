@@ -12,8 +12,9 @@ fn block_macro() {
     let my_key = "my_value";
     let mut b = block!(
         r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set});
-            rule($0, true) <- fact($0, $1, $2, {my_key});
+            rule($0, true) <- fact($0, $1, $2, {my_key}), true || false;
             check if {my_key}.starts_with("my");
+            check if [true,false].any($p -> true);
             "#,
     );
 
@@ -24,8 +25,9 @@ fn block_macro() {
         b.to_string(),
         r#"fact("test", hex:aabbcc, [true], "my_value", [0]);
 appended(true);
-rule($0, true) <- fact($0, $1, $2, "my_value");
+rule($0, true) <- fact($0, $1, $2, "my_value"), true || false;
 check if "my_value".starts_with("my");
+check if [false, true].any($p -> true);
 "#,
     );
 }

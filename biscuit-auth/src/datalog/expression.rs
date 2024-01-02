@@ -132,7 +132,7 @@ impl Binary {
                         _ => return Err(error::Expression::InvalidType),
                     };
                 }
-                Ok(Term::Bool(false))
+                Ok(Term::Bool(true))
             }
             (Binary::Any, Term::Set(set_values), [param]) => {
                 for value in set_values.iter() {
@@ -422,7 +422,7 @@ impl Expression {
                             .map(|s| symbols.print_term(&Term::Variable(*s)))
                             .collect::<Vec<_>>()
                             .join(", ");
-                        stack.push(format!("({param_group}) -> {body}"));
+                        stack.push(format!("{param_group} -> {body}"));
                     }
                 }
             }
@@ -641,6 +641,31 @@ mod tests {
             Op::Value(Term::Set([Term::Bool(false), Term::Bool(true)].into())),
             Op::Closure(vec![p], vec![Op::Value(Term::Variable(p))]),
             Op::Binary(Binary::Any),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
+    }
+
+    #[test]
+    fn all() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
         ];
         let e1 = Expression { ops: ops1 };
         println!("{:?}", e1.print(&symbols));

@@ -181,6 +181,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -213,6 +214,10 @@ pub enum Binary {
     BitwiseOr,
     BitwiseXor,
     NotEqual,
+    LazyAnd,
+    LazyOr,
+    All,
+    Any,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -222,6 +227,12 @@ impl ToTokens for Op {
             Op::Value(t) => quote! { ::biscuit_auth::builder::Op::Value(#t) },
             Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
             Op::Binary(b) => quote! { ::biscuit_auth::builder::Op::Binary(#b) },
+            Op::Closure(params, os) => quote! {
+            ::biscuit_auth::builder::Op::Closure(
+                    <[String]>::into_vec(Box::new([#(#params.to_string()),*])),
+                    <[::biscuit_auth::builder::Op]>::into_vec(Box::new([#(#os),*]))
+                    )
+            }
         });
     }
 }
@@ -262,6 +273,10 @@ impl ToTokens for Binary {
             Binary::BitwiseOr => quote! { ::biscuit_auth::datalog::Binary::BitwiseOr  },
             Binary::BitwiseXor => quote! { ::biscuit_auth::datalog::Binary::BitwiseXor  },
             Binary::NotEqual => quote! { ::biscuit_auth::datalog::Binary::NotEqual },
+            Binary::LazyAnd => quote! { ::biscuit_auth::datalog::Binary::LazyAnd },
+            Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
+            Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
+            Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
         });
     }
 }
