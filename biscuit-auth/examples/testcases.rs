@@ -1903,6 +1903,9 @@ fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [1,2,3].any($p -> $p > 2);
         //any
         check if ![1,2,3].any($p -> $p > 3);
+
+        // nested closures
+        check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
