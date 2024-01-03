@@ -383,6 +383,7 @@ pub enum Expr {
     Value(builder::Term),
     Unary(builder::Op, Box<Expr>),
     Binary(builder::Op, Box<Expr>, Box<Expr>),
+    Closure(Vec<String>, Box<Expr>),
 }
 
 impl Expr {
@@ -403,6 +404,11 @@ impl Expr {
                 left.into_opcodes(v);
                 right.into_opcodes(v);
                 v.push(op);
+            }
+            Expr::Closure(params, expr) => {
+                let mut ops = vec![];
+                expr.into_opcodes(&mut ops);
+                v.push(builder::Op::Closure(params, ops))
             }
         }
     }
@@ -436,12 +442,12 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    value(Binary::Or, tag("||"))(i)
+    value(Binary::LazyOr, tag("||"))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    value(Binary::And, tag("&&"))(i)
+    value(Binary::LazyAnd, tag("&&"))(i)
 }
 
 fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
@@ -491,6 +497,8 @@ fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Regex, tag("matches")),
         value(Binary::Intersection, tag("intersection")),
         value(Binary::Union, tag("union")),
+        value(Binary::All, tag("all")),
+        value(Binary::Any, tag("any")),
     ))(i)
 }
 
@@ -503,7 +511,14 @@ fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
     remainder.into_iter().fold(initial, |acc, pair| {
         let (op, expr) = pair;
-        Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr))
+        match op {
+            builder::Binary::LazyAnd | builder::Binary::LazyOr => Expr::Binary(
+                builder::Op::Binary(op),
+                Box::new(acc),
+                Box::new(Expr::Closure(vec![], Box::new(expr))),
+            ),
+            _ => Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr)),
+        }
     })
 }
 
@@ -630,10 +645,24 @@ fn expr9(i: &str) -> IResult<&str, Expr, Error> {
             let bin_result = binary_method(i);
             let un_result = unary_method(i);
             match (bin_result, un_result) {
-                (Ok((i, (op, arg))), _) => {
+                (Ok((i, (op, params, arg))), _) => {
                     input = i;
-                    initial =
-                        Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                    match params {
+                        Some(params) => {
+                            initial = Expr::Binary(
+                                builder::Op::Binary(op),
+                                Box::new(initial),
+                                Box::new(Expr::Closure(params, Box::new(arg))),
+                            );
+                        }
+                        None => {
+                            initial = Expr::Binary(
+                                builder::Op::Binary(op),
+                                Box::new(initial),
+                                Box::new(arg),
+                            );
+                        }
+                    }
                 }
                 (_, Ok((i, op))) => {
                     input = i;
@@ -648,17 +677,31 @@ fn expr9(i: &str) -> IResult<&str, Expr, Error> {
     }
 }
 
-fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
+fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Option<Vec<String>>, Expr), Error> {
     let (i, op) = binary_op_8(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
     // we only support a single argument for now
-    let (i, arg) = expr(i)?;
-    let (i, _) = space0(i)?;
-    let (i, _) = char(')')(i)?;
+    match op {
+        builder::Binary::All | builder::Binary::Any => {
+            let (i, param) = preceded(char('$'), name)(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = tag("->")(i)?;
+            let (i, _) = space0(i)?;
+            let (i, arg) = expr(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = char(')')(i)?;
+            Ok((i, (op, Some(vec![param.to_owned()]), arg)))
+        }
+        _ => {
+            let (i, arg) = expr(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = char(')')(i)?;
 
-    Ok((i, (op, arg)))
+            Ok((i, (op, None, arg)))
+        }
+    }
 }
 
 fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
@@ -1357,8 +1400,8 @@ mod tests {
                 vec![
                     Op::Value(boolean(false)),
                     Op::Unary(Unary::Negate),
-                    Op::Value(boolean(true)),
-                    Op::Binary(Binary::And),
+                    Op::Closure(vec![], vec![Op::Value(boolean(true)),]),
+                    Op::Binary(Binary::LazyAnd),
                 ],
             ))
         );
@@ -1369,10 +1412,15 @@ mod tests {
                 "",
                 vec![
                     Op::Value(boolean(true)),
-                    Op::Value(boolean(true)),
-                    Op::Value(boolean(true)),
-                    Op::Binary(Binary::And),
-                    Op::Binary(Binary::Or),
+                    Op::Closure(
+                        vec![],
+                        vec![
+                            Op::Value(boolean(true)),
+                            Op::Closure(vec![], vec![Op::Value(boolean(true)),]),
+                            Op::Binary(Binary::LazyAnd),
+                        ]
+                    ),
+                    Op::Binary(Binary::LazyOr),
                 ],
             ))
         );

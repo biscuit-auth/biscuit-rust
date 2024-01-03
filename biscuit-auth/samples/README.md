@@ -1162,9 +1162,6 @@ public keys: []
 ```
 check if true;
 check if !false;
-check if !false && true;
-check if false || true;
-check if (true || false) && true;
 check if true == true;
 check if false == false;
 check if 1 < 2;
@@ -1175,7 +1172,7 @@ check if 2 >= 1;
 check if 2 >= 2;
 check if 3 == 3;
 check if 1 + 2 * 3 - 4 / 2 == 5;
-check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+check if "hello world".starts_with("hello"), "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
 check if "aaabde" == "aaa" + "b" + "de";
@@ -1209,7 +1206,7 @@ allow if true;
 ```
 
 revocation ids:
-- `f61b4cb4fc58777fec6c8d39fe62259dc3c78511868236c391e9f67ffd03a3a8b8e3042d4bacce0d5756d053f5afccd4c5e4df0597af44b36bdfab492e5fe50e`
+- `bd42e447a03262a6041333ab762008700fce5baa6e8f4f9996159fd5beb6af70193aeaa49d2b733e9aaddce22ce41904e5a66025b90fe59da288a5d3984d0907`
 
 authorizer world:
 ```
@@ -1218,13 +1215,11 @@ World {
   rules: {}
   checks: {
     "check if !false",
-    "check if !false && true",
     "check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"",
     "check if \"aaabde\".contains(\"abd\")",
     "check if \"aaabde\".matches(\"a*c?.e\")",
     "check if \"abcD12\" == \"abcD12\"",
-    "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
-    "check if (true || false) && true",
+    "check if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\")",
     "check if 1 + 2 * 3 - 4 / 2 == 5",
     "check if 1 < 2",
     "check if 1 <= 1",
@@ -1251,7 +1246,6 @@ World {
     "check if [false, true].contains(true)",
     "check if [hex:12ab, hex:34de].contains(hex:34de)",
     "check if false == false",
-    "check if false || true",
     "check if hex:12ab == hex:12ab",
     "check if true",
     "check if true == true",
@@ -2257,9 +2251,9 @@ symbols: []
 public keys: []
 
 ```
-check if true || 10000000000 * 10000000000 != 0;
-check if true || 9223372036854775807 + 1 != 0;
-check if true || -9223372036854775808 - 1 != 0;
+check if 10000000000 * 10000000000 != 0;
+check if 9223372036854775807 + 1 != 0;
+check if -9223372036854775808 - 1 != 0;
 ```
 
 ### validation
@@ -2270,7 +2264,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3346a22aae0abfc1ffa526f02f7650e90af909e5e519989026441e78cdc245b7fd126503cfdc8831325fc04307edc65238db319724477915f7040a2f6a719a05`
+- `fb5e7ac2bb892f5cf2fb59677cfad1f96deabbc8e158e3fd1b5ee7c4b6949c999e2169187cbee53b943eebdadaaf68832747baa8cffa2ff9f78025a1f55f440c`
 
 authorizer world:
 ```
@@ -2278,9 +2272,9 @@ World {
   facts: {}
   rules: {}
   checks: {
-    "check if true || -9223372036854775808 - 1 != 0",
-    "check if true || 10000000000 * 10000000000 != 0",
-    "check if true || 9223372036854775807 + 1 != 0",
+    "check if -9223372036854775808 - 1 != 0",
+    "check if 10000000000 * 10000000000 != 0",
+    "check if 9223372036854775807 + 1 != 0",
 }
   policies: {
     "allow if true",
@@ -2332,6 +2326,63 @@ World {
     "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
     "check if [1, 4] != [1, 2]",
     "check if hex:12abcd != hex:12ab",
+}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Ok(0)`
+
+
+------------------------------
+
+## test expression syntax and all available operations (v5 blocks): test031_expressions_v5.bc
+### token
+
+authority:
+symbols: ["x", "p"]
+
+public keys: []
+
+```
+check if !false && true;
+check if false || true;
+check if (true || false) && true;
+check if !(false && "x".intersection("x"));
+check if true || "x".intersection("x");
+check if [1, 2, 3].all($p -> $p > 0);
+check if ![1, 2, 3].all($p -> $p == 2);
+check if [1, 2, 3].any($p -> $p > 2);
+check if ![1, 2, 3].any($p -> $p > 3);
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `ccf395f06eff4d847b390f4b9734f78f7b69bd365aa8610fca56b6124778549bfba205775007ba3338012cef4993c47e230d4a24ccb0c94d8aef155a3f2c4203`
+
+authorizer world:
+```
+World {
+  facts: {}
+  rules: {}
+  checks: {
+    "check if !(false && \"x\".intersection(\"x\"))",
+    "check if ![1, 2, 3].all($p -> $p == 2)",
+    "check if ![1, 2, 3].any($p -> $p > 3)",
+    "check if !false && true",
+    "check if (true || false) && true",
+    "check if [1, 2, 3].all($p -> $p > 0)",
+    "check if [1, 2, 3].any($p -> $p > 2)",
+    "check if false || true",
+    "check if true || \"x\".intersection(\"x\")",
 }
   policies: {
     "allow if true",

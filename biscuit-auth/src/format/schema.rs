@@ -173,7 +173,7 @@ pub struct ExpressionV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Op {
-    #[prost(oneof="op::Content", tags="1, 2, 3")]
+    #[prost(oneof="op::Content", tags="1, 2, 3, 4")]
     pub content: ::core::option::Option<op::Content>,
 }
 /// Nested message and enum types in `Op`.
@@ -186,6 +186,8 @@ pub mod op {
         Unary(super::OpUnary),
         #[prost(message, tag="3")]
         Binary(super::OpBinary),
+        #[prost(message, tag="4")]
+        Closure(super::OpClosure),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -234,7 +236,18 @@ pub mod op_binary {
         BitwiseOr = 18,
         BitwiseXor = 19,
         NotEqual = 20,
+        LazyAnd = 21,
+        LazyOr = 22,
+        All = 23,
+        Any = 24,
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpClosure {
+    #[prost(uint32, repeated, packed="false", tag="1")]
+    pub params: ::prost::alloc::vec::Vec<u32>,
+    #[prost(message, repeated, tag="2")]
+    pub ops: ::prost::alloc::vec::Vec<Op>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Policy {
