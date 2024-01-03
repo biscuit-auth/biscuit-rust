@@ -91,9 +91,8 @@ impl Binary {
     fn evaluate_with_closure(
         &self,
         left: Term,
-        mut right: Vec<Op>,
+        right: Vec<Op>,
         params: &[u32],
-        ops: &mut Vec<Op>,
         values: &mut HashMap<u32, Term>,
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
@@ -321,21 +320,17 @@ impl Expression {
     ) -> Result<Term, error::Expression> {
         let mut stack: Vec<StackElem> = Vec::new();
 
-        let mut ops = self.ops.clone();
-        ops.reverse();
-
         println!("-- begin -- {values:?}");
-        while let Some(op) = ops.pop() {
-            println!("ops: {ops:?}");
+        for op in self.ops.iter() {
             println!("op: {:?}\t| stack: {:?}", op, stack);
 
             let opop = op.clone();
             match op {
-                Op::Value(Term::Variable(i)) => match values.get(&i) {
+                Op::Value(Term::Variable(i)) => match values.get(i) {
                     Some(term) => stack.push(StackElem::Term(term.clone())),
                     None => {
                         //println!("unknown variable {}", i);
-                        return Err(error::Expression::UnknownVariable(i));
+                        return Err(error::Expression::UnknownVariable(*i));
                     }
                 },
                 Op::Value(term) => stack.push(StackElem::Term(term.clone())),
@@ -362,7 +357,6 @@ impl Expression {
                             left_term,
                             right_ops,
                             &params,
-                            &mut ops,
                             &mut values,
                             symbols,
                         )?))
@@ -380,7 +374,7 @@ impl Expression {
                     }
                 },
                 Op::Closure(params, ops) => {
-                    stack.push(StackElem::Closure(params, ops));
+                    stack.push(StackElem::Closure(params.clone(), ops.clone()));
                 }
             }
         }
