@@ -1155,7 +1155,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 ### token
 
 authority:
-symbols: ["hello world", "hello", "world", "aaabde", "a*c?.e", "abd", "aaa", "b", "de", "abcD12", "abc", "def"]
+symbols: ["hello world", "hello", "world", "aaabde", "a*c?.e", "abd", "aaa", "b", "de", "abcD12", "abc", "def", "a"]
 
 public keys: []
 
@@ -1199,6 +1199,8 @@ check if [1, 2].intersection([2, 3]) == [2];
 check if [1, 2].union([2, 3]) == [1, 2, 3];
 check if [1, 2, 3].intersection([1, 2]).contains(1);
 check if [1, 2, 3].intersection([1, 2]).length() == 2;
+check if !("a" == 2);
+check if "a" != 2;
 ```
 
 ### validation
@@ -1209,7 +1211,7 @@ allow if true;
 ```
 
 revocation ids:
-- `f61b4cb4fc58777fec6c8d39fe62259dc3c78511868236c391e9f67ffd03a3a8b8e3042d4bacce0d5756d053f5afccd4c5e4df0597af44b36bdfab492e5fe50e`
+- `ab8cb36d2e2b4cbdc4fc8f16f01920104cb16a9eda5beafabea85446c366ca4965d805d73fc13fc98034aa326d08fab5b2f794386077f76b32eef4a347b91008`
 
 authorizer world:
 ```
@@ -1217,8 +1219,10 @@ World {
   facts: {}
   rules: {}
   checks: {
+    "check if !(\"a\" == 2)",
     "check if !false",
     "check if !false && true",
+    "check if \"a\" != 2",
     "check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"",
     "check if \"aaabde\".contains(\"abd\")",
     "check if \"aaabde\".matches(\"a*c?.e\")",

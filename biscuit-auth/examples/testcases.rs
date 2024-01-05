@@ -1268,6 +1268,10 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [1, 2, 3].intersection([1, 2]).contains(1);
         // chained method calls with unary method
         check if [1, 2, 3].intersection([1, 2]).length() == 2;
+
+        // heterogeneous equals
+        check if !("a" == 2);
+        check if "a" != 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
