@@ -44,39 +44,29 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "resource(\"file1\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
+            Some(
+                0,
+            ),
+        },
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file1\", \"write\")",
+            "right(\"file2\", \"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "right(\"file1\", \"write\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "resource(\"file1\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource($0), operation(\"read\"), right($0, \"read\")",
 }
@@ -298,52 +288,48 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
-            None,
-        },
-    ),
-    (
-        "owner(\"alice\", \"file1\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "owner(\"alice\", \"file2\")",
-        {
+        facts: [
+            "owner(\"alice\", \"file1\")",
+            "user_id(\"alice\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 2,
             ),
         },
-    ),
-    (
-        "resource(\"file2\")",
-        {
-            None,
-        },
-    ),
-    (
-        "user_id(\"alice\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-}
-  rules: {
-    (
-        "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
-        Some(
+        facts: [
+            "owner(\"alice\", \"file2\")",
+        ],
+    },
+]
+  rules: [
+    AuthorizerRuleSet {
+        origin: Some(
             1,
         ),
-    ),
-}
+        rules: [
+            "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
+        ],
+    },
+]
   checks: {
     "check if resource($0), operation(\"read\"), right($0, \"read\")",
 }
@@ -406,37 +392,38 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file2\")",
-        {
-            None,
-        },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
+        facts: [
+            "right(\"file1\", \"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 2,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "right(\"file2\", \"read\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource($0), operation(\"read\"), right($0, \"read\")",
 }
@@ -490,27 +477,19 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file1\")",
-        {
-            None,
-        },
-    ),
-    (
-        "time(2020-12-21T09:23:12Z)",
-        {
-            None,
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file1\")",
+            "time(2020-12-21T09:23:12Z)",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource(\"file1\")",
     "check if time($time), $time <= 2018-12-20T00:00:00Z",
@@ -566,37 +545,38 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file2\")",
-        {
-            None,
-        },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
+        facts: [
+            "right(\"file1\", \"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "right(\"file2\", \"read\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if right($0, $1), resource($0), operation($1)",
 }
@@ -641,29 +621,28 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
-            None,
-        },
-    ),
-    (
-        "resource(\"file2\")",
-        {
-            None,
-        },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "right(\"file1\", \"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if right($0, $1), resource($0), operation($1)",
 }
@@ -706,21 +685,18 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file1\")",
-        {
-            None,
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file1\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource(\"file1\")",
 }
@@ -747,21 +723,18 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file2\")",
-        {
-            None,
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource(\"file1\")",
 }
@@ -817,59 +790,50 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "resource(\"file1\")",
-        {
-            None,
-        },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "time(2020-12-21T09:23:12Z)",
-        {
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file2\", \"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "valid_date(\"file1\")",
-        {
+        facts: [
+            "resource(\"file1\")",
+            "time(2020-12-21T09:23:12Z)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
             Some(
                 1,
             ),
         },
-    ),
-}
-  rules: {
-    (
-        "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-        Some(
+        facts: [
+            "valid_date(\"file1\")",
+        ],
+    },
+]
+  rules: [
+    AuthorizerRuleSet {
+        origin: Some(
             1,
         ),
-    ),
-    (
-        "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-        Some(
-            1,
-        ),
-    ),
-}
+        rules: [
+            "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+            "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+        ],
+    },
+]
   checks: {
     "check if valid_date($0), resource($0)",
 }
@@ -897,50 +861,39 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "resource(\"file2\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+        facts: [
+            "resource(\"file2\")",
+            "time(2020-12-21T09:23:12Z)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "time(2020-12-21T09:23:12Z)",
-        {
-            None,
-        },
-    ),
-}
-  rules: {
-    (
-        "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-        Some(
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file2\", \"read\")",
+        ],
+    },
+]
+  rules: [
+    AuthorizerRuleSet {
+        origin: Some(
             1,
         ),
-    ),
-    (
-        "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-        Some(
-            1,
-        ),
-    ),
-}
+        rules: [
+            "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+            "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
+        ],
+    },
+]
   checks: {
     "check if valid_date($0), resource($0)",
 }
@@ -982,15 +935,17 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "resource(\"file1\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "resource(\"file1\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource($0), $0.matches(\"file[0-9]+.txt\")",
 }
@@ -1016,15 +971,17 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "resource(\"file123.txt\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "resource(\"file123.txt\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource($0), $0.matches(\"file[0-9]+.txt\")",
 }
@@ -1066,17 +1023,19 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "must_be_present(\"hello\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "must_be_present(\"hello\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if must_be_present($0) or must_be_present($0)",
 }
@@ -1126,17 +1085,19 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "query(\"test\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "query(\"test\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource(\"hello\")",
 }
@@ -1214,8 +1175,8 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {}
-  rules: {}
+  facts: []
+  rules: []
   checks: {
     "check if !false",
     "check if !false && true",
@@ -1332,31 +1293,37 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
             Some(
                 1,
             ),
         },
-    ),
-    (
-        "operation(\"write\")",
-        {
+        facts: [
+            "operation(\"read\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-}
-  rules: {
-    (
-        "operation(\"read\") <- operation($any)",
-        Some(
+        facts: [
+            "operation(\"write\")",
+        ],
+    },
+]
+  rules: [
+    AuthorizerRuleSet {
+        origin: Some(
             1,
         ),
-    ),
-}
+        rules: [
+            "operation(\"read\") <- operation($any)",
+        ],
+    },
+]
   checks: {
     "check if operation(\"read\")",
 }
@@ -1411,45 +1378,30 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "operation(\"read\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "resource(\"file1\")",
-        {
-            None,
-        },
-    ),
-    (
-        "right(\"file1\", \"read\")",
-        {
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file1\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "right(\"file1\", \"write\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "right(\"file2\", \"read\")",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file1\", \"write\")",
+            "right(\"file2\", \"read\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if resource($0), operation(\"read\"), right($0, \"read\")",
 }
@@ -1491,17 +1443,19 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "ns::fact_123(\"hello é\t😁\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "ns::fact_123(\"hello é\t😁\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if ns::fact_123(\"hello é\t😁\")",
 }
@@ -1570,233 +1524,46 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "admin(13)",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "client(18)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "client_ip(19)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "cluster(23)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "domain(20)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "email(14)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "group(15)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "hostname(25)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "ip_address(17)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "member(16)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "namespace(9)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "node(24)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "nonce(26)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "operation(3)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "owner(7)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "path(21)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "query(27)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "read(0)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "resource(2)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "right(4)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "role(6)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "service(12)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "team(11)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "tenant(8)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "time(5)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "user(10)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "version(22)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "write(1)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "admin(13)",
+            "client(18)",
+            "client_ip(19)",
+            "cluster(23)",
+            "domain(20)",
+            "email(14)",
+            "group(15)",
+            "hostname(25)",
+            "ip_address(17)",
+            "member(16)",
+            "namespace(9)",
+            "node(24)",
+            "nonce(26)",
+            "operation(3)",
+            "owner(7)",
+            "path(21)",
+            "query(27)",
+            "read(0)",
+            "resource(2)",
+            "right(4)",
+            "role(6)",
+            "service(12)",
+            "team(11)",
+            "tenant(8)",
+            "time(5)",
+            "user(10)",
+            "version(22)",
+            "write(1)",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if read(0), write(1), resource(2), operation(3), right(4), time(5), role(6), owner(7), tenant(8), namespace(9), user(10), team(11), service(12), admin(13), email(14), group(15), member(16), ip_address(17), client(18), client_ip(19), domain(20), path(21), version(22), cluster(23), node(24), hostname(25), nonce(26), query(27)",
 }
@@ -1857,25 +1624,29 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "authority_fact(1)",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "block1_fact(1)",
-        {
+        facts: [
+            "authority_fact(1)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "block1_fact(1)",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if authority_fact($var)",
     "check if block1_fact($var)",
@@ -1930,25 +1701,29 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "group(\"admin\")",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
         },
-    ),
-    (
-        "right(\"read\")",
-        {
+        facts: [
+            "group(\"admin\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-}
-  rules: {}
+        facts: [
+            "right(\"read\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check if group(\"admin\") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
     "check if right(\"read\")",
@@ -1993,29 +1768,28 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "allowed_operations([\"A\", \"B\"])",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "operation(\"A\")",
-        {
+        facts: [
+            "allowed_operations([\"A\", \"B\"])",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "operation(\"B\")",
-        {
-            None,
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "operation(\"A\")",
+            "operation(\"B\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check all operation($op), allowed_operations($allowed), $allowed.contains($op)",
 }
@@ -2042,29 +1816,28 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "allowed_operations([\"A\", \"B\"])",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
-    ),
-    (
-        "operation(\"A\")",
-        {
+        facts: [
+            "allowed_operations([\"A\", \"B\"])",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             None,
         },
-    ),
-    (
-        "operation(\"invalid\")",
-        {
-            None,
-        },
-    ),
-}
-  rules: {}
+        facts: [
+            "operation(\"A\")",
+            "operation(\"invalid\")",
+        ],
+    },
+]
+  rules: []
   checks: {
     "check all operation($op), allowed_operations($allowed), $allowed.contains($op)",
 }
@@ -2165,26 +1938,19 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {
-    (
-        "query(0)",
-        {
-            Some(
-                0,
-            ),
-        },
-    ),
-    (
-        "query(1)",
-        {
+  facts: [
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
         },
-    ),
-    (
-        "query(1, 2)",
-        {
+        facts: [
+            "query(1)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 1,
             ),
@@ -2192,40 +1958,61 @@ World {
                 2,
             ),
         },
-    ),
-    (
-        "query(2)",
-        {
-            Some(
-                2,
-            ),
-        },
-    ),
-    (
-        "query(3)",
-        {
+        facts: [
+            "query(1, 2)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 3,
             ),
         },
-    ),
-    (
-        "query(4)",
-        {
+        facts: [
+            "query(3)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            Some(
+                0,
+            ),
+        },
+        facts: [
+            "query(0)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            Some(
+                2,
+            ),
+        },
+        facts: [
+            "query(2)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 4,
             ),
         },
-    ),
-}
-  rules: {
-    (
-        "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
-        Some(
+        facts: [
+            "query(4)",
+        ],
+    },
+]
+  rules: [
+    AuthorizerRuleSet {
+        origin: Some(
             1,
         ),
-    ),
-}
+        rules: [
+            "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
+        ],
+    },
+]
   checks: {
     "check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
     "check if query(1, 2) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189, ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
@@ -2275,8 +2062,8 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {}
-  rules: {}
+  facts: []
+  rules: []
   checks: {
     "check if true || -9223372036854775808 - 1 != 0",
     "check if true || 10000000000 * 10000000000 != 0",
@@ -2323,8 +2110,8 @@ revocation ids:
 authorizer world:
 ```
 World {
-  facts: {}
-  rules: {}
+  facts: []
+  rules: []
   checks: {
     "check if \"abcD12x\" != \"abcD12\"",
     "check if 1 != 3",

@@ -32,25 +32,19 @@
                 "origin": [
                   null
                 ],
-                "fact": "resource(\"file1\")"
+                "facts": [
+                  "resource(\"file1\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "right(\"file1\", \"read\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file1\", \"write\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")",
+                  "right(\"file1\", \"write\")",
+                  "right(\"file2\", \"read\")"
+                ]
               }
             ],
             "rules": [],
@@ -327,37 +321,35 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file2\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "owner(\"alice\", \"file1\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file2\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "user_id(\"alice\")"
+                "facts": [
+                  "owner(\"alice\", \"file1\")",
+                  "user_id(\"alice\")"
+                ]
               },
               {
                 "origin": [
                   2
                 ],
-                "fact": "owner(\"alice\", \"file2\")"
+                "facts": [
+                  "owner(\"alice\", \"file2\")"
+                ]
               }
             ],
             "rules": [
               {
                 "origin": 1,
-                "rule": "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)"
+                "rules": [
+                  "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)"
+                ]
               }
             ],
             "checks": [
@@ -431,27 +423,28 @@
             "facts": [
               {
                 "origin": [
-                  null
-                ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file2\")"
-              },
-              {
-                "origin": [
                   0
                 ],
-                "fact": "right(\"file1\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")"
+                ]
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file2\")"
+                ]
               },
               {
                 "origin": [
                   2
                 ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "right(\"file2\", \"read\")"
+                ]
               }
             ],
             "rules": [],
@@ -518,19 +511,11 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file1\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "time(2020-12-21T09:23:12Z)"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file1\")",
+                  "time(2020-12-21T09:23:12Z)"
+                ]
               }
             ],
             "rules": [],
@@ -597,27 +582,28 @@
             "facts": [
               {
                 "origin": [
-                  null
+                  1
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file2\")"
+                "facts": [
+                  "right(\"file2\", \"read\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "right(\"file1\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")"
+                ]
               },
               {
                 "origin": [
-                  1
+                  null
                 ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file2\")"
+                ]
               }
             ],
             "rules": [],
@@ -676,19 +662,18 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file2\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file2\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "right(\"file1\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")"
+                ]
               }
             ],
             "rules": [],
@@ -746,13 +731,10 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file1\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file1\")"
+                ]
               }
             ],
             "rules": [],
@@ -778,13 +760,10 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file2\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file2\")"
+                ]
               }
             ],
             "rules": [],
@@ -854,42 +833,37 @@
                 "origin": [
                   null
                 ],
-                "fact": "resource(\"file1\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "time(2020-12-21T09:23:12Z)"
+                "facts": [
+                  "resource(\"file1\")",
+                  "time(2020-12-21T09:23:12Z)"
+                ]
               },
               {
                 "origin": [
                   null,
                   1
                 ],
-                "fact": "valid_date(\"file1\")"
+                "facts": [
+                  "valid_date(\"file1\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "right(\"file1\", \"read\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")",
+                  "right(\"file2\", \"read\")"
+                ]
               }
             ],
             "rules": [
               {
                 "origin": 1,
-                "rule": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z"
-              },
-              {
-                "origin": 1,
-                "rule": "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                "rules": [
+                  "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                ]
               }
             ],
             "checks": [
@@ -915,35 +889,28 @@
                 "origin": [
                   null
                 ],
-                "fact": "resource(\"file2\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "time(2020-12-21T09:23:12Z)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file1\", \"read\")"
+                "facts": [
+                  "resource(\"file2\")",
+                  "time(2020-12-21T09:23:12Z)"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "right(\"file1\", \"read\")",
+                  "right(\"file2\", \"read\")"
+                ]
               }
             ],
             "rules": [
               {
                 "origin": 1,
-                "rule": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z"
-              },
-              {
-                "origin": 1,
-                "rule": "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                "rules": [
+                  "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
+                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                ]
               }
             ],
             "checks": [
@@ -1003,7 +970,9 @@
                 "origin": [
                   null
                 ],
-                "fact": "resource(\"file1\")"
+                "facts": [
+                  "resource(\"file1\")"
+                ]
               }
             ],
             "rules": [],
@@ -1046,7 +1015,9 @@
                 "origin": [
                   null
                 ],
-                "fact": "resource(\"file123.txt\")"
+                "facts": [
+                  "resource(\"file123.txt\")"
+                ]
               }
             ],
             "rules": [],
@@ -1089,7 +1060,9 @@
                 "origin": [
                   0
                 ],
-                "fact": "must_be_present(\"hello\")"
+                "facts": [
+                  "must_be_present(\"hello\")"
+                ]
               }
             ],
             "rules": [],
@@ -1139,7 +1112,9 @@
                 "origin": [
                   1
                 ],
-                "fact": "query(\"test\")"
+                "facts": [
+                  "query(\"test\")"
+                ]
               }
             ],
             "rules": [],
@@ -1328,22 +1303,28 @@
             "facts": [
               {
                 "origin": [
-                  null
-                ],
-                "fact": "operation(\"write\")"
-              },
-              {
-                "origin": [
                   null,
                   1
                 ],
-                "fact": "operation(\"read\")"
+                "facts": [
+                  "operation(\"read\")"
+                ]
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "facts": [
+                  "operation(\"write\")"
+                ]
               }
             ],
             "rules": [
               {
                 "origin": 1,
-                "rule": "operation(\"read\") <- operation($any)"
+                "rules": [
+                  "operation(\"read\") <- operation($any)"
+                ]
               }
             ],
             "checks": [
@@ -1409,33 +1390,22 @@
             "facts": [
               {
                 "origin": [
+                  0
+                ],
+                "facts": [
+                  "right(\"file1\", \"read\")",
+                  "right(\"file1\", \"write\")",
+                  "right(\"file2\", \"read\")"
+                ]
+              },
+              {
+                "origin": [
                   null
                 ],
-                "fact": "operation(\"read\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "resource(\"file1\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file1\", \"read\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file1\", \"write\")"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(\"file2\", \"read\")"
+                "facts": [
+                  "operation(\"read\")",
+                  "resource(\"file1\")"
+                ]
               }
             ],
             "rules": [],
@@ -1479,7 +1449,9 @@
                 "origin": [
                   0
                 ],
-                "fact": "ns::fact_123(\"hello é\t😁\")"
+                "facts": [
+                  "ns::fact_123(\"hello é\t😁\")"
+                ]
               }
             ],
             "rules": [],
@@ -1519,169 +1491,36 @@
                 "origin": [
                   0
                 ],
-                "fact": "admin(13)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "client(18)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "client_ip(19)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "cluster(23)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "domain(20)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "email(14)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "group(15)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "hostname(25)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "ip_address(17)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "member(16)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "namespace(9)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "node(24)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "nonce(26)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "operation(3)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "owner(7)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "path(21)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "query(27)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "read(0)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "resource(2)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "right(4)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "role(6)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "service(12)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "team(11)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "tenant(8)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "time(5)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "user(10)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "version(22)"
-              },
-              {
-                "origin": [
-                  0
-                ],
-                "fact": "write(1)"
+                "facts": [
+                  "admin(13)",
+                  "client(18)",
+                  "client_ip(19)",
+                  "cluster(23)",
+                  "domain(20)",
+                  "email(14)",
+                  "group(15)",
+                  "hostname(25)",
+                  "ip_address(17)",
+                  "member(16)",
+                  "namespace(9)",
+                  "node(24)",
+                  "nonce(26)",
+                  "operation(3)",
+                  "owner(7)",
+                  "path(21)",
+                  "query(27)",
+                  "read(0)",
+                  "resource(2)",
+                  "right(4)",
+                  "role(6)",
+                  "service(12)",
+                  "team(11)",
+                  "tenant(8)",
+                  "time(5)",
+                  "user(10)",
+                  "version(22)",
+                  "write(1)"
+                ]
               }
             ],
             "rules": [],
@@ -1739,13 +1578,17 @@
                 "origin": [
                   0
                 ],
-                "fact": "authority_fact(1)"
+                "facts": [
+                  "authority_fact(1)"
+                ]
               },
               {
                 "origin": [
                   1
                 ],
-                "fact": "block1_fact(1)"
+                "facts": [
+                  "block1_fact(1)"
+                ]
               }
             ],
             "rules": [],
@@ -1811,15 +1654,19 @@
             "facts": [
               {
                 "origin": [
-                  0
+                  1
                 ],
-                "fact": "right(\"read\")"
+                "facts": [
+                  "group(\"admin\")"
+                ]
               },
               {
                 "origin": [
-                  1
+                  0
                 ],
-                "fact": "group(\"admin\")"
+                "facts": [
+                  "right(\"read\")"
+                ]
               }
             ],
             "rules": [],
@@ -1865,21 +1712,20 @@
             "facts": [
               {
                 "origin": [
-                  null
-                ],
-                "fact": "operation(\"A\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "operation(\"B\")"
-              },
-              {
-                "origin": [
                   0
                 ],
-                "fact": "allowed_operations([\"A\", \"B\"])"
+                "facts": [
+                  "allowed_operations([\"A\", \"B\"])"
+                ]
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "facts": [
+                  "operation(\"A\")",
+                  "operation(\"B\")"
+                ]
               }
             ],
             "rules": [],
@@ -1905,19 +1751,18 @@
                 "origin": [
                   null
                 ],
-                "fact": "operation(\"A\")"
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "fact": "operation(\"invalid\")"
+                "facts": [
+                  "operation(\"A\")",
+                  "operation(\"invalid\")"
+                ]
               },
               {
                 "origin": [
                   0
                 ],
-                "fact": "allowed_operations([\"A\", \"B\"])"
+                "facts": [
+                  "allowed_operations([\"A\", \"B\"])"
+                ]
               }
             ],
             "rules": [],
@@ -2002,46 +1847,60 @@
             "facts": [
               {
                 "origin": [
-                  0
+                  2
                 ],
-                "fact": "query(0)"
+                "facts": [
+                  "query(2)"
+                ]
               },
               {
                 "origin": [
-                  1
+                  3
                 ],
-                "fact": "query(1)"
+                "facts": [
+                  "query(3)"
+                ]
               },
               {
                 "origin": [
                   1,
                   2
                 ],
-                "fact": "query(1, 2)"
+                "facts": [
+                  "query(1, 2)"
+                ]
               },
               {
                 "origin": [
-                  2
+                  0
                 ],
-                "fact": "query(2)"
+                "facts": [
+                  "query(0)"
+                ]
               },
               {
                 "origin": [
-                  3
+                  1
                 ],
-                "fact": "query(3)"
+                "facts": [
+                  "query(1)"
+                ]
               },
               {
                 "origin": [
                   4
                 ],
-                "fact": "query(4)"
+                "facts": [
+                  "query(4)"
+                ]
               }
             ],
             "rules": [
               {
                 "origin": 1,
-                "rule": "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
+                "rules": [
+                  "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
+                ]
               }
             ],
             "checks": [

@@ -250,22 +250,22 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<AuthorizerFact>,
-    pub rules: BTreeSet<AuthorizerRule>,
+    pub facts: Vec<AuthorizerFactSet>,
+    pub rules: Vec<AuthorizerRuleSet>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerFact {
+struct AuthorizerFactSet {
     origin: BTreeSet<Option<usize>>,
-    fact: String,
+    facts: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerRule {
+struct AuthorizerRuleSet {
     origin: Option<usize>,
-    rule: String,
+    rules: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -325,28 +325,35 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     )
     .unwrap();
 
-    let mut facts = BTreeSet::new();
-    let mut rules = BTreeSet::new();
+    let mut authorizer_facts = Vec::new();
+    let mut authorizer_rules = Vec::new();
     for (i, block) in snapshot.world.blocks.iter().enumerate() {
-        let mut origin = BTreeSet::new();
-        origin.insert(i);
+        let mut rules: Vec<String> = Vec::new();
         for rule in block.rules_v2.iter() {
             let r =
                 convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-            rules.insert(AuthorizerRule {
-                rule: symbols.print_rule(&r.0),
+            rules.push(symbols.print_rule(&r.0));
+        }
+        if !rules.is_empty() {
+            rules.sort();
+            authorizer_rules.push(AuthorizerRuleSet {
                 origin: Some(i),
+                rules,
             });
         }
     }
 
-    let mut authorizer_origin = BTreeSet::new();
-    authorizer_origin.insert(usize::MAX);
+    let mut rules: Vec<String> = Vec::new();
     for rule in snapshot.world.authorizer_block.rules_v2 {
         let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-        rules.insert(AuthorizerRule {
-            rule: symbols.print_rule(&r.0),
-            origin: None,
+
+        rules.push(symbols.print_rule(&r.0));
+    }
+    if !rules.is_empty() {
+        rules.sort();
+        authorizer_rules.push(AuthorizerRuleSet {
+            origin: Some(usize::MAX),
+            rules,
         });
     }
 
@@ -361,19 +368,22 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
             };
         }
 
+        let mut facts = Vec::new();
+
         for fact in factset.facts {
             let f = convert::proto_fact_to_token_fact(&fact).unwrap();
-            facts.insert(AuthorizerFact {
-                fact: symbols.print_fact(&f),
-                origin: origin.clone(),
-            });
+            facts.push(symbols.print_fact(&f));
+        }
+        if !facts.is_empty() {
+            facts.sort();
+            authorizer_facts.push(AuthorizerFactSet { origin, facts });
         }
     }
 
     Validation {
         world: Some(AuthorizerWorld {
-            facts,
-            rules,
+            facts: authorizer_facts,
+            rules: authorizer_rules,
             checks: checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
