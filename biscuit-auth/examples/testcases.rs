@@ -252,7 +252,7 @@ impl TestResult {
 struct AuthorizerWorld {
     pub facts: Vec<AuthorizerFactSet>,
     pub rules: Vec<AuthorizerRuleSet>,
-    pub checks: BTreeSet<String>,
+    pub checks: Vec<AuthorizerCheckSet>,
     pub policies: BTreeSet<String>,
 }
 
@@ -266,6 +266,12 @@ struct AuthorizerFactSet {
 struct AuthorizerRuleSet {
     origin: Option<usize>,
     rules: Vec<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerCheckSet {
+    origin: Option<usize>,
+    checks: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -311,7 +317,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
     let res = authorizer.authorize();
     //println!("authorizer world:\n{}", authorizer.print_world());
-    let (_, _, mut checks, mut policies) = authorizer.dump();
+    let (_, _, _, mut policies) = authorizer.dump();
     let snapshot = authorizer.snapshot().unwrap();
 
     let symbols = SymbolTable::from_symbols_and_public_keys(
@@ -327,6 +333,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
     let mut authorizer_facts = Vec::new();
     let mut authorizer_rules = Vec::new();
+    let mut authorizer_checks = Vec::new();
     for (i, block) in snapshot.world.blocks.iter().enumerate() {
         let mut rules: Vec<String> = Vec::new();
         for rule in block.rules_v2.iter() {
@@ -339,6 +346,20 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
             authorizer_rules.push(AuthorizerRuleSet {
                 origin: Some(i),
                 rules,
+            });
+        }
+
+        let mut checks = Vec::new();
+        for check in block.checks_v2.iter() {
+            let c = convert::proto_check_to_token_check(&check, snapshot.world.version.unwrap())
+                .unwrap();
+            checks.push(symbols.print_check(&c));
+        }
+        if !checks.is_empty() {
+            checks.sort();
+            authorizer_checks.push(AuthorizerCheckSet {
+                origin: Some(i),
+                checks,
             });
         }
     }
@@ -354,6 +375,20 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         authorizer_rules.push(AuthorizerRuleSet {
             origin: Some(usize::MAX),
             rules,
+        });
+    }
+
+    let mut checks = Vec::new();
+    for check in snapshot.world.authorizer_block.checks_v2 {
+        let c =
+            convert::proto_check_to_token_check(&check, snapshot.world.version.unwrap()).unwrap();
+        checks.push(symbols.print_check(&c));
+    }
+    if !checks.is_empty() {
+        checks.sort();
+        authorizer_checks.push(AuthorizerCheckSet {
+            origin: Some(usize::MAX),
+            checks,
         });
     }
 
@@ -384,7 +419,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         world: Some(AuthorizerWorld {
             facts: authorizer_facts,
             rules: authorizer_rules,
-            checks: checks.drain(..).map(|c| c.to_string()).collect(),
+            checks: authorizer_checks, //checks.drain(..).map(|c| c.to_string()).collect(),
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
         result: match res {
