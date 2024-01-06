@@ -28,30 +28,30 @@
         "": {
           "world": {
             "facts": [
-              [
-                "resource(\"file1\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
+                ],
+                "fact": "resource(\"file1\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file1\", \"write\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"write\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -323,42 +323,42 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "owner(\"alice\", \"file1\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "resource(\"file2\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "owner(\"alice\", \"file2\")",
-                [
+                ],
+                "fact": "owner(\"alice\", \"file1\")"
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "fact": "user_id(\"alice\")"
+              },
+              {
+                "origin": [
                   2
-                ]
-              ],
-              [
-                "resource(\"file2\")",
-                [
-                  null
-                ]
-              ],
-              [
-                "user_id(\"alice\")",
-                [
-                  0
-                ]
-              ]
+                ],
+                "fact": "owner(\"alice\", \"file2\")"
+              }
             ],
             "rules": [
-              [
-                "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)",
-                1
-              ]
+              {
+                "origin": 1,
+                "rule": "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0)"
+              }
             ],
             "checks": [
               "check if resource($0), operation(\"read\"), right($0, \"read\")"
@@ -429,30 +429,30 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file2\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
+                ],
+                "fact": "resource(\"file2\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
                   2
-                ]
-              ]
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -514,24 +514,24 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file1\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "time(2020-12-21T09:23:12Z)",
-                [
+                ],
+                "fact": "resource(\"file1\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "time(2020-12-21T09:23:12Z)"
+              }
             ],
             "rules": [],
             "checks": [
@@ -595,30 +595,30 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file2\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
+                ],
+                "fact": "resource(\"file2\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
                   1
-                ]
-              ]
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -672,24 +672,24 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file2\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
+                ],
+                "fact": "resource(\"file2\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -742,18 +742,18 @@
         "file1": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file1\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "resource(\"file1\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -774,18 +774,18 @@
         "file2": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file2\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "resource(\"file2\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -850,47 +850,47 @@
         "file1": {
           "world": {
             "facts": [
-              [
-                "resource(\"file1\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
-                  0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
-                  0
-                ]
-              ],
-              [
-                "time(2020-12-21T09:23:12Z)",
-                [
+                ],
+                "fact": "resource(\"file1\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "valid_date(\"file1\")",
-                [
+                ],
+                "fact": "time(2020-12-21T09:23:12Z)"
+              },
+              {
+                "origin": [
                   null,
                   1
-                ]
-              ]
+                ],
+                "fact": "valid_date(\"file1\")"
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [
-              [
-                "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-                1
-              ],
-              [
-                "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-                1
-              ]
+              {
+                "origin": 1,
+                "rule": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z"
+              },
+              {
+                "origin": 1,
+                "rule": "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+              }
             ],
             "checks": [
               "check if valid_date($0), resource($0)"
@@ -911,40 +911,40 @@
         "file2": {
           "world": {
             "facts": [
-              [
-                "resource(\"file2\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
-                  0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
-                  0
-                ]
-              ],
-              [
-                "time(2020-12-21T09:23:12Z)",
-                [
+                ],
+                "fact": "resource(\"file2\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "time(2020-12-21T09:23:12Z)"
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [
-              [
-                "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-                1
-              ],
-              [
-                "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)",
-                1
-              ]
+              {
+                "origin": 1,
+                "rule": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z"
+              },
+              {
+                "origin": 1,
+                "rule": "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+              }
             ],
             "checks": [
               "check if valid_date($0), resource($0)"
@@ -999,12 +999,12 @@
         "file1": {
           "world": {
             "facts": [
-              [
-                "resource(\"file1\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "resource(\"file1\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1042,12 +1042,12 @@
         "file123": {
           "world": {
             "facts": [
-              [
-                "resource(\"file123.txt\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ]
+                ],
+                "fact": "resource(\"file123.txt\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1085,12 +1085,12 @@
         "": {
           "world": {
             "facts": [
-              [
-                "must_be_present(\"hello\")",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "must_be_present(\"hello\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1135,12 +1135,12 @@
         "": {
           "world": {
             "facts": [
-              [
-                "query(\"test\")",
-                [
+              {
+                "origin": [
                   1
-                ]
-              ]
+                ],
+                "fact": "query(\"test\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1326,25 +1326,25 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "operation(\"write\")"
+              },
+              {
+                "origin": [
                   null,
                   1
-                ]
-              ],
-              [
-                "operation(\"write\")",
-                [
-                  null
-                ]
-              ]
+                ],
+                "fact": "operation(\"read\")"
+              }
             ],
             "rules": [
-              [
-                "operation(\"read\") <- operation($any)",
-                1
-              ]
+              {
+                "origin": 1,
+                "rule": "operation(\"read\") <- operation($any)"
+              }
             ],
             "checks": [
               "check if operation(\"read\")"
@@ -1407,36 +1407,36 @@
         "": {
           "world": {
             "facts": [
-              [
-                "operation(\"read\")",
-                [
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "resource(\"file1\")",
-                [
+                ],
+                "fact": "operation(\"read\")"
+              },
+              {
+                "origin": [
                   null
-                ]
-              ],
-              [
-                "right(\"file1\", \"read\")",
-                [
+                ],
+                "fact": "resource(\"file1\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file1\", \"write\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"read\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(\"file2\", \"read\")",
-                [
+                ],
+                "fact": "right(\"file1\", \"write\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "right(\"file2\", \"read\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1475,12 +1475,12 @@
         "": {
           "world": {
             "facts": [
-              [
-                "ns::fact_123(\"hello é\t😁\")",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "ns::fact_123(\"hello é\t😁\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1515,174 +1515,174 @@
         "": {
           "world": {
             "facts": [
-              [
-                "admin(13)",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "client(18)",
-                [
+                ],
+                "fact": "admin(13)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "client_ip(19)",
-                [
+                ],
+                "fact": "client(18)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "cluster(23)",
-                [
+                ],
+                "fact": "client_ip(19)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "domain(20)",
-                [
+                ],
+                "fact": "cluster(23)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "email(14)",
-                [
+                ],
+                "fact": "domain(20)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "group(15)",
-                [
+                ],
+                "fact": "email(14)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "hostname(25)",
-                [
+                ],
+                "fact": "group(15)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "ip_address(17)",
-                [
+                ],
+                "fact": "hostname(25)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "member(16)",
-                [
+                ],
+                "fact": "ip_address(17)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "namespace(9)",
-                [
+                ],
+                "fact": "member(16)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "node(24)",
-                [
+                ],
+                "fact": "namespace(9)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "nonce(26)",
-                [
+                ],
+                "fact": "node(24)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "operation(3)",
-                [
+                ],
+                "fact": "nonce(26)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "owner(7)",
-                [
+                ],
+                "fact": "operation(3)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "path(21)",
-                [
+                ],
+                "fact": "owner(7)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "query(27)",
-                [
+                ],
+                "fact": "path(21)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "read(0)",
-                [
+                ],
+                "fact": "query(27)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "resource(2)",
-                [
+                ],
+                "fact": "read(0)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "right(4)",
-                [
+                ],
+                "fact": "resource(2)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "role(6)",
-                [
+                ],
+                "fact": "right(4)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "service(12)",
-                [
+                ],
+                "fact": "role(6)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "team(11)",
-                [
+                ],
+                "fact": "service(12)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "tenant(8)",
-                [
+                ],
+                "fact": "team(11)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "time(5)",
-                [
+                ],
+                "fact": "tenant(8)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "user(10)",
-                [
+                ],
+                "fact": "time(5)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "version(22)",
-                [
+                ],
+                "fact": "user(10)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "write(1)",
-                [
+                ],
+                "fact": "version(22)"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "write(1)"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1735,18 +1735,18 @@
         "": {
           "world": {
             "facts": [
-              [
-                "authority_fact(1)",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "block1_fact(1)",
-                [
+                ],
+                "fact": "authority_fact(1)"
+              },
+              {
+                "origin": [
                   1
-                ]
-              ]
+                ],
+                "fact": "block1_fact(1)"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1809,18 +1809,18 @@
         "": {
           "world": {
             "facts": [
-              [
-                "group(\"admin\")",
-                [
-                  1
-                ]
-              ],
-              [
-                "right(\"read\")",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ]
+                ],
+                "fact": "right(\"read\")"
+              },
+              {
+                "origin": [
+                  1
+                ],
+                "fact": "group(\"admin\")"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1863,24 +1863,24 @@
         "A, B": {
           "world": {
             "facts": [
-              [
-                "allowed_operations([\"A\", \"B\"])",
-                [
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "operation(\"A\")"
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "operation(\"B\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "operation(\"A\")",
-                [
-                  null
-                ]
-              ],
-              [
-                "operation(\"B\")",
-                [
-                  null
-                ]
-              ]
+                ],
+                "fact": "allowed_operations([\"A\", \"B\"])"
+              }
             ],
             "rules": [],
             "checks": [
@@ -1901,24 +1901,24 @@
         "A, invalid": {
           "world": {
             "facts": [
-              [
-                "allowed_operations([\"A\", \"B\"])",
-                [
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "operation(\"A\")"
+              },
+              {
+                "origin": [
+                  null
+                ],
+                "fact": "operation(\"invalid\")"
+              },
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "operation(\"A\")",
-                [
-                  null
-                ]
-              ],
-              [
-                "operation(\"invalid\")",
-                [
-                  null
-                ]
-              ]
+                ],
+                "fact": "allowed_operations([\"A\", \"B\"])"
+              }
             ],
             "rules": [],
             "checks": [
@@ -2000,49 +2000,49 @@
         "": {
           "world": {
             "facts": [
-              [
-                "query(0)",
-                [
+              {
+                "origin": [
                   0
-                ]
-              ],
-              [
-                "query(1)",
-                [
+                ],
+                "fact": "query(0)"
+              },
+              {
+                "origin": [
                   1
-                ]
-              ],
-              [
-                "query(1, 2)",
-                [
+                ],
+                "fact": "query(1)"
+              },
+              {
+                "origin": [
                   1,
                   2
-                ]
-              ],
-              [
-                "query(2)",
-                [
+                ],
+                "fact": "query(1, 2)"
+              },
+              {
+                "origin": [
                   2
-                ]
-              ],
-              [
-                "query(3)",
-                [
+                ],
+                "fact": "query(2)"
+              },
+              {
+                "origin": [
                   3
-                ]
-              ],
-              [
-                "query(4)",
-                [
+                ],
+                "fact": "query(3)"
+              },
+              {
+                "origin": [
                   4
-                ]
-              ]
+                ],
+                "fact": "query(4)"
+              }
             ],
             "rules": [
-              [
-                "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
-                1
-              ]
+              {
+                "origin": 1,
+                "rule": "query(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
+              }
             ],
             "checks": [
               "check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",

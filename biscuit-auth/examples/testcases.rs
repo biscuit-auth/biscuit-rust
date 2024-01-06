@@ -250,10 +250,22 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<(String, BTreeSet<Option<usize>>)>,
-    pub rules: BTreeSet<(String, Option<usize>)>,
+    pub facts: BTreeSet<AuthorizerFact>,
+    pub rules: BTreeSet<AuthorizerRule>,
     pub checks: BTreeSet<String>,
     pub policies: BTreeSet<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerFact {
+    origin: BTreeSet<Option<usize>>,
+    fact: String,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerRule {
+    origin: Option<usize>,
+    rule: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -321,7 +333,10 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         for rule in block.rules_v2.iter() {
             let r =
                 convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-            rules.insert((symbols.print_rule(&r.0), Some(i)));
+            rules.insert(AuthorizerRule {
+                rule: symbols.print_rule(&r.0),
+                origin: Some(i),
+            });
         }
     }
 
@@ -329,7 +344,10 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     authorizer_origin.insert(usize::MAX);
     for rule in snapshot.world.authorizer_block.rules_v2 {
         let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-        rules.insert((symbols.print_rule(&r.0), None));
+        rules.insert(AuthorizerRule {
+            rule: symbols.print_rule(&r.0),
+            origin: None,
+        });
     }
 
     for factset in snapshot.world.generated_facts {
@@ -345,7 +363,10 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
         for fact in factset.facts {
             let f = convert::proto_fact_to_token_fact(&fact).unwrap();
-            facts.insert((symbols.print_fact(&f), origin.clone()));
+            facts.insert(AuthorizerFact {
+                fact: symbols.print_fact(&f),
+                origin: origin.clone(),
+            });
         }
     }
 
