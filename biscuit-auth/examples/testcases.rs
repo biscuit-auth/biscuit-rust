@@ -414,12 +414,13 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
             authorizer_facts.push(AuthorizerFactSet { origin, facts });
         }
     }
+    authorizer_facts.sort();
 
     Validation {
         world: Some(AuthorizerWorld {
             facts: authorizer_facts,
             rules: authorizer_rules,
-            checks: authorizer_checks, //checks.drain(..).map(|c| c.to_string()).collect(),
+            checks: authorizer_checks,
             policies: policies.drain(..).map(|p| p.to_string()).collect(),
         }),
         result: match res {

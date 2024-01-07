@@ -47,6 +47,14 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "resource(\"file1\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
@@ -55,14 +63,6 @@ World {
             "right(\"file1\", \"read\")",
             "right(\"file1\", \"write\")",
             "right(\"file2\", \"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "resource(\"file1\")",
         ],
     },
 ]
@@ -298,6 +298,15 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
@@ -305,15 +314,6 @@ World {
         facts: [
             "owner(\"alice\", \"file1\")",
             "user_id(\"alice\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"read\")",
-            "resource(\"file2\")",
         ],
     },
     AuthorizerFactSet {
@@ -409,21 +409,21 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
         facts: [
             "right(\"file1\", \"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"read\")",
-            "resource(\"file2\")",
         ],
     },
     AuthorizerFactSet {
@@ -576,12 +576,11 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
-            Some(
-                1,
-            ),
+            None,
         },
         facts: [
-            "right(\"file2\", \"read\")",
+            "operation(\"read\")",
+            "resource(\"file2\")",
         ],
     },
     AuthorizerFactSet {
@@ -596,11 +595,12 @@ World {
     },
     AuthorizerFactSet {
         origin: {
-            None,
+            Some(
+                1,
+            ),
         },
         facts: [
-            "operation(\"read\")",
-            "resource(\"file2\")",
+            "right(\"file2\", \"read\")",
         ],
     },
 ]
@@ -659,21 +659,21 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file2\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
         facts: [
             "right(\"file1\", \"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"read\")",
-            "resource(\"file2\")",
         ],
     },
 ]
@@ -849,17 +849,6 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
-            Some(
-                0,
-            ),
-        },
-        facts: [
-            "right(\"file1\", \"read\")",
-            "right(\"file2\", \"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
             None,
         },
         facts: [
@@ -876,6 +865,17 @@ World {
         },
         facts: [
             "valid_date(\"file1\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            Some(
+                0,
+            ),
+        },
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file2\", \"read\")",
         ],
     },
 ]
@@ -1403,20 +1403,20 @@ World {
     AuthorizerFactSet {
         origin: {
             None,
+        },
+        facts: [
+            "operation(\"write\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            None,
             Some(
                 1,
             ),
         },
         facts: [
             "operation(\"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"write\")",
         ],
     },
 ]
@@ -1494,6 +1494,15 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file1\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
@@ -1502,15 +1511,6 @@ World {
             "right(\"file1\", \"read\")",
             "right(\"file1\", \"write\")",
             "right(\"file2\", \"read\")",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"read\")",
-            "resource(\"file1\")",
         ],
     },
 ]
@@ -1926,21 +1926,21 @@ World {
   facts: [
     AuthorizerFactSet {
         origin: {
+            None,
+        },
+        facts: [
+            "operation(\"A\")",
+            "operation(\"B\")",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
             Some(
                 0,
             ),
         },
         facts: [
             "allowed_operations([\"A\", \"B\"])",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            None,
-        },
-        facts: [
-            "operation(\"A\")",
-            "operation(\"B\")",
         ],
     },
 ]
@@ -2111,6 +2111,26 @@ World {
     AuthorizerFactSet {
         origin: {
             Some(
+                0,
+            ),
+        },
+        facts: [
+            "query(0)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            Some(
+                1,
+            ),
+        },
+        facts: [
+            "query(1)",
+        ],
+    },
+    AuthorizerFactSet {
+        origin: {
+            Some(
                 1,
             ),
             Some(
@@ -2124,11 +2144,11 @@ World {
     AuthorizerFactSet {
         origin: {
             Some(
-                1,
+                2,
             ),
         },
         facts: [
-            "query(1)",
+            "query(2)",
         ],
     },
     AuthorizerFactSet {
@@ -2149,26 +2169,6 @@ World {
         },
         facts: [
             "query(4)",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            Some(
-                0,
-            ),
-        },
-        facts: [
-            "query(0)",
-        ],
-    },
-    AuthorizerFactSet {
-        origin: {
-            Some(
-                2,
-            ),
-        },
-        facts: [
-            "query(2)",
         ],
     },
 ]

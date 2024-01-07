@@ -324,14 +324,6 @@
             "facts": [
               {
                 "origin": [
-                  2
-                ],
-                "facts": [
-                  "owner(\"alice\", \"file2\")"
-                ]
-              },
-              {
-                "origin": [
                   null
                 ],
                 "facts": [
@@ -346,6 +338,14 @@
                 "facts": [
                   "owner(\"alice\", \"file1\")",
                   "user_id(\"alice\")"
+                ]
+              },
+              {
+                "origin": [
+                  2
+                ],
+                "facts": [
+                  "owner(\"alice\", \"file2\")"
                 ]
               }
             ],
@@ -602,19 +602,19 @@
             "facts": [
               {
                 "origin": [
-                  0
-                ],
-                "facts": [
-                  "right(\"file1\", \"read\")"
-                ]
-              },
-              {
-                "origin": [
                   null
                 ],
                 "facts": [
                   "operation(\"read\")",
                   "resource(\"file2\")"
+                ]
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "facts": [
+                  "right(\"file1\", \"read\")"
                 ]
               },
               {
@@ -685,19 +685,19 @@
             "facts": [
               {
                 "origin": [
-                  0
-                ],
-                "facts": [
-                  "right(\"file1\", \"read\")"
-                ]
-              },
-              {
-                "origin": [
                   null
                 ],
                 "facts": [
                   "operation(\"read\")",
                   "resource(\"file2\")"
+                ]
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "facts": [
+                  "right(\"file1\", \"read\")"
                 ]
               }
             ],
@@ -871,6 +871,15 @@
             "facts": [
               {
                 "origin": [
+                  null
+                ],
+                "facts": [
+                  "resource(\"file1\")",
+                  "time(2020-12-21T09:23:12Z)"
+                ]
+              },
+              {
+                "origin": [
                   null,
                   1
                 ],
@@ -885,15 +894,6 @@
                 "facts": [
                   "right(\"file1\", \"read\")",
                   "right(\"file2\", \"read\")"
-                ]
-              },
-              {
-                "origin": [
-                  null
-                ],
-                "facts": [
-                  "resource(\"file1\")",
-                  "time(2020-12-21T09:23:12Z)"
                 ]
               }
             ],
@@ -1755,18 +1755,18 @@
             "facts": [
               {
                 "origin": [
-                  1
-                ],
-                "facts": [
-                  "group(\"admin\")"
-                ]
-              },
-              {
-                "origin": [
                   0
                 ],
                 "facts": [
                   "right(\"read\")"
+                ]
+              },
+              {
+                "origin": [
+                  1
+                ],
+                "facts": [
+                  "group(\"admin\")"
                 ]
               }
             ],
@@ -1823,19 +1823,19 @@
             "facts": [
               {
                 "origin": [
-                  0
-                ],
-                "facts": [
-                  "allowed_operations([\"A\", \"B\"])"
-                ]
-              },
-              {
-                "origin": [
                   null
                 ],
                 "facts": [
                   "operation(\"A\")",
                   "operation(\"B\")"
+                ]
+              },
+              {
+                "origin": [
+                  0
+                ],
+                "facts": [
+                  "allowed_operations([\"A\", \"B\"])"
                 ]
               }
             ],
@@ -1968,10 +1968,10 @@
             "facts": [
               {
                 "origin": [
-                  3
+                  0
                 ],
                 "facts": [
-                  "query(3)"
+                  "query(0)"
                 ]
               },
               {
@@ -1993,18 +1993,18 @@
               },
               {
                 "origin": [
-                  0
-                ],
-                "facts": [
-                  "query(0)"
-                ]
-              },
-              {
-                "origin": [
                   2
                 ],
                 "facts": [
                   "query(2)"
+                ]
+              },
+              {
+                "origin": [
+                  3
+                ],
+                "facts": [
+                  "query(3)"
                 ]
               },
               {
