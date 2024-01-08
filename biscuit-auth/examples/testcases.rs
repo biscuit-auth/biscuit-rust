@@ -253,7 +253,7 @@ struct AuthorizerWorld {
     pub facts: Vec<AuthorizerFactSet>,
     pub rules: Vec<AuthorizerRuleSet>,
     pub checks: Vec<AuthorizerCheckSet>,
-    pub policies: BTreeSet<String>,
+    pub policies: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -317,7 +317,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
     let res = authorizer.authorize();
     //println!("authorizer world:\n{}", authorizer.print_world());
-    let (_, _, _, mut policies) = authorizer.dump();
+    let (_, _, _, policies) = authorizer.dump();
     let snapshot = authorizer.snapshot().unwrap();
 
     let symbols = SymbolTable::from_symbols_and_public_keys(
@@ -421,7 +421,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
             facts: authorizer_facts,
             rules: authorizer_rules,
             checks: authorizer_checks,
-            policies: policies.drain(..).map(|p| p.to_string()).collect(),
+            policies: policies.into_iter().map(|p| p.to_string()).collect(),
         }),
         result: match res {
             Ok(i) => AuthorizerResult::Ok(i),
