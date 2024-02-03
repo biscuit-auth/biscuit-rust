@@ -24,6 +24,8 @@ datalog-macro = ["biscuit-quote"]
 bwk = ["chrono", "serde"]
 docsrs = []
 uuid = ["dep:uuid"]
+# used to expose pem/der loaders for keypairs
+pem = ["ed25519-dalek/pem"]
 
 [dependencies]
 rand_core = "^0.6"
@@ -39,7 +41,7 @@ rand = { version = "0.8" }
 inline-c = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 base64 = "0.13.0"
-ed25519-dalek = { version = "2.0.0", features = ["rand_core", "zeroize", "pem"] }
+ed25519-dalek = { version = "2.0.0", features = ["rand_core", "zeroize"] }
 serde = { version = "1.0.132", optional = true, features = ["derive"] }
 getrandom = { version = "0.1.16" }
 time = { version = "0.3.7", features = ["formatting", "parsing"] }
