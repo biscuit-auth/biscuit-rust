@@ -10,10 +10,13 @@
 use crate::{error::Format, format::schema};
 
 use super::error;
+#[cfg(feature = "pem")]
+use ed25519_dalek::pkcs8::DecodePrivateKey;
 use ed25519_dalek::*;
+
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, str::FromStr};
+use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, path::Path, str::FromStr};
 use zeroize::Zeroize;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -37,6 +40,34 @@ impl KeyPair {
         KeyPair {
             kp: ed25519_dalek::SigningKey::from_bytes(&key.0),
         }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        let kp = SigningKey::from_pkcs8_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(KeyPair { kp })
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+        let kp = SigningKey::from_pkcs8_pem(str)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(KeyPair { kp })
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_der_file(path: impl AsRef<Path>) -> Result<Self, error::Format> {
+        let kp = SigningKey::read_pkcs8_der_file(path)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(KeyPair { kp })
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_pem_file(path: impl AsRef<Path>) -> Result<Self, error::Format> {
+        let kp = SigningKey::read_pkcs8_pem_file(path)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(KeyPair { kp })
     }
 
     pub fn private(&self) -> PrivateKey {

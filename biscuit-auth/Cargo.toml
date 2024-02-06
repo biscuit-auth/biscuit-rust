@@ -24,6 +24,8 @@ datalog-macro = ["biscuit-quote"]
 bwk = ["chrono", "serde"]
 docsrs = []
 uuid = ["dep:uuid"]
+# used to expose pem/der loaders for keypairs
+pem = ["ed25519-dalek/pem"]
 
 [dependencies]
 rand_core = "^0.6"
