@@ -1,5 +1,7 @@
 # not released
 
+# `4.1.0`
+
 - fix: typo in documentation (#190) (Rémi Duraffort)
 - fix: include all authorizer facts and rules when using `Display` (#195) (Clément Delafargue)
 - Add optional support for PEM/DER parsing (#204) (Baran Yildirim)
