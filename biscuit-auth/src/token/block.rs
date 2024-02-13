@@ -98,8 +98,8 @@ impl Block {
                 })
                 .collect::<Result<Vec<Check>, error::Format>>()?,
             context: self.context.clone(),
-            version: self.version.clone(),
-            external_key: self.external_key.clone(),
+            version: self.version,
+            external_key: self.external_key,
             public_keys: self.public_keys.clone(),
             scopes: self
                 .scopes

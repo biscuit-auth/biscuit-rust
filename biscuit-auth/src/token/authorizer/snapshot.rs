@@ -61,7 +61,7 @@ impl super::Authorizer {
         let policies = world
             .authorizer_policies
             .iter()
-            .map(|policy| proto_policy_to_policy(&policy, &symbols, version))
+            .map(|policy| proto_policy_to_policy(policy, &symbols, version))
             .collect::<Result<Vec<Policy>, error::Format>>()?;
 
         let mut authorizer = super::Authorizer::new();

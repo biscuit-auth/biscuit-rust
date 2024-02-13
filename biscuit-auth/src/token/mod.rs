@@ -632,7 +632,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
-        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
+        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_default(),
         block.public_keys.keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
         block.scopes,
         facts,

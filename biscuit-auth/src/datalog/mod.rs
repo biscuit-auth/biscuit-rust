@@ -135,12 +135,12 @@ impl Rule {
 
         CombineIt::new(variables, &self.body, facts, symbols)
         .map(move |(origin, variables)| {
-                    let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+                    let mut temporary_symbols = TemporarySymbolTable::new(symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
                             Ok(Term::Bool(true)) => {}
                             Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
-                            Ok(_) => return Err(error::Expression::InvalidType.into()),
+                            Ok(_) => return Err(error::Expression::InvalidType),
                             Err(e) => {
                                 //println!("expr returned {:?}", res);
                                 return Err(e);
@@ -207,7 +207,7 @@ impl Rule {
         for (_, variables) in CombineIt::new(variables, &self.body, fact_it, symbols) {
             found = true;
 
-            let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+            let mut temporary_symbols = TemporarySymbolTable::new(symbols);
             for e in self.expressions.iter() {
                 match e.evaluate(&variables, &mut temporary_symbols) {
                     Ok(Term::Bool(true)) => {}
@@ -775,7 +775,7 @@ impl FactSet {
             .flatten()
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
@@ -829,7 +829,7 @@ impl RuleSet {
         }
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
@@ -918,7 +918,7 @@ pub fn contains_v4_op(expressions: &[Expression]) -> bool {
                     _ => return false,
                 }
             }
-            return false;
+            false
         })
     })
 }

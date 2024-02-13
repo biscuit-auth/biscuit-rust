@@ -217,7 +217,7 @@ impl FromStr for PublicKey {
 
 impl Display for PublicKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ed25519/{}", hex::encode(&self.to_bytes()))
+        write!(f, "ed25519/{}", hex::encode(self.to_bytes()))
     }
 }
 
@@ -305,7 +305,7 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
 
 impl Token {
     #[allow(dead_code)]
-    pub fn new<T: RngCore + CryptoRng>(
+    pub fn new(
         keypair: &KeyPair,
         next_key: &KeyPair,
         message: &[u8],
@@ -327,7 +327,7 @@ impl Token {
     }
 
     #[allow(dead_code)]
-    pub fn append<T: RngCore + CryptoRng>(
+    pub fn append(
         &self,
         next_key: &KeyPair,
         message: &[u8],
