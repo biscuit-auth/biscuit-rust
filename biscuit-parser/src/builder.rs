@@ -55,7 +55,7 @@ impl ToTokens for Term {
             Term::Set(v) => {
                 quote! {{
                     use std::iter::FromIterator;
-                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) 
+                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
                 }}
             }
         })
