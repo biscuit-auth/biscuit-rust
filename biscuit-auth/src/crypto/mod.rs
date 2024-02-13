@@ -16,7 +16,9 @@ use ed25519_dalek::*;
 
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, path::Path, str::FromStr};
+#[cfg(feature = "pem")]
+use std::path::Path;
+use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, str::FromStr};
 use zeroize::Zeroize;
 
 /// pair of cryptographic keys used to sign a token's block
