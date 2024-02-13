@@ -24,7 +24,6 @@ use std::{
 };
 
 mod snapshot;
-pub use snapshot::*;
 
 /// used to check authorization policies on a token
 ///
