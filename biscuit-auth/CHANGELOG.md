@@ -1,6 +1,12 @@
 # not released
 
-# `4.1.0`
+# `4.1.1`
+
+- remove PKCS8 file loading functions (#208)
+
+# `4.1.0` (yanked)
+
+**This release was yanked because PKCS8 file loading functions, activated by the `pem` feature, could not compile. Those functions are removed in #208. PKCS8 pasing from buffers is still available**
 
 - fix: typo in documentation (#190) (Rémi Duraffort)
 - fix: include all authorizer facts and rules when using `Display` (#195) (Clément Delafargue)
