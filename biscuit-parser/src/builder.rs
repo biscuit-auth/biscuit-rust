@@ -55,7 +55,7 @@ impl ToTokens for Term {
             Term::Set(v) => {
                 quote! {{
                     use std::iter::FromIterator;
-                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) 
+                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
                 }}
             }
         })
@@ -393,6 +393,7 @@ pub struct Check {
 pub enum CheckKind {
     One,
     All,
+    Reject,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -418,6 +419,9 @@ impl ToTokens for CheckKind {
             },
             CheckKind::All => quote! {
               ::biscuit_auth::builder::CheckKind::All
+            },
+            CheckKind::Reject => quote! {
+              ::biscuit_auth::builder::CheckKind::Reject
             },
         });
     }
