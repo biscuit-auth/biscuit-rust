@@ -39,6 +39,8 @@ pub struct Authorizer {
     public_key_to_block_id: HashMap<usize, Vec<usize>>,
     limits: AuthorizerLimits,
     execution_time: Duration,
+    /// indicates if new data was added and the rules must be executed again
+    dirty: bool,
 }
 
 impl Authorizer {
@@ -73,6 +75,7 @@ impl Authorizer {
             public_key_to_block_id: HashMap::new(),
             limits: AuthorizerLimits::default(),
             execution_time: Duration::default(),
+            dirty: false,
         }
     }
 
@@ -87,6 +90,7 @@ impl Authorizer {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
 
+        self.dirty = true;
         for (key_id, block_ids) in &token.public_key_to_block_id {
             let key = token
                 .symbols
@@ -217,12 +221,14 @@ impl Authorizer {
     /// Add the rules, facts, checks, and policies of another `Authorizer`.
     /// If a token has already been added to `other`, it is not merged into `self`.
     pub fn merge(&mut self, mut other: Authorizer) {
+        self.dirty = true;
         self.merge_block(other.authorizer_block_builder);
         self.policies.append(&mut other.policies);
     }
 
     /// Add the rules, facts, and checks of another `BlockBuilder`.
     pub fn merge_block(&mut self, other: BlockBuilder) {
+        self.dirty = true;
         self.authorizer_block_builder.merge(other)
     }
 
@@ -230,6 +236,7 @@ impl Authorizer {
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
+        self.dirty = true;
         self.authorizer_block_builder.add_fact(fact)
     }
 
@@ -237,6 +244,7 @@ impl Authorizer {
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
+        self.dirty = true;
         self.authorizer_block_builder.add_rule(rule)
     }
 
@@ -244,6 +252,7 @@ impl Authorizer {
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
+        self.dirty = true;
         self.authorizer_block_builder.add_check(check)
     }
 
@@ -266,6 +275,7 @@ impl Authorizer {
     /// "#).expect("should parse correctly");
     /// ```
     pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+        self.dirty = true;
         self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
@@ -282,6 +292,7 @@ impl Authorizer {
             e2
         })?;
 
+        self.dirty = true;
         for (_, fact) in source_result.facts.into_iter() {
             let mut fact: Fact = fact.into();
             for (name, value) in &params {
@@ -393,6 +404,7 @@ impl Authorizer {
     }
 
     pub fn add_scope(&mut self, scope: Scope) {
+        self.dirty = true;
         self.authorizer_block_builder.add_scope(scope);
     }
 
@@ -482,7 +494,11 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        self.world.run_with_limits(&self.symbols, limits)?;
+        if self.dirty {
+            self.world.run_with_limits(&self.symbols, limits)?;
+            self.dirty = false;
+        }
+
         let res = self
             .world
             .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
@@ -565,7 +581,10 @@ impl Authorizer {
         rule: datalog::Rule,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
-        self.world.run_with_limits(&self.symbols, limits)?;
+        if self.dirty {
+            self.world.run_with_limits(&self.symbols, limits)?;
+            self.dirty = false;
+        }
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
             self.token_origins.clone()
@@ -598,6 +617,7 @@ impl Authorizer {
 
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
+        self.dirty = true;
         let fact = fact("time", &[date(&SystemTime::now())]);
         self.authorizer_block_builder.add_fact(fact).unwrap();
     }
@@ -697,12 +717,16 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
+        let nb_facts = self.world.facts.len();
         for fact in &self.authorizer_block_builder.facts {
             self.world
                 .facts
                 .insert(&authorizer_origin, fact.convert(&mut self.symbols));
         }
 
+        let facts_changed = self.world.facts.len() != nb_facts;
+
+        let nb_rules = self.world.rules.len();
         for rule in &self.authorizer_block_builder.rules {
             let rule = rule.convert(&mut self.symbols);
 
@@ -718,8 +742,13 @@ impl Authorizer {
                 .insert(usize::MAX, &rule_trusted_origins, rule);
         }
 
+        let rules_changed = self.world.rules.len() != nb_rules;
+
         limits.max_time = time_limit - Instant::now();
-        self.world.run_with_limits(&self.symbols, limits.clone())?;
+        if self.dirty || facts_changed || rules_changed {
+            self.world.run_with_limits(&self.symbols, limits.clone())?;
+            self.dirty = false;
+        }
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -880,6 +909,7 @@ impl Authorizer {
                 limits.max_iterations -= self.world.iterations - current_iterations;
                 current_iterations = self.world.iterations;
 
+                // FIXME: do we really need to run here?
                 self.world.run_with_limits(&self.symbols, limits.clone())?;
 
                 for (j, check) in block.checks.iter().enumerate() {
@@ -1200,6 +1230,8 @@ impl TryFrom<AuthorizerPolicies> for Authorizer {
         for policy in policies {
             authorizer.policies.push(policy);
         }
+
+        authorizer.dirty = true;
 
         Ok(authorizer)
     }
