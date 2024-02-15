@@ -2357,3 +2357,121 @@ World {
 
 result: `Ok(0)`
 
+
+------------------------------
+
+## test expression syntax and all available operations (v5 blocks): test040_expressions_v5.bc
+### token
+
+authority:
+symbols: ["integer", "string", "test", "date", "bytes", "bool", "set", "t"]
+
+public keys: []
+
+```
+integer(1);
+string("test");
+date(2023-12-28T00:00:00Z);
+bytes(hex:aa);
+bool(true);
+set([false, true]);
+check if 1.type() == "integer";
+check if integer($t), $t.type() == "integer";
+check if "test".type() == "string";
+check if string($t), $t.type() == "string";
+check if (2023-12-28T00:00:00Z).type() == "date";
+check if date($t), $t.type() == "date";
+check if hex:aa.type() == "bytes";
+check if bytes($t), $t.type() == "bytes";
+check if true.type() == "bool";
+check if bool($t), $t.type() == "bool";
+check if [false, true].type() == "set";
+check if set($t), $t.type() == "set";
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `f07ecdcabd6c35809b39832c6651bb1c0ed7abfd9add391ab2966c119d7c9b9db5a5143a7f328497071c1095c001f2371b0548198cceb69455e7d414f1fb6403`
+
+authorizer world:
+```
+World {
+  facts: {
+    (
+        "bool(true)",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+    (
+        "bytes(hex:aa)",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+    (
+        "date(2023-12-28T00:00:00Z)",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+    (
+        "integer(1)",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+    (
+        "set([false, true])",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+    (
+        "string(\"test\")",
+        {
+            Some(
+                0,
+            ),
+        },
+    ),
+}
+  rules: {}
+  checks: {
+    "check if \"test\".type() == \"string\"",
+    "check if (2023-12-28T00:00:00Z).type() == \"date\"",
+    "check if 1.type() == \"integer\"",
+    "check if [false, true].type() == \"set\"",
+    "check if bool($t), $t.type() == \"bool\"",
+    "check if bytes($t), $t.type() == \"bytes\"",
+    "check if date($t), $t.type() == \"date\"",
+    "check if hex:aa.type() == \"bytes\"",
+    "check if integer($t), $t.type() == \"integer\"",
+    "check if set($t), $t.type() == \"set\"",
+    "check if string($t), $t.type() == \"string\"",
+    "check if true.type() == \"bool\"",
+}
+  policies: {
+    "allow if true",
+}
+}
+```
+
+result: `Ok(0)`
+

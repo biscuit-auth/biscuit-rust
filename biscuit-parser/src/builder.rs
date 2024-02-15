@@ -188,6 +188,7 @@ pub enum Unary {
     Negate,
     Parens,
     Length,
+    TypeOf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,6 +234,7 @@ impl ToTokens for Unary {
             Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
             Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
+            Unary::TypeOf => quote! {::biscuit_auth::datalog::Unary::TypeOf },
         });
     }
 }

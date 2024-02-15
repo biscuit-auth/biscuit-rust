@@ -23,13 +23,14 @@ pub enum Unary {
     Negate,
     Parens,
     Length,
+    TypeOf,
 }
 
 impl Unary {
     fn evaluate(
         &self,
         value: Term,
-        symbols: &TemporarySymbolTable,
+        symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
         match (self, value) {
             (Unary::Negate, Term::Bool(b)) => Ok(Term::Bool(!b)),
@@ -40,6 +41,19 @@ impl Unary {
                 .ok_or(error::Expression::UnknownSymbol(i)),
             (Unary::Length, Term::Bytes(s)) => Ok(Term::Integer(s.len() as i64)),
             (Unary::Length, Term::Set(s)) => Ok(Term::Integer(s.len() as i64)),
+            (Unary::TypeOf, t) => {
+                let type_string = match t {
+                    Term::Variable(_) => return Err(error::Expression::InvalidType),
+                    Term::Integer(_) => "integer",
+                    Term::Str(_) => "string",
+                    Term::Date(_) => "date",
+                    Term::Bytes(_) => "bytes",
+                    Term::Bool(_) => "bool",
+                    Term::Set(_) => "set",
+                };
+                let sym = symbols.insert(type_string);
+                Ok(Term::Str(sym))
+            }
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
@@ -52,6 +66,7 @@ impl Unary {
             Unary::Negate => format!("!{}", value),
             Unary::Parens => format!("({})", value),
             Unary::Length => format!("{}.length()", value),
+            Unary::TypeOf => format!("{}.type()", value),
         }
     }
 }

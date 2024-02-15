@@ -663,7 +663,10 @@ fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
 
 fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
     use builder::Unary;
-    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+    let (i, op) = alt((
+        value(Unary::Length, tag("length")),
+        value(Unary::TypeOf, tag("type")),
+    ))(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;

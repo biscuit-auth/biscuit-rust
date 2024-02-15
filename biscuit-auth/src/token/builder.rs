@@ -940,6 +940,7 @@ impl From<biscuit_parser::builder::Unary> for Unary {
             biscuit_parser::builder::Unary::Negate => Unary::Negate,
             biscuit_parser::builder::Unary::Parens => Unary::Parens,
             biscuit_parser::builder::Unary::Length => Unary::Length,
+            biscuit_parser::builder::Unary::TypeOf => Unary::TypeOf,
         }
     }
 }

@@ -121,6 +121,7 @@ message OpUnary {
     Negate = 0;
     Parens = 1;
     Length = 2;
+    TypeOf = 3;
   }
 
   required Kind kind = 1;

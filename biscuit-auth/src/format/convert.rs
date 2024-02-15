@@ -587,6 +587,7 @@ pub mod v2 {
                                     Unary::Negate => Kind::Negate,
                                     Unary::Parens => Kind::Parens,
                                     Unary::Length => Kind::Length,
+                                    Unary::TypeOf => Kind::TypeOf,
                                 } as i32,
                             })
                         }
@@ -642,6 +643,7 @@ pub mod v2 {
                     Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
                     Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
                     Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
+                    Some(op_unary::Kind::TypeOf) => Op::Unary(Unary::TypeOf),
                     None => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: unary operation is empty".to_string(),

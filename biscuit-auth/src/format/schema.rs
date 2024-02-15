@@ -201,6 +201,7 @@ pub mod op_unary {
         Negate = 0,
         Parens = 1,
         Length = 2,
+        TypeOf = 3,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

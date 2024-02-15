@@ -141,6 +141,8 @@ fn main() {
 
     add_test_result(&mut results, expressions_v4(&target, &root, test));
 
+    add_test_result(&mut results, expressions_v5(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1927,6 +1929,54 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if hex:12abcd != hex:12ab;
         // set not equal
         check if [1, 4] != [1, 2];
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test expression syntax and all available operations (v5 blocks)".to_string();
+    let filename = "test040_expressions_v5".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        check if 1.type() == "integer";
+        integer(1);
+        check if integer($t), $t.type() == "integer";
+        check if "test".type() == "string";
+        string("test");
+        check if string($t), $t.type() == "string";
+        check if (2023-12-28T00:00:00Z).type() == "date";
+        date(2023-12-28T00:00:00Z);
+        check if date($t), $t.type() == "date";
+        check if hex:aa.type() == "bytes";
+        bytes(hex:aa);
+        check if bytes($t), $t.type() == "bytes";
+        check if true.type() == "bool";
+        bool(true);
+        check if bool($t), $t.type() == "bool";
+        check if [true, false].type() == "set";
+        set([true, false]);
+        check if set($t), $t.type() == "set";
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
