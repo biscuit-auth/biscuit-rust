@@ -25,7 +25,7 @@ bwk = ["chrono", "serde"]
 docsrs = []
 uuid = ["dep:uuid"]
 # used to expose pem/der loaders for keypairs
-pem = ["ed25519-dalek/pem"]
+pem = ["ed25519-dalek/pem", "ed25519-dalek/pkcs8"]
 
 [dependencies]
 rand_core = "^0.6"
