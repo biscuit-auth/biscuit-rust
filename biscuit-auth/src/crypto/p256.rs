@@ -65,20 +65,6 @@ impl KeyPair {
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         crate::format::schema::public_key::Algorithm::Secp256r1
     }
-
-    #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_der(bytes)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
-    }
-
-    #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_pem(str)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
-    }
 }
 
 impl std::default::Default for KeyPair {

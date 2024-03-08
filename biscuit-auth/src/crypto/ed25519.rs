@@ -13,6 +13,8 @@ use super::error;
 use super::Signature;
 #[cfg(feature = "pem")]
 use ed25519_dalek::pkcs8::DecodePrivateKey;
+#[cfg(feature = "pem")]
+use ed25519_dalek::pkcs8::DecodePublicKey;
 use ed25519_dalek::Signer;
 use ed25519_dalek::*;
 use rand_core::{CryptoRng, RngCore};
@@ -229,6 +231,20 @@ impl PublicKey {
 
     pub fn print(&self) -> String {
         format!("ed25519/{}", hex::encode(&self.to_bytes()))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        let verification_key = ed25519_dalek::VerifyingKey::from_public_key_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(verification_key))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_pem(pem: &str) -> Result<Self, error::Format> {
+        let verification_key = ed25519_dalek::VerifyingKey::from_public_key_pem(pem)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(verification_key))
     }
 }
 

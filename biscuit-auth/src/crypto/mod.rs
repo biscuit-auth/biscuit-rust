@@ -75,20 +75,6 @@ impl KeyPair {
         }
     }
 
-    #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        ed25519::KeyPair::from_private_key_der(bytes)
-            .map(KeyPair::Ed25519)
-            .or_else(|_| p256::KeyPair::from_private_key_der(bytes).map(KeyPair::P256))
-    }
-
-    #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        ed25519::KeyPair::from_private_key_pem(str)
-            .map(KeyPair::Ed25519)
-            .or_else(|_| p256::KeyPair::from_private_key_pem(str).map(KeyPair::P256))
-    }
-
     pub fn private(&self) -> PrivateKey {
         match self {
             KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
