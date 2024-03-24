@@ -292,6 +292,8 @@ pub enum RunLimit {
     TooManyIterations,
     #[error("spent too much time verifying")]
     Timeout,
+    #[error("Unexpected query results, expected {0} got {1}")]
+    UnexpectedQueryResult(usize, usize),
 }
 
 #[cfg(test)]
