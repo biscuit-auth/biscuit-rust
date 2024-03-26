@@ -68,16 +68,16 @@ impl KeyPair {
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_der(
-            bytes,
-        )?))
+        ed25519::KeyPair::from_private_key_der(bytes)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_der(bytes).map(KeyPair::P256))
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_pem(
-            str,
-        )?))
+        ed25519::KeyPair::from_private_key_pem(str)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_pem(str).map(KeyPair::P256))
     }
 
     pub fn private(&self) -> PrivateKey {
