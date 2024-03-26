@@ -6,6 +6,7 @@ use crate::{
     builder::BlockBuilder,
     crypto,
     crypto::PublicKey,
+    crypto::Signature,
     datalog::SymbolTable,
     error,
     format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
@@ -294,15 +295,6 @@ impl UnverifiedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
-            return Err(error::Token::Format(error::Format::DeserializationError(
-                format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
-                ),
-            )));
-        }
         let external_key =
             PublicKey::from_bytes(&external_signature.public_key.key).map_err(|e| {
                 error::Format::BlockSignatureDeserializationError(format!(
@@ -315,7 +307,8 @@ impl UnverifiedBiscuit {
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+        let signature = Signature::from_bytes(&bytes)?;
+
         let previous_key = self
             .container
             .blocks
@@ -323,9 +316,9 @@ impl UnverifiedBiscuit {
             .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
+        external_key.verify_signature(&to_verify, &signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(

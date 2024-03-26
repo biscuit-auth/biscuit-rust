@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use self::public_keys::PublicKeys;
 
-use super::crypto::{KeyPair, PublicKey};
+use super::crypto::{KeyPair, PublicKey, Signature};
 use super::datalog::SymbolTable;
 use super::error;
 use super::format::SerializedBiscuit;
@@ -399,20 +399,22 @@ impl Biscuit {
             external_signature,
         } = response.0;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
+        let provided_key = PublicKey::from_proto(&external_signature.public_key)?;
+        if external_key != provided_key {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
+                    "deserialization error: unexpected key {}",
+                    provided_key.print()
                 ),
             )));
         }
+
         let bytes: [u8; 64] = (&external_signature.signature[..])
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+        let signature = Signature::from_bytes(&bytes)?;
+
         let previous_key = self
             .container
             .blocks
@@ -420,16 +422,10 @@ impl Biscuit {
             .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
 
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        external_key.verify_signature(&to_verify, &signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(

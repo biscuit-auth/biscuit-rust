@@ -6,12 +6,12 @@
 //! - serialization of a wrapper structure containing serialized blocks and the signature
 use super::crypto::{self, KeyPair, PrivateKey, PublicKey, TokenNext};
 
-use ed25519_dalek::Signer;
 use prost::Message;
 
 use super::error;
 use super::token::Block;
 use crate::crypto::ExternalSignature;
+use crate::crypto::Signature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
 use std::collections::HashMap;
@@ -57,12 +57,13 @@ impl SerializedBiscuit {
         })?;
 
         let next_key = PublicKey::from_proto(&data.authority.next_key)?;
+        let mut next_key_algorithm = next_key.algorithm();
 
         let bytes: [u8; 64] = (&data.authority.signature[..])
             .try_into()
             .map_err(|_| error::Format::InvalidSignatureSize(data.authority.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+        let signature = Signature::from_bytes(&bytes)?;
 
         if data.authority.external_signature.is_some() {
             return Err(error::Format::DeserializationError(
@@ -80,12 +81,13 @@ impl SerializedBiscuit {
         let mut blocks = Vec::new();
         for block in &data.blocks {
             let next_key = PublicKey::from_proto(&block.next_key)?;
+            next_key_algorithm = next_key.algorithm();
 
             let bytes: [u8; 64] = (&block.signature[..])
                 .try_into()
                 .map_err(|_| error::Format::InvalidSignatureSize(block.signature.len()))?;
 
-            let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+            let signature = Signature::from_bytes(&bytes)?;
 
             let external_signature = if let Some(ex) = block.external_signature.as_ref() {
                 let public_key = PublicKey::from_proto(&ex.public_key)?;
@@ -94,7 +96,7 @@ impl SerializedBiscuit {
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
 
-                let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+                let signature = Signature::from_bytes(&bytes)?;
 
                 Some(ExternalSignature {
                     public_key,
@@ -119,13 +121,19 @@ impl SerializedBiscuit {
                 ))
             }
             Some(schema::proof::Content::NextSecret(v)) => {
-                TokenNext::Secret(PrivateKey::from_bytes(&v)?)
+                TokenNext::Secret(PrivateKey::from_bytes(&v, next_key_algorithm)?)
             }
             Some(schema::proof::Content::FinalSignature(v)) => {
                 let bytes: [u8; 64] = (&v[..])
                     .try_into()
                     .map_err(|_| error::Format::InvalidSignatureSize(v.len()))?;
-                let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+                let signature = Signature::from_bytes(&bytes).map_err(|e| {
+                    error::Format::SignatureDeserializationError(format!(
+                        "final signature deserialization error: {:?}",
+                        e
+                    ))
+                })?;
+
                 TokenNext::Seal(signature)
             }
         };
@@ -403,18 +411,11 @@ impl SerializedBiscuit {
                     &self.blocks[self.blocks.len() - 1]
                 };
                 to_verify.extend(&block.data);
-                to_verify.extend(
-                    &(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes(),
-                );
+                to_verify.extend(&(current_pub.algorithm() as i32).to_le_bytes());
                 to_verify.extend(&block.next_key.to_bytes());
-                to_verify.extend(&block.signature.to_bytes());
+                to_verify.extend(block.signature.to_bytes());
 
-                current_pub
-                    .0
-                    .verify_strict(&to_verify, signature)
-                    .map_err(|s| s.to_string())
-                    .map_err(error::Signature::InvalidSignature)
-                    .map_err(error::Format::Signature)?;
+                current_pub.verify_signature(&to_verify, &signature)?;
             }
         }
 
@@ -432,17 +433,11 @@ impl SerializedBiscuit {
             &self.blocks[self.blocks.len() - 1]
         };
         to_sign.extend(&block.data);
-        to_sign
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_sign.extend(&(keypair.algorithm() as i32).to_le_bytes());
         to_sign.extend(&block.next_key.to_bytes());
-        to_sign.extend(&block.signature.to_bytes());
+        to_sign.extend(block.signature.to_bytes());
 
-        let signature = keypair
-            .kp
-            .try_sign(&to_sign)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = keypair.sign(&to_sign)?;
 
         Ok(SerializedBiscuit {
             root_key_id: self.root_key_id,
