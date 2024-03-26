@@ -1,3 +1,4 @@
+#![cfg(not(feature = "capi"))]
 use biscuit_auth::builder;
 use biscuit_quote::{
     authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,

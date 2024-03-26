@@ -6,10 +6,10 @@ use std::{
     os::raw::c_char,
 };
 
-use crate::datalog::SymbolTable;
+use biscuit_auth::datalog::SymbolTable;
 
 enum Error {
-    Biscuit(crate::error::Token),
+    Biscuit(biscuit_auth::error::Token),
     InvalidArgument,
 }
 
@@ -22,8 +22,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<crate::error::Token> for Error {
-    fn from(error: crate::error::Token) -> Self {
+impl From<biscuit_auth::error::Token> for Error {
+    fn from(error: biscuit_auth::error::Token) -> Self {
         Error::Biscuit(error)
     }
 }
@@ -105,7 +105,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
         Some(ref err) => match err {
             Error::InvalidArgument => ErrorKind::InvalidArgument,
             Error::Biscuit(e) => {
-                use crate::error::*;
+                use biscuit_auth::error::*;
                 match e {
                     Token::InternalError => ErrorKind::InternalError,
                     Token::Format(Format::Signature(Signature::InvalidFormat)) => {
@@ -186,7 +186,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
 
 #[no_mangle]
 pub extern "C" fn error_check_count() -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -198,7 +198,7 @@ pub extern "C" fn error_check_count() -> u64 {
 
 #[no_mangle]
 pub extern "C" fn error_check_id(check_index: u64) -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -219,7 +219,7 @@ pub extern "C" fn error_check_id(check_index: u64) -> u64 {
 
 #[no_mangle]
 pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -240,7 +240,7 @@ pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
 /// the string is overwritten on each call
 #[no_mangle]
 pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     thread_local! {
         static CAVEAT_RULE: RefCell<Option<CString>> = RefCell::new(None);
     }
@@ -271,7 +271,7 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
 
 #[no_mangle]
 pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -288,12 +288,12 @@ pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
     })
 }
 
-pub struct Biscuit(crate::token::Biscuit);
-pub struct KeyPair(crate::crypto::KeyPair);
-pub struct PublicKey(crate::crypto::PublicKey);
-pub struct BiscuitBuilder(crate::token::builder::BiscuitBuilder);
-pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Authorizer(crate::token::authorizer::Authorizer);
+pub struct Biscuit(biscuit_auth::Biscuit);
+pub struct KeyPair(biscuit_auth::KeyPair);
+pub struct PublicKey(biscuit_auth::PublicKey);
+pub struct BiscuitBuilder(biscuit_auth::builder::BiscuitBuilder);
+pub struct BlockBuilder(biscuit_auth::builder::BlockBuilder);
+pub struct Authorizer(biscuit_auth::Authorizer);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -311,7 +311,7 @@ pub unsafe extern "C" fn key_pair_new<'a>(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    Some(Box::new(KeyPair(crate::crypto::KeyPair::new_with_rng(
+    Some(Box::new(KeyPair(biscuit_auth::KeyPair::new_with_rng(
         &mut rng,
     ))))
 }
@@ -346,12 +346,12 @@ pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *m
 pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PrivateKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PrivateKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
         }
-        Some(privkey) => Some(Box::new(KeyPair(crate::crypto::KeyPair::from(&privkey)))),
+        Some(privkey) => Some(Box::new(KeyPair(biscuit_auth::KeyPair::from(&privkey)))),
     }
 }
 
@@ -381,7 +381,7 @@ pub unsafe extern "C" fn public_key_serialize(
 pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PublicKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PublicKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -395,7 +395,7 @@ pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder() -> Option<Box<BiscuitBuilder>> {
-    Some(Box::new(BiscuitBuilder(crate::token::Biscuit::builder())))
+    Some(Box::new(BiscuitBuilder(biscuit_auth::Biscuit::builder())))
 }
 
 #[no_mangle]
@@ -569,7 +569,7 @@ pub unsafe extern "C" fn biscuit_from<'a>(
     }
     let root = root?;
 
-    crate::token::Biscuit::from(biscuit, root.0)
+    biscuit_auth::Biscuit::from(biscuit, root.0)
         .map(Biscuit)
         .map(Box::new)
         .ok()
@@ -695,7 +695,7 @@ pub unsafe extern "C" fn biscuit_block_count(biscuit: Option<&Biscuit>) -> usize
 
     let biscuit = biscuit.unwrap();
 
-    biscuit.0.blocks.len() + 1
+    biscuit.0.block_count()
 }
 
 #[no_mangle]
@@ -915,7 +915,7 @@ pub unsafe extern "C" fn biscuit_block_context(
 
 #[no_mangle]
 pub unsafe extern "C" fn create_block() -> Box<BlockBuilder> {
-    Box::new(BlockBuilder(crate::token::builder::BlockBuilder::new()))
+    Box::new(BlockBuilder(biscuit_auth::builder::BlockBuilder::new()))
 }
 
 #[no_mangle]

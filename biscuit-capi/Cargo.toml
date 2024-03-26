@@ -1,0 +1,14 @@
+[package]
+name = "biscuit-capi"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# used by cargo-c to signal the compilation of C bindings
+capi = ["inline-c"]
+
+[dependencies]
+biscuit-auth = { version = "4.1.1", path = "../biscuit-auth" }
+inline-c = { version = "0.1", optional = true }
+rand = { version = "0.8" }
+
