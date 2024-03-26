@@ -13,8 +13,6 @@ use super::error;
 mod ed25519;
 mod p256;
 
-#[cfg(feature = "pem")]
-use ed25519_dalek::pkcs8::DecodePrivateKey;
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
 use std::{fmt::Display, hash::Hash, str::FromStr};
@@ -70,16 +68,16 @@ impl KeyPair {
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = ed25519_dalek::SigningKey::from_pkcs8_der(bytes)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair::Ed25519(ed25519::KeyPair { kp }))
+        Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_der(
+            bytes,
+        )?))
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        let kp = ed25519_dalek::SigningKey::from_pkcs8_pem(str)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair::Ed25519(ed25519::KeyPair { kp }))
+        Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_pem(
+            str,
+        )?))
     }
 
     pub fn private(&self) -> PrivateKey {
