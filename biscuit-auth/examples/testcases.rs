@@ -10,6 +10,7 @@ use biscuit::macros::*;
 use biscuit::Authorizer;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit::{KeyPair, PrivateKey, PublicKey};
+use biscuit_auth::format::schema::public_key::Algorithm;
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
@@ -69,7 +70,7 @@ fn main() {
     };
 
     let root = if let Some(key) = root_key {
-        KeyPair::from(&PrivateKey::from_bytes_hex(&key).unwrap())
+        KeyPair::from(&PrivateKey::from_bytes_hex(&key, Algorithm::Ed25519).unwrap())
     } else {
         let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
         KeyPair::new_with_rng(&mut rng)
@@ -1617,6 +1618,7 @@ fn third_party(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let external = KeyPair::from(
         &PrivateKey::from_bytes_hex(
             "12aca40167fbdd1a11037e9fd440e3d510d9d9dea70a6646aa4aaf84d718d75a",
+            Algorithm::Ed25519,
         )
         .unwrap(),
     );
@@ -1735,18 +1737,21 @@ fn public_keys_interning(target: &str, root: &KeyPair, test: bool) -> TestResult
     let external1 = KeyPair::from(
         &PrivateKey::from_bytes_hex(
             "12aca40167fbdd1a11037e9fd440e3d510d9d9dea70a6646aa4aaf84d718d75a",
+            Algorithm::Ed25519,
         )
         .unwrap(),
     );
     let external2 = KeyPair::from(
         &PrivateKey::from_bytes_hex(
             "018e3f6864a1c9ffc2e67939a835d41c808b0084b3d7babf9364f674db19eeb3",
+            Algorithm::Ed25519,
         )
         .unwrap(),
     );
     let external3 = KeyPair::from(
         &PrivateKey::from_bytes_hex(
             "88c637e4844fc3f52290889dc961cb15d809c994b5ef71990d6a2f989bd2f02c",
+            Algorithm::Ed25519,
         )
         .unwrap(),
     );
