@@ -13,8 +13,6 @@ repository = "https://github.com/biscuit-auth/biscuit-rust"
 [features]
 default = ["regex-full", "datalog-macro"]
 regex-full = [ "regex/perf", "regex/unicode"]
-# used by cargo-c to signal the compilation of C bindings
-capi = ["inline-c"]
 wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 # used by biscuit-wasm to serialize errors to JSON
 serde-error = ["serde", "biscuit-parser/serde-error"]
@@ -38,7 +36,6 @@ hex = "0.4"
 zeroize = { version = "1", default-features = false }
 thiserror = "1"
 rand = { version = "0.8" }
-inline-c = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 base64 = "0.13.0"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core", "zeroize"] }
