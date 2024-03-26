@@ -235,12 +235,6 @@ pub use token::Biscuit;
 pub use token::RootKeyProvider;
 pub use token::{ThirdPartyBlock, ThirdPartyRequest};
 
-#[cfg(feature = "capi")]
-mod capi;
-
-#[cfg(feature = "capi")]
-pub use capi::*;
-
 #[cfg(bwk)]
 mod bwk;
 #[cfg(bwk)]
