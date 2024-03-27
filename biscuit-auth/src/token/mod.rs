@@ -99,12 +99,12 @@ impl Biscuit {
     }
 
     /// deserializes a token and validates the signature using the root public key
-    pub fn from_base64<T, KP>(slice: T, key_provider: KP) -> Result<Self, error::Token>
+    pub fn from_base64<T, KP>(slice: T, key_provider: KP, pad: bool) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
         KP: RootKeyProvider,
     {
-        Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table())
+        Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table(), pad)
     }
 
     /// serializes the token
@@ -113,11 +113,16 @@ impl Biscuit {
     }
 
     /// serializes the token and encode it to a (URL safe) base64 string
-    pub fn to_base64(&self) -> Result<String, error::Token> {
+    pub fn to_base64(&self, pad: bool) -> Result<String, error::Token> {
+        let base64_config = if pad {
+            base64::URL_SAFE
+        } else {
+            base64::URL_SAFE_NO_PAD
+        };
         self.container
             .to_vec()
             .map_err(error::Token::Format)
-            .map(|v| base64::encode_config(v, base64::URL_SAFE))
+            .map(|v| base64::encode_config(v, base64_config))
     }
 
     /// serializes the token
@@ -301,12 +306,18 @@ impl Biscuit {
         slice: T,
         key_provider: KP,
         symbols: SymbolTable,
+        pad: bool,
     ) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
         KP: RootKeyProvider,
     {
-        let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
+        let base64_config = if pad {
+            base64::URL_SAFE
+        } else {
+            base64::URL_SAFE_NO_PAD
+        };
+        let decoded = base64::decode_config(slice, base64_config)?;
         Biscuit::from_with_symbols(&decoded, key_provider, symbols)
     }
 
