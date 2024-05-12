@@ -1301,6 +1301,10 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if "aaabde" == "aaa" + "b" + "de";
         // string equal
         check if "abcD12" == "abcD12";
+        // string length
+        check if "abcD12".length() == 6;
+        // string length (non-ascii)
+        check if "é".length() == 2;
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
