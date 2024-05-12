@@ -126,7 +126,7 @@ impl ThirdPartyRequest {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
         let mut block = block_builder.build(symbols);
-        block.version = max(4, block.version);
+        block.version = max(super::THIRD_PARTY_BLOCK_VERSION, block.version);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)

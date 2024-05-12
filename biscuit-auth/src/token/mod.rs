@@ -33,6 +33,8 @@ pub use third_party::*;
 pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// maximum supported version of the serialization format
 pub const MAX_SCHEMA_VERSION: u32 = 5;
+/// starting version for 3rd party blocks
+pub const THIRD_PARTY_BLOCK_VERSION: u32 = 4;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
