@@ -252,10 +252,28 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: BTreeSet<(String, BTreeSet<Option<usize>>)>,
-    pub rules: BTreeSet<(String, Option<usize>)>,
-    pub checks: BTreeSet<String>,
-    pub policies: BTreeSet<String>,
+    pub facts: Vec<AuthorizerFactSet>,
+    pub rules: Vec<AuthorizerRuleSet>,
+    pub checks: Vec<AuthorizerCheckSet>,
+    pub policies: Vec<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerFactSet {
+    origin: BTreeSet<Option<usize>>,
+    facts: Vec<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerRuleSet {
+    origin: Option<usize>,
+    rules: Vec<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+struct AuthorizerCheckSet {
+    origin: Option<usize>,
+    checks: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -301,7 +319,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
 
     let res = authorizer.authorize();
     //println!("authorizer world:\n{}", authorizer.print_world());
-    let (_, _, mut checks, mut policies) = authorizer.dump();
+    let (_, _, _, policies) = authorizer.dump();
     let snapshot = authorizer.snapshot().unwrap();
 
     let symbols = SymbolTable::from_symbols_and_public_keys(
@@ -315,23 +333,65 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     )
     .unwrap();
 
-    let mut facts = BTreeSet::new();
-    let mut rules = BTreeSet::new();
+    let mut authorizer_facts = Vec::new();
+    let mut authorizer_rules = Vec::new();
+    let mut authorizer_checks = Vec::new();
     for (i, block) in snapshot.world.blocks.iter().enumerate() {
-        let mut origin = BTreeSet::new();
-        origin.insert(i);
+        let mut rules: Vec<String> = Vec::new();
         for rule in block.rules_v2.iter() {
             let r =
                 convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-            rules.insert((symbols.print_rule(&r.0), Some(i)));
+            rules.push(symbols.print_rule(&r.0));
+        }
+        if !rules.is_empty() {
+            rules.sort();
+            authorizer_rules.push(AuthorizerRuleSet {
+                origin: Some(i),
+                rules,
+            });
+        }
+
+        let mut checks = Vec::new();
+        for check in block.checks_v2.iter() {
+            let c = convert::proto_check_to_token_check(&check, snapshot.world.version.unwrap())
+                .unwrap();
+            checks.push(symbols.print_check(&c));
+        }
+        if !checks.is_empty() {
+            checks.sort();
+            authorizer_checks.push(AuthorizerCheckSet {
+                origin: Some(i),
+                checks,
+            });
         }
     }
 
-    let mut authorizer_origin = BTreeSet::new();
-    authorizer_origin.insert(usize::MAX);
+    let mut rules: Vec<String> = Vec::new();
     for rule in snapshot.world.authorizer_block.rules_v2 {
         let r = convert::proto_rule_to_token_rule(&rule, snapshot.world.version.unwrap()).unwrap();
-        rules.insert((symbols.print_rule(&r.0), None));
+
+        rules.push(symbols.print_rule(&r.0));
+    }
+    if !rules.is_empty() {
+        rules.sort();
+        authorizer_rules.push(AuthorizerRuleSet {
+            origin: Some(usize::MAX),
+            rules,
+        });
+    }
+
+    let mut checks = Vec::new();
+    for check in snapshot.world.authorizer_block.checks_v2 {
+        let c =
+            convert::proto_check_to_token_check(&check, snapshot.world.version.unwrap()).unwrap();
+        checks.push(symbols.print_check(&c));
+    }
+    if !checks.is_empty() {
+        checks.sort();
+        authorizer_checks.push(AuthorizerCheckSet {
+            origin: Some(usize::MAX),
+            checks,
+        });
     }
 
     for factset in snapshot.world.generated_facts {
@@ -345,18 +405,25 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
             };
         }
 
+        let mut facts = Vec::new();
+
         for fact in factset.facts {
             let f = convert::proto_fact_to_token_fact(&fact).unwrap();
-            facts.insert((symbols.print_fact(&f), origin.clone()));
+            facts.push(symbols.print_fact(&f));
+        }
+        if !facts.is_empty() {
+            facts.sort();
+            authorizer_facts.push(AuthorizerFactSet { origin, facts });
         }
     }
+    authorizer_facts.sort();
 
     Validation {
         world: Some(AuthorizerWorld {
-            facts,
-            rules,
-            checks: checks.drain(..).map(|c| c.to_string()).collect(),
-            policies: policies.drain(..).map(|p| p.to_string()).collect(),
+            facts: authorizer_facts,
+            rules: authorizer_rules,
+            checks: authorizer_checks,
+            policies: policies.into_iter().map(|p| p.to_string()).collect(),
         }),
         result: match res {
             Ok(i) => AuthorizerResult::Ok(i),
@@ -1236,6 +1303,10 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if "aaabde" == "aaa" + "b" + "de";
         // string equal
         check if "abcD12" == "abcD12";
+        // string length
+        check if "abcD12".length() == 6;
+        // string length (non-ascii)
+        check if "é".length() == 2;
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;

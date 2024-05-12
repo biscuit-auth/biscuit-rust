@@ -116,10 +116,10 @@ right("file1", "read");
 hello("world");
 
 // Checks:
-// origin: authorizer
-check if right("efgh");
 // origin: 1
 check if operation("read");
+// origin: authorizer
+check if right("efgh");
 
 // Policies:
 allow if true;

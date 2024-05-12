@@ -24,7 +24,6 @@ use std::{
 };
 
 mod snapshot;
-pub use snapshot::*;
 
 /// used to check authorization policies on a token
 ///
@@ -1037,103 +1036,153 @@ impl Authorizer {
 
 impl std::fmt::Display for Authorizer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.world.facts.is_empty() {
-            write!(f, "// Facts:\n")?;
-        }
-
+        let mut has_facts = false;
         let mut all_facts = BTreeMap::new();
         for (origin, factset) in &self.world.facts.inner {
-            let mut facts = Vec::new();
+            let mut facts = HashSet::new();
             for fact in factset {
-                facts.push(self.symbols.print_fact(&fact));
+                facts.insert(self.symbols.print_fact(fact));
             }
-            facts.sort();
 
+            has_facts = has_facts || !facts.is_empty();
             all_facts.insert(origin, facts);
         }
 
-        for (origin, factset) in &all_facts {
-            write!(f, "// origin: {origin}\n")?;
-
-            for fact in factset {
-                write!(f, "{};\n", fact)?;
+        let builder_facts = self
+            .authorizer_block_builder
+            .facts
+            .iter()
+            .map(|f| f.to_string())
+            .collect::<HashSet<_>>();
+        has_facts = has_facts || !builder_facts.is_empty();
+        let mut authorizer_origin = Origin::default();
+        authorizer_origin.insert(usize::MAX);
+        match all_facts.get_mut(&authorizer_origin) {
+            Some(e) => {
+                e.extend(builder_facts);
+            }
+            None => {
+                all_facts.insert(&authorizer_origin, builder_facts);
             }
         }
 
-        if !self.world.facts.is_empty() {
-            write!(f, "\n")?;
+        if has_facts {
+            writeln!(f, "// Facts:")?;
         }
 
-        if !self.world.rules.inner.is_empty() {
-            write!(f, "// Rules:\n")?;
+        for (origin, factset) in &all_facts {
+            let mut facts = factset.iter().collect::<Vec<_>>();
+            facts.sort();
+
+            if !facts.is_empty() {
+                writeln!(f, "// origin: {origin}")?;
+            }
+
+            for fact in facts {
+                writeln!(f, "{};", fact)?;
+            }
         }
 
-        let mut rules_map: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        if has_facts {
+            writeln!(f)?;
+        }
+
+        let mut has_rules = false;
+        let mut rules_map: BTreeMap<usize, HashSet<String>> = BTreeMap::new();
         for ruleset in self.world.rules.inner.values() {
+            has_rules = has_rules || !ruleset.is_empty();
             for (origin, rule) in ruleset {
                 rules_map
                     .entry(*origin)
                     .or_default()
-                    .push(self.symbols.print_rule(&rule));
+                    .insert(self.symbols.print_rule(rule));
             }
         }
+
+        let builder_rules = self
+            .authorizer_block_builder
+            .rules
+            .iter()
+            .map(|rule| rule.to_string())
+            .collect::<HashSet<_>>();
+        has_rules = has_rules || !builder_rules.is_empty();
+
+        rules_map
+            .entry(usize::MAX)
+            .or_default()
+            .extend(builder_rules);
+
+        if has_rules {
+            writeln!(f, "// Rules:")?;
+        }
+
         for (origin, rule_list) in &rules_map {
-            if *origin == usize::MAX {
-                write!(f, "// origin: authorizer\n")?;
-            } else {
-                write!(f, "// origin: {origin}\n")?;
+            if !rule_list.is_empty() {
+                if *origin == usize::MAX {
+                    writeln!(f, "// origin: authorizer")?;
+                } else {
+                    writeln!(f, "// origin: {origin}")?;
+                }
             }
 
-            let mut sorted_rule_list = rule_list.clone();
+            let mut sorted_rule_list = rule_list.iter().collect::<Vec<_>>();
             sorted_rule_list.sort();
             for rule in sorted_rule_list {
-                write!(f, "{};\n", rule)?;
+                writeln!(f, "{};", rule)?;
             }
         }
 
-        if !self.world.rules.inner.is_empty() {
-            write!(f, "\n")?;
+        if has_rules {
+            writeln!(f)?;
         }
 
-        if !self.authorizer_block_builder.checks.is_empty()
-            || self
-                .blocks
-                .iter()
-                .flat_map(|blocks| blocks.iter())
-                .any(|block| !block.checks.is_empty())
-        {
-            write!(f, "// Checks:\n")?;
-        }
-
-        if !self.authorizer_block_builder.checks.is_empty() {
-            write!(f, "// origin: authorizer\n")?;
-
-            for check in &self.authorizer_block_builder.checks {
-                write!(f, "{check};\n")?;
-            }
-        }
+        let mut has_checks = false;
+        let mut checks_map: BTreeMap<usize, Vec<String>> = Default::default();
 
         if let Some(blocks) = &self.blocks {
             for (i, block) in blocks.iter().enumerate() {
-                if !block.checks.is_empty() {
-                    write!(f, "// origin: {i}\n")?;
-
-                    for check in &block.checks {
-                        write!(f, "{};\n", self.symbols.print_check(check))?;
-                    }
+                let entry = checks_map.entry(i).or_default();
+                has_checks = has_checks || !&block.checks.is_empty();
+                for check in &block.checks {
+                    entry.push(self.symbols.print_check(check));
                 }
             }
         }
 
-        if !self.authorizer_block_builder.checks.is_empty() {
-            write!(f, "\n")?;
+        let authorizer_entry = checks_map.entry(usize::MAX).or_default();
+
+        has_checks = has_checks || !&self.authorizer_block_builder.checks.is_empty();
+        for check in &self.authorizer_block_builder.checks {
+            authorizer_entry.push(check.to_string());
+        }
+
+        if has_checks {
+            writeln!(f, "// Checks:")?;
+        }
+
+        for (origin, checks) in checks_map {
+            if !checks.is_empty() {
+                if origin == usize::MAX {
+                    writeln!(f, "// origin: authorizer")?;
+                } else {
+                    writeln!(f, "// origin: {origin}")?;
+                }
+            }
+
+            for check in checks {
+                writeln!(f, "{};", &check)?;
+            }
+        }
+
+        if has_checks {
+            writeln!(f)?;
         }
 
         if !self.policies.is_empty() {
-            write!(f, "// Policies:\n")?;
+            writeln!(f, "// Policies:")?;
         }
         for policy in self.policies.iter() {
-            write!(f, "{policy};\n")?;
+            writeln!(f, "{policy};")?;
         }
 
         Ok(())
@@ -1320,7 +1369,10 @@ impl AuthorizerExt for Authorizer {
 mod tests {
     use std::time::Duration;
 
-    use crate::{builder::BlockBuilder, KeyPair};
+    use crate::{
+        builder::{BiscuitBuilder, BlockBuilder},
+        KeyPair,
+    };
 
     use super::*;
 
@@ -1616,5 +1668,81 @@ mod tests {
             .query_all("group($group) <- group($group) trusting authority")
             .unwrap();
         assert_eq!(block_facts_query_all_explicit.len(), 0);
+    }
+
+    #[test]
+    fn authorizer_display_before_and_after_authorization() {
+        let root = KeyPair::new();
+
+        let mut token_builder = BiscuitBuilder::new();
+        token_builder
+            .add_code(
+                r#"
+            authority_fact(true);
+            authority_rule($v) <- authority_fact($v);
+            check if authority_fact(true), authority_rule(true);
+        "#,
+            )
+            .unwrap();
+        let token = token_builder.build(&root).unwrap();
+
+        let mut authorizer = token.authorizer().unwrap();
+        authorizer
+            .add_code(
+                r#"
+          authorizer_fact(true);
+          authorizer_rule($v) <- authorizer_fact($v);
+          check if authorizer_fact(true), authorizer_rule(true);
+          allow if true;
+        "#,
+            )
+            .unwrap();
+        let output_before_authorization = authorizer.to_string();
+
+        assert!(
+            output_before_authorization.contains("authorizer_fact(true)"),
+            "Authorizer.to_string() displays authorizer facts even before running authorize()"
+        );
+
+        authorizer.authorize().unwrap();
+
+        let output_after_authorization = authorizer.to_string();
+        assert!(
+            output_after_authorization.contains("authorizer_rule(true)"),
+            "Authorizer.to_string() displays generated facts after running authorize()"
+        );
+
+        assert_eq!(
+            r#"// Facts:
+// origin: 0
+authority_fact(true);
+authority_rule(true);
+// origin: authorizer
+authorizer_fact(true);
+authorizer_rule(true);
+
+// Rules:
+// origin: 0
+authority_rule($v) <- authority_fact($v);
+// origin: authorizer
+authorizer_rule($v) <- authorizer_fact($v);
+
+// Checks:
+// origin: 0
+check if authority_fact(true), authority_rule(true);
+// origin: authorizer
+check if authorizer_fact(true), authorizer_rule(true);
+
+// Policies:
+allow if true;
+"#,
+            output_after_authorization
+        );
+    }
+
+    #[test]
+    fn empty_authorizer_display() {
+        let authorizer = Authorizer::new();
+        assert_eq!("", authorizer.to_string())
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "biscuit-auth"
-version = "4.0.0"
+version = "4.1.1"
 description = "an authorization token with decentralized verification and offline attenuation"
 authors = ["Geoffroy Couprie <contact@geoffroycouprie.com>"]
 edition = "2018"
@@ -24,6 +24,8 @@ datalog-macro = ["biscuit-quote"]
 bwk = ["chrono", "serde"]
 docsrs = []
 uuid = ["dep:uuid"]
+# used to expose pem/der loaders for keypairs
+pem = ["ed25519-dalek/pem"]
 
 [dependencies]
 rand_core = "^0.6"
