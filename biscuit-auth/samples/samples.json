@@ -2177,6 +2177,91 @@
           ]
         }
       }
+    },
+    {
+      "title": "test reject if",
+      "filename": "test029_reject_if.bc",
+      "token": [
+        {
+          "symbols": [
+            "test"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "reject if test($test), $test;\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [
+              [
+                "test(false)",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "reject if test($test), $test"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "test(false);\n\nallow if true;\n",
+          "revocation_ids": [
+            "2060031eb9968b492123440fa9cbc781f18be812961e765a34a8702d3eee0ed54910710efbb41b3141f60748a815012fe0e703a5b5604f4262d1ac7e79766b07"
+          ]
+        },
+        "rejection": {
+          "world": {
+            "facts": [
+              [
+                "test(true)",
+                [
+                  null
+                ]
+              ]
+            ],
+            "rules": [],
+            "checks": [
+              "reject if test($test), $test"
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Err": {
+              "FailedLogic": {
+                "Unauthorized": {
+                  "policy": {
+                    "Allow": 0
+                  },
+                  "checks": [
+                    {
+                      "Block": {
+                        "block_id": 0,
+                        "check_id": 0,
+                        "rule": "reject if test($test), $test"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "authorizer_code": "test(true);\n\nallow if true;\n",
+          "revocation_ids": [
+            "2060031eb9968b492123440fa9cbc781f18be812961e765a34a8702d3eee0ed54910710efbb41b3141f60748a815012fe0e703a5b5604f4262d1ac7e79766b07"
+          ]
+        }
+      }
     }
   ]
 }

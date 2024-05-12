@@ -70,6 +70,7 @@ fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, kind) = alt((
         map(tag_no_case("check if"), |_| CheckKind::One),
         map(tag_no_case("check all"), |_| CheckKind::All),
+        map(tag_no_case("reject if"), |_| CheckKind::Reject),
     ))(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
