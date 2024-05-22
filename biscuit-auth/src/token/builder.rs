@@ -1455,6 +1455,7 @@ pub struct Check {
 pub enum CheckKind {
     One,
     All,
+    Reject,
 }
 
 impl Check {
@@ -1604,6 +1605,7 @@ impl fmt::Display for Check {
         match self.kind {
             CheckKind::One => write!(f, "check if ")?,
             CheckKind::All => write!(f, "check all ")?,
+            CheckKind::Reject => write!(f, "reject if ")?,
         };
 
         if !self.queries.is_empty() {
@@ -1632,6 +1634,7 @@ impl From<biscuit_parser::builder::Check> for Check {
             kind: match c.kind {
                 biscuit_parser::builder::CheckKind::One => CheckKind::One,
                 biscuit_parser::builder::CheckKind::All => CheckKind::All,
+                biscuit_parser::builder::CheckKind::Reject => CheckKind::Reject,
             },
         }
     }

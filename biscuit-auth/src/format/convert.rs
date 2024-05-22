@@ -71,10 +71,19 @@ pub fn proto_block_to_token_block(
         rules.push(v2::proto_rule_to_token_rule(rule, version)?.0);
     }
 
-    if version == MIN_SCHEMA_VERSION && input.checks_v2.iter().any(|c| c.kind.is_some()) {
-        return Err(error::Format::DeserializationError(
-            "deserialization error: v3 blocks must not contain a check kind".to_string(),
-        ));
+    if version < MAX_SCHEMA_VERSION {
+        for c in input.checks_v2.iter() {
+            if version == MIN_SCHEMA_VERSION && c.kind.is_some() {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: v3 blocks must not contain a check kind".to_string(),
+                ));
+            } else if c.kind == Some(schema::check_v2::Kind::Reject as i32) {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: v4 blocks must not contain reject if checks"
+                        .to_string(),
+                ));
+            }
+        }
     }
 
     for check in input.checks_v2.iter() {
@@ -326,6 +335,7 @@ pub mod v2 {
             kind: match input.kind {
                 crate::token::builder::CheckKind::One => None,
                 crate::token::builder::CheckKind::All => Some(Kind::All as i32),
+                crate::token::builder::CheckKind::Reject => Some(Kind::Reject as i32),
             },
         }
     }
@@ -343,6 +353,7 @@ pub mod v2 {
         let kind = match input.kind {
             None | Some(0) => crate::token::builder::CheckKind::One,
             Some(1) => crate::token::builder::CheckKind::All,
+            Some(2) => crate::token::builder::CheckKind::Reject,
             _ => {
                 return Err(error::Format::DeserializationError(
                     "deserialization error: invalid check kind".to_string(),
