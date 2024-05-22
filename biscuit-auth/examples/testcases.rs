@@ -252,26 +252,26 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: Vec<AuthorizerFactSet>,
-    pub rules: Vec<AuthorizerRuleSet>,
-    pub checks: Vec<AuthorizerCheckSet>,
+    pub facts: Vec<Facts>,
+    pub rules: Vec<Rules>,
+    pub checks: Vec<Checks>,
     pub policies: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerFactSet {
+struct Facts {
     origin: BTreeSet<Option<usize>>,
     facts: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerRuleSet {
+struct Rules {
     origin: Option<usize>,
     rules: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerCheckSet {
+struct Checks {
     origin: Option<usize>,
     checks: Vec<String>,
 }
@@ -345,7 +345,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !rules.is_empty() {
             rules.sort();
-            authorizer_rules.push(AuthorizerRuleSet {
+            authorizer_rules.push(Rules {
                 origin: Some(i),
                 rules,
             });
@@ -359,7 +359,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !checks.is_empty() {
             checks.sort();
-            authorizer_checks.push(AuthorizerCheckSet {
+            authorizer_checks.push(Checks {
                 origin: Some(i),
                 checks,
             });
@@ -374,7 +374,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !rules.is_empty() {
         rules.sort();
-        authorizer_rules.push(AuthorizerRuleSet {
+        authorizer_rules.push(Rules {
             origin: Some(usize::MAX),
             rules,
         });
@@ -388,7 +388,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !checks.is_empty() {
         checks.sort();
-        authorizer_checks.push(AuthorizerCheckSet {
+        authorizer_checks.push(Checks {
             origin: Some(usize::MAX),
             checks,
         });
@@ -413,7 +413,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !facts.is_empty() {
             facts.sort();
-            authorizer_facts.push(AuthorizerFactSet { origin, facts });
+            authorizer_facts.push(Facts { origin, facts });
         }
     }
     authorizer_facts.sort();

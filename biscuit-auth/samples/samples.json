@@ -2195,16 +2195,23 @@
         "": {
           "world": {
             "facts": [
-              [
-                "test(false)",
-                [
+              {
+                "origin": [
                   null
+                ],
+                "facts": [
+                  "test(false)"
                 ]
-              ]
+              }
             ],
             "rules": [],
             "checks": [
-              "reject if test($test), $test"
+              {
+                "origin": 0,
+                "checks": [
+                  "reject if test($test), $test"
+                ]
+              }
             ],
             "policies": [
               "allow if true"
@@ -2221,16 +2228,23 @@
         "rejection": {
           "world": {
             "facts": [
-              [
-                "test(true)",
-                [
+              {
+                "origin": [
                   null
+                ],
+                "facts": [
+                  "test(true)"
                 ]
-              ]
+              }
             ],
             "rules": [],
             "checks": [
-              "reject if test($test), $test"
+              {
+                "origin": 0,
+                "checks": [
+                  "reject if test($test), $test"
+                ]
+              }
             ],
             "policies": [
               "allow if true"
