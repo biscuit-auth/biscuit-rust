@@ -96,7 +96,7 @@ pub struct PrivateKey(SigningKey);
 impl PrivateKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
-        self.0.to_pkcs8_der().unwrap().to_bytes()
+        self.0.to_bytes().to_bytes()
         //self.0.to_bytes().into()
     }
 
