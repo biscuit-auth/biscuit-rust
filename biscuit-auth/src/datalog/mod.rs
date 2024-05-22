@@ -25,6 +25,7 @@ pub enum Term {
     Bytes(Vec<u8>),
     Bool(bool),
     Set(BTreeSet<Term>),
+    Null,
 }
 
 impl From<&Term> for Term {
@@ -37,6 +38,7 @@ impl From<&Term> for Term {
             Term::Bytes(ref b) => Term::Bytes(b.clone()),
             Term::Bool(ref b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -560,6 +562,7 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
                 (Term::Date(i), Term::Date(j)) => i == j,
                 (Term::Bytes(i), Term::Bytes(j)) => i == j,
                 (Term::Bool(i), Term::Bool(j)) => i == j,
+                (Term::Null, Term::Null) => true,
                 (Term::Set(i), Term::Set(j)) => i == j,
                 _ => false,
             })
@@ -842,12 +845,12 @@ pub struct SchemaVersion {
     contains_scopes: bool,
     contains_v4: bool,
     contains_check_all: bool,
-    contains_reject_if: bool,
+    contains_v5: bool,
 }
 
 impl SchemaVersion {
     pub fn version(&self) -> u32 {
-        if self.contains_reject_if {
+        if self.contains_v5 {
             5
         } else if self.contains_scopes || self.contains_v4 || self.contains_check_all {
             4
@@ -873,7 +876,7 @@ impl SchemaVersion {
             } else {
                 Ok(())
             }
-        } else if version < 5 && self.contains_reject_if {
+        } else if version < 5 && self.contains_v5 {
             Err(error::Format::DeserializationError(
                 "v5 blocks must not have reject if".to_string(),
             ))
@@ -885,7 +888,7 @@ impl SchemaVersion {
 
 /// Determine the schema version given the elements of a block.
 pub fn get_schema_version(
-    _facts: &[Fact],
+    facts: &[Fact],
     rules: &[Rule],
     checks: &[Check],
     scopes: &[Scope],
@@ -897,13 +900,13 @@ pub fn get_schema_version(
             .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
     let mut contains_check_all = false;
-    let mut contains_reject_if = false;
+    let mut contains_v5 = false;
 
     for c in checks.iter() {
         if c.kind == CheckKind::All {
             contains_check_all = true;
         } else if c.kind == CheckKind::Reject {
-            contains_reject_if = true;
+            contains_v5 = true;
         }
     }
 
@@ -915,11 +918,29 @@ pub fn get_schema_version(
                 .any(|query| contains_v4_op(&query.expressions))
         });
 
+    // null
+    if !contains_v5 {
+        contains_v5 = rules.iter().any(|rule| {
+            contains_v5_predicate(&rule.head)
+                || rule.body.iter().any(contains_v5_predicate)
+                || contains_v5_op(&rule.expressions)
+        }) || checks.iter().any(|check| {
+            check.queries.iter().any(|query| {
+                query.body.iter().any(contains_v5_predicate) || contains_v5_op(&query.expressions)
+            })
+        });
+    }
+    if !contains_v5 {
+        contains_v5 = facts
+            .iter()
+            .any(|fact| contains_v5_predicate(&fact.predicate))
+    }
+
     SchemaVersion {
         contains_scopes,
         contains_v4,
         contains_check_all,
-        contains_reject_if,
+        contains_v5,
     }
 }
 
@@ -940,6 +961,30 @@ pub fn contains_v4_op(expressions: &[Expression]) -> bool {
             return false;
         })
     })
+}
+
+fn contains_v5_op(expressions: &[Expression]) -> bool {
+    expressions.iter().any(|expression| {
+        expression.ops.iter().any(|op| {
+            if let Op::Value(term) = op {
+                contains_v5_term(term)
+            } else {
+                false
+            }
+        })
+    })
+}
+
+fn contains_v5_predicate(predicate: &Predicate) -> bool {
+    predicate.terms.iter().any(contains_v5_term)
+}
+
+fn contains_v5_term(term: &Term) -> bool {
+    match term {
+        Term::Null => true,
+        Term::Set(s) => s.contains(&Term::Null),
+        _ => false,
+    }
 }
 
 #[cfg(test)]

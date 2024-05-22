@@ -429,6 +429,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Parameter(String),
+    Null,
 }
 
 impl Convert<datalog::Term> for Term {
@@ -441,6 +442,7 @@ impl Convert<datalog::Term> for Term {
             Term::Bytes(s) => datalog::Term::Bytes(s.clone()),
             Term::Bool(b) => datalog::Term::Bool(*b),
             Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Null => datalog::Term::Null,
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
@@ -460,6 +462,7 @@ impl Convert<datalog::Term> for Term {
                     .map(|i| Term::convert_from(i, symbols))
                     .collect::<Result<BTreeSet<_>, error::Format>>()?,
             ),
+            datalog::Term::Null => Term::Null,
         })
     }
 }
@@ -475,6 +478,7 @@ impl From<&Term> for Term {
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -491,6 +495,7 @@ impl From<biscuit_parser::builder::Term> for Term {
             biscuit_parser::builder::Term::Set(s) => {
                 Term::Set(s.into_iter().map(|t| t.into()).collect())
             }
+            biscuit_parser::builder::Term::Null => Term::Null,
             biscuit_parser::builder::Term::Parameter(ref p) => Term::Parameter(p.clone()),
         }
     }
@@ -534,6 +539,7 @@ impl fmt::Display for Term {
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
+            Term::Null => write!(f, "null"),
         }
     }
 }
