@@ -1999,7 +1999,7 @@ fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
 fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "test null".to_string();
-    let filename = "test30_null".to_string();
+    let filename = "test030_null".to_string();
     let token;
 
     let biscuit = biscuit!(
