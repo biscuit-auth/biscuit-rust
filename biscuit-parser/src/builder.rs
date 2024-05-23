@@ -18,6 +18,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Parameter(String),
+    Null,
 }
 
 impl From<&Term> for Term {
@@ -31,6 +32,7 @@ impl From<&Term> for Term {
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -58,6 +60,8 @@ impl ToTokens for Term {
                     ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
                 }}
             }
+            Term::Null => quote! { ::biscuit_auth::builder::Term::Null },
+
         })
     }
 }
@@ -581,6 +585,11 @@ pub fn boolean(b: bool) -> Term {
 /// creates a set
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
+}
+
+/// creates a null
+pub fn null() -> Term {
+    Term::Null
 }
 
 /// creates a parameter
