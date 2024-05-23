@@ -291,13 +291,6 @@ pub struct ExternalSignature {
 }
 
 #[derive(Clone, Debug)]
-pub struct Token {
-    pub root: PublicKey,
-    pub blocks: Vec<Block>,
-    pub next: TokenNext,
-}
-
-#[derive(Clone, Debug)]
 pub enum TokenNext {
     Secret(PrivateKey),
     Seal(Signature),
