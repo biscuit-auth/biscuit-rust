@@ -1,5 +1,8 @@
+use std::cmp::max;
+
 use prost::Message;
 
+use super::public_keys::PublicKeys;
 use crate::{
     builder::BlockBuilder,
     crypto::PublicKey,
@@ -8,8 +11,6 @@ use crate::{
     format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
     KeyPair, PrivateKey,
 };
-
-use super::public_keys::PublicKeys;
 
 /// Third party block request
 #[derive(Debug)]
@@ -123,7 +124,7 @@ impl ThirdPartyRequest {
         let mut symbols = SymbolTable::new();
         symbols.public_keys = self.public_keys.clone();
         let mut block = block_builder.build(symbols);
-        block.version = super::MAX_SCHEMA_VERSION;
+        block.version = max(super::THIRD_PARTY_BLOCK_VERSION, block.version);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)

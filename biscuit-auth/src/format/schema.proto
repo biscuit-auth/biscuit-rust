@@ -80,6 +80,7 @@ message CheckV2 {
   enum Kind {
     One = 0;
     All = 1;
+    Reject = 2;
   }
 }
 

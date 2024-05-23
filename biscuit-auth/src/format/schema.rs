@@ -128,6 +128,7 @@ pub mod check_v2 {
     pub enum Kind {
         One = 0,
         All = 1,
+        Reject = 2,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
