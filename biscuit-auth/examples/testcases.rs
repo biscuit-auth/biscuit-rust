@@ -144,6 +144,8 @@ fn main() {
 
     add_test_result(&mut results, reject_if(&target, &root, test));
 
+    add_test_result(&mut results, secp256r1(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1981,6 +1983,61 @@ fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "rejection".to_string(),
         validate_token(root, &data[..], "test(true); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn secp256r1(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "ECDSA secp256r1 signatures".to_string();
+    let filename = "test031_secp256r1".to_string();
+    let token;
+
+    let keypair2 = KeyPair::new_secp256r1_with_rng(&mut rng);
+    let biscuit1 = biscuit!(
+        r#"
+        right("file1", "read");
+        right("file2", "read");
+        right("file1", "write");
+    "#
+    )
+    .build_with_key_pair(&root, SymbolTable::default(), &keypair2)
+    .unwrap();
+
+    let keypair3 = KeyPair::new_secp256r1_with_rng(&mut rng);
+    let biscuit2 = biscuit1
+        .append_with_keypair(
+            &keypair3,
+            block!(
+                r#"
+            check if resource($0), operation("read"), right($0, "read")
+            "#
+            ),
+        )
+        .unwrap();
+
+    token = print_blocks(&biscuit2);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            r#"
+            resource("file1");
+            operation("read");
+            allow if true;
+        "#,
+        ),
     );
 
     TestResult {

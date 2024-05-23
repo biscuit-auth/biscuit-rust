@@ -404,6 +404,16 @@ impl BiscuitBuilder {
         let authority_block = self.inner.build(symbols.clone());
         Biscuit::new_with_rng(rng, self.root_key_id, root, symbols, authority_block)
     }
+
+    pub fn build_with_key_pair(
+        self,
+        root: &KeyPair,
+        symbols: SymbolTable,
+        next: &KeyPair,
+    ) -> Result<Biscuit, error::Token> {
+        let authority_block = self.inner.build(symbols.clone());
+        Biscuit::new_with_key_pair(self.root_key_id, root, next, symbols, authority_block)
+    }
 }
 
 pub trait Convert<T>: Sized {

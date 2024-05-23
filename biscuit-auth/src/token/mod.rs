@@ -1,18 +1,16 @@
 //! main structures to interact with Biscuit tokens
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::fmt::Display;
 
-use self::public_keys::PublicKeys;
-
-use super::crypto::{KeyPair, PublicKey, Signature};
-use super::datalog::SymbolTable;
-use super::error;
-use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
+use self::public_keys::PublicKeys;
+use super::crypto::{KeyPair, PublicKey, Signature};
+use super::datalog::SymbolTable;
+use super::error;
+use super::format::SerializedBiscuit;
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
@@ -25,7 +23,6 @@ pub mod builder_ext;
 pub(crate) mod public_keys;
 pub(crate) mod third_party;
 pub mod unverified;
-
 pub use block::Block;
 pub use third_party::*;
 
@@ -232,6 +229,25 @@ impl Biscuit {
         rng: &mut T,
         root_key_id: Option<u32>,
         root: &KeyPair,
+        symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        Self::new_with_key_pair(
+            root_key_id,
+            root,
+            &KeyPair::new_with_rng(rng),
+            symbols,
+            authority,
+        )
+    }
+
+    /// creates a new token, using a provided CSPRNG
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new_with_key_pair(
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        next_keypair: &KeyPair,
         mut symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
@@ -243,8 +259,7 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let next_keypair = KeyPair::new_with_rng(rng);
-        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
+        let container = SerializedBiscuit::new(root_key_id, root, next_keypair, &authority)?;
 
         symbols.public_keys.extend(&authority.public_keys)?;
 
@@ -411,11 +426,7 @@ impl Biscuit {
             )));
         }
 
-        let bytes: [u8; 64] = (&external_signature.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
-
-        let signature = Signature::from_bytes(&bytes)?;
+        let signature = Signature::from_vec(external_signature.signature);
 
         let previous_key = self
             .container

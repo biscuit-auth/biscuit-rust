@@ -33,8 +33,12 @@ impl KeyPair {
         KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng))
     }
 
-    pub fn new_p256() -> Self {
+    pub fn new_secp256r1() -> Self {
         KeyPair::P256(p256::KeyPair::new())
+    }
+
+    pub fn new_secp256r1_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
+        KeyPair::P256(p256::KeyPair::new_with_rng(rng))
     }
 
     pub fn from(key: &PrivateKey) -> Self {
@@ -252,6 +256,10 @@ pub struct Signature(pub(crate) Vec<u8>);
 impl Signature {
     pub fn from_bytes(data: &[u8]) -> Result<Self, error::Format> {
         Ok(Signature(data.to_owned()))
+    }
+
+    pub(crate) fn from_vec(data: Vec<u8>) -> Self {
+        Signature(data)
     }
 
     pub fn to_bytes(&self) -> &[u8] {

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+
+use prost::Message;
 
 use super::{default_symbol_table, Biscuit, Block};
 use crate::{
@@ -13,7 +14,6 @@ use crate::{
     token::{ThirdPartyBlockContents, ThirdPartyRequest},
     KeyPair, RootKeyProvider,
 };
-use prost::Message;
 
 /// A token that was parsed without cryptographic signature verification
 ///
@@ -303,11 +303,7 @@ impl UnverifiedBiscuit {
                 ))
             })?;
 
-        let bytes: [u8; 64] = (&external_signature.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
-
-        let signature = Signature::from_bytes(&bytes)?;
+        let signature = Signature::from_vec(external_signature.signature);
 
         let previous_key = self
             .container

@@ -15,7 +15,6 @@ use crate::crypto::Signature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
 pub mod schema; /*{
@@ -59,11 +58,7 @@ impl SerializedBiscuit {
         let next_key = PublicKey::from_proto(&data.authority.next_key)?;
         let mut next_key_algorithm = next_key.algorithm();
 
-        let bytes: [u8; 64] = (&data.authority.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(data.authority.signature.len()))?;
-
-        let signature = Signature::from_bytes(&bytes)?;
+        let signature = Signature::from_vec(data.authority.signature);
 
         if data.authority.external_signature.is_some() {
             return Err(error::Format::DeserializationError(
@@ -79,24 +74,15 @@ impl SerializedBiscuit {
         };
 
         let mut blocks = Vec::new();
-        for block in &data.blocks {
+        for block in data.blocks {
             let next_key = PublicKey::from_proto(&block.next_key)?;
             next_key_algorithm = next_key.algorithm();
 
-            let bytes: [u8; 64] = (&block.signature[..])
-                .try_into()
-                .map_err(|_| error::Format::InvalidSignatureSize(block.signature.len()))?;
+            let signature = Signature::from_vec(block.signature);
 
-            let signature = Signature::from_bytes(&bytes)?;
-
-            let external_signature = if let Some(ex) = block.external_signature.as_ref() {
+            let external_signature = if let Some(ex) = block.external_signature {
                 let public_key = PublicKey::from_proto(&ex.public_key)?;
-
-                let bytes: [u8; 64] = (&ex.signature[..])
-                    .try_into()
-                    .map_err(|_| error::Format::InvalidSignatureSize(ex.signature.len()))?;
-
-                let signature = Signature::from_bytes(&bytes)?;
+                let signature = Signature::from_vec(ex.signature);
 
                 Some(ExternalSignature {
                     public_key,
@@ -124,15 +110,7 @@ impl SerializedBiscuit {
                 TokenNext::Secret(PrivateKey::from_bytes(&v, next_key_algorithm)?)
             }
             Some(schema::proof::Content::FinalSignature(v)) => {
-                let bytes: [u8; 64] = (&v[..])
-                    .try_into()
-                    .map_err(|_| error::Format::InvalidSignatureSize(v.len()))?;
-                let signature = Signature::from_bytes(&bytes).map_err(|e| {
-                    error::Format::SignatureDeserializationError(format!(
-                        "final signature deserialization error: {:?}",
-                        e
-                    ))
-                })?;
+                let signature = Signature::from_vec(v);
 
                 TokenNext::Seal(signature)
             }
