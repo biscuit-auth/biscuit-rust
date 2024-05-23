@@ -430,6 +430,7 @@ pub enum Term {
     Set(BTreeSet<Term>),
     Parameter(String),
     Null,
+    Array(Vec<Term>),
 }
 
 impl Convert<datalog::Term> for Term {
@@ -446,6 +447,7 @@ impl Convert<datalog::Term> for Term {
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
+            Term::Array(a) => datalog::Term::Array(a.iter().map(|i| i.convert(symbols)).collect()),
         }
     }
 
@@ -463,6 +465,11 @@ impl Convert<datalog::Term> for Term {
                     .collect::<Result<BTreeSet<_>, error::Format>>()?,
             ),
             datalog::Term::Null => Term::Null,
+            datalog::Term::Array(a) => Term::Array(
+                a.iter()
+                    .map(|i| Term::convert_from(i, symbols))
+                    .collect::<Result<Vec<_>, error::Format>>()?,
+            ),
         })
     }
 }
@@ -479,6 +486,7 @@ impl From<&Term> for Term {
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
         }
     }
 }
@@ -497,6 +505,9 @@ impl From<biscuit_parser::builder::Term> for Term {
             }
             biscuit_parser::builder::Term::Null => Term::Null,
             biscuit_parser::builder::Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            biscuit_parser::builder::Term::Array(a) => {
+                Term::Array(a.into_iter().map(|t| t.into()).collect())
+            }
         }
     }
 }
@@ -534,12 +545,16 @@ impl fmt::Display for Term {
             }
             Term::Set(s) => {
                 let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
-                write!(f, "[{}]", terms.join(", "))
+                write!(f, "{{{}}}", terms.join(", "))
             }
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
             Term::Null => write!(f, "null"),
+            Term::Array(a) => {
+                let terms = a.iter().map(|term| term.to_string()).collect::<Vec<_>>();
+                write!(f, "[{}]", terms.join(", "))
+            }
         }
     }
 }
@@ -2357,7 +2372,7 @@ mod tests {
         rule.set("p5", term_set).unwrap();
 
         let s = rule.to_string();
-        assert_eq!(s, "fact($var1, \"hello\", [0]) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+        assert_eq!(s, "fact($var1, \"hello\", {0}) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
     }
 
     #[test]

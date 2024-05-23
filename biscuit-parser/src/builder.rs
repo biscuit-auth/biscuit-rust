@@ -19,6 +19,7 @@ pub enum Term {
     Set(BTreeSet<Term>),
     Parameter(String),
     Null,
+    Array(Vec<Term>),
 }
 
 impl From<&Term> for Term {
@@ -33,6 +34,7 @@ impl From<&Term> for Term {
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
         }
     }
 }
@@ -61,7 +63,12 @@ impl ToTokens for Term {
                 }}
             }
             Term::Null => quote! { ::biscuit_auth::builder::Term::Null },
-
+            Term::Array(v) => {
+                quote! {{
+                    use std::iter::FromIterator;
+                    ::biscuit_auth::builder::Term::Array(::std::vec::Vec::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
+                }}
+            }
         })
     }
 }
@@ -575,6 +582,11 @@ pub fn set(s: BTreeSet<Term>) -> Term {
 /// creates a null
 pub fn null() -> Term {
     Term::Null
+}
+
+/// creates an array
+pub fn array(a: Vec<Term>) -> Term {
+    Term::Array(a)
 }
 
 /// creates a parameter

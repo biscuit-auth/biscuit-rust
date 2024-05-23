@@ -22,7 +22,7 @@ fn block_macro() {
 
     assert_eq!(
         b.to_string(),
-        r#"fact("test", hex:aabbcc, [true], "my_value", [0]);
+        r#"fact("test", hex:aabbcc, [true], "my_value", {0});
 appended(true);
 rule($0, true) <- fact($0, $1, $2, "my_value");
 check if "my_value".starts_with("my");
@@ -165,7 +165,7 @@ fn rule_macro() {
 
     assert_eq!(
         r.to_string(),
-        r#"rule($0, true) <- fact($0, $1, $2, "my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"rule($0, true) <- fact($0, $1, $2, "my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }
 
@@ -175,7 +175,7 @@ fn fact_macro() {
     term_set.insert(builder::int(0i64));
     let f = fact!(r#"fact({my_key}, {term_set})"#, my_key = "my_value",);
 
-    assert_eq!(f.to_string(), r#"fact("my_value", [0])"#,);
+    assert_eq!(f.to_string(), r#"fact("my_value", {0})"#,);
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn check_macro() {
 
     assert_eq!(
         c.to_string(),
-        r#"check if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"check if fact("my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }
 
@@ -214,6 +214,6 @@ fn policy_macro() {
 
     assert_eq!(
         p.to_string(),
-        r#"allow if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"allow if fact("my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }

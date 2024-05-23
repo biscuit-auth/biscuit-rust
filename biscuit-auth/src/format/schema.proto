@@ -99,11 +99,18 @@ message TermV2 {
     bool bool = 6;
     TermSet set = 7;
     Empty null = 8;
+    Array array = 9;
   }
 }
 
 message TermSet {
   repeated TermV2 set = 1;
+}
+
+
+
+message Array {
+  repeated TermV2 array = 1;
 }
 
 message ExpressionV2 {

@@ -767,8 +767,7 @@ fn null(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
-    //println!("set:\t{}", i);
-    let (i, _) = preceded(space0, char('['))(i)?;
+    let (i, _) = preceded(space0, char('{'))(i)?;
     let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
 
     let mut set = BTreeSet::new();
@@ -797,6 +796,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
             }
             builder::Term::Parameter(_) => 7,
             builder::Term::Null => 8,
+            builder::Term::Array(_) => 9,
         };
 
         if let Some(k) = kind {
@@ -814,16 +814,64 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
         set.insert(term);
     }
 
-    let (i, _) = preceded(space0, char(']'))(i)?;
+    let (i, _) = preceded(space0, char('}'))(i)?;
 
     Ok((i, builder::set(set)))
+}
+
+fn array(i: &str) -> IResult<&str, builder::Term, Error> {
+    //println!("set:\t{}", i);
+    let (i, _) = preceded(space0, char('['))(i)?;
+    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
+
+    let mut array = Vec::new();
+
+    let mut kind: Option<u8> = None;
+    for term in list.drain(..) {
+        let index = match term {
+            builder::Term::Variable(_) => {
+                return Err(nom::Err::Failure(Error {
+                    input: i,
+                    code: ErrorKind::Fail,
+                    message: Some("variables are not permitted in arrays".to_string()),
+                }))
+            }
+            builder::Term::Integer(_) => 2,
+            builder::Term::Str(_) => 3,
+            builder::Term::Date(_) => 4,
+            builder::Term::Bytes(_) => 5,
+            builder::Term::Bool(_) => 6,
+            builder::Term::Set(_) => 7,
+            builder::Term::Parameter(_) => 8,
+            builder::Term::Null => 9,
+            builder::Term::Array(_) => 10,
+        };
+
+        if let Some(k) = kind {
+            if k != index {
+                return Err(nom::Err::Failure(Error {
+                    input: i,
+                    code: ErrorKind::Fail,
+                    message: Some("array elements must have the same type".to_string()),
+                }));
+            }
+        } else {
+            kind = Some(index);
+        }
+
+        array.push(term);
+    }
+
+    let (i, _) = preceded(space0, char(']'))(i)?;
+
+    Ok((i, builder::array(array)))
 }
 
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, null, set,
+            parameter, string, date, variable, integer, bytes, boolean, null, set, array,
         )),
     )(i)
 }
@@ -832,7 +880,9 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, null, set)),
+            alt((
+                parameter, string, date, integer, bytes, boolean, null, set, array,
+            )),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in facts".to_string(),

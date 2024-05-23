@@ -202,9 +202,16 @@ impl SymbolTable {
                     .iter()
                     .map(|term| self.print_term(term))
                     .collect::<Vec<_>>();
-                format!("[{}]", terms.join(", "))
+                format!("{{{}}}", terms.join(", "))
             }
             Term::Null => "null".to_string(),
+            Term::Array(a) => {
+                let terms = a
+                    .iter()
+                    .map(|term| self.print_term(term))
+                    .collect::<Vec<_>>();
+                format!("[{}]", terms.join(", "))
+            }
         }
     }
     pub fn print_fact(&self, f: &Fact) -> String {

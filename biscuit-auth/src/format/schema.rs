@@ -139,7 +139,7 @@ pub struct PredicateV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TermV2 {
-    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8")]
+    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub content: ::core::option::Option<term_v2::Content>,
 }
 /// Nested message and enum types in `TermV2`.
@@ -162,12 +162,19 @@ pub mod term_v2 {
         Set(super::TermSet),
         #[prost(message, tag="8")]
         Null(super::Empty),
+        #[prost(message, tag="9")]
+        Array(super::Array),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TermSet {
     #[prost(message, repeated, tag="1")]
     pub set: ::prost::alloc::vec::Vec<TermV2>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Array {
+    #[prost(message, repeated, tag="1")]
+    pub array: ::prost::alloc::vec::Vec<TermV2>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExpressionV2 {

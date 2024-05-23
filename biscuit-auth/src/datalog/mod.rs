@@ -26,6 +26,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Null,
+    Array(Vec<Term>),
 }
 
 impl From<&Term> for Term {
@@ -39,6 +40,7 @@ impl From<&Term> for Term {
             Term::Bool(ref b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
         }
     }
 }
