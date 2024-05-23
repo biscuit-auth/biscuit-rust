@@ -65,7 +65,7 @@ impl KeyPair {
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
-        crate::format::schema::public_key::Algorithm::P256
+        crate::format::schema::public_key::Algorithm::Secp256r1
     }
 
     #[cfg(feature = "pem")]

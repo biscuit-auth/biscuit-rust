@@ -53,7 +53,7 @@ impl KeyPair {
             schema::public_key::Algorithm::Ed25519 => {
                 Ok(KeyPair::Ed25519(ed25519::KeyPair::from_bytes(bytes)?))
             }
-            schema::public_key::Algorithm::P256 => {
+            schema::public_key::Algorithm::Secp256r1 => {
                 Ok(KeyPair::P256(p256::KeyPair::from_bytes(bytes)?))
             }
         }
@@ -97,7 +97,7 @@ impl KeyPair {
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
             KeyPair::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
-            KeyPair::P256(_) => crate::format::schema::public_key::Algorithm::P256,
+            KeyPair::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
         }
     }
 }
@@ -138,7 +138,7 @@ impl PrivateKey {
             schema::public_key::Algorithm::Ed25519 => {
                 Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?))
             }
-            schema::public_key::Algorithm::P256 => {
+            schema::public_key::Algorithm::Secp256r1 => {
                 Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?))
             }
         }
@@ -164,7 +164,7 @@ impl PrivateKey {
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
             PrivateKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
-            PrivateKey::P256(_) => crate::format::schema::public_key::Algorithm::P256,
+            PrivateKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
         }
     }
 }
@@ -206,7 +206,7 @@ impl PublicKey {
             Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
                 &key.key,
             )?))
-        } else if key.algorithm == schema::public_key::Algorithm::P256 as i32 {
+        } else if key.algorithm == schema::public_key::Algorithm::Secp256r1 as i32 {
             Ok(PublicKey::P256(p256::PublicKey::from_bytes(&key.key)?))
         } else {
             Err(error::Format::DeserializationError(format!(
@@ -237,7 +237,7 @@ impl PublicKey {
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         match self {
             PublicKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
-            PublicKey::P256(_) => crate::format::schema::public_key::Algorithm::P256,
+            PublicKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
         }
     }
 
