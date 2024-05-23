@@ -212,6 +212,24 @@ impl SymbolTable {
                     .collect::<Vec<_>>();
                 format!("[{}]", terms.join(", "))
             }
+            Term::Map(m) => {
+                let terms = m
+                    .iter()
+                    .map(|(key, term)| match key {
+                        crate::datalog::MapKey::Integer(i) => {
+                            format!("{}: {}", i, self.print_term(term))
+                        }
+                        crate::datalog::MapKey::Str(s) => {
+                            format!(
+                                "\"{}\": {}",
+                                self.print_symbol_default(*s as u64),
+                                self.print_term(term)
+                            )
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                format!("{{{}}}", terms.join(", "))
+            }
         }
     }
     pub fn print_fact(&self, f: &Fact) -> String {

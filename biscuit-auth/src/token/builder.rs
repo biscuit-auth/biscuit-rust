@@ -7,6 +7,7 @@ use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
+use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::{
     collections::{BTreeSet, HashMap},
@@ -431,6 +432,93 @@ pub enum Term {
     Parameter(String),
     Null,
     Array(Vec<Term>),
+    Map(BTreeMap<MapKey, Term>),
+}
+
+impl Term {
+    fn extract_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Term::Parameter(name) => {
+                parameters.insert(name.to_string(), None);
+            }
+            Term::Set(s) => {
+                for term in s {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Array(a) => {
+                for term in a {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Map(m) => {
+                for (key, term) in m {
+                    if let MapKey::Parameter(name) = key {
+                        parameters.insert(name.to_string(), None);
+                    }
+                    term.extract_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_parameters(self, parameters: &HashMap<String, Option<Term>>) -> Term {
+        match self {
+            Term::Parameter(name) => {
+                if let Some(Some(term)) = parameters.get(&name) {
+                    term.clone()
+                } else {
+                    Term::Parameter(name)
+                }
+            }
+            Term::Map(m) => Term::Map(
+                m.into_iter()
+                    .map(|(key, term)| {
+                        println!("will try to apply parameters on {key:?} -> {term:?}");
+                        (
+                            match key {
+                                MapKey::Parameter(name) => {
+                                    if let Some(Some(key_term)) = parameters.get(&name) {
+                                        println!("found key term: {key_term}");
+                                        match key_term {
+                                            Term::Integer(i) => MapKey::Integer(*i),
+                                            Term::Str(s) => MapKey::Str(s.clone()),
+                                            //FIXME: we should return an error
+                                            _ => MapKey::Parameter(name),
+                                        }
+                                    } else {
+                                        MapKey::Parameter(name)
+                                    }
+                                }
+                                _ => key,
+                            },
+                            term.apply_parameters(parameters),
+                        )
+                    })
+                    .collect(),
+            ),
+            Term::Array(array) => Term::Array(
+                array
+                    .into_iter()
+                    .map(|term| term.apply_parameters(parameters))
+                    .collect(),
+            ),
+            Term::Set(set) => Term::Set(
+                set.into_iter()
+                    .map(|term| term.apply_parameters(parameters))
+                    .collect(),
+            ),
+            _ => self,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MapKey {
+    Integer(i64),
+    Str(String),
+    Parameter(String),
 }
 
 impl Convert<datalog::Term> for Term {
@@ -448,6 +536,19 @@ impl Convert<datalog::Term> for Term {
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
             Term::Array(a) => datalog::Term::Array(a.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Map(m) => datalog::Term::Map(
+                m.iter()
+                    .map(|(key, term)| {
+                        let key = match key {
+                            MapKey::Integer(i) => datalog::MapKey::Integer(*i),
+                            MapKey::Str(s) => datalog::MapKey::Str(symbols.insert(s)),
+                            MapKey::Parameter(s) => panic!("Remaining parameter {}", &s),
+                        };
+
+                        (key, term.convert(symbols))
+                    })
+                    .collect(),
+            ),
         }
     }
 
@@ -470,6 +571,18 @@ impl Convert<datalog::Term> for Term {
                     .map(|i| Term::convert_from(i, symbols))
                     .collect::<Result<Vec<_>, error::Format>>()?,
             ),
+            datalog::Term::Map(m) => Term::Map(
+                m.iter()
+                    .map(|(key, term)| {
+                        let key = match key {
+                            datalog::MapKey::Integer(i) => Ok(MapKey::Integer(*i)),
+                            datalog::MapKey::Str(s) => symbols.print_symbol(*s).map(MapKey::Str),
+                        };
+
+                        key.and_then(|k| Term::convert_from(term, symbols).map(|term| (k, term)))
+                    })
+                    .collect::<Result<BTreeMap<_, _>, error::Format>>()?,
+            ),
         })
     }
 }
@@ -487,6 +600,7 @@ impl From<&Term> for Term {
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
             Term::Null => Term::Null,
             Term::Array(ref a) => Term::Array(a.clone()),
+            Term::Map(m) => Term::Map(m.clone()),
         }
     }
 }
@@ -508,6 +622,22 @@ impl From<biscuit_parser::builder::Term> for Term {
             biscuit_parser::builder::Term::Array(a) => {
                 Term::Array(a.into_iter().map(|t| t.into()).collect())
             }
+            biscuit_parser::builder::Term::Map(a) => Term::Map(
+                a.into_iter()
+                    .map(|(key, term)| {
+                        (
+                            match key {
+                                biscuit_parser::builder::MapKey::Parameter(s) => {
+                                    MapKey::Parameter(s)
+                                }
+                                biscuit_parser::builder::MapKey::Integer(i) => MapKey::Integer(i),
+                                biscuit_parser::builder::MapKey::Str(s) => MapKey::Str(s),
+                            },
+                            term.into(),
+                        )
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -554,6 +684,17 @@ impl fmt::Display for Term {
             Term::Array(a) => {
                 let terms = a.iter().map(|term| term.to_string()).collect::<Vec<_>>();
                 write!(f, "[{}]", terms.join(", "))
+            }
+            Term::Map(m) => {
+                let terms = m
+                    .iter()
+                    .map(|(key, term)| match key {
+                        MapKey::Integer(i) => format!("{i}: {}", term.to_string()),
+                        MapKey::Str(s) => format!("\"{s}\": {}", term.to_string()),
+                        MapKey::Parameter(s) => format!("{{{s}}}: {}", term.to_string()),
+                    })
+                    .collect::<Vec<_>>();
+                write!(f, "{{{}}}", terms.join(", "))
             }
         }
     }
@@ -711,9 +852,7 @@ impl Fact {
         let terms: Vec<Term> = terms.into();
 
         for term in &terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
         Fact {
             predicate: Predicate::new(name, terms),
@@ -817,14 +956,7 @@ impl Fact {
                 .predicate
                 .terms
                 .drain(..)
-                .map(|t| {
-                    if let Term::Parameter(name) = &t {
-                        if let Some(Some(term)) = parameters.get(name) {
-                            return term.clone();
-                        }
-                    }
-                    t
-                })
+                .map(|t| t.apply_parameters(&parameters))
                 .collect();
         }
     }
@@ -1014,23 +1146,19 @@ impl Rule {
         let mut parameters = HashMap::new();
         let mut scope_parameters = HashMap::new();
         for term in &head.terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
 
         for predicate in &body {
             for term in &predicate.terms {
-                if let Term::Parameter(name) = &term {
-                    parameters.insert(name.to_string(), None);
-                }
+                term.extract_parameters(&mut parameters);
             }
         }
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
+                if let Op::Value(term) = &op {
+                    term.extract_parameters(&mut parameters);
                 }
             }
         }

@@ -10,8 +10,9 @@ fn block_macro() {
     let mut term_set = BTreeSet::new();
     term_set.insert(builder::int(0i64));
     let my_key = "my_value";
+    let mapkey = "hello";
     let mut b = block!(
-        r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set});
+        r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set}, {"a": 1, 2 : "abcd", {mapkey}: 0 });
             rule($0, true) <- fact($0, $1, $2, {my_key});
             check if {my_key}.starts_with("my");
             "#,
@@ -22,7 +23,7 @@ fn block_macro() {
 
     assert_eq!(
         b.to_string(),
-        r#"fact("test", hex:aabbcc, [true], "my_value", {0});
+        r#"fact("test", hex:aabbcc, [true], "my_value", {0}, {2: "abcd", "a": 1, "hello": 0});
 appended(true);
 rule($0, true) <- fact($0, $1, $2, "my_value");
 check if "my_value".starts_with("my");

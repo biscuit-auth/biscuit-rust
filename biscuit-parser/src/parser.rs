@@ -9,10 +9,13 @@ use nom::{
     combinator::{consumed, cut, eof, map, map_res, opt, recognize, value},
     error::{ErrorKind, FromExternalError, ParseError},
     multi::{many0, separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     IResult, Offset,
 };
-use std::{collections::BTreeSet, convert::TryInto};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    convert::TryInto,
+};
 use thiserror::Error;
 
 /// parse a Datalog fact
@@ -812,6 +815,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
             builder::Term::Parameter(_) => 7,
             builder::Term::Null => 8,
             builder::Term::Array(_) => 9,
+            builder::Term::Map(_) => 10,
         };
 
         if let Some(k) = kind {
@@ -835,9 +839,8 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn array(i: &str) -> IResult<&str, builder::Term, Error> {
-    //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
-    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
+    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_fact))(i)?;
 
     let mut array = Vec::new();
 
@@ -860,6 +863,7 @@ fn array(i: &str) -> IResult<&str, builder::Term, Error> {
             builder::Term::Parameter(_) => 8,
             builder::Term::Null => 9,
             builder::Term::Array(_) => 10,
+            builder::Term::Map(_) => 11,
         };
 
         if let Some(k) = kind {
@@ -882,11 +886,42 @@ fn array(i: &str) -> IResult<&str, builder::Term, Error> {
     Ok((i, builder::array(array)))
 }
 
+fn parse_map(i: &str) -> IResult<&str, builder::Term, Error> {
+    let (i, _) = preceded(space0, char('{'))(i)?;
+    let (i, mut list) = cut(separated_list0(
+        preceded(space0, char(',')),
+        separated_pair(map_key, preceded(space0, char(':')), term_in_fact),
+    ))(i)?;
+
+    let mut map = BTreeMap::new();
+
+    for (key, term) in list.drain(..) {
+        map.insert(key, term);
+    }
+
+    let (i, _) = preceded(space0, char('}'))(i)?;
+
+    Ok((i, builder::map(map)))
+}
+
+fn map_key(i: &str) -> IResult<&str, builder::MapKey, Error> {
+    preceded(
+        space0,
+        alt((
+            map(delimited(char('{'), parameter_name, char('}')), |s| {
+                builder::MapKey::Parameter(s.to_string())
+            }),
+            map(parse_string, |s| builder::MapKey::Str(s.to_string())),
+            map(parse_integer, builder::MapKey::Integer),
+        )),
+    )(i)
+}
+
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, null, set, array,
+            parameter, string, date, variable, integer, bytes, boolean, null, set, array, parse_map,
         )),
     )(i)
 }
@@ -896,7 +931,7 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
         space0,
         error(
             alt((
-                parameter, string, date, integer, bytes, boolean, null, set, array,
+                parameter, string, date, integer, bytes, boolean, null, set, array, parse_map,
             )),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
@@ -912,7 +947,9 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, null)),
+            alt((
+                parameter, string, date, integer, bytes, boolean, null, parse_map,
+            )),
             |input| match input.chars().next() {
                 None | Some(',') | Some(']') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
