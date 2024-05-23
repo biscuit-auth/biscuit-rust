@@ -77,6 +77,7 @@ fn main() {
     };
 
     let mut results = Vec::new();
+
     add_test_result(&mut results, basic_token(&target, &root, test));
 
     add_test_result(&mut results, different_root_key(&target, &root, test));
@@ -143,6 +144,8 @@ fn main() {
     add_test_result(&mut results, expressions_v4(&target, &root, test));
 
     add_test_result(&mut results, reject_if(&target, &root, test));
+
+    add_test_result(&mut results, null(&target, &root, test));
 
     add_test_result(&mut results, secp256r1(&target, &root, test));
 
@@ -1983,6 +1986,50 @@ fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "rejection".to_string(),
         validate_token(root, &data[..], "test(true); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test null".to_string();
+    let filename = "test30_null".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+    check if fact(null, $value), $value == null;
+    reject if fact(null, $value), $value != null;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "fact(null, null); allow if true"),
+    );
+    validations.insert(
+        "rejection1".to_string(),
+        validate_token(root, &data[..], "fact(null, 1); allow if true"),
+    );
+    validations.insert(
+        "rejection2".to_string(),
+        validate_token(root, &data[..], "fact(null, true); allow if true"),
+    );
+    validations.insert(
+        "rejection3".to_string(),
+        validate_token(root, &data[..], "fact(null, \"abcd\"); allow if true"),
     );
 
     TestResult {

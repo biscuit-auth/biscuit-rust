@@ -208,6 +208,14 @@ impl Binary {
             (Binary::Equal, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i == j)),
             (Binary::NotEqual, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i != j)),
 
+            // null
+            (Binary::Equal, Term::Null, Term::Null) => Ok(Term::Bool(true)),
+            (Binary::Equal, Term::Null, _) => Ok(Term::Bool(false)),
+            (Binary::Equal, _, Term::Null) => Ok(Term::Bool(false)),
+            (Binary::NotEqual, Term::Null, Term::Null) => Ok(Term::Bool(false)),
+            (Binary::NotEqual, Term::Null, _) => Ok(Term::Bool(true)),
+            (Binary::NotEqual, _, Term::Null) => Ok(Term::Bool(true)),
+
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
@@ -468,5 +476,87 @@ mod tests {
 
         assert_eq!(e3.print(&symbols).unwrap(), "1 + 2 < 3");
         //panic!();
+    }
+
+    #[test]
+    fn null_equal() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops = vec![
+            Op::Value(Term::Null),
+            Op::Value(Term::Null),
+            Op::Binary(Binary::Equal),
+        ];
+
+        let values: HashMap<u32, Term> = HashMap::new();
+
+        println!("ops: {:?}", ops);
+
+        let e = Expression { ops };
+        println!("print: {}", e.print(&symbols).unwrap());
+
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
+    }
+
+    #[test]
+    fn null_not_equal() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops = vec![
+            Op::Value(Term::Null),
+            Op::Value(Term::Null),
+            Op::Binary(Binary::NotEqual),
+        ];
+
+        let values: HashMap<u32, Term> = HashMap::new();
+
+        println!("ops: {:?}", ops);
+
+        let e = Expression { ops };
+        println!("print: {}", e.print(&symbols).unwrap());
+
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
+    }
+
+    #[test]
+    fn null_heterogeneous() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops = vec![
+            Op::Value(Term::Null),
+            Op::Value(Term::Integer(1)),
+            Op::Binary(Binary::Equal),
+        ];
+
+        let values: HashMap<u32, Term> = HashMap::new();
+
+        println!("ops: {:?}", ops);
+
+        let e = Expression { ops };
+        println!("print: {}", e.print(&symbols).unwrap());
+
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
+
+        let ops = vec![
+            Op::Value(Term::Null),
+            Op::Value(Term::Integer(1)),
+            Op::Binary(Binary::NotEqual),
+        ];
+
+        let values: HashMap<u32, Term> = HashMap::new();
+
+        println!("ops: {:?}", ops);
+
+        let e = Expression { ops };
+        println!("print: {}", e.print(&symbols).unwrap());
+
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
     }
 }

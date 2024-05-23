@@ -204,6 +204,7 @@ impl SymbolTable {
                     .collect::<Vec<_>>();
                 format!("[{}]", terms.join(", "))
             }
+            Term::Null => "null".to_string(),
         }
     }
     pub fn print_fact(&self, f: &Fact) -> String {
