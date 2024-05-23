@@ -1396,6 +1396,7 @@ mod tests {
             PublicKey::from_bytes(
                 &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
                     .unwrap(),
+                crate::builder::Algorithm::Ed25519,
             )
             .unwrap(),
         );

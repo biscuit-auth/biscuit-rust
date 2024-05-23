@@ -7,7 +7,7 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::format::schema;
+use crate::{builder::Algorithm, format::schema};
 
 use super::error;
 mod ed25519;
@@ -195,14 +195,17 @@ impl PublicKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?))
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_bytes(bytes)?)),
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&bytes, algorithm)
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
@@ -271,16 +274,25 @@ impl FromStr for PublicKey {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, bytes) = biscuit_parser::parser::public_key(s)
+        let (_, public_key) = biscuit_parser::parser::public_key(s)
             .finish()
             .map_err(biscuit_parser::error::LanguageError::from)?;
-        Ok(PublicKey::from_bytes(&bytes)?)
+        Ok(PublicKey::from_bytes(
+            &public_key.key,
+            match public_key.algorithm {
+                biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
+                biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+            },
+        )?)
     }
 }
 
 impl Display for PublicKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ed25519/{}", hex::encode(&self.to_bytes()))
+        match self {
+            PublicKey::Ed25519(key) => write!(f, "ed25519/{}", hex::encode(key.to_bytes())),
+            PublicKey::P256(key) => write!(f, "secp256r1/{}", hex::encode(&key.to_bytes())),
+        }
     }
 }
 

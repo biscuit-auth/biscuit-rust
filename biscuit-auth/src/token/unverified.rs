@@ -5,12 +5,14 @@ use prost::Message;
 use super::{default_symbol_table, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
-    crypto,
-    crypto::PublicKey,
-    crypto::Signature,
+    crypto::{self, PublicKey, Signature},
     datalog::SymbolTable,
     error,
-    format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
+    format::{
+        convert::proto_block_to_token_block,
+        schema::{self, public_key::Algorithm},
+        SerializedBiscuit,
+    },
     token::{ThirdPartyBlockContents, ThirdPartyRequest},
     KeyPair, RootKeyProvider,
 };
@@ -295,13 +297,25 @@ impl UnverifiedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let external_key =
-            PublicKey::from_bytes(&external_signature.public_key.key).map_err(|e| {
-                error::Format::BlockSignatureDeserializationError(format!(
-                    "block external public key deserialization error: {:?}",
-                    e
-                ))
+        let algorithm =
+            Algorithm::from_i32(external_signature.public_key.algorithm).ok_or_else(|| {
+                error::Format::DeserializationError(
+                    "deserialization error: invalid external key algorithm".to_string(),
+                )
             })?;
+        let external_key = PublicKey::from_bytes(
+            &external_signature.public_key.key,
+            match algorithm {
+                Algorithm::Ed25519 => crate::builder::Algorithm::Ed25519,
+                Algorithm::Secp256r1 => crate::builder::Algorithm::Secp256r1,
+            },
+        )
+        .map_err(|e| {
+            error::Format::BlockSignatureDeserializationError(format!(
+                "block external public key deserialization error: {:?}",
+                e
+            ))
+        })?;
 
         let signature = Signature::from_vec(external_signature.signature);
 

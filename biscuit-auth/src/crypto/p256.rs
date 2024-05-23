@@ -202,7 +202,7 @@ impl PublicKey {
     }
 
     pub fn print(&self) -> String {
-        format!("ed25519/{}", hex::encode(&self.to_bytes()))
+        format!("secp256r1/{}", hex::encode(&self.to_bytes()))
     }
 }
 
