@@ -6,10 +6,6 @@ use super::Signature;
 
 use p256::ecdsa::{signature::Signer, signature::Verifier, SigningKey, VerifyingKey};
 use p256::elliptic_curve::rand_core::{CryptoRng, OsRng, RngCore};
-use p256::elliptic_curve::sec1::FromEncodedPoint;
-use p256::pkcs8::{DecodePublicKey, EncodePrivateKey, EncodePublicKey};
-use pkcs8::DecodePrivateKey;
-use std::convert::TryFrom;
 use std::hash::Hash;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -30,14 +26,12 @@ impl KeyPair {
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        let kp = SigningKey::from_pkcs8_der(&key.0.to_bytes()).unwrap();
-
-        KeyPair { kp }
+        KeyPair { kp: key.0.clone() }
     }
 
-    /// deserializes from a byte array
+    /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_der(bytes)
+        let kp = SigningKey::from_bytes(bytes)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)?;
 
@@ -51,13 +45,14 @@ impl KeyPair {
                 .map_err(|s| s.to_string())
                 .map_err(error::Signature::InvalidSignatureGeneration)
                 .map_err(error::Format::Signature)?
-                .to_vec(),
+                .to_der()
+                .as_bytes()
+                .to_owned(),
         ))
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = SigningKey::from_bytes(&self.kp.to_bytes()).unwrap();
-        PrivateKey(secret)
+        PrivateKey(self.kp.clone())
     }
 
     pub fn public(&self) -> PublicKey {
@@ -94,10 +89,10 @@ impl std::default::Default for KeyPair {
 pub struct PrivateKey(SigningKey);
 
 impl PrivateKey {
-    /// serializes to a byte array
+    /// serializes to a big endian byte array
     pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
-        self.0.to_bytes().to_bytes()
-        //self.0.to_bytes().into()
+        let field_bytes = self.0.to_bytes();
+        zeroize::Zeroizing::new(field_bytes.to_vec())
     }
 
     /// serializes to an hex-encoded string
@@ -105,9 +100,9 @@ impl PrivateKey {
         hex::encode(self.to_bytes())
     }
 
-    /// deserializes from a byte array
+    /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        SigningKey::from_pkcs8_der(&bytes)
+        SigningKey::from_bytes(bytes)
             .map(PrivateKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
@@ -188,7 +183,7 @@ impl PublicKey {
         data: &[u8],
         signature: &Signature,
     ) -> Result<(), error::Format> {
-        let sig = p256::ecdsa::Signature::try_from(&signature.0[..]).map_err(|e| {
+        let sig = p256::ecdsa::Signature::from_der(&signature.0).map_err(|e| {
             error::Format::BlockSignatureDeserializationError(format!(
                 "block signature deserialization error: {:?}",
                 e
@@ -240,7 +235,7 @@ mod tests {
         let deserialized_priv = PrivateKey::from_bytes_hex(&private_hex).unwrap();
         let deserialized_pub = PublicKey::from_bytes_hex(&public_hex).unwrap();
 
-        // assert_eq!(private, deserialized_priv);
+        assert_eq!(private.0.to_bytes(), deserialized_priv.0.to_bytes());
         assert_eq!(public, deserialized_pub);
 
         deserialized_pub
