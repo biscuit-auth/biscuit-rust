@@ -3,8 +3,8 @@ use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
     character::{
-        complete::{char, digit1, multispace0 as space0},
-        is_alphanumeric,
+        complete::{char, digit1, multispace0 as space0, satisfy},
+        is_alphabetic, is_alphanumeric,
     },
     combinator::{consumed, cut, eof, map, map_res, opt, recognize, value},
     error::{ErrorKind, FromExternalError, ParseError},
@@ -679,6 +679,18 @@ fn name(i: &str) -> IResult<&str, &str, Error> {
     reduce(take_while1(is_name_char), " ,:(\n;")(i)
 }
 
+fn parameter_name(i: &str) -> IResult<&str, &str, Error> {
+    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
+
+    reduce(
+        recognize(preceded(
+            satisfy(|c: char| is_alphabetic(c as u8)),
+            take_while1(is_name_char),
+        )),
+        " ,:(\n;",
+    )(i)
+}
+
 fn printable(i: &str) -> IResult<&str, &str, Error> {
     take_while1(|c: char| c != '\\' && c != '"')(i)
 }
@@ -751,7 +763,10 @@ fn variable(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn parameter(i: &str) -> IResult<&str, builder::Term, Error> {
-    map(delimited(char('{'), name, char('}')), builder::parameter)(i)
+    map(
+        delimited(char('{'), parameter_name, char('}')),
+        builder::parameter,
+    )(i)
 }
 
 fn parse_bool(i: &str) -> IResult<&str, bool, Error> {
@@ -1236,7 +1251,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::{self, Unary};
+    use crate::builder::{self, array, int, var, Binary, Op, Unary};
 
     #[test]
     fn name() {
@@ -1476,7 +1491,7 @@ mod tests {
 
         let h = [int(1), int(2)].iter().cloned().collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1, 2}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1488,7 +1503,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{ 1, 2}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1553,7 +1568,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1565,7 +1580,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1582,7 +1597,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1594,7 +1609,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2254,7 +2269,7 @@ mod tests {
         use builder::{int, set, Binary, Op};
 
         assert_eq!(
-            super::expr("[1].intersection([2]).contains(3)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).contains(3)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2268,7 +2283,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("[1].intersection([2]).union([3]).length()").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).union({3}).length()").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2283,7 +2298,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("[1].intersection([2]).length().union([3])").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).length().union({3})").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2293,6 +2308,22 @@ mod tests {
                     Op::Unary(Unary::Length),
                     Op::Value(set([int(3)].into_iter().collect())),
                     Op::Binary(Binary::Union),
+                ],
+            ))
+        );
+    }
+
+    #[test]
+    fn arrays() {
+        let h = vec![int(1), int(2)];
+        assert_eq!(
+            super::expr("[1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(array(h.clone())),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
