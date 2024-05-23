@@ -566,6 +566,7 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
                 (Term::Bool(i), Term::Bool(j)) => i == j,
                 (Term::Null, Term::Null) => true,
                 (Term::Set(i), Term::Set(j)) => i == j,
+                (Term::Array(i), Term::Array(j)) => i == j,
                 _ => false,
             })
 }

@@ -40,6 +40,7 @@ impl Unary {
                 .ok_or(error::Expression::UnknownSymbol(i)),
             (Unary::Length, Term::Bytes(s)) => Ok(Term::Integer(s.len() as i64)),
             (Unary::Length, Term::Set(s)) => Ok(Term::Integer(s.len() as i64)),
+            (Unary::Length, Term::Array(a)) => Ok(Term::Integer(a.len() as i64)),
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
@@ -215,6 +216,15 @@ impl Binary {
             (Binary::NotEqual, Term::Null, Term::Null) => Ok(Term::Bool(false)),
             (Binary::NotEqual, Term::Null, _) => Ok(Term::Bool(true)),
             (Binary::NotEqual, _, Term::Null) => Ok(Term::Bool(true)),
+
+            // array
+            (Binary::Equal, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Contains, Term::Array(i), j) => {
+                Ok(Term::Bool(i.iter().any(|elem| elem == &j)))
+            }
+            (Binary::Prefix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.starts_with(&j))),
+            (Binary::Suffix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.ends_with(&j))),
 
             _ => {
                 //println!("unexpected value type on the stack");
@@ -558,5 +568,114 @@ mod tests {
 
         let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Ok(Term::Bool(true)));
+    }
+
+    #[test]
+    fn array() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+        let ops = vec![
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Binary(Binary::Equal),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Value(Term::Array(vec![Term::Integer(0)])),
+            Op::Binary(Binary::Equal),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Value(Term::Integer(1)),
+            Op::Binary(Binary::Contains),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Value(Term::Integer(2)),
+            Op::Binary(Binary::Contains),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(1)])),
+            Op::Binary(Binary::Prefix),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Array(vec![Term::Integer(2), Term::Integer(1)])),
+            Op::Binary(Binary::Prefix),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Array(vec![Term::Integer(1), Term::Integer(2)])),
+            Op::Binary(Binary::Suffix),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(true)));
+
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Array(vec![Term::Integer(0), Term::Integer(2)])),
+            Op::Binary(Binary::Suffix),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Bool(false)));
     }
 }
