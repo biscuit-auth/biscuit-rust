@@ -96,7 +96,6 @@ impl Binary {
         values: &mut HashMap<u32, Term>,
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
-        println!("Recursing, values before: {values:?}");
         match (self, left, params) {
             (Binary::LazyOr, Term::Bool(true), []) => Ok(Term::Bool(true)),
             (Binary::LazyOr, Term::Bool(false), []) => {
@@ -111,11 +110,9 @@ impl Binary {
             (Binary::All, Term::Set(set_values), [param]) => {
                 for value in set_values.iter() {
                     values.insert(*param, value.clone());
-                    println!("Recursing, values during: {values:?}");
                     let e = Expression { ops: right.clone() };
                     let result = e.evaluate(values, symbols);
                     values.remove(param);
-                    println!("Recursing, values after: {values:?}");
                     match result? {
                         Term::Bool(true) => {}
                         Term::Bool(false) => return Ok(Term::Bool(false)),
@@ -127,11 +124,9 @@ impl Binary {
             (Binary::Any, Term::Set(set_values), [param]) => {
                 for value in set_values.iter() {
                     values.insert(*param, value.clone());
-                    println!("Recursing, values during: {values:?}");
                     let e = Expression { ops: right.clone() };
                     let result = e.evaluate(values, symbols);
                     values.remove(param);
-                    println!("Recursing, values after: {values:?}");
                     match result? {
                         Term::Bool(false) => {}
                         Term::Bool(true) => return Ok(Term::Bool(true)),
@@ -328,9 +323,8 @@ impl Expression {
     ) -> Result<Term, error::Expression> {
         let mut stack: Vec<StackElem> = Vec::new();
 
-        println!("-- begin -- {values:?}");
         for op in self.ops.iter() {
-            println!("op: {:?}\t| stack: {:?}", op, stack);
+            // println!("op: {:?}\t| stack: {:?}", op, stack);
 
             let opop = op.clone();
             match op {
@@ -347,7 +341,6 @@ impl Expression {
                         stack.push(StackElem::Term(unary.evaluate(term, symbols)?))
                     }
                     _ => {
-                        println!("expected a value on the stack");
                         return Err(error::Expression::InvalidStack);
                     }
                 },
@@ -371,13 +364,6 @@ impl Expression {
                     }
 
                     e => {
-                        println!(
-                            "while evaluating {}",
-                            self.print(&SymbolTable::new()).unwrap()
-                        );
-                        println!("while evaluating {opop:?}");
-                        println!("with context {values:?}");
-                        println!("expected two values on the stack, got: {e:?}");
                         return Err(error::Expression::InvalidStack);
                     }
                 },
@@ -386,18 +372,13 @@ impl Expression {
                 }
             }
         }
-        println!("-- end {stack:?}");
 
         if stack.len() == 1 {
             match stack.remove(0) {
                 StackElem::Term(t) => Ok(t),
-                _ => {
-                    println!("expected a term on the stack after evaluation");
-                    Err(error::Expression::InvalidStack)
-                }
+                _ => Err(error::Expression::InvalidStack),
             }
         } else {
-            println!("expected one value the stack after evaluation");
             Err(error::Expression::InvalidStack)
         }
     }
