@@ -80,6 +80,8 @@ pub enum Binary {
     BitwiseOr,
     BitwiseXor,
     NotEqual,
+    HeterogeneousEqual,
+    HeterogeneousNotEqual,
 }
 
 impl Binary {
@@ -95,8 +97,14 @@ impl Binary {
             (Binary::GreaterThan, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i > j)),
             (Binary::LessOrEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i <= j)),
             (Binary::GreaterOrEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i >= j)),
-            (Binary::Equal, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Integer(i), Term::Integer(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Integer(i), Term::Integer(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (
+                Binary::NotEqual | Binary::HeterogeneousNotEqual,
+                Term::Integer(i),
+                Term::Integer(j),
+            ) => Ok(Term::Bool(i != j)),
             (Binary::Add, Term::Integer(i), Term::Integer(j)) => i
                 .checked_add(j)
                 .map(Term::Integer)
@@ -159,26 +167,42 @@ impl Binary {
                     _ => Err(error::Expression::UnknownSymbol(s1)),
                 }
             }
-            (Binary::Equal, Term::Str(i), Term::Str(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Str(i), Term::Str(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Str(i), Term::Str(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Str(i), Term::Str(j)) => {
+                Ok(Term::Bool(i != j))
+            }
 
             // date
             (Binary::LessThan, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i < j)),
             (Binary::GreaterThan, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i > j)),
             (Binary::LessOrEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i <= j)),
             (Binary::GreaterOrEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i >= j)),
-            (Binary::Equal, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Date(i), Term::Date(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Date(i), Term::Date(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Date(i), Term::Date(j)) => {
+                Ok(Term::Bool(i != j))
+            }
 
             // symbol
 
             // byte array
-            (Binary::Equal, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Bytes(i), Term::Bytes(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Bytes(i), Term::Bytes(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Bytes(i), Term::Bytes(j)) => {
+                Ok(Term::Bool(i != j))
+            }
 
             // set
-            (Binary::Equal, Term::Set(set), Term::Set(s)) => Ok(Term::Bool(set == s)),
-            (Binary::NotEqual, Term::Set(set), Term::Set(s)) => Ok(Term::Bool(set != s)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Set(set), Term::Set(s)) => {
+                Ok(Term::Bool(set == s))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Set(set), Term::Set(s)) => {
+                Ok(Term::Bool(set != s))
+            }
             (Binary::Intersection, Term::Set(set), Term::Set(s)) => {
                 Ok(Term::Set(set.intersection(&s).cloned().collect()))
             }
@@ -205,16 +229,31 @@ impl Binary {
             // boolean
             (Binary::And, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i & j)),
             (Binary::Or, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i | j)),
-            (Binary::Equal, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Bool(i), Term::Bool(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Bool(i), Term::Bool(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Bool(i), Term::Bool(j)) => {
+                Ok(Term::Bool(i != j))
+            }
 
             // null
-            (Binary::Equal, Term::Null, Term::Null) => Ok(Term::Bool(true)),
-            (Binary::Equal, Term::Null, _) => Ok(Term::Bool(false)),
-            (Binary::Equal, _, Term::Null) => Ok(Term::Bool(false)),
-            (Binary::NotEqual, Term::Null, Term::Null) => Ok(Term::Bool(false)),
-            (Binary::NotEqual, Term::Null, _) => Ok(Term::Bool(true)),
-            (Binary::NotEqual, _, Term::Null) => Ok(Term::Bool(true)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Null, Term::Null) => {
+                Ok(Term::Bool(true))
+            }
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Null, _) => Ok(Term::Bool(false)),
+            (Binary::Equal | Binary::HeterogeneousEqual, _, Term::Null) => Ok(Term::Bool(false)),
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Null, Term::Null) => {
+                Ok(Term::Bool(false))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Null, _) => {
+                Ok(Term::Bool(true))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, _, Term::Null) => {
+                Ok(Term::Bool(true))
+            }
+
+            (Binary::HeterogeneousEqual, _, _) => Ok(Term::Bool(false)),
+            (Binary::HeterogeneousNotEqual, _, _) => Ok(Term::Bool(true)),
 
             _ => {
                 //println!("unexpected value type on the stack");
@@ -229,8 +268,8 @@ impl Binary {
             Binary::GreaterThan => format!("{} > {}", left, right),
             Binary::LessOrEqual => format!("{} <= {}", left, right),
             Binary::GreaterOrEqual => format!("{} >= {}", left, right),
-            Binary::Equal => format!("{} == {}", left, right),
-            Binary::NotEqual => format!("{} != {}", left, right),
+            Binary::Equal | Binary::HeterogeneousEqual => format!("{} == {}", left, right),
+            Binary::NotEqual | Binary::HeterogeneousNotEqual => format!("{} != {}", left, right),
             Binary::Contains => format!("{}.contains({})", left, right),
             Binary::Prefix => format!("{}.starts_with({})", left, right),
             Binary::Suffix => format!("{}.ends_with({})", left, right),
@@ -324,6 +363,8 @@ impl Expression {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
     use crate::datalog::{SymbolTable, TemporarySymbolTable};
 
@@ -482,81 +523,119 @@ mod tests {
     fn null_equal() {
         let symbols = SymbolTable::new();
         let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
-
-        let ops = vec![
-            Op::Value(Term::Null),
-            Op::Value(Term::Null),
+        let values: HashMap<u32, Term> = HashMap::new();
+        let operands = vec![Op::Value(Term::Null), Op::Value(Term::Null)];
+        let operators = vec![
             Op::Binary(Binary::Equal),
+            Op::Binary(Binary::HeterogeneousEqual),
         ];
 
-        let values: HashMap<u32, Term> = HashMap::new();
+        for op in operators {
+            let mut ops = operands.clone();
+            ops.push(op);
+            println!("ops: {:?}", ops);
 
-        println!("ops: {:?}", ops);
+            let e = Expression { ops };
+            println!("print: {}", e.print(&symbols).unwrap());
 
-        let e = Expression { ops };
-        println!("print: {}", e.print(&symbols).unwrap());
-
-        let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, Ok(Term::Bool(true)));
+            let res = e.evaluate(&values, &mut tmp_symbols);
+            assert_eq!(res, Ok(Term::Bool(true)));
+        }
     }
 
     #[test]
     fn null_not_equal() {
         let symbols = SymbolTable::new();
         let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
-
-        let ops = vec![
-            Op::Value(Term::Null),
-            Op::Value(Term::Null),
+        let values: HashMap<u32, Term> = HashMap::new();
+        let operands = vec![Op::Value(Term::Null), Op::Value(Term::Null)];
+        let operators = vec![
             Op::Binary(Binary::NotEqual),
+            Op::Binary(Binary::HeterogeneousNotEqual),
         ];
 
-        let values: HashMap<u32, Term> = HashMap::new();
+        for op in operators {
+            let mut ops = operands.clone();
+            ops.push(op);
+            println!("ops: {:?}", ops);
 
-        println!("ops: {:?}", ops);
+            let e = Expression { ops };
+            println!("print: {}", e.print(&symbols).unwrap());
 
-        let e = Expression { ops };
-        println!("print: {}", e.print(&symbols).unwrap());
-
-        let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, Ok(Term::Bool(false)));
+            let res = e.evaluate(&values, &mut tmp_symbols);
+            assert_eq!(res, Ok(Term::Bool(false)));
+        }
     }
 
     #[test]
     fn null_heterogeneous() {
         let symbols = SymbolTable::new();
         let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
-
-        let ops = vec![
-            Op::Value(Term::Null),
-            Op::Value(Term::Integer(1)),
-            Op::Binary(Binary::Equal),
-        ];
-
         let values: HashMap<u32, Term> = HashMap::new();
+        let operands = vec![Op::Value(Term::Null), Op::Value(Term::Integer(1))];
+        let operators = HashMap::from([
+            (Op::Binary(Binary::NotEqual), true),
+            (Op::Binary(Binary::HeterogeneousNotEqual), true),
+            (Op::Binary(Binary::Equal), false),
+            (Op::Binary(Binary::HeterogeneousEqual), false),
+        ]);
 
-        println!("ops: {:?}", ops);
+        for (op, result) in operators {
+            let mut ops = operands.clone();
+            ops.push(op);
+            println!("ops: {:?}", ops);
 
-        let e = Expression { ops };
-        println!("print: {}", e.print(&symbols).unwrap());
+            let e = Expression { ops };
+            println!("print: {}", e.print(&symbols).unwrap());
 
-        let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, Ok(Term::Bool(false)));
+            let res = e.evaluate(&values, &mut tmp_symbols);
+            assert_eq!(res, Ok(Term::Bool(result)));
+        }
+    }
 
-        let ops = vec![
-            Op::Value(Term::Null),
-            Op::Value(Term::Integer(1)),
-            Op::Binary(Binary::NotEqual),
-        ];
-
+    #[test]
+    fn equal_heterogeneous() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
         let values: HashMap<u32, Term> = HashMap::new();
+        let operands_samples = [
+            vec![Op::Value(Term::Bool(true)), Op::Value(Term::Integer(1))],
+            vec![Op::Value(Term::Bool(true)), Op::Value(Term::Str(1))],
+            vec![Op::Value(Term::Integer(1)), Op::Value(Term::Str(1))],
+            vec![
+                Op::Value(Term::Set(BTreeSet::from([Term::Integer(1)]))),
+                Op::Value(Term::Set(BTreeSet::from([Term::Str(1)]))),
+            ],
+            vec![
+                Op::Value(Term::Bytes(Vec::new())),
+                Op::Value(Term::Integer(1)),
+            ],
+            vec![
+                Op::Value(Term::Bytes(Vec::new())),
+                Op::Value(Term::Str(1025)),
+            ],
+            vec![Op::Value(Term::Date(12)), Op::Value(Term::Integer(1))],
+        ];
+        let operators = HashMap::from([
+            (Op::Binary(Binary::HeterogeneousNotEqual), true),
+            (Op::Binary(Binary::HeterogeneousEqual), false),
+        ]);
 
-        println!("ops: {:?}", ops);
+        for operands in operands_samples {
+            let operands_reversed: Vec<_> = operands.iter().cloned().rev().collect();
+            for operand in [operands, operands_reversed] {
+                for (op, result) in &operators {
+                    let mut ops = operand.clone();
+                    ops.push(op.clone());
+                    println!("ops: {:?}", ops);
 
-        let e = Expression { ops };
-        println!("print: {}", e.print(&symbols).unwrap());
+                    let e = Expression { ops };
+                    println!("print: {}", e.print(&symbols).unwrap());
 
-        let res = e.evaluate(&values, &mut tmp_symbols);
-        assert_eq!(res, Ok(Term::Bool(true)));
+                    let res = e.evaluate(&values, &mut tmp_symbols);
+                    assert_eq!(res, Ok(Term::Bool(*result)));
+                }
+            }
+        }
     }
 }

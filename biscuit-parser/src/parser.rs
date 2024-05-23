@@ -452,8 +452,8 @@ fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::GreaterOrEqual, tag(">=")),
         value(Binary::LessThan, tag("<")),
         value(Binary::GreaterThan, tag(">")),
-        value(Binary::Equal, tag("==")),
-        value(Binary::NotEqual, tag("!=")),
+        value(Binary::HeterogeneousEqual, tag("==")),
+        value(Binary::HeterogeneousNotEqual, tag("!=")),
     ))(i)
 }
 
@@ -1325,7 +1325,7 @@ mod tests {
                 vec![
                     Op::Value(var("0")),
                     Op::Value(int(1)),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
                 ],
             ))
         );
@@ -1338,7 +1338,7 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Unary(Unary::Length),
                     Op::Value(var("1")),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
                 ],
             ))
         );
@@ -1351,7 +1351,7 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Unary(Unary::Negate),
                     Op::Value(var("1")),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
                 ],
             ))
         );
@@ -1393,7 +1393,7 @@ mod tests {
                     Op::Binary(Binary::GreaterThan),
                     Op::Unary(Unary::Parens),
                     Op::Value(int(3)),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
                 ]
             ))
         );
@@ -1457,7 +1457,7 @@ mod tests {
                 vec![
                     Op::Value(var("0")),
                     Op::Value(string("abc")),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
                 ],
             ))
         );

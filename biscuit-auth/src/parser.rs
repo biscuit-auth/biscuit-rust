@@ -471,7 +471,7 @@ mod tests {
                         ops: vec![
                             Op::Value(int(1)),
                             Op::Value(int(2)),
-                            Op::Binary(Binary::Equal),
+                            Op::Binary(Binary::HeterogeneousEqual),
                         ],
                     }],
                 )],
@@ -629,7 +629,7 @@ mod tests {
                         ops: vec![
                             Op::Value(int(1)),
                             Op::Value(int(2)),
-                            Op::Binary(Binary::Equal),
+                            Op::Binary(Binary::HeterogeneousEqual),
                         ],
                     }],
                 )],
