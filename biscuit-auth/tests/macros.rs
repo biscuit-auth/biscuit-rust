@@ -11,6 +11,7 @@ fn block_macro() {
     term_set.insert(builder::int(0i64));
     let my_key = "my_value";
     let mapkey = "hello";
+
     let mut b = block!(
         r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set}, {"a": 1, 2 : "abcd", {mapkey}: 0 });
             rule($0, true) <- fact($0, $1, $2, {my_key});

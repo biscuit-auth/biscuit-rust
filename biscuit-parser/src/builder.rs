@@ -23,6 +23,35 @@ pub enum Term {
     Map(BTreeMap<MapKey, Term>),
 }
 
+impl Term {
+    fn extract_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Term::Parameter(name) => {
+                parameters.insert(name.to_string(), None);
+            }
+            Term::Set(s) => {
+                for term in s {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Array(a) => {
+                for term in a {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Map(m) => {
+                for (key, term) in m {
+                    if let MapKey::Parameter(name) = key {
+                        parameters.insert(name.to_string(), None);
+                    }
+                    term.extract_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MapKey {
     Parameter(String),
@@ -183,9 +212,7 @@ impl Fact {
         let terms: Vec<Term> = terms.into();
 
         for term in &terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
         Fact {
             predicate: Predicate::new(name, terms),
@@ -341,23 +368,19 @@ impl Rule {
         let mut scope_parameters = HashMap::new();
 
         for term in &head.terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
 
         for predicate in &body {
             for term in &predicate.terms {
-                if let Term::Parameter(name) = &term {
-                    parameters.insert(name.to_string(), None);
-                }
+                term.extract_parameters(&mut parameters);
             }
         }
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
+                if let Op::Value(term) = &op {
+                    term.extract_parameters(&mut parameters);
                 }
             }
         }
