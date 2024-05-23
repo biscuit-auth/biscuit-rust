@@ -311,6 +311,7 @@ pub mod v2 {
     use crate::builder::Convert;
     use crate::datalog::*;
     use crate::error;
+    use crate::format::schema::Empty;
     use crate::token::Scope;
     use crate::token::MIN_SCHEMA_VERSION;
     use std::collections::BTreeSet;
@@ -519,6 +520,9 @@ pub mod v2 {
                     set: s.iter().map(token_term_to_proto_id).collect(),
                 })),
             },
+            Term::Null => schema::TermV2 {
+                content: Some(Content::Null(Empty {})),
+            },
         }
     }
 
@@ -556,6 +560,7 @@ pub mod v2 {
                                 "deserialization error: sets cannot contain other sets".to_string(),
                             ));
                         }
+                        Some(Content::Null(_)) => 8,
                         None => {
                             return Err(error::Format::DeserializationError(
                                 "deserialization error: ID content enum is empty".to_string(),
@@ -579,6 +584,7 @@ pub mod v2 {
 
                 Ok(Term::Set(set))
             }
+            Some(Content::Null(_)) => Ok(Term::Null),
         }
     }
 

@@ -98,6 +98,7 @@ message TermV2 {
     bytes bytes = 5;
     bool bool = 6;
     TermSet set = 7;
+    Empty null = 8;
   }
 }
 
