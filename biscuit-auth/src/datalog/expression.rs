@@ -3,7 +3,7 @@ use crate::error;
 use super::Term;
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
@@ -353,6 +353,15 @@ impl Expression {
                         Some(StackElem::Closure(params, right_ops)),
                         Some(StackElem::Term(left_term)),
                     ) => {
+                        if values
+                            .keys()
+                            .collect::<HashSet<_>>()
+                            .intersection(&params.iter().collect())
+                            .next()
+                            .is_some()
+                        {
+                            return Err(error::Expression::ShadowedVariable);
+                        }
                         let mut values = values.clone();
                         stack.push(StackElem::Term(binary.evaluate_with_closure(
                             left_term,

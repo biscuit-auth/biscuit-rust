@@ -236,7 +236,7 @@ impl ToTokens for Op {
                     <[String]>::into_vec(Box::new([#(#params.to_string()),*])),
                     <[::biscuit_auth::builder::Op]>::into_vec(Box::new([#(#os),*]))
                     )
-            }
+            },
         });
     }
 }
