@@ -146,6 +146,8 @@ fn main() {
 
     add_test_result(&mut results, null(&target, &root, test));
 
+    add_test_result(&mut results, heterogeneous_equal(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1277,9 +1279,9 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if false || true;
         //boolean parens
         check if (true || false) && true;
-        // boolean equality
-        check if true == true;
-        check if false == false;
+        // boolean strict equality
+        check if true === true;
+        check if false === false;
 
         //integer less than
         check if 1 < 2;
@@ -1291,10 +1293,10 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //integer greater or equal
         check if 2 >= 1;
         check if 2 >= 2;
-        //integer equal
-        check if 3 == 3;
+        //integer strict equal
+        check if 3 === 3;
         //integer add sub mul div
-        check if 1 + 2 * 3 - 4 /2 == 5;
+        check if 1 + 2 * 3 - 4 /2 === 5;
 
         // string prefix and suffix
         check if "hello world".starts_with("hello") && "hello world".ends_with("world");
@@ -1303,13 +1305,13 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         // string contains
         check if "aaabde".contains("abd");
         // string concatenation
-        check if "aaabde" == "aaa" + "b" + "de";
-        // string equal
-        check if "abcD12" == "abcD12";
+        check if "aaabde" === "aaa" + "b" + "de";
+        // string strict equal
+        check if "abcD12" === "abcD12";
         // string length
-        check if "abcD12".length() == 6;
+        check if "abcD12".length() === 6;
         // string length (non-ascii)
-        check if "é".length() == 2;
+        check if "é".length() === 2;
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
@@ -1321,11 +1323,11 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //date greater or equal
         check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00;
         check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00;
-        //date equal
-        check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00;
+        //date strict equal
+        check if 2020-12-04T09:46:41+00:00 === 2020-12-04T09:46:41+00:00;
 
-        //bytes equal
-        check if hex:12ab == hex:12ab;
+        //bytes strict equal
+        check if hex:12ab === hex:12ab;
 
         // set contains
         check if [1, 2].contains(2);
@@ -1334,16 +1336,16 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if ["abc", "def"].contains("abc");
         check if [hex:12ab, hex:34de].contains(hex:34de);
         check if [1, 2].contains([2]);
-        // set equal
-        check if [1, 2] == [1, 2];
+        // set strict equal
+        check if [1, 2] === [1, 2];
         // set intersection
-        check if [1, 2].intersection([2, 3]) == [2];
+        check if [1, 2].intersection([2, 3]) === [2];
         // set union
-        check if [1, 2].union([2, 3]) == [1, 2, 3];
+        check if [1, 2].union([2, 3]) === [1, 2, 3];
         // chained method calls
         check if [1, 2, 3].intersection([1, 2]).contains(1);
         // chained method calls with unary method
-        check if [1, 2, 3].intersection([1, 2]).length() == 2;
+        check if [1, 2, 3].intersection([1, 2]).length() === 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -1924,18 +1926,18 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-        //integer not equal
-        check if 1 != 3;
+        //integer not strict equal
+        check if 1 !== 3;
         //integer bitwise and or xor
-        check if 1 | 2 ^ 3 == 0;
-        // string not equal
-        check if "abcD12x" != "abcD12";
-        //date not equal
-        check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
-        //bytes not equal
-        check if hex:12abcd != hex:12ab;
-        // set not equal
-        check if [1, 4] != [1, 2];
+        check if 1 | 2 ^ 3 === 0;
+        // string not strict equal
+        check if "abcD12x" !== "abcD12";
+        //date not strict equal
+        check if 2022-12-04T09:46:41+00:00 !== 2020-12-04T09:46:41+00:00;
+        //bytes not strict equal
+        check if hex:12abcd !== hex:12ab;
+        // set not strict equal
+        check if [1, 4] !== [1, 2];
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2023,6 +2025,46 @@ fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "rejection3".to_string(),
         validate_token(root, &data[..], "fact(null, \"abcd\"); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test heterogeneous equal".to_string();
+    let filename = "test031_heterogeneous_equal".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+    check if fact(1, $value), 1 == $value;
+    check if fact2(1, $value), 1 != $value;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "authorized same type".to_string(),
+        validate_token(root, &data[..], "fact(1, 1); fact2(1, 2); allow if true"),
+    );
+    validations.insert(
+        "unauthorized failed logic different type".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "fact(1, true); fact2(1, false); allow if true",
+        ),
     );
 
     TestResult {
