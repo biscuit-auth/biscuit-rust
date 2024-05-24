@@ -1,6 +1,6 @@
 //! helper functions and structure to create tokens and blocks
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -328,33 +328,38 @@ impl Rule {
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
-        let mut head_variables: std::collections::HashSet<String> = self
-            .head
-            .terms
-            .iter()
-            .filter_map(|term| match term {
-                Term::Variable(s) => Some(s.to_string()),
-                _ => None,
-            })
-            .collect();
+        let mut free_variables: HashSet<String> = HashSet::default();
+        for term in self.head.terms.iter() {
+            if let Term::Variable(s) = term {
+                free_variables.insert(s.to_string());
+            }
+        }
+
+        for e in self.expressions.iter() {
+            for op in e.ops.iter() {
+                if let Op::Value(Term::Variable(s)) = op {
+                    free_variables.insert(s.to_string());
+                }
+            }
+        }
 
         for predicate in self.body.iter() {
             for term in predicate.terms.iter() {
                 if let Term::Variable(v) = term {
-                    head_variables.remove(v);
-                    if head_variables.is_empty() {
+                    free_variables.remove(v);
+                    if free_variables.is_empty() {
                         return Ok(());
                     }
                 }
             }
         }
 
-        if head_variables.is_empty() {
+        if free_variables.is_empty() {
             Ok(())
         } else {
             Err(format!(
-                    "rule head contains variables that are not used in predicates of the rule's body: {}",
-                    head_variables
+                    "the rule contains variables that are not bound by predicates in the rule's body: {}",
+                    free_variables
                     .iter()
                     .map(|s| format!("${}", s))
                     .collect::<Vec<_>>()
