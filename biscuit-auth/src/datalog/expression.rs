@@ -199,10 +199,10 @@ impl Binary {
             // set
             (Binary::Equal | Binary::HeterogeneousEqual, Term::Set(set), Term::Set(s)) => {
                 Ok(Term::Bool(set == s))
-            }
+            } // Strict equal support heterogeneous equal for Set to avoid introducing a breaking change
             (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Set(set), Term::Set(s)) => {
                 Ok(Term::Bool(set != s))
-            }
+            } // Strict not equal support heterogeneous not equal for Set to avoid introducing a breaking change
             (Binary::Intersection, Term::Set(set), Term::Set(s)) => {
                 Ok(Term::Set(set.intersection(&s).cloned().collect()))
             }
@@ -268,8 +268,10 @@ impl Binary {
             Binary::GreaterThan => format!("{} > {}", left, right),
             Binary::LessOrEqual => format!("{} <= {}", left, right),
             Binary::GreaterOrEqual => format!("{} >= {}", left, right),
-            Binary::Equal | Binary::HeterogeneousEqual => format!("{} == {}", left, right),
-            Binary::NotEqual | Binary::HeterogeneousNotEqual => format!("{} != {}", left, right),
+            Binary::Equal => format!("{} === {}", left, right),
+            Binary::HeterogeneousEqual => format!("{} == {}", left, right),
+            Binary::NotEqual => format!("{} !== {}", left, right),
+            Binary::HeterogeneousNotEqual => format!("{} != {}", left, right),
             Binary::Contains => format!("{}.contains({})", left, right),
             Binary::Prefix => format!("{}.starts_with({})", left, right),
             Binary::Suffix => format!("{}.ends_with({})", left, right),
@@ -634,6 +636,44 @@ mod tests {
 
                     let res = e.evaluate(&values, &mut tmp_symbols);
                     assert_eq!(res, Ok(Term::Bool(*result)));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn strict_equal_heterogeneous() {
+        let symbols = SymbolTable::new();
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+        let values: HashMap<u32, Term> = HashMap::new();
+        let operands_samples = [
+            vec![Op::Value(Term::Bool(true)), Op::Value(Term::Integer(1))],
+            vec![Op::Value(Term::Bool(true)), Op::Value(Term::Str(1))],
+            vec![Op::Value(Term::Integer(1)), Op::Value(Term::Str(1))],
+            vec![
+                Op::Value(Term::Bytes(Vec::new())),
+                Op::Value(Term::Integer(1)),
+            ],
+            vec![
+                Op::Value(Term::Bytes(Vec::new())),
+                Op::Value(Term::Str(1025)),
+            ],
+            vec![Op::Value(Term::Date(12)), Op::Value(Term::Integer(1))],
+        ];
+        let operators = vec![Op::Binary(Binary::NotEqual), Op::Binary(Binary::Equal)];
+
+        for operands in operands_samples {
+            let operands_reversed: Vec<_> = operands.iter().cloned().rev().collect();
+            for operand in [operands, operands_reversed] {
+                for op in &operators {
+                    let mut ops = operand.clone();
+                    ops.push(op.clone());
+                    println!("ops: {:?}", ops);
+
+                    let e = Expression { ops };
+                    println!("print: {}", e.print(&symbols).unwrap());
+
+                    e.evaluate(&values, &mut tmp_symbols).unwrap_err();
                 }
             }
         }
