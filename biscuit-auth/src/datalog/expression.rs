@@ -326,7 +326,6 @@ impl Expression {
         for op in self.ops.iter() {
             // println!("op: {:?}\t| stack: {:?}", op, stack);
 
-            let opop = op.clone();
             match op {
                 Op::Value(Term::Variable(i)) => match values.get(i) {
                     Some(term) => stack.push(StackElem::Term(term.clone())),
@@ -372,7 +371,7 @@ impl Expression {
                         )?))
                     }
 
-                    e => {
+                    _ => {
                         return Err(error::Expression::InvalidStack);
                     }
                 },
