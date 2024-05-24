@@ -678,23 +678,7 @@ mod tests {
         let symbols = SymbolTable::new();
         let mut symbols = TemporarySymbolTable::new(&symbols);
 
-        // let ops1 = vec![
-        //     Op::Value(Term::Bool(true)),
-        //     Op::Suspend,
-        //     Op::Value(Term::Bool(false)),
-        //     Op::Suspend,
-        //     Op::Value(Term::Bool(false)),
-        //     Op::Unsuspend,
-        //     Op::Binary(Binary::Or),
-        //     Op::Unsuspend,
-        //     Op::Binary(Binary::Or),
-        // ];
-        // let e1 = Expression { ops: ops1 };
-
-        // let res1 = e1.evaluate(&HashMap::new(), &mut symbols).unwrap();
-        // assert_eq!(res1, Term::Bool(true));
-
-        let ops2 = vec![
+        let ops1 = vec![
             Op::Value(Term::Bool(false)),
             Op::Closure(
                 vec![],
@@ -706,7 +690,7 @@ mod tests {
             ),
             Op::Binary(Binary::LazyOr),
         ];
-        let e2 = Expression { ops: ops2 };
+        let e2 = Expression { ops: ops1 };
 
         let res2 = e2.evaluate(&HashMap::new(), &mut symbols).unwrap();
         assert_eq!(res2, Term::Bool(true));
@@ -799,5 +783,74 @@ mod tests {
 
         let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
         assert_eq!(res1, Term::Bool(true));
+    }
+
+    #[test]
+    fn variable_shadowing() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let mut values = HashMap::new();
+        values.insert(p, Term::Null);
+        let res1 = e1.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res1, Err(error::Expression::ShadowedVariable));
+
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("p") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops2 = vec![
+            Op::Value(Term::Set(
+                [Term::Integer(1), Term::Integer(2), Term::Integer(3)].into(),
+            )),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(1)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Closure(
+                        vec![],
+                        vec![
+                            Op::Value(Term::Set(
+                                [Term::Integer(3), Term::Integer(4), Term::Integer(5)].into(),
+                            )),
+                            Op::Closure(
+                                vec![p],
+                                vec![
+                                    Op::Value(Term::Variable(p)),
+                                    Op::Value(Term::Variable(p)),
+                                    Op::Binary(Binary::Equal),
+                                ],
+                            ),
+                            Op::Binary(Binary::Any),
+                        ],
+                    ),
+                    Op::Binary(Binary::LazyAnd),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{}", e2.print(&symbols).unwrap());
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols);
+        assert_eq!(res2, Err(error::Expression::ShadowedVariable));
     }
 }
