@@ -10,6 +10,18 @@ documentation = "https://docs.rs/biscuit-auth"
 homepage = "https://github.com/biscuit-auth/biscuit"
 repository = "https://github.com/biscuit-auth/biscuit-rust"
 
+include = [
+  "Cargo.toml",
+  "cbindgen.toml",
+  "build.rs",
+  "examples/*.rs",
+  "LICENSE",
+  "README.md",
+  "src/*.rs",
+  "src/*/*.rs",
+  "tests/*.rs"
+]
+
 [features]
 default = ["regex-full", "datalog-macro"]
 regex-full = [ "regex/perf", "regex/unicode"]
@@ -47,7 +59,6 @@ biscuit-parser = { version = "0.1.2", path = "../biscuit-parser" }
 biscuit-quote = { version = "0.2.2", optional = true, path = "../biscuit-quote" }
 chrono = { version = "0.4.26", optional = true, default-features = false, features = ["serde"] }
 
-
 [dev-dependencies]
 bencher = "0.1.5"
 rand = "0.8"
@@ -59,23 +70,6 @@ serde_json = "1.0.67"
 
 #[build-dependencies]
 #prost-build = "0.10"
-
-[package.metadata.capi.library]
-# Used as the library name and defaults to the crate name. This might get
-# prefixed with `lib` depending on the target platform.
-name = "biscuit_auth"
-
-include = [
-  "Cargo.toml",
-  "cbindgen.toml",
-  "build.rs",
-  "examples/*.rs",
-  "LICENSE",
-  "README.md",
-  "src/*.rs",
-  "src/*/*.rs",
-  "tests/*.rs"
-]
 
 [[example]]
 name = "testcases"

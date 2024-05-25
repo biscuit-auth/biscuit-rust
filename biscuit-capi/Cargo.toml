@@ -7,6 +7,11 @@ edition = "2021"
 # used by cargo-c to signal the compilation of C bindings
 capi = ["inline-c"]
 
+[package.metadata.capi.library]
+# Used as the library name and defaults to the crate name. This might get
+# prefixed with `lib` depending on the target platform.
+name = "biscuit_auth"
+
 [dependencies]
 biscuit-auth = { version = "4.1.1", path = "../biscuit-auth" }
 inline-c = { version = "0.1", optional = true }
