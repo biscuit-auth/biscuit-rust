@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, v5 ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -33,7 +33,7 @@ jobs:
     - name: Check samples
       run: |
         cd biscuit-auth
-        cargo run --release --example testcases --features serde-error -- ./samples  > ./samples/README.md
+        cargo run --release --example testcases --features serde-error -- ./samples --json > ./samples/samples.json
         git diff --exit-code
       
 
