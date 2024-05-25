@@ -154,13 +154,25 @@ mod tests {
     }
 
     #[test]
-    fn rule_with_unused_head_variables() {
+    fn rule_with_free_head_variables() {
         assert_eq!(
             biscuit_parser::parser::rule("right($0, $test) <- resource($0), operation(\"read\")"),
             Err( nom::Err::Failure(Error {
-                input: "right($0, $test)",
+                input: "right($0, $test) <- resource($0), operation(\"read\")",
                 code: ErrorKind::Satisfy,
-                message: Some("rule head contains variables that are not used in predicates of the rule's body: $test".to_string()),
+                message: Some("the rule contains variables that are not bound by predicates in the rule's body: $test".to_string()),
+            }))
+        );
+    }
+
+    #[test]
+    fn rule_with_free_expression_variables() {
+        assert_eq!(
+            biscuit_parser::parser::rule("right($0) <- resource($0), operation(\"read\"), $test"),
+            Err( nom::Err::Failure(Error {
+                input: "right($0) <- resource($0), operation(\"read\"), $test",
+                code: ErrorKind::Satisfy,
+                message: Some("the rule contains variables that are not bound by predicates in the rule's body: $test".to_string()),
             }))
         );
     }
