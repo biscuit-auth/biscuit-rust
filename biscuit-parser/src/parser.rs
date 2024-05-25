@@ -736,7 +736,9 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(
-            take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']' && c != ';'),
+            take_while1(|c: char| {
+                c != ',' && c != ' ' && c != ')' && c != ']' && c != ';' && c != '}'
+            }),
             |s| time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339),
         ),
         |t| t.unix_timestamp().try_into(),
@@ -955,11 +957,11 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
                 parameter, string, date, integer, bytes, boolean, null, parse_map,
             )),
             |input| match input.chars().next() {
-                None | Some(',') | Some(']') => "missing term".to_string(),
+                None | Some(',') | Some('}') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
                 _ => "expected a valid term".to_string(),
             },
-            " ,]\n;",
+            " ,}\n;",
         ),
     )(i)
 }
@@ -1552,6 +1554,25 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
+                ],
+            ))
+        );
+
+        let h = [
+            builder::Term::Date(1575452801),
+            builder::Term::Date(1607075201),
+        ]
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<builder::Term>>();
+        assert_eq!(
+            super::expr("{2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00}.contains(2020-12-04T09:46:41+00:00)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set(h)),
+                    Op::Value(builder::Term::Date(1607075201)),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
