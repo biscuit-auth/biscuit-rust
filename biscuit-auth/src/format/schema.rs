@@ -127,6 +127,7 @@ pub mod check_v2 {
     pub enum Kind {
         One = 0,
         All = 1,
+        Reject = 2,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -138,7 +139,7 @@ pub struct PredicateV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TermV2 {
-    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8")]
     pub content: ::core::option::Option<term_v2::Content>,
 }
 /// Nested message and enum types in `TermV2`.
@@ -159,6 +160,8 @@ pub mod term_v2 {
         Bool(bool),
         #[prost(message, tag="7")]
         Set(super::TermSet),
+        #[prost(message, tag="8")]
+        Null(super::Empty),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

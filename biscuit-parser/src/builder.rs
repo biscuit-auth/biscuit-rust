@@ -1,6 +1,6 @@
 //! helper functions and structure to create tokens and blocks
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -18,6 +18,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Parameter(String),
+    Null,
 }
 
 impl From<&Term> for Term {
@@ -31,6 +32,7 @@ impl From<&Term> for Term {
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -55,9 +57,11 @@ impl ToTokens for Term {
             Term::Set(v) => {
                 quote! {{
                     use std::iter::FromIterator;
-                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) 
+                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
                 }}
             }
+            Term::Null => quote! { ::biscuit_auth::builder::Term::Null },
+
         })
     }
 }
@@ -328,33 +332,38 @@ impl Rule {
     }
 
     pub fn validate_variables(&self) -> Result<(), String> {
-        let mut head_variables: std::collections::HashSet<String> = self
-            .head
-            .terms
-            .iter()
-            .filter_map(|term| match term {
-                Term::Variable(s) => Some(s.to_string()),
-                _ => None,
-            })
-            .collect();
+        let mut free_variables: HashSet<String> = HashSet::default();
+        for term in self.head.terms.iter() {
+            if let Term::Variable(s) = term {
+                free_variables.insert(s.to_string());
+            }
+        }
+
+        for e in self.expressions.iter() {
+            for op in e.ops.iter() {
+                if let Op::Value(Term::Variable(s)) = op {
+                    free_variables.insert(s.to_string());
+                }
+            }
+        }
 
         for predicate in self.body.iter() {
             for term in predicate.terms.iter() {
                 if let Term::Variable(v) = term {
-                    head_variables.remove(v);
-                    if head_variables.is_empty() {
+                    free_variables.remove(v);
+                    if free_variables.is_empty() {
                         return Ok(());
                     }
                 }
             }
         }
 
-        if head_variables.is_empty() {
+        if free_variables.is_empty() {
             Ok(())
         } else {
             Err(format!(
-                    "rule head contains variables that are not used in predicates of the rule's body: {}",
-                    head_variables
+                    "the rule contains variables that are not bound by predicates in the rule's body: {}",
+                    free_variables
                     .iter()
                     .map(|s| format!("${}", s))
                     .collect::<Vec<_>>()
@@ -393,6 +402,7 @@ pub struct Check {
 pub enum CheckKind {
     One,
     All,
+    Reject,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -418,6 +428,9 @@ impl ToTokens for CheckKind {
             },
             CheckKind::All => quote! {
               ::biscuit_auth::builder::CheckKind::All
+            },
+            CheckKind::Reject => quote! {
+              ::biscuit_auth::builder::CheckKind::Reject
             },
         });
     }
@@ -562,6 +575,11 @@ pub fn boolean(b: bool) -> Term {
 /// creates a set
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
+}
+
+/// creates a null
+pub fn null() -> Term {
+    Term::Null
 }
 
 /// creates a parameter

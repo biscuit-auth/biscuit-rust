@@ -76,6 +76,7 @@ fn main() {
     };
 
     let mut results = Vec::new();
+
     add_test_result(&mut results, basic_token(&target, &root, test));
 
     add_test_result(&mut results, different_root_key(&target, &root, test));
@@ -140,6 +141,10 @@ fn main() {
     add_test_result(&mut results, integer_wraparound(&target, &root, test));
 
     add_test_result(&mut results, expressions_v4(&target, &root, test));
+
+    add_test_result(&mut results, reject_if(&target, &root, test));
+
+    add_test_result(&mut results, null(&target, &root, test));
 
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
@@ -250,26 +255,26 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: Vec<AuthorizerFactSet>,
-    pub rules: Vec<AuthorizerRuleSet>,
-    pub checks: Vec<AuthorizerCheckSet>,
+    pub facts: Vec<Facts>,
+    pub rules: Vec<Rules>,
+    pub checks: Vec<Checks>,
     pub policies: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerFactSet {
+struct Facts {
     origin: BTreeSet<Option<usize>>,
     facts: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerRuleSet {
+struct Rules {
     origin: Option<usize>,
     rules: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerCheckSet {
+struct Checks {
     origin: Option<usize>,
     checks: Vec<String>,
 }
@@ -343,7 +348,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !rules.is_empty() {
             rules.sort();
-            authorizer_rules.push(AuthorizerRuleSet {
+            authorizer_rules.push(Rules {
                 origin: Some(i),
                 rules,
             });
@@ -357,7 +362,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !checks.is_empty() {
             checks.sort();
-            authorizer_checks.push(AuthorizerCheckSet {
+            authorizer_checks.push(Checks {
                 origin: Some(i),
                 checks,
             });
@@ -372,7 +377,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !rules.is_empty() {
         rules.sort();
-        authorizer_rules.push(AuthorizerRuleSet {
+        authorizer_rules.push(Rules {
             origin: Some(usize::MAX),
             rules,
         });
@@ -386,7 +391,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !checks.is_empty() {
         checks.sort();
-        authorizer_checks.push(AuthorizerCheckSet {
+        authorizer_checks.push(Checks {
             origin: Some(usize::MAX),
             checks,
         });
@@ -411,7 +416,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !facts.is_empty() {
             facts.sort();
-            authorizer_facts.push(AuthorizerFactSet { origin, facts });
+            authorizer_facts.push(Facts { origin, facts });
         }
     }
     authorizer_facts.sort();
@@ -1301,6 +1306,10 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if "aaabde" == "aaa" + "b" + "de";
         // string equal
         check if "abcD12" == "abcD12";
+        // string length
+        check if "abcD12".length() == 6;
+        // string length (non-ascii)
+        check if "é".length() == 2;
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
@@ -1939,6 +1948,81 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "".to_string(),
         validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test reject if".to_string();
+    let filename = "test029_reject_if".to_string();
+    let token;
+
+    let biscuit = biscuit!(r#"reject if test($test), $test"#)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
+        .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "test(false); allow if true"),
+    );
+    validations.insert(
+        "rejection".to_string(),
+        validate_token(root, &data[..], "test(true); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test null".to_string();
+    let filename = "test030_null".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+    check if fact(null, $value), $value == null;
+    reject if fact(null, $value), $value != null;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "fact(null, null); allow if true"),
+    );
+    validations.insert(
+        "rejection1".to_string(),
+        validate_token(root, &data[..], "fact(null, 1); allow if true"),
+    );
+    validations.insert(
+        "rejection2".to_string(),
+        validate_token(root, &data[..], "fact(null, true); allow if true"),
+    );
+    validations.insert(
+        "rejection3".to_string(),
+        validate_token(root, &data[..], "fact(null, \"abcd\"); allow if true"),
     );
 
     TestResult {

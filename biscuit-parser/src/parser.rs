@@ -70,6 +70,7 @@ fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, kind) = alt((
         map(tag_no_case("check if"), |_| CheckKind::One),
         map(tag_no_case("check all"), |_| CheckKind::All),
+        map(tag_no_case("reject if"), |_| CheckKind::Reject),
     ))(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
@@ -175,18 +176,22 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
 }
 
 pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
-    let (i, (head_input, head)) = consumed(rule_head)(i)?;
-    let (i, _) = space0(i)?;
+    let (i, (input, (head, body, expressions, scopes))) = consumed(|i| {
+        let (i, head) = rule_head(i)?;
+        let (i, _) = space0(i)?;
 
-    let (i, _) = tag("<-")(i)?;
+        let (i, _) = tag("<-")(i)?;
 
-    let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
+        let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
+
+        Ok((i, (head, body, expressions, scopes)))
+    })(i)?;
 
     let rule = builder::Rule::new(head, body, expressions, scopes);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Failure(Error {
-            input: head_input,
+            input,
             code: ErrorKind::Satisfy,
             message: Some(message),
         }));
@@ -761,6 +766,10 @@ fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
 }
 
+fn null(i: &str) -> IResult<&str, builder::Term, Error> {
+    tag("null")(i).map(|(i, _)| (i, builder::null()))
+}
+
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
@@ -791,6 +800,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
                 }))
             }
             builder::Term::Parameter(_) => 7,
+            builder::Term::Null => 8,
         };
 
         if let Some(k) = kind {
@@ -817,7 +827,7 @@ fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, set,
+            parameter, string, date, variable, integer, bytes, boolean, null, set,
         )),
     )(i)
 }
@@ -826,7 +836,7 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, set)),
+            alt((parameter, string, date, integer, bytes, boolean, null, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in facts".to_string(),
@@ -841,7 +851,7 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean)),
+            alt((parameter, string, date, integer, bytes, boolean, null)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(']') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
