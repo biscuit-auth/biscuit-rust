@@ -11,7 +11,7 @@ use rand::rngs::OsRng;
 
 fn create_block_1(b: &mut Bencher) {
     let mut rng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
     builder.add_fact(fact("right", &[string("file1"), string("read")]));
@@ -40,8 +40,8 @@ fn create_block_1(b: &mut Bencher) {
 
 fn append_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
     builder.add_fact(fact("right", &[string("file1"), string("read")]));
@@ -75,11 +75,11 @@ fn append_block_2(b: &mut Bencher) {
 
 fn append_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
-    let keypair3 = KeyPair::new_with_rng(&mut rng);
-    let keypair4 = KeyPair::new_with_rng(&mut rng);
-    let keypair5 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair4 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
     builder.add_fact(fact("right", &[string("file1"), string("read")]));
@@ -129,8 +129,8 @@ fn append_block_5(b: &mut Bencher) {
 
 fn unverified_append_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
     builder.add_fact(fact("right", &[string("file1"), string("read")]));
@@ -164,11 +164,11 @@ fn unverified_append_block_2(b: &mut Bencher) {
 
 fn unverified_append_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
-    let keypair3 = KeyPair::new_with_rng(&mut rng);
-    let keypair4 = KeyPair::new_with_rng(&mut rng);
-    let keypair5 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair4 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
     builder.add_fact(fact("right", &[string("file1"), string("read")]));
@@ -218,8 +218,8 @@ fn unverified_append_block_5(b: &mut Bencher) {
 
 fn verify_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -260,11 +260,11 @@ fn verify_block_2(b: &mut Bencher) {
 
 fn verify_block_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
-    let keypair3 = KeyPair::new_with_rng(&mut rng);
-    let keypair4 = KeyPair::new_with_rng(&mut rng);
-    let keypair5 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair4 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -329,8 +329,8 @@ fn verify_block_5(b: &mut Bencher) {
 
 fn check_signature_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -366,11 +366,11 @@ fn check_signature_2(b: &mut Bencher) {
 
 fn check_signature_5(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
-    let keypair3 = KeyPair::new_with_rng(&mut rng);
-    let keypair4 = KeyPair::new_with_rng(&mut rng);
-    let keypair5 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair4 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -429,8 +429,8 @@ fn check_signature_5(b: &mut Bencher) {
 
 fn checks_block_2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -471,8 +471,8 @@ fn checks_block_2(b: &mut Bencher) {
 
 fn checks_block_create_verifier2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();
@@ -509,8 +509,8 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
 
 fn checks_block_verify_only2(b: &mut Bencher) {
     let mut rng: OsRng = OsRng;
-    let root = KeyPair::new_with_rng(&mut rng);
-    let keypair2 = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let data = {
         let mut builder = Biscuit::builder();

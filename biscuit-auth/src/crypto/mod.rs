@@ -25,20 +25,15 @@ pub enum KeyPair {
 }
 
 impl KeyPair {
-    pub fn new() -> Self {
-        Self::new_with_rng(&mut rand::rngs::OsRng)
+    pub fn new(algorithm: Algorithm) -> Self {
+        Self::new_with_rng(algorithm, &mut rand::rngs::OsRng)
     }
 
-    pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng))
-    }
-
-    pub fn new_secp256r1() -> Self {
-        KeyPair::P256(p256::KeyPair::new())
-    }
-
-    pub fn new_secp256r1_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        KeyPair::P256(p256::KeyPair::new_with_rng(rng))
+    pub fn new_with_rng<T: RngCore + CryptoRng>(algorithm: Algorithm, rng: &mut T) -> Self {
+        match algorithm {
+            Algorithm::Ed25519 => KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng)),
+            Algorithm::Secp256r1 => KeyPair::P256(p256::KeyPair::new_with_rng(rng)),
+        }
     }
 
     pub fn from(key: &PrivateKey) -> Self {
@@ -108,7 +103,7 @@ impl KeyPair {
 
 impl std::default::Default for KeyPair {
     fn default() -> Self {
-        Self::new()
+        Self::new(Algorithm::Ed25519)
     }
 }
 

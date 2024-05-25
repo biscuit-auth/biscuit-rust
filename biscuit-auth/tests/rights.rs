@@ -9,7 +9,7 @@ use rand::{prelude::StdRng, SeedableRng};
 
 fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let root = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
 
