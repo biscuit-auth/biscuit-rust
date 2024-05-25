@@ -1256,8 +1256,8 @@ check if {"abc", "def"}.contains("abc");
 check if {hex:12ab, hex:34de}.contains(hex:34de);
 check if {1, 2}.contains({2});
 check if {1, 2} == {1, 2};
-check if {1, 2}.intersection({2, 3}) == [2];
-check if {1, 2}.union({2, 3}) == [1, 2, 3];
+check if {1, 2}.intersection({2, 3}) == {2};
+check if {1, 2}.union({2, 3}) == {1, 2, 3};
 check if {1, 2, 3}.intersection({1, 2}).contains(1);
 check if {1, 2, 3}.intersection({1, 2}).length() == 2;
 ```
@@ -1270,7 +1270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `d85272eaf1bccf26edc08148aa90ddd63f55e5a44c8d5d7d6f17d9378ed19929da3c7353d7780ffe6672cc370f8df3b07f8e8636e48b5f74c1581d1cc1288a01`
+- `3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c`
 
 authorizer world:
 ```
@@ -1319,8 +1319,8 @@ World {
             "check if {1, 2} == {1, 2}",
             "check if {1, 2}.contains(2)",
             "check if {1, 2}.contains({2})",
-            "check if {1, 2}.intersection({2, 3}) == [2]",
-            "check if {1, 2}.union({2, 3}) == [1, 2, 3]",
+            "check if {1, 2}.intersection({2, 3}) == {2}",
+            "check if {1, 2}.union({2, 3}) == {1, 2, 3}",
             "check if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z)",
             "check if {false, true}.contains(true)",
             "check if {hex:12ab, hex:34de}.contains(hex:34de)",
@@ -1333,7 +1333,7 @@ World {
 }
 ```
 
-result: `Err(Execution(InvalidType))`
+result: `Ok(0)`
 
 
 ------------------------------
