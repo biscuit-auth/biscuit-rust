@@ -2501,6 +2501,55 @@
           ]
         }
       }
+    },
+    {
+      "title": "test expression syntax and all available operations (v5 blocks)",
+      "filename": "test031_expressions_v5.bc",
+      "token": [
+        {
+          "symbols": [
+            "a",
+            "b",
+            "c"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              {
+                "origin": 0,
+                "checks": [
+                  "check if !false && true",
+                  "check if (true || false) && true",
+                  "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
+                  "check if [\"a\", \"b\"] != [1, 2, 3]",
+                  "check if [1, 2, 1].length() == 3",
+                  "check if [1, 2, 3].starts_with([1, 2])",
+                  "check if [4, 5, 6].ends_with([6])",
+                  "check if false || true"
+                ]
+              }
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "092bc84e06e25bd984d31361f11fd1f3f70989be15a40a7bec7f989f5c5a03c8a01de3670b31705a3bb3f5729cd3702ff89783548a8dfcb89672eafd24a35a07"
+          ]
+        }
+      }
     }
   ]
 }

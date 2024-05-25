@@ -2656,3 +2656,55 @@ World {
 
 result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check if fact(null, $value), $value == null" }), Block(FailedBlockCheck { block_id: 0, check_id: 1, rule: "reject if fact(null, $value), $value != null" })] }))`
 
+
+------------------------------
+
+## test expression syntax and all available operations (v5 blocks): test031_expressions_v5.bc
+### token
+
+authority:
+symbols: []
+
+public keys: []
+
+```
+check if !false && true;
+check if false || true;
+check if (true || false) && true;
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `bd0b89d109b3f450421bf432ecf52c21053ec55f7422115d5fec6324145406b1a7521281ad609b248830d4cea1c78a5b51d16b2922e5918d6d85fe14d24e7c01`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !false && true",
+            "check if (true || false) && true",
+            "check if false || true",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+

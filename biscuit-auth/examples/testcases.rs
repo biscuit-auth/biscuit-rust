@@ -146,6 +146,8 @@ fn main() {
 
     add_test_result(&mut results, null(&target, &root, test));
 
+    add_test_result(&mut results, expressions_v5(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -2023,6 +2025,62 @@ fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
     validations.insert(
         "rejection3".to_string(),
         validate_token(root, &data[..], "fact(null, \"abcd\"); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test expression syntax and all available operations (v5 blocks)".to_string();
+    let filename = "test031_expressions_v5".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        //boolean and
+        check if !false && true;
+        //boolean or
+        check if false || true;
+        //boolean parens
+        check if (true || false) && true;
+        // boolean and laziness
+        //check if !(false && "x".intersection("x"));
+        // boolean or laziness
+        //check if true || "x".intersection("x");
+        //all
+        //check if [1,2,3].all($p -> $p > 0);
+        //all
+        //check if ![1,2,3].all($p -> $p == 2);
+        //any
+        //check if [1,2,3].any($p -> $p > 2);
+        //any
+        //check if ![1,2,3].any($p -> $p > 3);
+        // nested closures
+        //check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
+        // array
+        check if [1, 2, 1].length() == 3;
+        check if ["a", "b"] != [1, 2, 3];
+        check if ["a", "b", "c"].contains("c");
+        check if [1, 2, 3].starts_with([1, 2]);
+        check if [4, 5, 6 ].ends_with([6]);
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
