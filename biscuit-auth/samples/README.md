@@ -841,7 +841,7 @@ allow if true;
 
 revocation ids:
 - `c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006`
-- `a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00`
+- `da16dfc6d0db04e3378dedce4f0250792646e53408a9116e6d5e1651a4ed692d257e1f7b107cdc40fe6e47257d9c189b0d66a83991d67459608ea1807a9a9b04`
 
 authorizer world:
 ```
@@ -919,7 +919,7 @@ allow if true;
 
 revocation ids:
 - `c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006`
-- `a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00`
+- `da16dfc6d0db04e3378dedce4f0250792646e53408a9116e6d5e1651a4ed692d257e1f7b107cdc40fe6e47257d9c189b0d66a83991d67459608ea1807a9a9b04`
 
 authorizer world:
 ```
@@ -1249,17 +1249,17 @@ check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z;
 check if hex:12ab == hex:12ab;
-check if [1, 2].contains(2);
-check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z);
-check if [false, true].contains(true);
-check if ["abc", "def"].contains("abc");
-check if [hex:12ab, hex:34de].contains(hex:34de);
-check if [1, 2].contains([2]);
-check if [1, 2] == [1, 2];
-check if [1, 2].intersection([2, 3]) == [2];
-check if [1, 2].union([2, 3]) == [1, 2, 3];
-check if [1, 2, 3].intersection([1, 2]).contains(1);
-check if [1, 2, 3].intersection([1, 2]).length() == 2;
+check if {1, 2}.contains(2);
+check if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);
+check if {false, true}.contains(true);
+check if {"abc", "def"}.contains("abc");
+check if {hex:12ab, hex:34de}.contains(hex:34de);
+check if {1, 2}.contains({2});
+check if {1, 2} == {1, 2};
+check if {1, 2}.intersection({2, 3}) == [2];
+check if {1, 2}.union({2, 3}) == [1, 2, 3];
+check if {1, 2, 3}.intersection({1, 2}).contains(1);
+check if {1, 2, 3}.intersection({1, 2}).length() == 2;
 ```
 
 ### validation
@@ -1270,7 +1270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c`
+- `d85272eaf1bccf26edc08148aa90ddd63f55e5a44c8d5d7d6f17d9378ed19929da3c7353d7780ffe6672cc370f8df3b07f8e8636e48b5f74c1581d1cc1288a01`
 
 authorizer world:
 ```
@@ -1308,22 +1308,22 @@ World {
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
             "check if 3 == 3",
-            "check if [\"abc\", \"def\"].contains(\"abc\")",
-            "check if [1, 2, 3].intersection([1, 2]).contains(1)",
-            "check if [1, 2, 3].intersection([1, 2]).length() == 2",
-            "check if [1, 2] == [1, 2]",
-            "check if [1, 2].contains(2)",
-            "check if [1, 2].contains([2])",
-            "check if [1, 2].intersection([2, 3]) == [2]",
-            "check if [1, 2].union([2, 3]) == [1, 2, 3]",
-            "check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z)",
-            "check if [false, true].contains(true)",
-            "check if [hex:12ab, hex:34de].contains(hex:34de)",
             "check if false == false",
             "check if false || true",
             "check if hex:12ab == hex:12ab",
             "check if true",
             "check if true == true",
+            "check if {\"abc\", \"def\"}.contains(\"abc\")",
+            "check if {1, 2, 3}.intersection({1, 2}).contains(1)",
+            "check if {1, 2, 3}.intersection({1, 2}).length() == 2",
+            "check if {1, 2} == {1, 2}",
+            "check if {1, 2}.contains(2)",
+            "check if {1, 2}.contains({2})",
+            "check if {1, 2}.intersection({2, 3}) == [2]",
+            "check if {1, 2}.union({2, 3}) == [1, 2, 3]",
+            "check if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z)",
+            "check if {false, true}.contains(true)",
+            "check if {hex:12ab, hex:34de}.contains(hex:34de)",
         ],
     },
 ]
@@ -1333,7 +1333,7 @@ World {
 }
 ```
 
-result: `Ok(0)`
+result: `Err(Execution(InvalidType))`
 
 
 ------------------------------
@@ -1922,7 +1922,7 @@ allow if true;
 ```
 
 revocation ids:
-- `c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d`
+- `899e1fa26d72b860fa6a6e6d58e71cc873230260dcb41d3390e0703c6e134d955defbd0741c23272ac6e6abb2066a23cff2fe815dc5e5bfd712d177cf74ee108`
 
 authorizer world:
 ```
@@ -1977,7 +1977,7 @@ allow if true;
 ```
 
 revocation ids:
-- `c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d`
+- `899e1fa26d72b860fa6a6e6d58e71cc873230260dcb41d3390e0703c6e134d955defbd0741c23272ac6e6abb2066a23cff2fe815dc5e5bfd712d177cf74ee108`
 
 authorizer world:
 ```
@@ -2331,7 +2331,7 @@ allow if true;
 ```
 
 revocation ids:
-- `117fa653744c859561555e6a6f5990e3a8e7817f91b87aa6991b6d64297158b4e884c92d10f49f74c96069df722aa676839b72751ca9d1fe83a7025b591de00b`
+- `04f9b08f5cf677aa890fd830a4acc2a0ec7d4c9e2657d65ac691ae6512b549184fd7c6deaf17c446f12324a1c454fe373290fe8981bae69cc6054de7312da00f`
 
 authorizer world:
 ```

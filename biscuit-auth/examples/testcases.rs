@@ -1328,22 +1328,22 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if hex:12ab == hex:12ab;
 
         // set contains
-        check if [1, 2].contains(2);
-        check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00);
-        check if [true, false, true].contains(true);
-        check if ["abc", "def"].contains("abc");
-        check if [hex:12ab, hex:34de].contains(hex:34de);
-        check if [1, 2].contains([2]);
+        check if {1, 2}.contains(2);
+        check if { 2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00}.contains(2020-12-04T09:46:41+00:00);
+        check if {true, false, true}.contains(true);
+        check if {"abc", "def"}.contains("abc");
+        check if {hex:12ab, hex:34de}.contains(hex:34de);
+        check if {1, 2}.contains({2});
         // set equal
-        check if [1, 2] == [1, 2];
+        check if {1, 2} == {1, 2};
         // set intersection
-        check if [1, 2].intersection([2, 3]) == [2];
+        check if {1, 2}.intersection({2, 3}) == {2};
         // set union
-        check if [1, 2].union([2, 3]) == [1, 2, 3];
+        check if {1, 2}.union({2, 3}) == {1, 2, 3};
         // chained method calls
-        check if [1, 2, 3].intersection([1, 2]).contains(1);
+        check if {1, 2, 3}.intersection({1, 2}).contains(1);
         // chained method calls with unary method
-        check if [1, 2, 3].intersection([1, 2]).length() == 2;
+        check if {1, 2, 3}.intersection({1, 2}).length() == 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
