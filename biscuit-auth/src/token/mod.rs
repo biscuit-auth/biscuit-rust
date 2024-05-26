@@ -702,7 +702,7 @@ mod tests {
     use super::*;
     use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
-    use crate::error::*;
+    use crate::{error::*, AuthorizerLimits};
     use rand::prelude::*;
     use std::time::{Duration, SystemTime};
 
@@ -853,7 +853,10 @@ mod tests {
 
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res2: {:#?}", res);
             assert_eq!(res,
               Err(Token::FailedLogic(Logic::Unauthorized {
@@ -899,7 +902,10 @@ mod tests {
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res1: {:?}", res);
             println!("authorizer:\n{}", authorizer.print_world());
             res.unwrap();
@@ -911,7 +917,10 @@ mod tests {
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res2: {:?}", res);
             assert_eq!(
                 res,
@@ -975,7 +984,10 @@ mod tests {
             authorizer.set_time();
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -988,7 +1000,10 @@ mod tests {
             authorizer.set_time();
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res3: {:?}", res);
 
             // error message should be like this:
@@ -1031,7 +1046,10 @@ mod tests {
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -1090,7 +1108,10 @@ mod tests {
         .unwrap();
 
         //assert!(v.verify().is_err());
-        let res = v.authorize();
+        let res = v.authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        });
         println!("res: {:?}", res);
         assert_eq!(
             res,
@@ -1146,12 +1167,22 @@ mod tests {
             // test that cloning correctly embeds the first block's facts
             let mut other_authorizer = authorizer.clone();
 
-            let authorization_res = authorizer.authorize();
+            let authorization_res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("authorization result: {:?}", authorization_res);
 
             println!("world:\n{}", authorizer.print_world());
-            let res2: Result<Vec<builder::Fact>, crate::error::Token> =
-                authorizer.query_all("key_verif($id) <- key($id)");
+            let res2: Result<Vec<builder::Fact>, crate::error::Token> = authorizer
+                .query_all_with_limits(
+                    "key_verif($id) <- key($id)",
+                    AuthorizerLimits {
+                        max_time: Duration::from_secs(10),
+                        ..Default::default()
+                    },
+                );
+
             println!("res2: {:?}", res2);
             let mut res2 = res2
                 .unwrap()
@@ -1221,7 +1252,10 @@ mod tests {
             println!("world:\n{}", authorizer.print_world());
             println!("symbols: {:?}", authorizer.symbols);
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res1: {:?}", res);
 
             assert_eq!(
@@ -1308,11 +1342,22 @@ mod tests {
             .unwrap();
         authorizer.allow().unwrap();
 
-        let res = authorizer.authorize();
+        let res = authorizer.authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        });
         println!("res1: {:?}", res);
         res.unwrap();
 
-        let res: Vec<(Vec<u8>,)> = authorizer.query("data($0) <- bytes($0)").unwrap();
+        let res: Vec<(Vec<u8>,)> = authorizer
+            .query_with_limits(
+                "data($0) <- bytes($0)",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         println!("query result: {:x?}", res);
         println!("query result: {:?}", res[0]);
     }
@@ -1436,7 +1481,10 @@ mod tests {
             //println!("final token: {:#?}", final_token);
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res1: {:?}", res);
             res.unwrap();
         }
@@ -1449,7 +1497,10 @@ mod tests {
             //println!("final token: {:#?}", final_token);
             authorizer.allow().unwrap();
 
-            let res = authorizer.authorize();
+            let res = authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            });
             println!("res2: {:?}", res);
 
             assert_eq!(

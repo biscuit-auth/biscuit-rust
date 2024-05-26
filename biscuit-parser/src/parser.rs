@@ -175,18 +175,22 @@ pub fn rule(i: &str) -> IResult<&str, builder::Rule, Error> {
 }
 
 pub fn rule_inner(i: &str) -> IResult<&str, builder::Rule, Error> {
-    let (i, (head_input, head)) = consumed(rule_head)(i)?;
-    let (i, _) = space0(i)?;
+    let (i, (input, (head, body, expressions, scopes))) = consumed(|i| {
+        let (i, head) = rule_head(i)?;
+        let (i, _) = space0(i)?;
 
-    let (i, _) = tag("<-")(i)?;
+        let (i, _) = tag("<-")(i)?;
 
-    let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
+        let (i, (body, expressions, scopes)) = cut(rule_body)(i)?;
+
+        Ok((i, (head, body, expressions, scopes)))
+    })(i)?;
 
     let rule = builder::Rule::new(head, body, expressions, scopes);
 
     if let Err(message) = rule.validate_variables() {
         return Err(nom::Err::Failure(Error {
-            input: head_input,
+            input,
             code: ErrorKind::Satisfy,
             message: Some(message),
         }));
