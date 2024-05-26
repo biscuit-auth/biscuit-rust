@@ -432,9 +432,13 @@ mod tests {
 
     #[test]
     fn proto() {
+        // somehow when building under cargo-tarpaulin, OUT_DIR is not set
+        let out_dir = match std::env::var("OUT_DIR") {
+            Ok(dir) => dir,
+            Err(_) => return,
+        };
         prost_build::compile_protos(&["src/format/schema.proto"], &["src/"]).unwrap();
-        let mut file =
-            std::fs::File::open(concat!(env!("OUT_DIR"), "/biscuit.format.schema.rs")).unwrap();
+        let mut file = std::fs::File::open(&format!("{out_dir}/biscuit.format.schema.rs")).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
 
