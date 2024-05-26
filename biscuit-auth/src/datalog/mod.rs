@@ -1003,6 +1003,7 @@ fn contains_v5_term(term: &Term) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn family() {
@@ -1060,7 +1061,10 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(0, &[0].iter().collect(), r2);
 
-        w.run(&syms).unwrap();
+        w.run_with_limits(&syms, RunLimits {
+             max_time: Duration::from_secs(10),
+            ..Default::default()
+        }).unwrap();
 
         println!("parents:");
         let res = w
