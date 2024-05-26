@@ -89,8 +89,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: tarpaulin
-          args: --output-dir coverage --out xml --workspace --exclude benchmarks
-
+          args: --output-dir coverage --out xml --workspace --features serde-error
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4.0.1
         with:
