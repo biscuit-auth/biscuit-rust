@@ -2652,6 +2652,41 @@
           "revocation_ids": [
             "65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b"
           ]
+        },
+        "shadowing": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              {
+                "origin": 0,
+                "checks": [
+                  "check if !(false && \"x\".intersection(\"x\"))",
+                  "check if ![1, 2, 3].all($p -> $p == 2)",
+                  "check if ![1, 2, 3].any($p -> $p > 3)",
+                  "check if !false && true",
+                  "check if (true || false) && true",
+                  "check if [1, 2, 3].all($p -> $p > 0)",
+                  "check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q))",
+                  "check if [1, 2, 3].any($p -> $p > 2)",
+                  "check if false || true",
+                  "check if true || \"x\".intersection(\"x\")"
+                ]
+              }
+            ],
+            "policies": [
+              "allow if [true].any($p -> [true].all($p -> $p))"
+            ]
+          },
+          "result": {
+            "Err": {
+              "Execution": "ShadowedVariable"
+            }
+          },
+          "authorizer_code": "allow if [true].any($p -> [true].all($p -> $p));\n",
+          "revocation_ids": [
+            "65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b"
+          ]
         }
       }
     }

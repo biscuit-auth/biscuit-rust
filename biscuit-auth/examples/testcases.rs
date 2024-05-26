@@ -2110,6 +2110,14 @@ fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
         "".to_string(),
         validate_token(root, &data[..], "allow if true"),
     );
+    validations.insert(
+        "shadowing".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "allow if [true].any($p -> [true].all($p -> $p))",
+        ),
+    );
 
     TestResult {
         title,
