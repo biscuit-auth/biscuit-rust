@@ -1980,5 +1980,5 @@ fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
 
 #[test]
 fn test_samples() {
-    run("./samples", None, true, false);
+    run("./samples".to_string(), None, true, false);
 }
