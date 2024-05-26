@@ -2663,7 +2663,7 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 ### token
 
 authority:
-symbols: []
+symbols: ["a", "b", "c", "d"]
 
 public keys: []
 
@@ -2671,6 +2671,16 @@ public keys: []
 check if !false && true;
 check if false || true;
 check if (true || false) && true;
+check if [1, 2, 1].length() == 3;
+check if ["a", "b"] != [1, 2, 3];
+check if ["a", "b"] == ["a", "b"];
+check if ["a", "b", "c"].contains("c");
+check if [1, 2, 3].starts_with([1, 2]);
+check if [4, 5, 6].ends_with([6]);
+check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
+check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
+check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
+check if {"a": 1, "b": 2, "c": 3, "d": 4}.contains("d");
 ```
 
 ### validation
@@ -2681,7 +2691,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bd0b89d109b3f450421bf432ecf52c21053ec55f7422115d5fec6324145406b1a7521281ad609b248830d4cea1c78a5b51d16b2922e5918d6d85fe14d24e7c01`
+- `3e0e00592b30db8fa505dc00f0f6ae020713dfa3175ab100828c9c33d116f651f365c34be594484befbd97e7039c5ed03570961385791ccbaf017ad715f2f801`
 
 authorizer world:
 ```
@@ -2696,7 +2706,17 @@ World {
         checks: [
             "check if !false && true",
             "check if (true || false) && true",
+            "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
+            "check if [\"a\", \"b\"] != [1, 2, 3]",
+            "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
+            "check if [1, 2, 1].length() == 3",
+            "check if [1, 2, 3].starts_with([1, 2])",
+            "check if [4, 5, 6].ends_with([6])",
             "check if false || true",
+            "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
+            "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
+            "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
+            "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}",
         ],
     },
 ]
