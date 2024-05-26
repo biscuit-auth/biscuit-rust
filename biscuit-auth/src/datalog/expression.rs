@@ -825,6 +825,35 @@ mod tests {
 
         let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
         assert_eq!(res1, Term::Bool(true));
+
+        let ops2 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{:?}", e2.print(&symbols));
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res2, Term::Bool(false));
+
+        let ops3 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(vec![p], vec![Op::Value(Term::Integer(0))]),
+            Op::Binary(Binary::Any),
+        ];
+        let e3 = Expression { ops: ops3 };
+        println!("{:?}", e3.print(&symbols));
+
+        let err3 = e3.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap_err();
+        assert_eq!(err3, error::Expression::InvalidType);
     }
 
     #[test]
@@ -850,6 +879,35 @@ mod tests {
 
         let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
         assert_eq!(res1, Term::Bool(true));
+
+        let ops2 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{:?}", e2.print(&symbols));
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res2, Term::Bool(false));
+
+        let ops3 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(vec![p], vec![Op::Value(Term::Integer(0))]),
+            Op::Binary(Binary::All),
+        ];
+        let e3 = Expression { ops: ops3 };
+        println!("{:?}", e3.print(&symbols));
+
+        let err3 = e3.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap_err();
+        assert_eq!(err3, error::Expression::InvalidType);
     }
 
     #[test]
