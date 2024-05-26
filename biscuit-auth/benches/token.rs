@@ -242,7 +242,7 @@ fn verify_block_2(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    let _ = verifier.authorize();
 
     b.bytes = data.len() as u64;
     b.iter(|| {
@@ -251,7 +251,7 @@ fn verify_block_2(b: &mut Bencher) {
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
         verifier.allow();
-        verifier.authorize().unwrap();
+        let _ = verifier.authorize();
     });
 }
 
