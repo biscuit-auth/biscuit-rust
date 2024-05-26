@@ -375,7 +375,12 @@ fn check_signature_2(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    verifier
+        .authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .unwrap();
 
     b.bytes = data.len() as u64;
     b.iter(|| {
@@ -438,7 +443,12 @@ fn check_signature_5(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    verifier
+        .authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .unwrap();
 
     b.bytes = data.len() as u64;
     b.iter(|| {
@@ -475,7 +485,12 @@ fn checks_block_2(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    verifier
+        .authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .unwrap();
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     b.bytes = data.len() as u64;
@@ -484,7 +499,12 @@ fn checks_block_2(b: &mut Bencher) {
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
         verifier.allow();
-        verifier.authorize().unwrap();
+        verifier
+            .authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            })
+            .unwrap();
     });
 }
 
@@ -517,7 +537,12 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    verifier
+        .authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .unwrap();
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     b.bytes = data.len() as u64;
@@ -555,7 +580,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
     verifier.allow();
-    verifier.authorize().unwrap();
+    verifier
+        .authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .unwrap();
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     b.iter(|| {
@@ -563,7 +593,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
         verifier.allow();
-        verifier.authorize().unwrap();
+        verifier
+            .authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            })
+            .unwrap();
     });
 }
 
