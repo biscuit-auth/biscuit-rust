@@ -240,15 +240,15 @@ impl Binary {
             (Binary::Equal | Binary::HeterogeneousEqual, Term::Null, Term::Null) => {
                 Ok(Term::Bool(true))
             }
-            (Binary::Equal | Binary::HeterogeneousEqual, Term::Null, _) => Ok(Term::Bool(false)),
-            (Binary::Equal | Binary::HeterogeneousEqual, _, Term::Null) => Ok(Term::Bool(false)),
+            (Binary::HeterogeneousEqual, Term::Null, _) => Ok(Term::Bool(false)),
+            (Binary::HeterogeneousEqual, _, Term::Null) => Ok(Term::Bool(false)),
             (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Null, Term::Null) => {
                 Ok(Term::Bool(false))
             }
-            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Null, _) => {
+            (Binary::HeterogeneousNotEqual, Term::Null, _) => {
                 Ok(Term::Bool(true))
             }
-            (Binary::NotEqual | Binary::HeterogeneousNotEqual, _, Term::Null) => {
+            (Binary::HeterogeneousNotEqual, _, Term::Null) => {
                 Ok(Term::Bool(true))
             }
 
