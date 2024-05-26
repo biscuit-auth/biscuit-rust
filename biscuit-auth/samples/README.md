@@ -1224,42 +1224,42 @@ check if !false;
 check if !false && true;
 check if false || true;
 check if (true || false) && true;
-check if true == true;
-check if false == false;
+check if true === true;
+check if false === false;
 check if 1 < 2;
 check if 2 > 1;
 check if 1 <= 2;
 check if 1 <= 1;
 check if 2 >= 1;
 check if 2 >= 2;
-check if 3 == 3;
-check if 1 + 2 * 3 - 4 / 2 == 5;
+check if 3 === 3;
+check if 1 + 2 * 3 - 4 / 2 === 5;
 check if "hello world".starts_with("hello") && "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
-check if "aaabde" == "aaa" + "b" + "de";
-check if "abcD12" == "abcD12";
-check if "abcD12".length() == 6;
-check if "é".length() == 2;
+check if "aaabde" === "aaa" + "b" + "de";
+check if "abcD12" === "abcD12";
+check if "abcD12".length() === 6;
+check if "é".length() === 2;
 check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;
 check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
-check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z;
-check if hex:12ab == hex:12ab;
+check if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;
+check if hex:12ab === hex:12ab;
 check if {1, 2}.contains(2);
 check if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);
 check if {false, true}.contains(true);
 check if {"abc", "def"}.contains("abc");
 check if {hex:12ab, hex:34de}.contains(hex:34de);
 check if {1, 2}.contains({2});
-check if {1, 2} == {1, 2};
-check if {1, 2}.intersection({2, 3}) == {2};
-check if {1, 2}.union({2, 3}) == {1, 2, 3};
+check if {1, 2} === {1, 2};
+check if {1, 2}.intersection({2, 3}) === {2};
+check if {1, 2}.union({2, 3}) === {1, 2, 3};
 check if {1, 2, 3}.intersection({1, 2}).contains(1);
-check if {1, 2, 3}.intersection({1, 2}).length() == 2;
+check if {1, 2, 3}.intersection({1, 2}).length() === 2;
 ```
 
 ### validation
@@ -1285,15 +1285,15 @@ World {
         checks: [
             "check if !false",
             "check if !false && true",
-            "check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"",
+            "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
             "check if \"aaabde\".contains(\"abd\")",
             "check if \"aaabde\".matches(\"a*c?.e\")",
-            "check if \"abcD12\" == \"abcD12\"",
-            "check if \"abcD12\".length() == 6",
+            "check if \"abcD12\" === \"abcD12\"",
+            "check if \"abcD12\".length() === 6",
             "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
-            "check if \"é\".length() == 2",
+            "check if \"é\".length() === 2",
             "check if (true || false) && true",
-            "check if 1 + 2 * 3 - 4 / 2 == 5",
+            "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
             "check if 1 <= 1",
             "check if 1 <= 2",
@@ -1302,25 +1302,25 @@ World {
             "check if 2 >= 2",
             "check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z",
             "check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z",
-            "check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z",
+            "check if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
-            "check if 3 == 3",
-            "check if false == false",
+            "check if 3 === 3",
+            "check if false === false",
             "check if false || true",
-            "check if hex:12ab == hex:12ab",
+            "check if hex:12ab === hex:12ab",
             "check if true",
-            "check if true == true",
+            "check if true === true",
             "check if {\"abc\", \"def\"}.contains(\"abc\")",
             "check if {1, 2, 3}.intersection({1, 2}).contains(1)",
-            "check if {1, 2, 3}.intersection({1, 2}).length() == 2",
-            "check if {1, 2} == {1, 2}",
+            "check if {1, 2, 3}.intersection({1, 2}).length() === 2",
+            "check if {1, 2} === {1, 2}",
             "check if {1, 2}.contains(2)",
             "check if {1, 2}.contains({2})",
-            "check if {1, 2}.intersection({2, 3}) == {2}",
-            "check if {1, 2}.union({2, 3}) == {1, 2, 3}",
+            "check if {1, 2}.intersection({2, 3}) === {2}",
+            "check if {1, 2}.union({2, 3}) === {1, 2, 3}",
             "check if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z)",
             "check if {false, true}.contains(true)",
             "check if {hex:12ab, hex:34de}.contains(hex:34de)",
@@ -2276,7 +2276,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3346a22aae0abfc1ffa526f02f7650e90af909e5e519989026441e78cdc245b7fd126503cfdc8831325fc04307edc65238db319724477915f7040a2f6a719a05`
+- `a57be539aae237040fe6c2c28c4263516147c9f0d1d7ba88a385f1574f504c544164a2c747efd8b30eaab9d351c383cc1875642f173546d5f4b53b2220c87a0a`
 
 authorizer world:
 ```
@@ -2315,12 +2315,12 @@ symbols: ["abcD12x", "abcD12"]
 public keys: []
 
 ```
-check if 1 != 3;
-check if 1 | 2 ^ 3 == 0;
-check if "abcD12x" != "abcD12";
-check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;
-check if hex:12abcd != hex:12ab;
-check if [1, 4] != [1, 2];
+check if 1 !== 3;
+check if 1 | 2 ^ 3 === 0;
+check if "abcD12x" !== "abcD12";
+check if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;
+check if hex:12abcd !== hex:12ab;
+check if [1, 4] !== [1, 2];
 ```
 
 ### validation
@@ -2344,12 +2344,12 @@ World {
             0,
         ),
         checks: [
-            "check if \"abcD12x\" != \"abcD12\"",
-            "check if 1 != 3",
-            "check if 1 | 2 ^ 3 == 0",
-            "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
-            "check if [1, 4] != [1, 2]",
-            "check if hex:12abcd != hex:12ab",
+            "check if \"abcD12x\" !== \"abcD12\"",
+            "check if 1 !== 3",
+            "check if 1 | 2 ^ 3 === 0",
+            "check if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z",
+            "check if [1, 4] !== [1, 2]",
+            "check if hex:12abcd !== hex:12ab",
         ],
     },
 ]
@@ -2489,7 +2489,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2533,7 +2533,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2577,7 +2577,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2621,7 +2621,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2659,7 +2659,116 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## test expression syntax and all available operations (v5 blocks): test031_expressions_v5.bc
+## test heterogeneous equal: test031_heterogeneous_equal.bc
+### token
+
+authority:
+symbols: ["fact", "value", "fact2"]
+
+public keys: []
+
+```
+check if fact(1, $value), 1 == $value;
+check if fact2(1, $value), 1 != $value;
+```
+
+### validation for "authorized same type"
+
+authorizer code:
+```
+fact(1, 1);
+fact2(1, 2);
+
+allow if true;
+```
+
+revocation ids:
+- `4af31ee86f7afbf20c7fe7e664943b2b3895693b85b3c580f3accc3bbdf8d4b1909f84787e1189c0711fd850a7cc330021e8bbe127ae3a4b36624ff7e487170e`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            None,
+        },
+        facts: [
+            "fact(1, 1)",
+            "fact2(1, 2)",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if fact(1, $value), 1 == $value",
+            "check if fact2(1, $value), 1 != $value",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+### validation for "unauthorized failed logic different type"
+
+authorizer code:
+```
+fact(1, true);
+fact2(1, false);
+
+allow if true;
+```
+
+revocation ids:
+- `4af31ee86f7afbf20c7fe7e664943b2b3895693b85b3c580f3accc3bbdf8d4b1909f84787e1189c0711fd850a7cc330021e8bbe127ae3a4b36624ff7e487170e`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            None,
+        },
+        facts: [
+            "fact(1, true)",
+            "fact2(1, false)",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if fact(1, $value), 1 == $value",
+            "check if fact2(1, $value), 1 != $value",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check if fact(1, $value), 1 == $value" })] }))`
+
+
+------------------------------
+
+## test expression syntax and all available operations (v5 blocks): test032_expressions_v5.bc
 ### token
 
 authority:
@@ -2691,7 +2800,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3e0e00592b30db8fa505dc00f0f6ae020713dfa3175ab100828c9c33d116f651f365c34be594484befbd97e7039c5ed03570961385791ccbaf017ad715f2f801`
+- `5fde54d0492a63711a6a6697c058f0320c3b0449ecb055809ce4dde176fb1da53016258abe3ed58221e4bbbf6e83a7a3c2524d701377f01bf1405bfce2a65702`
 
 authorizer world:
 ```
@@ -2726,5 +2835,5 @@ World {
 }
 ```
 
-result: `Ok(0)`
+result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 5, rule: "check if [\"a\", \"b\"] == [\"a\", \"b\"]" }), Block(FailedBlockCheck { block_id: 0, check_id: 11, rule: "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}" })] }))`
 

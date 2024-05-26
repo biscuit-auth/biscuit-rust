@@ -1121,6 +1121,8 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
             biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
             biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
+            biscuit_parser::builder::Binary::HeterogeneousEqual => Binary::HeterogeneousEqual,
+            biscuit_parser::builder::Binary::HeterogeneousNotEqual => Binary::HeterogeneousNotEqual,
         }
     }
 }

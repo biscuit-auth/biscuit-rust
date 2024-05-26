@@ -728,6 +728,8 @@ pub mod v2 {
                                     Binary::BitwiseOr => Kind::BitwiseOr,
                                     Binary::BitwiseXor => Kind::BitwiseXor,
                                     Binary::NotEqual => Kind::NotEqual,
+                                    Binary::HeterogeneousEqual => Kind::HeterogeneousEqual,
+                                    Binary::HeterogeneousNotEqual => Kind::HeterogeneousNotEqual,
                                 } as i32,
                             })
                         }
@@ -782,6 +784,12 @@ pub mod v2 {
                     Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
                     Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
                     Some(op_binary::Kind::NotEqual) => Op::Binary(Binary::NotEqual),
+                    Some(op_binary::Kind::HeterogeneousEqual) => {
+                        Op::Binary(Binary::HeterogeneousEqual)
+                    }
+                    Some(op_binary::Kind::HeterogeneousNotEqual) => {
+                        Op::Binary(Binary::HeterogeneousNotEqual)
+                    }
                     None => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: binary operation is empty".to_string(),

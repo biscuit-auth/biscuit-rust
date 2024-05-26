@@ -977,12 +977,13 @@ pub fn contains_v4_op(expressions: &[Expression]) -> bool {
 
 fn contains_v5_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
-        expression.ops.iter().any(|op| {
-            if let Op::Value(term) = op {
-                contains_v5_term(term)
-            } else {
-                false
-            }
+        expression.ops.iter().any(|op| match op {
+            Op::Value(term) => contains_v5_term(term),
+            Op::Binary(binary) => match binary {
+                Binary::HeterogeneousEqual | Binary::HeterogeneousNotEqual => true,
+                _ => false,
+            },
+            _ => false,
         })
     })
 }
