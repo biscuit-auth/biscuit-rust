@@ -1,12 +1,9 @@
-#[macro_use]
-extern crate bencher;
-
 extern crate biscuit_auth as biscuit;
 
-use bencher::Bencher;
 use biscuit::{
     builder::*, builder_ext::BuilderExt, datalog::SymbolTable, Biscuit, KeyPair, UnverifiedBiscuit,
 };
+use codspeed_bencher_compat::{benchmark_group, benchmark_main, Bencher};
 use rand::rngs::OsRng;
 
 fn create_block_1(b: &mut Bencher) {
