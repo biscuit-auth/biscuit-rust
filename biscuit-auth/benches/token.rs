@@ -1,5 +1,7 @@
 extern crate biscuit_auth as biscuit;
 
+use std::time::Duration;
+
 use biscuit::{
     builder::*, builder_ext::BuilderExt, datalog::SymbolTable, AuthorizerLimits, Biscuit, KeyPair,
     UnverifiedBiscuit,
