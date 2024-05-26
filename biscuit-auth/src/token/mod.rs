@@ -1,18 +1,16 @@
 //! main structures to interact with Biscuit tokens
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::fmt::Display;
 
-use self::public_keys::PublicKeys;
-
-use super::crypto::{KeyPair, PublicKey};
-use super::datalog::SymbolTable;
-use super::error;
-use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
+use self::public_keys::PublicKeys;
+use super::crypto::{KeyPair, PublicKey, Signature};
+use super::datalog::SymbolTable;
+use super::error;
+use super::format::SerializedBiscuit;
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
@@ -25,7 +23,6 @@ pub mod builder_ext;
 pub(crate) mod public_keys;
 pub(crate) mod third_party;
 pub mod unverified;
-
 pub use block::Block;
 pub use third_party::*;
 
@@ -53,7 +50,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// use biscuit::{KeyPair, Biscuit, builder::*, builder_ext::*};
 ///
 /// fn main() {
-///   let root = KeyPair::new();
+///   let root = KeyPair::new(Algorithm::Ed25519);
 ///
 ///   // first we define the authority block for global data,
 ///   // like access rights
@@ -156,7 +153,7 @@ impl Biscuit {
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
     pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
-        let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let keypair = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
         self.append_with_keypair(&keypair, block_builder)
     }
 
@@ -232,6 +229,25 @@ impl Biscuit {
         rng: &mut T,
         root_key_id: Option<u32>,
         root: &KeyPair,
+        symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        Self::new_with_key_pair(
+            root_key_id,
+            root,
+            &KeyPair::new_with_rng(builder::Algorithm::Ed25519, rng),
+            symbols,
+            authority,
+        )
+    }
+
+    /// creates a new token, using a provided CSPRNG
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new_with_key_pair(
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        next_keypair: &KeyPair,
         mut symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
@@ -243,8 +259,7 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let next_keypair = KeyPair::new_with_rng(rng);
-        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
+        let container = SerializedBiscuit::new(root_key_id, root, next_keypair, &authority)?;
 
         symbols.public_keys.extend(&authority.public_keys)?;
 
@@ -386,7 +401,8 @@ impl Biscuit {
         external_key: PublicKey,
         response: ThirdPartyBlock,
     ) -> Result<Self, error::Token> {
-        let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let next_keypair =
+            KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
 
         self.append_third_party_with_keypair(external_key, response, next_keypair)
     }
@@ -401,20 +417,18 @@ impl Biscuit {
             external_signature,
         } = response.0;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
+        let provided_key = PublicKey::from_proto(&external_signature.public_key)?;
+        if external_key != provided_key {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
+                    "deserialization error: unexpected key {}",
+                    provided_key.print()
                 ),
             )));
         }
-        let bytes: [u8; 64] = (&external_signature.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+        let signature = Signature::from_vec(external_signature.signature);
+
         let previous_key = self
             .container
             .blocks
@@ -422,16 +436,10 @@ impl Biscuit {
             .unwrap_or(&self.container.authority)
             .next_key;
         let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
 
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        external_key.verify_signature(&to_verify, &signature)?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
@@ -711,7 +719,7 @@ mod tests {
     #[test]
     fn basic() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
             let mut builder = Biscuit::builder();
@@ -780,7 +788,7 @@ mod tests {
                 ))
                 .unwrap();
 
-            let keypair2 = KeyPair::new_with_rng(&mut rng);
+            let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit2 = biscuit1_deser
                 .append_with_keypair(&keypair2, block2)
                 .unwrap();
@@ -807,7 +815,7 @@ mod tests {
                 ))
                 .unwrap();
 
-            let keypair3 = KeyPair::new_with_rng(&mut rng);
+            let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit3 = biscuit2_deser
                 .append_with_keypair(&keypair3, block3)
                 .unwrap();
@@ -874,7 +882,7 @@ mod tests {
     #[test]
     fn folders() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 
@@ -895,7 +903,7 @@ mod tests {
         block2.check_resource_prefix("/folder1/");
         block2.check_right("read");
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
@@ -958,7 +966,7 @@ mod tests {
     #[test]
     fn constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 
@@ -976,7 +984,7 @@ mod tests {
         block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
@@ -1017,7 +1025,7 @@ mod tests {
     #[test]
     fn sealed_token() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let mut builder = Biscuit::builder();
 
         builder.add_right("/folder1/file1", "read");
@@ -1037,7 +1045,7 @@ mod tests {
         block2.check_resource_prefix("/folder1/");
         block2.check_right("read");
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         //println!("biscuit2:\n{:#?}", biscuit2);
@@ -1081,7 +1089,7 @@ mod tests {
         use crate::token::builder::*;
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 
@@ -1129,7 +1137,7 @@ mod tests {
     #[test]
     fn authorizer_queries() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 
@@ -1148,7 +1156,7 @@ mod tests {
         block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
         block2.add_fact("key(1234)").unwrap();
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut block3 = BlockBuilder::new();
@@ -1156,7 +1164,7 @@ mod tests {
         block3.check_expiration_date(SystemTime::now() + Duration::from_secs(10));
         block3.add_fact("key(5678)").unwrap();
 
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
+        let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
             println!("biscuit3: {}", biscuit3);
@@ -1217,7 +1225,7 @@ mod tests {
     #[test]
     fn check_head_name() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 
@@ -1238,7 +1246,7 @@ mod tests {
         let mut block2 = BlockBuilder::new();
         block2.add_fact(fact("check1", &[string("test")])).unwrap();
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         println!("biscuit2: {}", biscuit2);
@@ -1321,7 +1329,7 @@ mod tests {
     #[test]
     fn bytes_constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
         builder.add_fact("bytes(hex:0102AB)").unwrap();
@@ -1335,7 +1343,7 @@ mod tests {
         block2
             .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
             .unwrap();
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut authorizer = biscuit2.authorizer().unwrap();
@@ -1367,7 +1375,7 @@ mod tests {
     #[test]
     fn block1_generates_authority_or_ambient() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
             let mut builder = Biscuit::builder();
@@ -1416,7 +1424,7 @@ mod tests {
             block2.add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
                 .unwrap();
 
-            let keypair2 = KeyPair::new_with_rng(&mut rng);
+            let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit2 = biscuit1_deser
                 .append_with_keypair(&keypair2, block2)
                 .unwrap();
@@ -1453,7 +1461,7 @@ mod tests {
     #[test]
     fn check_all() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let mut builder = Biscuit::builder();
 

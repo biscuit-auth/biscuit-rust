@@ -32,7 +32,7 @@
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
 //!   // to verify the token
-//!   let root = KeyPair::new();
+//!   let root = KeyPair::new(Algorithm::Ed25519);
 //!   let public_key = root.public();
 //!
 //!   // creating a first token

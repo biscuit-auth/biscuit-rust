@@ -1,8 +1,8 @@
 use std::cmp::max;
 
-use ed25519_dalek::Signer;
 use prost::Message;
 
+use super::public_keys::PublicKeys;
 use crate::{
     builder::BlockBuilder,
     crypto::PublicKey,
@@ -11,8 +11,6 @@ use crate::{
     format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
     KeyPair, PrivateKey,
 };
-
-use super::public_keys::PublicKeys;
 
 /// Third party block request
 #[derive(Debug)]
@@ -136,16 +134,11 @@ impl ThirdPartyRequest {
             })?;
         let payload = v.clone();
 
-        v.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+        v.extend(&(private_key.algorithm() as i32).to_le_bytes());
         v.extend(self.previous_key.to_bytes());
 
         let keypair = KeyPair::from(private_key);
-        let signature = keypair
-            .kp
-            .try_sign(&v)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = keypair.sign(&v)?;
 
         let public_key = keypair.public();
         let content = schema::ThirdPartyBlockContents {
