@@ -41,6 +41,8 @@ impl Unary {
             (Unary::Length, Term::Bytes(s)) => Ok(Term::Integer(s.len() as i64)),
             (Unary::Length, Term::Set(s)) => Ok(Term::Integer(s.len() as i64)),
             (Unary::Length, Term::Array(a)) => Ok(Term::Integer(a.len() as i64)),
+            (Unary::Length, Term::Map(m)) => Ok(Term::Integer(m.len() as i64)),
+
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
@@ -226,6 +228,16 @@ impl Binary {
             (Binary::Prefix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.starts_with(&j))),
             (Binary::Suffix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.ends_with(&j))),
 
+            // map
+            (Binary::Equal, Term::Map(i), Term::Map(j)) => Ok(Term::Bool(i == j)),
+            (Binary::NotEqual, Term::Map(i), Term::Map(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Contains, Term::Map(i), j) => {
+                Ok(Term::Bool(i.iter().any(|elem| match (elem.0, &j) {
+                    (super::MapKey::Integer(k), Term::Integer(l)) => k == l,
+                    (super::MapKey::Str(k), Term::Str(l)) => k == l,
+                    _ => false,
+                })))
+            }
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
