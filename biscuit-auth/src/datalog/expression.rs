@@ -576,9 +576,7 @@ mod tests {
         let values: HashMap<u32, Term> = HashMap::new();
         let operands = vec![Op::Value(Term::Null), Op::Value(Term::Integer(1))];
         let operators = HashMap::from([
-            (Op::Binary(Binary::NotEqual), true),
             (Op::Binary(Binary::HeterogeneousNotEqual), true),
-            (Op::Binary(Binary::Equal), false),
             (Op::Binary(Binary::HeterogeneousEqual), false),
         ]);
 
