@@ -628,6 +628,8 @@ pub mod v2 {
                         Binary::BitwiseOr => Kind::BitwiseOr,
                         Binary::BitwiseXor => Kind::BitwiseXor,
                         Binary::NotEqual => Kind::NotEqual,
+                        Binary::HeterogeneousEqual => Kind::HeterogeneousEqual,
+                        Binary::HeterogeneousNotEqual => Kind::HeterogeneousNotEqual,
                         Binary::LazyAnd => Kind::LazyAnd,
                         Binary::LazyOr => Kind::LazyOr,
                         Binary::All => Kind::All,
@@ -688,6 +690,10 @@ pub mod v2 {
                 Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
                 Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
                 Some(op_binary::Kind::NotEqual) => Op::Binary(Binary::NotEqual),
+                Some(op_binary::Kind::HeterogeneousEqual) => Op::Binary(Binary::HeterogeneousEqual),
+                Some(op_binary::Kind::HeterogeneousNotEqual) => {
+                    Op::Binary(Binary::HeterogeneousNotEqual)
+                }
                 Some(op_binary::Kind::LazyAnd) => Op::Binary(Binary::LazyAnd),
                 Some(op_binary::Kind::LazyOr) => Op::Binary(Binary::LazyOr),
                 Some(op_binary::Kind::All) => Op::Binary(Binary::All),

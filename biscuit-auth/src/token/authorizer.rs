@@ -1380,7 +1380,13 @@ mod tests {
     fn empty_authorizer() {
         let mut authorizer = Authorizer::new();
         authorizer.add_policy("allow if true").unwrap();
-        assert_eq!(authorizer.authorize(), Ok(0));
+        assert_eq!(
+            authorizer.authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            }),
+            Ok(0)
+        );
     }
 
     #[test]
@@ -1608,64 +1614,111 @@ mod tests {
             ..Default::default()
         });
 
-        let res = authorizer.authorize();
+        let res = authorizer.authorize_with_limits(AuthorizerLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        });
         println!("world after:\n{}", authorizer.print_world());
 
         res.unwrap();
 
         // authorizer facts are always visible, no matter what
         let authorizer_facts: Vec<Fact> = authorizer
-            .query("authorizer(true) <- authorizer(true)")
+            .query_with_limits(
+                "authorizer(true) <- authorizer(true)",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
             .unwrap();
 
         assert_eq!(authorizer_facts.len(), 1);
 
         // authority facts are visible by default
-        let authority_facts: Vec<Fact> =
-            authorizer.query("right($right) <- right($right)").unwrap();
+        let authority_facts: Vec<Fact> = authorizer
+            .query_with_limits(
+                "right($right) <- right($right)",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(authority_facts.len(), 1);
 
         // authority facts are not visible if
         // there is an explicit rule scope annotation that does
         // not cover previous or authority
         let authority_facts_untrusted: Vec<Fact> = authorizer
-            .query({
-                let mut r: Rule = "right($right) <- right($right) trusting {external}"
-                    .try_into()
-                    .unwrap();
-                r.set_scope("external", external.public()).unwrap();
-                r
-            })
+            .query_with_limits(
+                {
+                    let mut r: Rule = "right($right) <- right($right) trusting {external}"
+                        .try_into()
+                        .unwrap();
+                    r.set_scope("external", external.public()).unwrap();
+                    r
+                },
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
             .unwrap();
         assert_eq!(authority_facts_untrusted.len(), 0);
 
         // block facts are not visible by default
-        let block_facts_untrusted: Vec<Fact> =
-            authorizer.query("group($group) <- group($group)").unwrap();
+        let block_facts_untrusted: Vec<Fact> = authorizer
+            .query_with_limits(
+                "group($group) <- group($group)",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert_eq!(block_facts_untrusted.len(), 0);
 
         // block facts are visible if trusted
         let block_facts_trusted: Vec<Fact> = authorizer
-            .query({
-                let mut r: Rule = "group($group) <- group($group) trusting {external}"
-                    .try_into()
-                    .unwrap();
-                r.set_scope("external", external.public()).unwrap();
-                r
-            })
+            .query_with_limits(
+                {
+                    let mut r: Rule = "group($group) <- group($group) trusting {external}"
+                        .try_into()
+                        .unwrap();
+                    r.set_scope("external", external.public()).unwrap();
+                    r
+                },
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
             .unwrap();
         assert_eq!(block_facts_trusted.len(), 1);
 
         // block facts are visible by default with query_all
         let block_facts_query_all: Vec<Fact> = authorizer
-            .query_all("group($group) <- group($group)")
+            .query_all_with_limits(
+                "group($group) <- group($group)",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
             .unwrap();
         assert_eq!(block_facts_query_all.len(), 1);
 
         // block facts are not visible with query_all if the query has an explicit
         // scope annotation that does not trust them
         let block_facts_query_all_explicit: Vec<Fact> = authorizer
-            .query_all("group($group) <- group($group) trusting authority")
+            .query_all_with_limits(
+                "group($group) <- group($group) trusting authority",
+                AuthorizerLimits {
+                    max_time: Duration::from_secs(10),
+                    ..Default::default()
+                },
+            )
             .unwrap();
         assert_eq!(block_facts_query_all_explicit.len(), 0);
     }
@@ -1704,7 +1757,12 @@ mod tests {
             "Authorizer.to_string() displays authorizer facts even before running authorize()"
         );
 
-        authorizer.authorize().unwrap();
+        authorizer
+            .authorize_with_limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            })
+            .unwrap();
 
         let output_after_authorization = authorizer.to_string();
         assert!(

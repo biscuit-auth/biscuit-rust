@@ -239,10 +239,12 @@ pub mod op_binary {
         BitwiseOr = 18,
         BitwiseXor = 19,
         NotEqual = 20,
-        LazyAnd = 21,
-        LazyOr = 22,
-        All = 23,
-        Any = 24,
+        HeterogeneousEqual = 21,
+        HeterogeneousNotEqual = 22,
+        LazyAnd = 23,
+        LazyOr = 24,
+        All = 25,
+        Any = 26,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -1221,42 +1221,42 @@ public keys: []
 ```
 check if true;
 check if !false;
-check if true == true;
-check if false == false;
+check if true === true;
+check if false === false;
 check if 1 < 2;
 check if 2 > 1;
 check if 1 <= 2;
 check if 1 <= 1;
 check if 2 >= 1;
 check if 2 >= 2;
-check if 3 == 3;
-check if 1 + 2 * 3 - 4 / 2 == 5;
+check if 3 === 3;
+check if 1 + 2 * 3 - 4 / 2 === 5;
 check if "hello world".starts_with("hello"), "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
-check if "aaabde" == "aaa" + "b" + "de";
-check if "abcD12" == "abcD12";
-check if "abcD12".length() == 6;
-check if "é".length() == 2;
+check if "aaabde" === "aaa" + "b" + "de";
+check if "abcD12" === "abcD12";
+check if "abcD12".length() === 6;
+check if "é".length() === 2;
 check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;
 check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;
 check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;
-check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z;
-check if hex:12ab == hex:12ab;
+check if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;
+check if hex:12ab === hex:12ab;
 check if [1, 2].contains(2);
 check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z);
 check if [false, true].contains(true);
 check if ["abc", "def"].contains("abc");
 check if [hex:12ab, hex:34de].contains(hex:34de);
 check if [1, 2].contains([2]);
-check if [1, 2] == [1, 2];
-check if [1, 2].intersection([2, 3]) == [2];
-check if [1, 2].union([2, 3]) == [1, 2, 3];
+check if [1, 2] === [1, 2];
+check if [1, 2].intersection([2, 3]) === [2];
+check if [1, 2].union([2, 3]) === [1, 2, 3];
 check if [1, 2, 3].intersection([1, 2]).contains(1);
-check if [1, 2, 3].intersection([1, 2]).length() == 2;
+check if [1, 2, 3].intersection([1, 2]).length() === 2;
 ```
 
 ### validation
@@ -1281,14 +1281,14 @@ World {
         ),
         checks: [
             "check if !false",
-            "check if \"aaabde\" == \"aaa\" + \"b\" + \"de\"",
+            "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
             "check if \"aaabde\".contains(\"abd\")",
             "check if \"aaabde\".matches(\"a*c?.e\")",
-            "check if \"abcD12\" == \"abcD12\"",
-            "check if \"abcD12\".length() == 6",
+            "check if \"abcD12\" === \"abcD12\"",
+            "check if \"abcD12\".length() === 6",
             "check if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\")",
-            "check if \"é\".length() == 2",
-            "check if 1 + 2 * 3 - 4 / 2 == 5",
+            "check if \"é\".length() === 2",
+            "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
             "check if 1 <= 1",
             "check if 1 <= 2",
@@ -1297,27 +1297,27 @@ World {
             "check if 2 >= 2",
             "check if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z",
             "check if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z",
-            "check if 2020-12-04T09:46:41Z == 2020-12-04T09:46:41Z",
+            "check if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
-            "check if 3 == 3",
+            "check if 3 === 3",
             "check if [\"abc\", \"def\"].contains(\"abc\")",
             "check if [1, 2, 3].intersection([1, 2]).contains(1)",
-            "check if [1, 2, 3].intersection([1, 2]).length() == 2",
-            "check if [1, 2] == [1, 2]",
+            "check if [1, 2, 3].intersection([1, 2]).length() === 2",
+            "check if [1, 2] === [1, 2]",
             "check if [1, 2].contains(2)",
             "check if [1, 2].contains([2])",
-            "check if [1, 2].intersection([2, 3]) == [2]",
-            "check if [1, 2].union([2, 3]) == [1, 2, 3]",
+            "check if [1, 2].intersection([2, 3]) === [2]",
+            "check if [1, 2].union([2, 3]) === [1, 2, 3]",
             "check if [2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z].contains(2020-12-04T09:46:41Z)",
             "check if [false, true].contains(true)",
             "check if [hex:12ab, hex:34de].contains(hex:34de)",
-            "check if false == false",
-            "check if hex:12ab == hex:12ab",
+            "check if false === false",
+            "check if hex:12ab === hex:12ab",
             "check if true",
-            "check if true == true",
+            "check if true === true",
         ],
     },
 ]
@@ -2270,7 +2270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `fb5e7ac2bb892f5cf2fb59677cfad1f96deabbc8e158e3fd1b5ee7c4b6949c999e2169187cbee53b943eebdadaaf68832747baa8cffa2ff9f78025a1f55f440c`
+- `365092619226161cf3973343f02c829fe05ab2b0d01f09555272348c9fcce041846be6159badd643aee108c9ce735ca8d12a009979c46b6e2c46e7999824c008`
 
 authorizer world:
 ```
@@ -2309,12 +2309,12 @@ symbols: ["abcD12x", "abcD12"]
 public keys: []
 
 ```
-check if 1 != 3;
-check if 1 | 2 ^ 3 == 0;
-check if "abcD12x" != "abcD12";
-check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;
-check if hex:12abcd != hex:12ab;
-check if [1, 4] != [1, 2];
+check if 1 !== 3;
+check if 1 | 2 ^ 3 === 0;
+check if "abcD12x" !== "abcD12";
+check if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;
+check if hex:12abcd !== hex:12ab;
+check if [1, 4] !== [1, 2];
 ```
 
 ### validation
@@ -2338,12 +2338,12 @@ World {
             0,
         ),
         checks: [
-            "check if \"abcD12x\" != \"abcD12\"",
-            "check if 1 != 3",
-            "check if 1 | 2 ^ 3 == 0",
-            "check if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z",
-            "check if [1, 4] != [1, 2]",
-            "check if hex:12abcd != hex:12ab",
+            "check if \"abcD12x\" !== \"abcD12\"",
+            "check if 1 !== 3",
+            "check if 1 | 2 ^ 3 === 0",
+            "check if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z",
+            "check if [1, 4] !== [1, 2]",
+            "check if hex:12abcd !== hex:12ab",
         ],
     },
 ]
@@ -2483,7 +2483,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2527,7 +2527,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2571,7 +2571,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2615,7 +2615,7 @@ allow if true;
 ```
 
 revocation ids:
-- `bbf3ad51a70e935126b334f37be2bf66e90162353c19c524c0d3579ee71034996872b8433b132e6e0b519d371b0ab20481d58c4619183e8997c3744786e8e003`
+- `35d99762ee4343b245d66b719f7ad6180c76dd899c39e4072cf61dcf8673e7510374922457ce260b8c576431e894e38c7c0bacd3e5cae2bfc63e3286d2078d02`
 
 authorizer world:
 ```
@@ -2653,7 +2653,116 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## test expression syntax and all available operations (v5 blocks): test031_expressions_v5.bc
+## test heterogeneous equal: test031_heterogeneous_equal.bc
+### token
+
+authority:
+symbols: ["fact", "value", "fact2"]
+
+public keys: []
+
+```
+check if fact(1, $value), 1 == $value;
+check if fact2(1, $value), 1 != $value;
+```
+
+### validation for "authorized same type"
+
+authorizer code:
+```
+fact(1, 1);
+fact2(1, 2);
+
+allow if true;
+```
+
+revocation ids:
+- `4af31ee86f7afbf20c7fe7e664943b2b3895693b85b3c580f3accc3bbdf8d4b1909f84787e1189c0711fd850a7cc330021e8bbe127ae3a4b36624ff7e487170e`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            None,
+        },
+        facts: [
+            "fact(1, 1)",
+            "fact2(1, 2)",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if fact(1, $value), 1 == $value",
+            "check if fact2(1, $value), 1 != $value",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+### validation for "unauthorized failed logic different type"
+
+authorizer code:
+```
+fact(1, true);
+fact2(1, false);
+
+allow if true;
+```
+
+revocation ids:
+- `4af31ee86f7afbf20c7fe7e664943b2b3895693b85b3c580f3accc3bbdf8d4b1909f84787e1189c0711fd850a7cc330021e8bbe127ae3a4b36624ff7e487170e`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            None,
+        },
+        facts: [
+            "fact(1, true)",
+            "fact2(1, false)",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if fact(1, $value), 1 == $value",
+            "check if fact2(1, $value), 1 != $value",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check if fact(1, $value), 1 == $value" })] }))`
+
+
+------------------------------
+
+## test laziness and closures: test032_laziness_closures.bc
 ### token
 
 authority:
@@ -2682,7 +2791,7 @@ allow if true;
 ```
 
 revocation ids:
-- `a4f5936824d2ccf7aa46b58b461da4c0de4781a6aa9f6d14ddcf54b1b927f1de8d207bc8e7cb9b79da2b2bf4dc532dc43f5c76b10c1fba8f79f15aacd9819803`
+- `65c9ae800acea84acc516a767c34f61d68c23d1b2538a6f2dc25aac7d2fe5fe9d2fdf61dfadfbdedf7b888a62f883aebd26abf5bfdd6d3f8d92bd2b221288b0b`
 
 authorizer world:
 ```

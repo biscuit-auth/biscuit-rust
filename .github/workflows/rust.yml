@@ -65,3 +65,34 @@ jobs:
       with:
         command: ctest
         args: --release
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Install cargo-tarpaulin
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-tarpaulin
+      - name: Run cargo tarpaulin
+        uses: actions-rs/cargo@v1
+        with:
+          command: tarpaulin
+          args: --output-dir coverage --out xml --workspace --exclude benchmarks
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: biscuit-auth/biscuit-rust
