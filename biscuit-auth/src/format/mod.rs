@@ -107,6 +107,12 @@ impl SerializedBiscuit {
                 ))
             }
             Some(schema::proof::Content::NextSecret(v)) => {
+                let next_key_algorithm = match next_key_algorithm {
+                    schema::public_key::Algorithm::Ed25519 => crate::builder::Algorithm::Ed25519,
+                    schema::public_key::Algorithm::Secp256r1 => {
+                        crate::builder::Algorithm::Secp256r1
+                    }
+                };
                 TokenNext::Secret(PrivateKey::from_bytes(&v, next_key_algorithm)?)
             }
             Some(schema::proof::Content::FinalSignature(v)) => {

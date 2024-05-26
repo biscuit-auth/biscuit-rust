@@ -129,25 +129,15 @@ impl PrivateKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(
-        bytes: &[u8],
-        algorithm: schema::public_key::Algorithm,
-    ) -> Result<Self, error::Format> {
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
         match algorithm {
-            schema::public_key::Algorithm::Ed25519 => {
-                Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?))
-            }
-            schema::public_key::Algorithm::Secp256r1 => {
-                Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?))
-            }
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?)),
         }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(
-        str: &str,
-        algorithm: schema::public_key::Algorithm,
-    ) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Self::from_bytes(&bytes, algorithm)
     }
