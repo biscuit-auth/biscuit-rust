@@ -68,6 +68,10 @@ fn main() {
         None => {}
     };
 
+    run(target, root_key, test, json);
+}
+
+fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
     let root = if let Some(key) = root_key {
         KeyPair::from(&PrivateKey::from_bytes_hex(&key).unwrap())
     } else {
@@ -1972,4 +1976,9 @@ fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
     }
 
     v
+}
+
+#[test]
+fn test_samples() {
+    run("./samples", None, true, false);
 }
