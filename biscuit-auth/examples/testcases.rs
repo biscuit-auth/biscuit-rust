@@ -80,6 +80,7 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
     };
 
     let mut results = Vec::new();
+
     add_test_result(&mut results, basic_token(&target, &root, test));
 
     add_test_result(&mut results, different_root_key(&target, &root, test));
@@ -145,7 +146,15 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, expressions_v4(&target, &root, test));
 
-    add_test_result(&mut results, expressions_v5(&target, &root, test));
+    add_test_result(&mut results, reject_if(&target, &root, test));
+
+    add_test_result(&mut results, null(&target, &root, test));
+
+    add_test_result(&mut results, heterogeneous_equal(&target, &root, test));
+
+    add_test_result(&mut results, closures(&target, &root, test));
+
+    add_test_result(&mut results, typeof_op(&target, &root, test));
 
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
@@ -256,26 +265,26 @@ impl TestResult {
 
 #[derive(Debug, Serialize)]
 struct AuthorizerWorld {
-    pub facts: Vec<AuthorizerFactSet>,
-    pub rules: Vec<AuthorizerRuleSet>,
-    pub checks: Vec<AuthorizerCheckSet>,
+    pub facts: Vec<Facts>,
+    pub rules: Vec<Rules>,
+    pub checks: Vec<Checks>,
     pub policies: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerFactSet {
+struct Facts {
     origin: BTreeSet<Option<usize>>,
     facts: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerRuleSet {
+struct Rules {
     origin: Option<usize>,
     rules: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-struct AuthorizerCheckSet {
+struct Checks {
     origin: Option<usize>,
     checks: Vec<String>,
 }
@@ -349,7 +358,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !rules.is_empty() {
             rules.sort();
-            authorizer_rules.push(AuthorizerRuleSet {
+            authorizer_rules.push(Rules {
                 origin: Some(i),
                 rules,
             });
@@ -363,7 +372,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !checks.is_empty() {
             checks.sort();
-            authorizer_checks.push(AuthorizerCheckSet {
+            authorizer_checks.push(Checks {
                 origin: Some(i),
                 checks,
             });
@@ -378,7 +387,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !rules.is_empty() {
         rules.sort();
-        authorizer_rules.push(AuthorizerRuleSet {
+        authorizer_rules.push(Rules {
             origin: Some(usize::MAX),
             rules,
         });
@@ -392,7 +401,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
     if !checks.is_empty() {
         checks.sort();
-        authorizer_checks.push(AuthorizerCheckSet {
+        authorizer_checks.push(Checks {
             origin: Some(usize::MAX),
             checks,
         });
@@ -417,7 +426,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
         if !facts.is_empty() {
             facts.sort();
-            authorizer_facts.push(AuthorizerFactSet { origin, facts });
+            authorizer_facts.push(Facts { origin, facts });
         }
     }
     authorizer_facts.sort();
@@ -1272,15 +1281,9 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if true;
         //boolean false and negation
         check if !false;
-        //boolean and
-        check if !false && true;
-        //boolean or
-        check if false || true;
-        //boolean parens
-        check if (true || false) && true;
-        // boolean equality
-        check if true == true;
-        check if false == false;
+        // boolean strict equality
+        check if true === true;
+        check if false === false;
 
         //integer less than
         check if 1 < 2;
@@ -1292,25 +1295,25 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //integer greater or equal
         check if 2 >= 1;
         check if 2 >= 2;
-        //integer equal
-        check if 3 == 3;
+        //integer strict equal
+        check if 3 === 3;
         //integer add sub mul div
-        check if 1 + 2 * 3 - 4 /2 == 5;
+        check if 1 + 2 * 3 - 4 /2 === 5;
 
         // string prefix and suffix
-        check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+        check if "hello world".starts_with("hello"), "hello world".ends_with("world");
         // string regex
         check if "aaabde".matches("a*c?.e");
         // string contains
         check if "aaabde".contains("abd");
         // string concatenation
-        check if "aaabde" == "aaa" + "b" + "de";
-        // string equal
-        check if "abcD12" == "abcD12";
+        check if "aaabde" === "aaa" + "b" + "de";
+        // string strict equal
+        check if "abcD12" === "abcD12";
         // string length
-        check if "abcD12".length() == 6;
+        check if "abcD12".length() === 6;
         // string length (non-ascii)
-        check if "é".length() == 2;
+        check if "é".length() === 2;
 
         //date less than
         check if 2019-12-04T09:46:41+00:00 < 2020-12-04T09:46:41+00:00;
@@ -1322,11 +1325,11 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //date greater or equal
         check if 2020-12-04T09:46:41+00:00 >= 2019-12-04T09:46:41+00:00;
         check if 2020-12-04T09:46:41+00:00 >= 2020-12-04T09:46:41+00:00;
-        //date equal
-        check if 2020-12-04T09:46:41+00:00 == 2020-12-04T09:46:41+00:00;
+        //date strict equal
+        check if 2020-12-04T09:46:41+00:00 === 2020-12-04T09:46:41+00:00;
 
-        //bytes equal
-        check if hex:12ab == hex:12ab;
+        //bytes strict equal
+        check if hex:12ab === hex:12ab;
 
         // set contains
         check if [1, 2].contains(2);
@@ -1335,16 +1338,16 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if ["abc", "def"].contains("abc");
         check if [hex:12ab, hex:34de].contains(hex:34de);
         check if [1, 2].contains([2]);
-        // set equal
-        check if [1, 2] == [1, 2];
+        // set strict equal
+        check if [1, 2] === [1, 2];
         // set intersection
-        check if [1, 2].intersection([2, 3]) == [2];
+        check if [1, 2].intersection([2, 3]) === [2];
         // set union
-        check if [1, 2].union([2, 3]) == [1, 2, 3];
+        check if [1, 2].union([2, 3]) === [1, 2, 3];
         // chained method calls
         check if [1, 2, 3].intersection([1, 2]).contains(1);
         // chained method calls with unary method
-        check if [1, 2, 3].intersection([1, 2]).length() == 2;
+        check if [1, 2, 3].intersection([1, 2]).length() === 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -1888,12 +1891,9 @@ fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-          // integer overflows must abort evaluating the whole expression
-          // todo update this test when integer overflows abort
-          // the whole datalog evaluation
-          check if true || 10000000000 * 10000000000 != 0;
-          check if true || 9223372036854775807 + 1 != 0;
-          check if true || -9223372036854775808 - 1 != 0;
+          check if 10000000000 * 10000000000 != 0;
+          check if 9223372036854775807 + 1 != 0;
+          check if -9223372036854775808 - 1 != 0;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -1925,18 +1925,18 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-        //integer not equal
-        check if 1 != 3;
+        //integer not strict equal
+        check if 1 !== 3;
         //integer bitwise and or xor
-        check if 1 | 2 ^ 3 == 0;
-        // string not equal
-        check if "abcD12x" != "abcD12";
-        //date not equal
-        check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
-        //bytes not equal
-        check if hex:12abcd != hex:12ab;
-        // set not equal
-        check if [1, 4] != [1, 2];
+        check if 1 | 2 ^ 3 === 0;
+        // string not strict equal
+        check if "abcD12x" !== "abcD12";
+        //date not strict equal
+        check if 2022-12-04T09:46:41+00:00 !== 2020-12-04T09:46:41+00:00;
+        //bytes not strict equal
+        check if hex:12abcd !== hex:12ab;
+        // set not strict equal
+        check if [1, 4] !== [1, 2];
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -1959,11 +1959,183 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
     }
 }
 
-fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
+fn reject_if(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let title = "test expression syntax and all available operations (v5 blocks)".to_string();
-    let filename = "test040_expressions_v5".to_string();
+    let title = "test reject if".to_string();
+    let filename = "test029_reject_if".to_string();
     let token;
+
+    let biscuit = biscuit!(r#"reject if test($test), $test"#)
+        .build_with_rng(&root, SymbolTable::default(), &mut rng)
+        .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "test(false); allow if true"),
+    );
+    validations.insert(
+        "rejection".to_string(),
+        validate_token(root, &data[..], "test(true); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test null".to_string();
+    let filename = "test030_null".to_string();
+
+    let biscuit = biscuit!(
+        r#"
+    check if fact(null, $value), $value == null;
+    reject if fact(null, $value), $value != null;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    let token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "fact(null, null); allow if true"),
+    );
+    validations.insert(
+        "rejection1".to_string(),
+        validate_token(root, &data[..], "fact(null, 1); allow if true"),
+    );
+    validations.insert(
+        "rejection2".to_string(),
+        validate_token(root, &data[..], "fact(null, true); allow if true"),
+    );
+    validations.insert(
+        "rejection3".to_string(),
+        validate_token(root, &data[..], "fact(null, \"abcd\"); allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test heterogeneous equal".to_string();
+    let filename = "test031_heterogeneous_equal".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+    check if fact(1, $value), 1 == $value;
+    check if fact2(1, $value), 1 != $value;
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "authorized same type".to_string(),
+        validate_token(root, &data[..], "fact(1, 1); fact2(1, 2); allow if true"),
+    );
+    validations.insert(
+        "unauthorized failed logic different type".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "fact(1, true); fact2(1, false); allow if true",
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test laziness and closures".to_string();
+    let filename = "test032_laziness_closures".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        // boolean and
+        check if !false && true;
+        // boolean or
+        check if false || true;
+        // boolean parens
+        check if (true || false) && true;
+        // boolean and laziness
+        check if !(false && "x".intersection("x"));
+        // boolean or laziness
+        check if true || "x".intersection("x");
+        // all
+        check if [1,2,3].all($p -> $p > 0);
+        // all
+        check if ![1,2,3].all($p -> $p == 2);
+        // any
+        check if [1,2,3].any($p -> $p > 2);
+        // any
+        check if ![1,2,3].any($p -> $p > 3);
+        // nested closures
+        check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
+        "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+    validations.insert(
+        "shadowing".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "allow if [true].any($p -> [true].all($p -> $p))",
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn typeof_op(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test typeof operator".to_string();
+    let filename = "test033_typeof".to_string();
 
     let biscuit = biscuit!(
         r#"
@@ -1985,11 +2157,14 @@ fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [true, false].type() == "set";
         set([true, false]);
         check if set($t), $t.type() == "set";
+        null(null);
+        check if null($t), $t.type() == "null";
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
-    token = print_blocks(&biscuit);
+
+    let token = print_blocks(&biscuit);
 
     let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
 

@@ -429,6 +429,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Parameter(String),
+    Null,
 }
 
 impl Convert<datalog::Term> for Term {
@@ -441,6 +442,7 @@ impl Convert<datalog::Term> for Term {
             Term::Bytes(s) => datalog::Term::Bytes(s.clone()),
             Term::Bool(b) => datalog::Term::Bool(*b),
             Term::Set(s) => datalog::Term::Set(s.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Null => datalog::Term::Null,
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
@@ -460,6 +462,7 @@ impl Convert<datalog::Term> for Term {
                     .map(|i| Term::convert_from(i, symbols))
                     .collect::<Result<BTreeSet<_>, error::Format>>()?,
             ),
+            datalog::Term::Null => Term::Null,
         })
     }
 }
@@ -475,6 +478,7 @@ impl From<&Term> for Term {
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -491,6 +495,7 @@ impl From<biscuit_parser::builder::Term> for Term {
             biscuit_parser::builder::Term::Set(s) => {
                 Term::Set(s.into_iter().map(|t| t.into()).collect())
             }
+            biscuit_parser::builder::Term::Null => Term::Null,
             biscuit_parser::builder::Term::Parameter(ref p) => Term::Parameter(p.clone()),
         }
     }
@@ -534,6 +539,7 @@ impl fmt::Display for Term {
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
+            Term::Null => write!(f, "null"),
         }
     }
 }
@@ -904,6 +910,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 impl Convert<datalog::Op> for Op {
@@ -912,6 +919,10 @@ impl Convert<datalog::Op> for Op {
             Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
             Op::Unary(u) => datalog::Op::Unary(u.clone()),
             Op::Binary(b) => datalog::Op::Binary(b.clone()),
+            Op::Closure(ps, os) => datalog::Op::Closure(
+                ps.iter().map(|p| symbols.insert(p) as u32).collect(),
+                os.iter().map(|o| o.convert(symbols)).collect(),
+            ),
         }
     }
 
@@ -920,6 +931,14 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
+            datalog::Op::Closure(ps, os) => Op::Closure(
+                ps.iter()
+                    .map(|p| symbols.print_symbol(*p as u64))
+                    .collect::<Result<_, _>>()?,
+                os.iter()
+                    .map(|o| Op::convert_from(o, symbols))
+                    .collect::<Result<_, _>>()?,
+            ),
         })
     }
 }
@@ -930,6 +949,9 @@ impl From<biscuit_parser::builder::Op> for Op {
             biscuit_parser::builder::Op::Value(t) => Op::Value(t.into()),
             biscuit_parser::builder::Op::Unary(u) => Op::Unary(u.into()),
             biscuit_parser::builder::Op::Binary(b) => Op::Binary(b.into()),
+            biscuit_parser::builder::Op::Closure(ps, os) => {
+                Op::Closure(ps, os.into_iter().map(|o| o.into()).collect())
+            }
         }
     }
 }
@@ -969,6 +991,12 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::BitwiseOr => Binary::BitwiseOr,
             biscuit_parser::builder::Binary::BitwiseXor => Binary::BitwiseXor,
             biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
+            biscuit_parser::builder::Binary::HeterogeneousEqual => Binary::HeterogeneousEqual,
+            biscuit_parser::builder::Binary::HeterogeneousNotEqual => Binary::HeterogeneousNotEqual,
+            biscuit_parser::builder::Binary::LazyAnd => Binary::LazyAnd,
+            biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
+            biscuit_parser::builder::Binary::All => Binary::All,
+            biscuit_parser::builder::Binary::Any => Binary::Any,
         }
     }
 }
@@ -1436,6 +1464,7 @@ pub struct Check {
 pub enum CheckKind {
     One,
     All,
+    Reject,
 }
 
 impl Check {
@@ -1585,6 +1614,7 @@ impl fmt::Display for Check {
         match self.kind {
             CheckKind::One => write!(f, "check if ")?,
             CheckKind::All => write!(f, "check all ")?,
+            CheckKind::Reject => write!(f, "reject if ")?,
         };
 
         if !self.queries.is_empty() {
@@ -1613,6 +1643,7 @@ impl From<biscuit_parser::builder::Check> for Check {
             kind: match c.kind {
                 biscuit_parser::builder::CheckKind::One => CheckKind::One,
                 biscuit_parser::builder::CheckKind::All => CheckKind::All,
+                biscuit_parser::builder::CheckKind::Reject => CheckKind::Reject,
             },
         }
     }

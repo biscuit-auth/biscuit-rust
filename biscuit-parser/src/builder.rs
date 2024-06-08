@@ -18,6 +18,7 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Parameter(String),
+    Null,
 }
 
 impl From<&Term> for Term {
@@ -31,6 +32,7 @@ impl From<&Term> for Term {
             Term::Bool(b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            Term::Null => Term::Null,
         }
     }
 }
@@ -55,9 +57,11 @@ impl ToTokens for Term {
             Term::Set(v) => {
                 quote! {{
                     use std::iter::FromIterator;
-                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*])))) 
+                    ::biscuit_auth::builder::Term::Set(::std::collections::BTreeSet::from_iter(<[::biscuit_auth::builder::Term]>::into_vec(Box::new([ #(#v),*]))))
                 }}
             }
+            Term::Null => quote! { ::biscuit_auth::builder::Term::Null },
+
         })
     }
 }
@@ -181,6 +185,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -214,6 +219,12 @@ pub enum Binary {
     BitwiseOr,
     BitwiseXor,
     NotEqual,
+    HeterogeneousEqual,
+    HeterogeneousNotEqual,
+    LazyAnd,
+    LazyOr,
+    All,
+    Any,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -223,6 +234,12 @@ impl ToTokens for Op {
             Op::Value(t) => quote! { ::biscuit_auth::builder::Op::Value(#t) },
             Op::Unary(u) => quote! { ::biscuit_auth::builder::Op::Unary(#u) },
             Op::Binary(b) => quote! { ::biscuit_auth::builder::Op::Binary(#b) },
+            Op::Closure(params, os) => quote! {
+            ::biscuit_auth::builder::Op::Closure(
+                    <[String]>::into_vec(Box::new([#(#params.to_string()),*])),
+                    <[::biscuit_auth::builder::Op]>::into_vec(Box::new([#(#os),*]))
+                    )
+            },
         });
     }
 }
@@ -264,6 +281,16 @@ impl ToTokens for Binary {
             Binary::BitwiseOr => quote! { ::biscuit_auth::datalog::Binary::BitwiseOr  },
             Binary::BitwiseXor => quote! { ::biscuit_auth::datalog::Binary::BitwiseXor  },
             Binary::NotEqual => quote! { ::biscuit_auth::datalog::Binary::NotEqual },
+            Binary::HeterogeneousEqual => {
+                quote! { ::biscuit_auth::datalog::Binary::HeterogeneousEqual}
+            }
+            Binary::HeterogeneousNotEqual => {
+                quote! { ::biscuit_auth::datalog::Binary::HeterogeneousNotEqual}
+            }
+            Binary::LazyAnd => quote! { ::biscuit_auth::datalog::Binary::LazyAnd },
+            Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
+            Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
+            Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
         });
     }
 }
@@ -400,6 +427,7 @@ pub struct Check {
 pub enum CheckKind {
     One,
     All,
+    Reject,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -425,6 +453,9 @@ impl ToTokens for CheckKind {
             },
             CheckKind::All => quote! {
               ::biscuit_auth::builder::CheckKind::All
+            },
+            CheckKind::Reject => quote! {
+              ::biscuit_auth::builder::CheckKind::Reject
             },
         });
     }
@@ -569,6 +600,11 @@ pub fn boolean(b: bool) -> Term {
 /// creates a set
 pub fn set(s: BTreeSet<Term>) -> Term {
     Term::Set(s)
+}
+
+/// creates a null
+pub fn null() -> Term {
+    Term::Null
 }
 
 /// creates a parameter
