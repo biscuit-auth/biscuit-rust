@@ -2873,7 +2873,7 @@ result: `Err(Execution(ShadowedVariable))`
 ### token
 
 authority:
-symbols: ["a", "b", "c", "p", "d", "A", "kv"]
+symbols: ["a", "b", "c", "p", "d", "A", "kv", "id", "roles"]
 
 public keys: []
 
@@ -2898,6 +2898,7 @@ check if {1: "A", "a": 1, "b": 2}.get("c") == null;
 check if {1: "A", "a": 1, "b": 2}.get(2) == null;
 check if {"a": 1, "b": 2}.all($kv -> $kv.get(0) != "c" && $kv.get(1) < 3);
 check if {1: "A", "a": 1, "b": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == "A");
+check if {"user": {"id": 1, "roles": ["admin"]}}.get("user").get("roles").contains("admin");
 ```
 
 ### validation
@@ -2908,7 +2909,7 @@ allow if true;
 ```
 
 revocation ids:
-- `724dd2068fa72d515cbc29894b81e8e64878b45f35755a52fd77bbf0bd2df3bc14b88033ee6b8255e3e79dc253947a6621d3ca7e6427e3f8f29888588b0a6907`
+- `7096e2ad9ad5dcae778cea1cee800ffc38017196e56aed693810d0933bcecc804a723768c3b494fa23d99be59ca3588bfa806e3fe2dac29d0ca9e452b69ead09`
 
 authorizer world:
 ```
@@ -2934,6 +2935,7 @@ World {
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
             "check if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3)",
+            "check if {\"user\": {\"id\": 1, \"roles\": [\"admin\"]}}.get(\"user\").get(\"roles\").contains(\"admin\")",
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\")",
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1",
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null",

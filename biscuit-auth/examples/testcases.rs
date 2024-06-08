@@ -2163,6 +2163,8 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if { "a": 1 , "b": 2, 1: "A" }.get(2) == null;
         check if { "a": 1 , "b": 2 }.all($kv -> $kv.get(0) != "c" && $kv.get(1) < 3 );
         check if { "a": 1 , "b": 2, 1: "A" }.any($kv -> $kv.get(0) == 1 && $kv.get(1) == "A" );
+        // nesting
+        check if { "user": { "id": 1, "roles": ["admin"] } }.get("user").get("roles").contains("admin");
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
