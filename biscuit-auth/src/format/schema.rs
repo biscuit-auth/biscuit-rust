@@ -281,6 +281,7 @@ pub mod op_binary {
         LazyOr = 24,
         All = 25,
         Any = 26,
+        Get = 27,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

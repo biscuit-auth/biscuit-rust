@@ -180,6 +180,7 @@ message OpBinary {
     LazyOr = 24;
     All = 25;
     Any = 26;
+    Get = 27;
   }
 
   required Kind kind = 1;

@@ -4,6 +4,7 @@ use super::Term;
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
@@ -90,6 +91,7 @@ pub enum Binary {
     LazyOr,
     All,
     Any,
+    Get,
 }
 
 impl Binary {
@@ -317,6 +319,10 @@ impl Binary {
             }
             (Binary::Prefix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.starts_with(&j))),
             (Binary::Suffix, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i.ends_with(&j))),
+            (Binary::Get, Term::Array(i), Term::Integer(index)) => Ok(TryFrom::try_from(index)
+                .ok()
+                .and_then(|index: usize| i.get(index).cloned())
+                .unwrap_or(Term::Null)),
 
             // map
             (Binary::Equal, Term::Map(i), Term::Map(j)) => Ok(Term::Bool(i == j)),
@@ -364,6 +370,7 @@ impl Binary {
             Binary::LazyOr => format!("{left} || {right}"),
             Binary::All => format!("{left}.all({right})"),
             Binary::Any => format!("{left}.any({right})"),
+            Binary::Get => format!("{left}.get({right})"),
         }
     }
 }
@@ -1154,5 +1161,37 @@ mod tests {
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Ok(Term::Bool(false)));
+
+        // array get
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Integer(1)),
+            Op::Binary(Binary::Get),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Integer(1)));
+
+        // array get out of bounds
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Integer(3)),
+            Op::Binary(Binary::Get),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Null));
     }
 }

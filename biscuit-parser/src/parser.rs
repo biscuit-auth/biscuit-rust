@@ -509,6 +509,7 @@ fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Union, tag("union")),
         value(Binary::All, tag("all")),
         value(Binary::Any, tag("any")),
+        value(Binary::Get, tag("get")),
     ))(i)
 }
 

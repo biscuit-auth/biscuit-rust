@@ -1143,6 +1143,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
             biscuit_parser::builder::Binary::All => Binary::All,
             biscuit_parser::builder::Binary::Any => Binary::Any,
+            biscuit_parser::builder::Binary::Get => Binary::Get,
         }
     }
 }

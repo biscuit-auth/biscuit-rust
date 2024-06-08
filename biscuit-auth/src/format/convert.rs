@@ -729,6 +729,7 @@ pub mod v2 {
                         Binary::LazyOr => Kind::LazyOr,
                         Binary::All => Kind::All,
                         Binary::Any => Kind::Any,
+                        Binary::Get => Kind::Get,
                     } as i32,
                 })
             }
@@ -793,6 +794,7 @@ pub mod v2 {
                 Some(op_binary::Kind::LazyOr) => Op::Binary(Binary::LazyOr),
                 Some(op_binary::Kind::All) => Op::Binary(Binary::All),
                 Some(op_binary::Kind::Any) => Op::Binary(Binary::Any),
+                Some(op_binary::Kind::Get) => Op::Binary(Binary::Get),
                 None => {
                     return Err(error::Format::DeserializationError(
                         "deserialization error: binary operation is empty".to_string(),

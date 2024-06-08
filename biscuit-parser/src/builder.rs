@@ -298,6 +298,7 @@ pub enum Binary {
     LazyOr,
     All,
     Any,
+    Get,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -363,6 +364,7 @@ impl ToTokens for Binary {
             Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
             Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
             Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
+            Binary::Get => quote! { ::biscuit_auth::datalog::Binary::Get },
         });
     }
 }
