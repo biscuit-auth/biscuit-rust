@@ -632,7 +632,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
-        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
+        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_default(),
         block.public_keys.keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
         block.scopes,
         facts,
@@ -761,7 +761,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, &root.public()).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = BlockBuilder::new();
@@ -817,7 +817,7 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
             let mut authorizer = final_token.authorizer().unwrap();
@@ -1060,7 +1060,7 @@ mod tests {
         let sealed = biscuit2.seal().unwrap().to_vec().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
-        let biscuit3 = Biscuit::from(&sealed, &root.public()).unwrap();
+        let biscuit3 = Biscuit::from(sealed, root.public()).unwrap();
 
         {
             let mut authorizer = biscuit3.authorizer().unwrap();
@@ -1427,7 +1427,7 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
-        let final_token = Biscuit::from(&serialized2, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized2, root.public()).unwrap();
         println!("final token:\n{}", final_token);
 
         let mut authorizer = final_token.authorizer().unwrap();

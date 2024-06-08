@@ -201,7 +201,7 @@ impl FromStr for PublicKey {
 
 impl Display for PublicKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ed25519/{}", hex::encode(&self.to_bytes()))
+        write!(f, "ed25519/{}", hex::encode(self.to_bytes()))
     }
 }
 
