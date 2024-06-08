@@ -918,7 +918,7 @@ pub fn get_schema_version(
                 .any(|query| contains_v4_op(&query.expressions))
         });
 
-    // null, heterogeneous equals, closures
+    // null, heterogeneous equals, closures, typeof
     if !contains_v5 {
         contains_v5 = rules.iter().any(|rule| {
             contains_v5_predicate(&rule.head)
@@ -968,6 +968,7 @@ fn contains_v5_op(expressions: &[Expression]) -> bool {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v5_term(term),
             Op::Closure(_, _) => true,
+            Op::Unary(Unary::TypeOf) => true,
             Op::Binary(binary) => matches!(
                 binary,
                 Binary::HeterogeneousEqual
