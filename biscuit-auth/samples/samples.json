@@ -2700,11 +2700,13 @@
             "b",
             "c",
             "p",
-            "d"
+            "d",
+            "A",
+            "kv"
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\n"
+          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\";\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null;\ncheck if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3);\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\");\n"
         }
       ],
       "validations": {
@@ -2722,13 +2724,18 @@
                   "check if [1, 2, \"a\"].get(2) == \"a\"",
                   "check if [1, 2, 1].length() == 3",
                   "check if [1, 2, 3].all($p -> $p > 0)",
-                  "check if [1, 2, 3].all($p -> $p > 0)",
                   "check if [1, 2, 3].any($p -> $p > 2)",
                   "check if [1, 2, 3].starts_with([1, 2])",
                   "check if [1, 2].get(3) == null",
                   "check if [4, 5, 6].ends_with([6])",
                   "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
                   "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
+                  "check if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3)",
+                  "check if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\")",
+                  "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1",
+                  "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null",
+                  "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\"",
+                  "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null",
                   "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
                   "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}"
                 ]
@@ -2743,7 +2750,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "00efb9846891354b420fd165e9162e65398af9ec7361b584d312964879b3418e049ff1a39cde0e90dd8f8f9ff24b689806139b40e5a3a44f1ccee1115a64f108"
+            "724dd2068fa72d515cbc29894b81e8e64878b45f35755a52fd77bbf0bd2df3bc14b88033ee6b8255e3e79dc253947a6621d3ca7e6427e3f8f29888588b0a6907"
           ]
         }
       }

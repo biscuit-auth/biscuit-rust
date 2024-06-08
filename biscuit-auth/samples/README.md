@@ -2873,7 +2873,7 @@ result: `Err(Execution(ShadowedVariable))`
 ### token
 
 authority:
-symbols: ["a", "b", "c", "p", "d"]
+symbols: ["a", "b", "c", "p", "d", "A", "kv"]
 
 public keys: []
 
@@ -2892,6 +2892,12 @@ check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
 check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
 check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.contains("d");
+check if {1: "A", "a": 1, "b": 2}.get("a") == 1;
+check if {1: "A", "a": 1, "b": 2}.get(1) == "A";
+check if {1: "A", "a": 1, "b": 2}.get("c") == null;
+check if {1: "A", "a": 1, "b": 2}.get(2) == null;
+check if {"a": 1, "b": 2}.all($kv -> $kv.get(0) != "c" && $kv.get(1) < 3);
+check if {1: "A", "a": 1, "b": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == "A");
 ```
 
 ### validation
@@ -2902,7 +2908,7 @@ allow if true;
 ```
 
 revocation ids:
-- `ff26323a584a8ec8af2f81b80fefc2d6ea84148f463a4a007386f48eb2a0125f54812ab9da60a82642f46d832939ae8de5bfed20dfd683044f76880092598609`
+- `724dd2068fa72d515cbc29894b81e8e64878b45f35755a52fd77bbf0bd2df3bc14b88033ee6b8255e3e79dc253947a6621d3ca7e6427e3f8f29888588b0a6907`
 
 authorizer world:
 ```
@@ -2927,6 +2933,12 @@ World {
             "check if [4, 5, 6].ends_with([6])",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
+            "check if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3)",
+            "check if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\")",
+            "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1",
+            "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null",
+            "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\"",
+            "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null",
             "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
             "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}",
         ],

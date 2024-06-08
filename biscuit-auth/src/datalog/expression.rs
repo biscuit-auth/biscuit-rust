@@ -1,6 +1,6 @@
 use crate::error;
 
-use super::Term;
+use super::{MapKey, Term};
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -147,8 +147,8 @@ impl Binary {
             }
 
             // array
-            (Binary::All, Term::Array(set_values), [param]) => {
-                for value in set_values.iter() {
+            (Binary::All, Term::Array(array), [param]) => {
+                for value in array.iter() {
                     values.insert(*param, value.clone());
                     let e = Expression { ops: right.clone() };
                     let result = e.evaluate(values, symbols);
@@ -161,9 +161,49 @@ impl Binary {
                 }
                 Ok(Term::Bool(true))
             }
-            (Binary::Any, Term::Array(set_values), [param]) => {
-                for value in set_values.iter() {
+            (Binary::Any, Term::Array(array), [param]) => {
+                for value in array.iter() {
                     values.insert(*param, value.clone());
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(false) => {}
+                        Term::Bool(true) => return Ok(Term::Bool(true)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(false))
+            }
+
+            //map
+            (Binary::All, Term::Map(map), [param]) => {
+                for (key, value) in map.iter() {
+                    let key = match key {
+                        MapKey::Integer(i) => Term::Integer(*i),
+                        MapKey::Str(i) => Term::Str(*i),
+                    };
+                    values.insert(*param, Term::Array(vec![key, value.clone()]));
+
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(true) => {}
+                        Term::Bool(false) => return Ok(Term::Bool(false)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(true))
+            }
+            (Binary::Any, Term::Map(map), [param]) => {
+                for (key, value) in map.iter() {
+                    let key = match key {
+                        MapKey::Integer(i) => Term::Integer(*i),
+                        MapKey::Str(i) => Term::Str(*i),
+                    };
+                    values.insert(*param, Term::Array(vec![key, value.clone()]));
+
                     let e = Expression { ops: right.clone() };
                     let result = e.evaluate(values, symbols);
                     values.remove(param);
@@ -372,6 +412,14 @@ impl Binary {
                     _ => false,
                 })))
             }
+            (Binary::Get, Term::Map(m), Term::Integer(i)) => match m.get(&MapKey::Integer(i)) {
+                Some(term) => Ok(term.clone()),
+                None => Ok(Term::Null),
+            },
+            (Binary::Get, Term::Map(m), Term::Str(i)) => match m.get(&MapKey::Str(i)) {
+                Some(term) => Ok(term.clone()),
+                None => Ok(Term::Null),
+            },
 
             (Binary::HeterogeneousEqual, _, _) => Ok(Term::Bool(false)),
             (Binary::HeterogeneousNotEqual, _, _) => Ok(Term::Bool(true)),
@@ -1278,8 +1326,10 @@ mod tests {
 
     #[test]
     fn map() {
-        let symbols = SymbolTable::new();
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
         let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
         let ops = vec![
             Op::Value(Term::Map(
                 [
@@ -1374,13 +1424,32 @@ mod tests {
             Op::Value(Term::Map(
                 [
                     (MapKey::Str(1), Term::Integer(0)),
-                    (MapKey::Str(2), Term::Integer(1)),
+                    (MapKey::Integer(2), Term::Integer(1)),
                 ]
                 .iter()
                 .cloned()
                 .collect(),
             )),
-            Op::Value(Term::Str(2)),
+            Op::Value(Term::Str(1)),
+            Op::Binary(Binary::Get),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Integer(0)));
+
+        let ops = vec![
+            Op::Value(Term::Map(
+                [
+                    (MapKey::Str(1), Term::Integer(0)),
+                    (MapKey::Integer(2), Term::Integer(1)),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            )),
+            Op::Value(Term::Integer(2)),
             Op::Binary(Binary::Get),
         ];
 
@@ -1409,8 +1478,26 @@ mod tests {
         let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Ok(Term::Null));
 
+        let ops = vec![
+            Op::Value(Term::Map(
+                [
+                    (MapKey::Str(1), Term::Integer(0)),
+                    (MapKey::Str(2), Term::Integer(1)),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            )),
+            Op::Value(Term::Str(3)),
+            Op::Binary(Binary::Get),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Null));
+
         // all
-        let p = tmp_symbols.insert("param") as u32;
         let ops1 = vec![
             Op::Value(Term::Map(
                 [
@@ -1466,6 +1553,6 @@ mod tests {
         println!("{:?}", e1.print(&symbols));
 
         let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
-        assert_eq!(res1, Term::Bool(false));
+        assert_eq!(res1, Term::Bool(true));
     }
 }

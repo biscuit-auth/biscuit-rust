@@ -2157,6 +2157,12 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if {  1: "a" , 2: "b"} != { "a": 1 , "b": 2};
         check if {  1: "a" , 2: "b"} == { 2: "b", 1: "a"  };
         check if { "a": 1 , "b": 2, "c": 3, "d": 4}.contains("d");
+        check if { "a": 1 , "b": 2, 1: "A" }.get("a") == 1;
+        check if { "a": 1 , "b": 2, 1: "A" }.get(1) == "A";
+        check if { "a": 1 , "b": 2, 1: "A" }.get("c") == null;
+        check if { "a": 1 , "b": 2, 1: "A" }.get(2) == null;
+        check if { "a": 1 , "b": 2 }.all($kv -> $kv.get(0) != "c" && $kv.get(1) < 3 );
+        check if { "a": 1 , "b": 2, 1: "A" }.any($kv -> $kv.get(0) == 1 && $kv.get(1) == "A" );
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
