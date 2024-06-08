@@ -1221,9 +1221,6 @@ public keys: []
 ```
 check if true;
 check if !false;
-check if !false && true;
-check if false || true;
-check if (true || false) && true;
 check if true === true;
 check if false === false;
 check if 1 < 2;
@@ -1234,7 +1231,7 @@ check if 2 >= 1;
 check if 2 >= 2;
 check if 3 === 3;
 check if 1 + 2 * 3 - 4 / 2 === 5;
-check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+check if "hello world".starts_with("hello"), "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
 check if "aaabde" === "aaa" + "b" + "de";
@@ -1270,7 +1267,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c`
+- `d0420227266e3583a42dfaa0e38550d99f681d150dd18856f3af9a697bc9c5c8bf06b4b0fe5b9df0377d1b963574e2fd210a0a76a8b0756a65f640c602bebd07`
 
 authorizer world:
 ```
@@ -1284,15 +1281,13 @@ World {
         ),
         checks: [
             "check if !false",
-            "check if !false && true",
             "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
             "check if \"aaabde\".contains(\"abd\")",
             "check if \"aaabde\".matches(\"a*c?.e\")",
             "check if \"abcD12\" === \"abcD12\"",
             "check if \"abcD12\".length() === 6",
-            "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
+            "check if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\")",
             "check if \"é\".length() === 2",
-            "check if (true || false) && true",
             "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
             "check if 1 <= 1",
@@ -1320,7 +1315,6 @@ World {
             "check if [false, true].contains(true)",
             "check if [hex:12ab, hex:34de].contains(hex:34de)",
             "check if false === false",
-            "check if false || true",
             "check if hex:12ab === hex:12ab",
             "check if true",
             "check if true === true",
@@ -2263,9 +2257,9 @@ symbols: []
 public keys: []
 
 ```
-check if true || 10000000000 * 10000000000 != 0;
-check if true || 9223372036854775807 + 1 != 0;
-check if true || -9223372036854775808 - 1 != 0;
+check if 10000000000 * 10000000000 != 0;
+check if 9223372036854775807 + 1 != 0;
+check if -9223372036854775808 - 1 != 0;
 ```
 
 ### validation
@@ -2276,7 +2270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `a57be539aae237040fe6c2c28c4263516147c9f0d1d7ba88a385f1574f504c544164a2c747efd8b30eaab9d351c383cc1875642f173546d5f4b53b2220c87a0a`
+- `365092619226161cf3973343f02c829fe05ab2b0d01f09555272348c9fcce041846be6159badd643aee108c9ce735ca8d12a009979c46b6e2c46e7999824c008`
 
 authorizer world:
 ```
@@ -2289,9 +2283,9 @@ World {
             0,
         ),
         checks: [
-            "check if true || -9223372036854775808 - 1 != 0",
-            "check if true || 10000000000 * 10000000000 != 0",
-            "check if true || 9223372036854775807 + 1 != 0",
+            "check if -9223372036854775808 - 1 != 0",
+            "check if 10000000000 * 10000000000 != 0",
+            "check if 9223372036854775807 + 1 != 0",
         ],
     },
 ]
@@ -2764,4 +2758,111 @@ World {
 ```
 
 result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 0, rule: "check if fact(1, $value), 1 == $value" })] }))`
+
+
+------------------------------
+
+## test laziness and closures: test032_laziness_closures.bc
+### token
+
+authority:
+symbols: ["x", "p", "q"]
+
+public keys: []
+
+```
+check if !false && true;
+check if false || true;
+check if (true || false) && true;
+check if !(false && "x".intersection("x"));
+check if true || "x".intersection("x");
+check if [1, 2, 3].all($p -> $p > 0);
+check if ![1, 2, 3].all($p -> $p == 2);
+check if [1, 2, 3].any($p -> $p > 2);
+check if ![1, 2, 3].any($p -> $p > 3);
+check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q));
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if ![1, 2, 3].all($p -> $p == 2)",
+            "check if ![1, 2, 3].any($p -> $p > 3)",
+            "check if !false && true",
+            "check if (true || false) && true",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q))",
+            "check if [1, 2, 3].any($p -> $p > 2)",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+### validation for "shadowing"
+
+authorizer code:
+```
+allow if [true].any($p -> [true].all($p -> $p));
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if ![1, 2, 3].all($p -> $p == 2)",
+            "check if ![1, 2, 3].any($p -> $p > 3)",
+            "check if !false && true",
+            "check if (true || false) && true",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q))",
+            "check if [1, 2, 3].any($p -> $p > 2)",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+        ],
+    },
+]
+  policies: [
+    "allow if [true].any($p -> [true].all($p -> $p))",
+]
+}
+```
+
+result: `Err(Execution(ShadowedVariable))`
 

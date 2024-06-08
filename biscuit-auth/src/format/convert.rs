@@ -588,126 +588,145 @@ pub mod v2 {
         }
     }
 
+    fn token_op_to_proto_op(op: &Op) -> schema::Op {
+        let content = match op {
+            Op::Value(i) => schema::op::Content::Value(token_term_to_proto_id(i)),
+            Op::Unary(u) => {
+                use schema::op_unary::Kind;
+
+                schema::op::Content::Unary(schema::OpUnary {
+                    kind: match u {
+                        Unary::Negate => Kind::Negate,
+                        Unary::Parens => Kind::Parens,
+                        Unary::Length => Kind::Length,
+                    } as i32,
+                })
+            }
+            Op::Binary(b) => {
+                use schema::op_binary::Kind;
+
+                schema::op::Content::Binary(schema::OpBinary {
+                    kind: match b {
+                        Binary::LessThan => Kind::LessThan,
+                        Binary::GreaterThan => Kind::GreaterThan,
+                        Binary::LessOrEqual => Kind::LessOrEqual,
+                        Binary::GreaterOrEqual => Kind::GreaterOrEqual,
+                        Binary::Equal => Kind::Equal,
+                        Binary::Contains => Kind::Contains,
+                        Binary::Prefix => Kind::Prefix,
+                        Binary::Suffix => Kind::Suffix,
+                        Binary::Regex => Kind::Regex,
+                        Binary::Add => Kind::Add,
+                        Binary::Sub => Kind::Sub,
+                        Binary::Mul => Kind::Mul,
+                        Binary::Div => Kind::Div,
+                        Binary::And => Kind::And,
+                        Binary::Or => Kind::Or,
+                        Binary::Intersection => Kind::Intersection,
+                        Binary::Union => Kind::Union,
+                        Binary::BitwiseAnd => Kind::BitwiseAnd,
+                        Binary::BitwiseOr => Kind::BitwiseOr,
+                        Binary::BitwiseXor => Kind::BitwiseXor,
+                        Binary::NotEqual => Kind::NotEqual,
+                        Binary::HeterogeneousEqual => Kind::HeterogeneousEqual,
+                        Binary::HeterogeneousNotEqual => Kind::HeterogeneousNotEqual,
+                        Binary::LazyAnd => Kind::LazyAnd,
+                        Binary::LazyOr => Kind::LazyOr,
+                        Binary::All => Kind::All,
+                        Binary::Any => Kind::Any,
+                    } as i32,
+                })
+            }
+            Op::Closure(params, ops) => schema::op::Content::Closure(schema::OpClosure {
+                params: params.clone(),
+                ops: ops.iter().map(token_op_to_proto_op).collect(),
+            }),
+        };
+
+        schema::Op {
+            content: Some(content),
+        }
+    }
+
     pub fn token_expression_to_proto_expression(input: &Expression) -> schema::ExpressionV2 {
         schema::ExpressionV2 {
-            ops: input
-                .ops
-                .iter()
-                .map(|op| {
-                    let content = match op {
-                        Op::Value(i) => schema::op::Content::Value(token_term_to_proto_id(i)),
-                        Op::Unary(u) => {
-                            use schema::op_unary::Kind;
-
-                            schema::op::Content::Unary(schema::OpUnary {
-                                kind: match u {
-                                    Unary::Negate => Kind::Negate,
-                                    Unary::Parens => Kind::Parens,
-                                    Unary::Length => Kind::Length,
-                                } as i32,
-                            })
-                        }
-                        Op::Binary(b) => {
-                            use schema::op_binary::Kind;
-
-                            schema::op::Content::Binary(schema::OpBinary {
-                                kind: match b {
-                                    Binary::LessThan => Kind::LessThan,
-                                    Binary::GreaterThan => Kind::GreaterThan,
-                                    Binary::LessOrEqual => Kind::LessOrEqual,
-                                    Binary::GreaterOrEqual => Kind::GreaterOrEqual,
-                                    Binary::Equal => Kind::Equal,
-                                    Binary::Contains => Kind::Contains,
-                                    Binary::Prefix => Kind::Prefix,
-                                    Binary::Suffix => Kind::Suffix,
-                                    Binary::Regex => Kind::Regex,
-                                    Binary::Add => Kind::Add,
-                                    Binary::Sub => Kind::Sub,
-                                    Binary::Mul => Kind::Mul,
-                                    Binary::Div => Kind::Div,
-                                    Binary::And => Kind::And,
-                                    Binary::Or => Kind::Or,
-                                    Binary::Intersection => Kind::Intersection,
-                                    Binary::Union => Kind::Union,
-                                    Binary::BitwiseAnd => Kind::BitwiseAnd,
-                                    Binary::BitwiseOr => Kind::BitwiseOr,
-                                    Binary::BitwiseXor => Kind::BitwiseXor,
-                                    Binary::NotEqual => Kind::NotEqual,
-                                    Binary::HeterogeneousEqual => Kind::HeterogeneousEqual,
-                                    Binary::HeterogeneousNotEqual => Kind::HeterogeneousNotEqual,
-                                } as i32,
-                            })
-                        }
-                    };
-
-                    schema::Op {
-                        content: Some(content),
-                    }
-                })
-                .collect(),
+            ops: input.ops.iter().map(token_op_to_proto_op).collect(),
         }
+    }
+
+    fn proto_op_to_token_op(op: &schema::Op) -> Result<Op, error::Format> {
+        use schema::{op, op_binary, op_unary};
+        Ok(match op.content.as_ref() {
+            Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_term(id)?),
+            Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
+                Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
+                Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
+                Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
+                None => {
+                    return Err(error::Format::DeserializationError(
+                        "deserialization error: unary operation is empty".to_string(),
+                    ))
+                }
+            },
+            Some(op::Content::Binary(b)) => match op_binary::Kind::from_i32(b.kind) {
+                Some(op_binary::Kind::LessThan) => Op::Binary(Binary::LessThan),
+                Some(op_binary::Kind::GreaterThan) => Op::Binary(Binary::GreaterThan),
+                Some(op_binary::Kind::LessOrEqual) => Op::Binary(Binary::LessOrEqual),
+                Some(op_binary::Kind::GreaterOrEqual) => Op::Binary(Binary::GreaterOrEqual),
+                Some(op_binary::Kind::Equal) => Op::Binary(Binary::Equal),
+                Some(op_binary::Kind::Contains) => Op::Binary(Binary::Contains),
+                Some(op_binary::Kind::Prefix) => Op::Binary(Binary::Prefix),
+                Some(op_binary::Kind::Suffix) => Op::Binary(Binary::Suffix),
+                Some(op_binary::Kind::Regex) => Op::Binary(Binary::Regex),
+                Some(op_binary::Kind::Add) => Op::Binary(Binary::Add),
+                Some(op_binary::Kind::Sub) => Op::Binary(Binary::Sub),
+                Some(op_binary::Kind::Mul) => Op::Binary(Binary::Mul),
+                Some(op_binary::Kind::Div) => Op::Binary(Binary::Div),
+                Some(op_binary::Kind::And) => Op::Binary(Binary::And),
+                Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
+                Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
+                Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
+                Some(op_binary::Kind::BitwiseAnd) => Op::Binary(Binary::BitwiseAnd),
+                Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
+                Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
+                Some(op_binary::Kind::NotEqual) => Op::Binary(Binary::NotEqual),
+                Some(op_binary::Kind::HeterogeneousEqual) => Op::Binary(Binary::HeterogeneousEqual),
+                Some(op_binary::Kind::HeterogeneousNotEqual) => {
+                    Op::Binary(Binary::HeterogeneousNotEqual)
+                }
+                Some(op_binary::Kind::LazyAnd) => Op::Binary(Binary::LazyAnd),
+                Some(op_binary::Kind::LazyOr) => Op::Binary(Binary::LazyOr),
+                Some(op_binary::Kind::All) => Op::Binary(Binary::All),
+                Some(op_binary::Kind::Any) => Op::Binary(Binary::Any),
+                None => {
+                    return Err(error::Format::DeserializationError(
+                        "deserialization error: binary operation is empty".to_string(),
+                    ))
+                }
+            },
+            Some(op::Content::Closure(op_closure)) => Op::Closure(
+                op_closure.params.clone(),
+                op_closure
+                    .ops
+                    .iter()
+                    .map(proto_op_to_token_op)
+                    .collect::<Result<_, _>>()?,
+            ),
+            None => {
+                return Err(error::Format::DeserializationError(
+                    "deserialization error: operation is empty".to_string(),
+                ))
+            }
+        })
     }
 
     pub fn proto_expression_to_token_expression(
         input: &schema::ExpressionV2,
     ) -> Result<Expression, error::Format> {
-        use schema::{op, op_binary, op_unary};
         let mut ops = Vec::new();
 
         for op in input.ops.iter() {
-            let translated = match op.content.as_ref() {
-                Some(op::Content::Value(id)) => Op::Value(proto_id_to_token_term(id)?),
-                Some(op::Content::Unary(u)) => match op_unary::Kind::from_i32(u.kind) {
-                    Some(op_unary::Kind::Negate) => Op::Unary(Unary::Negate),
-                    Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
-                    Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
-                    None => {
-                        return Err(error::Format::DeserializationError(
-                            "deserialization error: unary operation is empty".to_string(),
-                        ))
-                    }
-                },
-                Some(op::Content::Binary(b)) => match op_binary::Kind::from_i32(b.kind) {
-                    Some(op_binary::Kind::LessThan) => Op::Binary(Binary::LessThan),
-                    Some(op_binary::Kind::GreaterThan) => Op::Binary(Binary::GreaterThan),
-                    Some(op_binary::Kind::LessOrEqual) => Op::Binary(Binary::LessOrEqual),
-                    Some(op_binary::Kind::GreaterOrEqual) => Op::Binary(Binary::GreaterOrEqual),
-                    Some(op_binary::Kind::Equal) => Op::Binary(Binary::Equal),
-                    Some(op_binary::Kind::Contains) => Op::Binary(Binary::Contains),
-                    Some(op_binary::Kind::Prefix) => Op::Binary(Binary::Prefix),
-                    Some(op_binary::Kind::Suffix) => Op::Binary(Binary::Suffix),
-                    Some(op_binary::Kind::Regex) => Op::Binary(Binary::Regex),
-                    Some(op_binary::Kind::Add) => Op::Binary(Binary::Add),
-                    Some(op_binary::Kind::Sub) => Op::Binary(Binary::Sub),
-                    Some(op_binary::Kind::Mul) => Op::Binary(Binary::Mul),
-                    Some(op_binary::Kind::Div) => Op::Binary(Binary::Div),
-                    Some(op_binary::Kind::And) => Op::Binary(Binary::And),
-                    Some(op_binary::Kind::Or) => Op::Binary(Binary::Or),
-                    Some(op_binary::Kind::Intersection) => Op::Binary(Binary::Intersection),
-                    Some(op_binary::Kind::Union) => Op::Binary(Binary::Union),
-                    Some(op_binary::Kind::BitwiseAnd) => Op::Binary(Binary::BitwiseAnd),
-                    Some(op_binary::Kind::BitwiseOr) => Op::Binary(Binary::BitwiseOr),
-                    Some(op_binary::Kind::BitwiseXor) => Op::Binary(Binary::BitwiseXor),
-                    Some(op_binary::Kind::NotEqual) => Op::Binary(Binary::NotEqual),
-                    Some(op_binary::Kind::HeterogeneousEqual) => {
-                        Op::Binary(Binary::HeterogeneousEqual)
-                    }
-                    Some(op_binary::Kind::HeterogeneousNotEqual) => {
-                        Op::Binary(Binary::HeterogeneousNotEqual)
-                    }
-                    None => {
-                        return Err(error::Format::DeserializationError(
-                            "deserialization error: binary operation is empty".to_string(),
-                        ))
-                    }
-                },
-                None => {
-                    return Err(error::Format::DeserializationError(
-                        "deserialization error: operation is empty".to_string(),
-                    ))
-                }
-            };
-            ops.push(translated);
+            ops.push(proto_op_to_token_op(op)?);
         }
 
         Ok(Expression { ops })

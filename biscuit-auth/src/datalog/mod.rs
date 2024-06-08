@@ -878,7 +878,7 @@ impl SchemaVersion {
             }
         } else if version < 5 && self.contains_v5 {
             Err(error::Format::DeserializationError(
-                "v5 blocks must not have reject if".to_string(),
+                "v3 or v4 blocks must not have v5 features".to_string(),
             ))
         } else {
             Ok(())
@@ -918,7 +918,7 @@ pub fn get_schema_version(
                 .any(|query| contains_v4_op(&query.expressions))
         });
 
-    // null
+    // null, heterogeneous equals, closures
     if !contains_v5 {
         contains_v5 = rules.iter().any(|rule| {
             contains_v5_predicate(&rule.head)
@@ -967,10 +967,16 @@ fn contains_v5_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v5_term(term),
-            Op::Binary(binary) => match binary {
-                Binary::HeterogeneousEqual | Binary::HeterogeneousNotEqual => true,
-                _ => false,
-            },
+            Op::Closure(_, _) => true,
+            Op::Binary(binary) => matches!(
+                binary,
+                Binary::HeterogeneousEqual
+                    | Binary::HeterogeneousNotEqual
+                    | Binary::LazyAnd
+                    | Binary::LazyOr
+                    | Binary::All
+                    | Binary::Any
+            ),
             _ => false,
         })
     })
@@ -1049,10 +1055,14 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(0, &[0].iter().collect(), r2);
 
-        w.run_with_limits(&syms, RunLimits {
-             max_time: Duration::from_secs(10),
-            ..Default::default()
-        }).unwrap();
+        w.run_with_limits(
+            &syms,
+            RunLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         println!("parents:");
         let res = w
