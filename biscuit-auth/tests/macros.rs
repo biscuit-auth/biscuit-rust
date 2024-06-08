@@ -1,9 +1,9 @@
-use biscuit_auth::builder;
+use biscuit_auth::{builder, KeyPair};
 use biscuit_quote::{
     authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,
     rule,
 };
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, convert::TryInto};
 
 #[test]
 fn block_macro() {
@@ -221,4 +221,26 @@ fn policy_macro() {
         p.to_string(),
         r#"allow if fact("my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
+}
+
+#[test]
+fn json() {
+    let key_pair = KeyPair::new();
+    let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
+
+    let value: serde_json::Value =
+        serde_json::from_str(r#"{ "id": 123, "roles": ["admin"] }"#).unwrap();
+    let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
+
+    let authorizer = authorizer!(
+        r#"
+        user_roles({json_value});
+        allow if
+          user($id),
+          user_roles($value),
+          $value.get("id") == $id,
+          $value.get("roles").contains("admin");"#
+    );
+
+    assert!(biscuit.authorize(&authorizer).is_ok());
 }

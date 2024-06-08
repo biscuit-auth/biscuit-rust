@@ -2048,6 +2048,13 @@ pub trait ToAnyParam {
     fn to_any_param(&self) -> AnyParam;
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Term {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.clone())
+    }
+}
+
 impl From<i64> for Term {
     fn from(i: i64) -> Self {
         Term::Integer(i)
@@ -2234,6 +2241,37 @@ impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T>
                 "expected set, got {:?}",
                 value
             ))),
+        }
+    }
+}
+
+// TODO: From and ToAnyParam for arrays and maps
+impl TryFrom<serde_json::Value> for Term {
+    type Error = &'static str;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        match value {
+            serde_json::Value::Null => Ok(Term::Null),
+            serde_json::Value::Bool(b) => Ok(Term::Bool(b)),
+            serde_json::Value::Number(i) => match i.as_i64() {
+                Some(i) => Ok(Term::Integer(i)),
+                None => Err("Biscuit values do not support floating point numbers"),
+            },
+            serde_json::Value::String(s) => Ok(Term::Str(s)),
+            serde_json::Value::Array(array) => Ok(Term::Array(
+                array
+                    .into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<Result<_, _>>()?,
+            )),
+            serde_json::Value::Object(o) => Ok(Term::Map(
+                o.into_iter()
+                    .map(|(key, value)| {
+                        let value: Term = value.try_into()?;
+                        Ok::<_, &'static str>((MapKey::Str(key), value))
+                    })
+                    .collect::<Result<_, _>>()?,
+            )),
         }
     }
 }
