@@ -616,48 +616,11 @@ pub mod v2 {
             }
             Some(Content::Null(_)) => Ok(Term::Null),
             Some(Content::Array(a)) => {
-                let mut kind: Option<u8> = None;
-                let mut array = Vec::new();
-
-                for term in a.array.iter() {
-                    // FIXME: this is not a recursive type check: an array of arrays or array
-                    // of sets could have different types one level down
-                    let index = match term.content {
-                        Some(Content::Variable(_)) => {
-                            return Err(error::Format::DeserializationError(
-                                "deserialization error: arrays cannot contain variables"
-                                    .to_string(),
-                            ));
-                        }
-                        Some(Content::Integer(_)) => 2,
-                        Some(Content::String(_)) => 3,
-                        Some(Content::Date(_)) => 4,
-                        Some(Content::Bytes(_)) => 5,
-                        Some(Content::Bool(_)) => 6,
-                        Some(Content::Set(_)) => 7,
-                        Some(Content::Null(_)) => 8,
-                        Some(Content::Array(_)) => 9,
-                        Some(Content::Map(_)) => 10,
-                        None => {
-                            return Err(error::Format::DeserializationError(
-                                "deserialization error: ID content enum is empty".to_string(),
-                            ))
-                        }
-                    };
-
-                    if let Some(k) = kind.as_ref() {
-                        if *k != index {
-                            return Err(error::Format::DeserializationError(
-                                "deserialization error: array elements must have the same type"
-                                    .to_string(),
-                            ));
-                        }
-                    } else {
-                        kind = Some(index);
-                    }
-
-                    array.push(proto_id_to_token_term(term)?);
-                }
+                let array = a
+                    .array
+                    .iter()
+                    .map(proto_id_to_token_term)
+                    .collect::<Result<_, _>>()?;
 
                 Ok(Term::Array(array))
             }

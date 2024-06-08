@@ -892,47 +892,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
 
 fn array(i: &str) -> IResult<&str, builder::Term, Error> {
     let (i, _) = preceded(space0, char('['))(i)?;
-    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_fact))(i)?;
-
-    let mut array = Vec::new();
-
-    let mut kind: Option<u8> = None;
-    for term in list.drain(..) {
-        let index = match term {
-            builder::Term::Variable(_) => {
-                return Err(nom::Err::Failure(Error {
-                    input: i,
-                    code: ErrorKind::Fail,
-                    message: Some("variables are not permitted in arrays".to_string()),
-                }))
-            }
-            builder::Term::Integer(_) => 2,
-            builder::Term::Str(_) => 3,
-            builder::Term::Date(_) => 4,
-            builder::Term::Bytes(_) => 5,
-            builder::Term::Bool(_) => 6,
-            builder::Term::Set(_) => 7,
-            builder::Term::Parameter(_) => 8,
-            builder::Term::Null => 9,
-            builder::Term::Array(_) => 10,
-            builder::Term::Map(_) => 11,
-        };
-
-        if let Some(k) = kind {
-            if k != index {
-                return Err(nom::Err::Failure(Error {
-                    input: i,
-                    code: ErrorKind::Fail,
-                    message: Some("array elements must have the same type".to_string()),
-                }));
-            }
-        } else {
-            kind = Some(index);
-        }
-
-        array.push(term);
-    }
-
+    let (i, array) = cut(separated_list0(preceded(space0, char(',')), term_in_fact))(i)?;
     let (i, _) = preceded(space0, char(']'))(i)?;
 
     Ok((i, builder::array(array)))
