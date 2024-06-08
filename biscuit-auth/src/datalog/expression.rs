@@ -104,6 +104,7 @@ impl Binary {
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
         match (self, left, params) {
+            // boolean
             (Binary::LazyOr, Term::Bool(true), []) => Ok(Term::Bool(true)),
             (Binary::LazyOr, Term::Bool(false), []) => {
                 let e = Expression { ops: right.clone() };
@@ -114,6 +115,8 @@ impl Binary {
                 let e = Expression { ops: right.clone() };
                 e.evaluate(values, symbols)
             }
+
+            // set
             (Binary::All, Term::Set(set_values), [param]) => {
                 for value in set_values.iter() {
                     values.insert(*param, value.clone());
@@ -129,6 +132,36 @@ impl Binary {
                 Ok(Term::Bool(true))
             }
             (Binary::Any, Term::Set(set_values), [param]) => {
+                for value in set_values.iter() {
+                    values.insert(*param, value.clone());
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(false) => {}
+                        Term::Bool(true) => return Ok(Term::Bool(true)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(false))
+            }
+
+            // array
+            (Binary::All, Term::Array(set_values), [param]) => {
+                for value in set_values.iter() {
+                    values.insert(*param, value.clone());
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(true) => {}
+                        Term::Bool(false) => return Ok(Term::Bool(false)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(true))
+            }
+            (Binary::Any, Term::Array(set_values), [param]) => {
                 for value in set_values.iter() {
                     values.insert(*param, value.clone());
                     let e = Expression { ops: right.clone() };

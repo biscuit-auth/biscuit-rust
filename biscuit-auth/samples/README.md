@@ -2864,7 +2864,7 @@ World {
 }
 ```
 
-result: `Err(Execution(InvalidType))`
+result: `Err(Execution(ShadowedVariable))`
 
 
 ------------------------------
@@ -2873,7 +2873,7 @@ result: `Err(Execution(InvalidType))`
 ### token
 
 authority:
-symbols: ["a", "b", "c", "d"]
+symbols: ["a", "b", "c", "p", "d"]
 
 public keys: []
 
@@ -2886,6 +2886,8 @@ check if [1, 2, 3].starts_with([1, 2]);
 check if [4, 5, 6].ends_with([6]);
 check if [1, 2, "a"].get(2) == "a";
 check if [1, 2].get(3) == null;
+check if [1, 2, 3].all($p -> $p > 0);
+check if [1, 2, 3].any($p -> $p > 2);
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
 check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
 check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
@@ -2900,7 +2902,7 @@ allow if true;
 ```
 
 revocation ids:
-- `7ef81713cb8486b0a89f7dcfad4bd3d632eb42a67c9d8f6383c1882ce7808ba570fddf09132e81c499d2869bf6283b65a610dd0fb435f918ae6e08743ebd8604`
+- `ff26323a584a8ec8af2f81b80fefc2d6ea84148f463a4a007386f48eb2a0125f54812ab9da60a82642f46d832939ae8de5bfed20dfd683044f76880092598609`
 
 authorizer world:
 ```
@@ -2918,6 +2920,8 @@ World {
             "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
             "check if [1, 2, \"a\"].get(2) == \"a\"",
             "check if [1, 2, 1].length() == 3",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 2)",
             "check if [1, 2, 3].starts_with([1, 2])",
             "check if [1, 2].get(3) == null",
             "check if [4, 5, 6].ends_with([6])",

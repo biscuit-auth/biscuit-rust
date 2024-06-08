@@ -2680,7 +2680,7 @@
           },
           "result": {
             "Err": {
-              "Execution": "InvalidType"
+              "Execution": "ShadowedVariable"
             }
           },
           "authorizer_code": "allow if [true].any($p -> [true].all($p -> $p));\n",
@@ -2699,11 +2699,12 @@
             "a",
             "b",
             "c",
+            "p",
             "d"
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\n"
+          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\n"
         }
       ],
       "validations": {
@@ -2720,6 +2721,9 @@
                   "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
                   "check if [1, 2, \"a\"].get(2) == \"a\"",
                   "check if [1, 2, 1].length() == 3",
+                  "check if [1, 2, 3].all($p -> $p > 0)",
+                  "check if [1, 2, 3].all($p -> $p > 0)",
+                  "check if [1, 2, 3].any($p -> $p > 2)",
                   "check if [1, 2, 3].starts_with([1, 2])",
                   "check if [1, 2].get(3) == null",
                   "check if [4, 5, 6].ends_with([6])",
@@ -2739,7 +2743,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "7ef81713cb8486b0a89f7dcfad4bd3d632eb42a67c9d8f6383c1882ce7808ba570fddf09132e81c499d2869bf6283b65a610dd0fb435f918ae6e08743ebd8604"
+            "00efb9846891354b420fd165e9162e65398af9ec7361b584d312964879b3418e049ff1a39cde0e90dd8f8f9ff24b689806139b40e5a3a44f1ccee1115a64f108"
           ]
         }
       }
