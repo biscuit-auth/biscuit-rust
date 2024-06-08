@@ -137,6 +137,7 @@ message Op {
     TermV2 value = 1;
     OpUnary unary = 2;
     OpBinary Binary = 3;
+    OpClosure closure = 4;
   }
 }
 
@@ -175,9 +176,18 @@ message OpBinary {
     NotEqual = 20;
     HeterogeneousEqual = 21;
     HeterogeneousNotEqual = 22;
+    LazyAnd = 23;
+    LazyOr = 24;
+    All = 25;
+    Any = 26;
   }
 
   required Kind kind = 1;
+}
+
+message OpClosure {
+  repeated uint32 params = 1;
+  repeated Op ops = 2;
 }
 
 message Policy {

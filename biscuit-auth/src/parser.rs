@@ -31,6 +31,7 @@ mod tests {
         Value(builder::Term),
         Unary(builder::Op, Box<Expr>),
         Binary(builder::Op, Box<Expr>, Box<Expr>),
+        Closure(Vec<String>, Box<Expr>),
     }
 
     impl Expr {
@@ -52,6 +53,11 @@ mod tests {
                     right.into_opcodes(v);
                     v.push(op);
                 }
+                Expr::Closure(params, body) => {
+                    let mut ops = vec![];
+                    body.into_opcodes(&mut ops);
+                    v.push(builder::Op::Closure(params, ops));
+                }
             }
         }
     }
@@ -68,6 +74,9 @@ mod tests {
                     Box::new((*expr1).into()),
                     Box::new((*expr2).into()),
                 ),
+                biscuit_parser::parser::Expr::Closure(params, body) => {
+                    Expr::Closure(params, Box::new((*body).into()))
+                }
             }
         }
     }
@@ -319,22 +328,28 @@ mod tests {
             Ok((
                 " ",
                 Expr::Binary(
-                    Op::Binary(Binary::And),
+                    Op::Binary(Binary::LazyAnd),
                     Box::new(Expr::Binary(
-                        Op::Binary(Binary::And),
+                        Op::Binary(Binary::LazyAnd),
                         Box::new(Expr::Binary(
                             Op::Binary(Binary::LessThan),
                             Box::new(Expr::Value(int(2))),
                             Box::new(Expr::Value(var("test"))),
                         )),
-                        Box::new(Expr::Binary(
-                            Op::Binary(Binary::Prefix),
-                            Box::new(Expr::Value(var("var2"))),
-                            Box::new(Expr::Value(string("test"))),
-                        )),
+                        Box::new(Expr::Closure(
+                            vec![],
+                            Box::new(Expr::Binary(
+                                Op::Binary(Binary::Prefix),
+                                Box::new(Expr::Value(var("var2"))),
+                                Box::new(Expr::Value(string("test")))
+                            ),)
+                        ))
                     )),
-                    Box::new(Expr::Value(Term::Bool(true))),
-                )
+                    Box::new(Expr::Closure(
+                        vec![],
+                        Box::new(Expr::Value(Term::Bool(true)))
+                    )),
+                ),
             ))
         );
 

@@ -152,7 +152,9 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, heterogeneous_equal(&target, &root, test));
 
-    add_test_result(&mut results, expressions_v5(&target, &root, test));
+    add_test_result(&mut results, closures(&target, &root, test));
+
+    add_test_result(&mut results, array_map(&target, &root, test));
 
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
@@ -1279,12 +1281,6 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if true;
         //boolean false and negation
         check if !false;
-        //boolean and
-        check if !false && true;
-        //boolean or
-        check if false || true;
-        //boolean parens
-        check if (true || false) && true;
         // boolean strict equality
         check if true === true;
         check if false === false;
@@ -1895,12 +1891,9 @@ fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-          // integer overflows must abort evaluating the whole expression
-          // todo update this test when integer overflows abort
-          // the whole datalog evaluation
-          check if true || 10000000000 * 10000000000 != 0;
-          check if true || 9223372036854775807 + 1 != 0;
-          check if true || -9223372036854775808 - 1 != 0;
+          check if 10000000000 * 10000000000 != 0;
+          check if 9223372036854775807 + 1 != 0;
+          check if -9223372036854775808 - 1 != 0;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2081,34 +2074,73 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
     }
 }
 
-fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
+fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let title = "test expression syntax and all available operations (v5 blocks)".to_string();
-    let filename = "test032_expressions_v5".to_string();
+    let title = "test laziness and closures".to_string();
+    let filename = "test032_laziness_closures".to_string();
     let token;
 
     let biscuit = biscuit!(
         r#"
-        //boolean and
+        // boolean and
         check if !false && true;
-        //boolean or
+        // boolean or
         check if false || true;
-        //boolean parens
+        // boolean parens
         check if (true || false) && true;
         // boolean and laziness
-        //check if !(false && "x".intersection("x"));
+        check if !(false && "x".intersection("x"));
         // boolean or laziness
-        //check if true || "x".intersection("x");
-        //all
-        //check if [1,2,3].all($p -> $p > 0);
-        //all
-        //check if ![1,2,3].all($p -> $p == 2);
-        //any
-        //check if [1,2,3].any($p -> $p > 2);
-        //any
-        //check if ![1,2,3].any($p -> $p > 3);
+        check if true || "x".intersection("x");
+        // all
+        check if {1,2,3}.all($p -> $p > 0);
+        // all
+        check if !{1,2,3}.all($p -> $p == 2);
+        // any
+        check if {1,2,3}.any($p -> $p > 2);
+        // any
+        check if !{1,2,3}.any($p -> $p > 3);
         // nested closures
-        //check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
+        check if {1,2,3}.any($p -> $p > 1 && {3,4,5}.any($q -> $p == $q));
+        "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+    validations.insert(
+        "shadowing".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "allow if [true].any($p -> [true].all($p -> $p))",
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test array and map operations (v5 blocks)".to_string();
+    let filename = "test033_array_map".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
         // array
         check if [1, 2, 1].length() == 3;
         check if ["a", "b"] != [1, 2, 3];
@@ -2116,6 +2148,11 @@ fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if ["a", "b", "c"].contains("c");
         check if [1, 2, 3].starts_with([1, 2]);
         check if [4, 5, 6 ].ends_with([6]);
+        check if [1,2,3].all($p -> $p > 0);
+        // all
+        check if ![1,2,3].all($p -> $p == 2);
+        // any
+        check if [1,2,3].any($p -> $p > 2);
         // map
         check if { "a": 1 , "b": 2, "c": 3, "d": 4}.length() == 4;
         check if {  1: "a" , 2: "b"} != { "a": 1 , "b": 2};
@@ -2142,7 +2179,6 @@ fn expressions_v5(target: &str, root: &KeyPair, test: bool) -> TestResult {
         validations,
     }
 }
-
 fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
     let mut v = Vec::new();
 

@@ -1221,9 +1221,6 @@ public keys: []
 ```
 check if true;
 check if !false;
-check if !false && true;
-check if false || true;
-check if (true || false) && true;
 check if true === true;
 check if false === false;
 check if 1 < 2;
@@ -1270,7 +1267,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c`
+- `a2640c5f1c1e86302e77422ccda6f7f02a21f63d88d1c34b5b01956227fa0228e49d76482be9d2f251a23c38c425a49ce957b001edd3c18504f37cbd9a341c0b`
 
 authorizer world:
 ```
@@ -1284,7 +1281,6 @@ World {
         ),
         checks: [
             "check if !false",
-            "check if !false && true",
             "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
             "check if \"aaabde\".contains(\"abd\")",
             "check if \"aaabde\".matches(\"a*c?.e\")",
@@ -1292,7 +1288,6 @@ World {
             "check if \"abcD12\".length() === 6",
             "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
             "check if \"é\".length() === 2",
-            "check if (true || false) && true",
             "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
             "check if 1 <= 1",
@@ -1309,7 +1304,6 @@ World {
             "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
             "check if 3 === 3",
             "check if false === false",
-            "check if false || true",
             "check if hex:12ab === hex:12ab",
             "check if true",
             "check if true === true",
@@ -2263,9 +2257,9 @@ symbols: []
 public keys: []
 
 ```
-check if true || 10000000000 * 10000000000 != 0;
-check if true || 9223372036854775807 + 1 != 0;
-check if true || -9223372036854775808 - 1 != 0;
+check if 10000000000 * 10000000000 != 0;
+check if 9223372036854775807 + 1 != 0;
+check if -9223372036854775808 - 1 != 0;
 ```
 
 ### validation
@@ -2276,7 +2270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `a57be539aae237040fe6c2c28c4263516147c9f0d1d7ba88a385f1574f504c544164a2c747efd8b30eaab9d351c383cc1875642f173546d5f4b53b2220c87a0a`
+- `365092619226161cf3973343f02c829fe05ab2b0d01f09555272348c9fcce041846be6159badd643aee108c9ce735ca8d12a009979c46b6e2c46e7999824c008`
 
 authorizer world:
 ```
@@ -2289,9 +2283,9 @@ World {
             0,
         ),
         checks: [
-            "check if true || -9223372036854775808 - 1 != 0",
-            "check if true || 10000000000 * 10000000000 != 0",
-            "check if true || 9223372036854775807 + 1 != 0",
+            "check if -9223372036854775808 - 1 != 0",
+            "check if 10000000000 * 10000000000 != 0",
+            "check if 9223372036854775807 + 1 != 0",
         ],
     },
 ]
@@ -2768,11 +2762,11 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## test expression syntax and all available operations (v5 blocks): test032_expressions_v5.bc
+## test laziness and closures: test032_laziness_closures.bc
 ### token
 
 authority:
-symbols: ["a", "b", "c", "d"]
+symbols: ["x", "p", "q"]
 
 public keys: []
 
@@ -2780,12 +2774,119 @@ public keys: []
 check if !false && true;
 check if false || true;
 check if (true || false) && true;
+check if !(false && "x".intersection("x"));
+check if true || "x".intersection("x");
+check if {1, 2, 3}.all($p -> $p > 0);
+check if !{1, 2, 3}.all($p -> $p == 2);
+check if {1, 2, 3}.any($p -> $p > 2);
+check if !{1, 2, 3}.any($p -> $p > 3);
+check if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q));
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if !false && true",
+            "check if !{1, 2, 3}.all($p -> $p == 2)",
+            "check if !{1, 2, 3}.any($p -> $p > 3)",
+            "check if (true || false) && true",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+            "check if {1, 2, 3}.all($p -> $p > 0)",
+            "check if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q))",
+            "check if {1, 2, 3}.any($p -> $p > 2)",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+### validation for "shadowing"
+
+authorizer code:
+```
+allow if [true].any($p -> [true].all($p -> $p));
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if !false && true",
+            "check if !{1, 2, 3}.all($p -> $p == 2)",
+            "check if !{1, 2, 3}.any($p -> $p > 3)",
+            "check if (true || false) && true",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+            "check if {1, 2, 3}.all($p -> $p > 0)",
+            "check if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q))",
+            "check if {1, 2, 3}.any($p -> $p > 2)",
+        ],
+    },
+]
+  policies: [
+    "allow if [true].any($p -> [true].all($p -> $p))",
+]
+}
+```
+
+result: `Err(Execution(InvalidType))`
+
+
+------------------------------
+
+## test array and map operations (v5 blocks): test033_array_map.bc
+### token
+
+authority:
+symbols: ["a", "b", "c", "p", "d"]
+
+public keys: []
+
+```
 check if [1, 2, 1].length() == 3;
 check if ["a", "b"] != [1, 2, 3];
 check if ["a", "b"] == ["a", "b"];
 check if ["a", "b", "c"].contains("c");
 check if [1, 2, 3].starts_with([1, 2]);
 check if [4, 5, 6].ends_with([6]);
+check if [1, 2, 3].all($p -> $p > 0);
+check if ![1, 2, 3].all($p -> $p == 2);
+check if [1, 2, 3].any($p -> $p > 2);
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
 check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
 check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
@@ -2800,7 +2901,7 @@ allow if true;
 ```
 
 revocation ids:
-- `5fde54d0492a63711a6a6697c058f0320c3b0449ecb055809ce4dde176fb1da53016258abe3ed58221e4bbbf6e83a7a3c2524d701377f01bf1405bfce2a65702`
+- `f027c1e0b86bd3d53bbfffead4e61d71e907b58e0b0ec339c0bc2bdcab21aea4fb4c45643934816608533bc818c9ed14dc31d058021cbe4cec8dde5e519f0e07`
 
 authorizer world:
 ```
@@ -2813,15 +2914,15 @@ World {
             0,
         ),
         checks: [
-            "check if !false && true",
-            "check if (true || false) && true",
+            "check if ![1, 2, 3].all($p -> $p == 2)",
             "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
             "check if [\"a\", \"b\"] != [1, 2, 3]",
             "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
             "check if [1, 2, 1].length() == 3",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 2)",
             "check if [1, 2, 3].starts_with([1, 2])",
             "check if [4, 5, 6].ends_with([6])",
-            "check if false || true",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
             "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
@@ -2835,5 +2936,5 @@ World {
 }
 ```
 
-result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedBlockCheck { block_id: 0, check_id: 5, rule: "check if [\"a\", \"b\"] == [\"a\", \"b\"]" }), Block(FailedBlockCheck { block_id: 0, check_id: 11, rule: "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}" })] }))`
+result: `Err(Execution(InvalidType))`
 

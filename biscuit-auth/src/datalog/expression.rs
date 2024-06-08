@@ -3,7 +3,7 @@ use crate::error;
 use super::Term;
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Expression {
@@ -15,6 +15,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<u32>, Vec<Op>),
 }
 
 /// Unary operation code
@@ -85,9 +86,63 @@ pub enum Binary {
     NotEqual,
     HeterogeneousEqual,
     HeterogeneousNotEqual,
+    LazyAnd,
+    LazyOr,
+    All,
+    Any,
 }
 
 impl Binary {
+    fn evaluate_with_closure(
+        &self,
+        left: Term,
+        right: Vec<Op>,
+        params: &[u32],
+        values: &mut HashMap<u32, Term>,
+        symbols: &mut TemporarySymbolTable,
+    ) -> Result<Term, error::Expression> {
+        match (self, left, params) {
+            (Binary::LazyOr, Term::Bool(true), []) => Ok(Term::Bool(true)),
+            (Binary::LazyOr, Term::Bool(false), []) => {
+                let e = Expression { ops: right.clone() };
+                e.evaluate(values, symbols)
+            }
+            (Binary::LazyAnd, Term::Bool(false), []) => Ok(Term::Bool(false)),
+            (Binary::LazyAnd, Term::Bool(true), []) => {
+                let e = Expression { ops: right.clone() };
+                e.evaluate(values, symbols)
+            }
+            (Binary::All, Term::Set(set_values), [param]) => {
+                for value in set_values.iter() {
+                    values.insert(*param, value.clone());
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(true) => {}
+                        Term::Bool(false) => return Ok(Term::Bool(false)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(true))
+            }
+            (Binary::Any, Term::Set(set_values), [param]) => {
+                for value in set_values.iter() {
+                    values.insert(*param, value.clone());
+                    let e = Expression { ops: right.clone() };
+                    let result = e.evaluate(values, symbols);
+                    values.remove(param);
+                    match result? {
+                        Term::Bool(false) => {}
+                        Term::Bool(true) => return Ok(Term::Bool(true)),
+                        _ => return Err(error::Expression::InvalidType),
+                    };
+                }
+                Ok(Term::Bool(false))
+            }
+            (_, _, _) => Err(error::Expression::InvalidType),
+        }
+    }
     fn evaluate(
         &self,
         left: Term,
@@ -248,12 +303,8 @@ impl Binary {
             (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Null, Term::Null) => {
                 Ok(Term::Bool(false))
             }
-            (Binary::HeterogeneousNotEqual, Term::Null, _) => {
-                Ok(Term::Bool(true))
-            }
-            (Binary::HeterogeneousNotEqual, _, Term::Null) => {
-                Ok(Term::Bool(true))
-            }
+            (Binary::HeterogeneousNotEqual, Term::Null, _) => Ok(Term::Bool(true)),
+            (Binary::HeterogeneousNotEqual, _, Term::Null) => Ok(Term::Bool(true)),
 
             (Binary::HeterogeneousEqual, _, _) => Ok(Term::Bool(false)),
             (Binary::HeterogeneousNotEqual, _, _) => Ok(Term::Bool(true)),
@@ -302,15 +353,25 @@ impl Binary {
             Binary::Sub => format!("{} - {}", left, right),
             Binary::Mul => format!("{} * {}", left, right),
             Binary::Div => format!("{} / {}", left, right),
-            Binary::And => format!("{} && {}", left, right),
-            Binary::Or => format!("{} || {}", left, right),
+            Binary::And => format!("{} &&! {}", left, right),
+            Binary::Or => format!("{} ||! {}", left, right),
             Binary::Intersection => format!("{}.intersection({})", left, right),
             Binary::Union => format!("{}.union({})", left, right),
             Binary::BitwiseAnd => format!("{} & {}", left, right),
             Binary::BitwiseOr => format!("{} | {}", left, right),
             Binary::BitwiseXor => format!("{} ^ {}", left, right),
+            Binary::LazyAnd => format!("{left} && {right}"),
+            Binary::LazyOr => format!("{left} || {right}"),
+            Binary::All => format!("{left}.all({right})"),
+            Binary::Any => format!("{left}.any({right})"),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+enum StackElem {
+    Closure(Vec<u32>, Vec<Op>),
+    Term(Term),
 }
 
 impl Expression {
@@ -319,41 +380,71 @@ impl Expression {
         values: &HashMap<u32, Term>,
         symbols: &mut TemporarySymbolTable,
     ) -> Result<Term, error::Expression> {
-        let mut stack: Vec<Term> = Vec::new();
+        let mut stack: Vec<StackElem> = Vec::new();
 
         for op in self.ops.iter() {
-            //println!("op: {:?}\t| stack: {:?}", op, stack);
+            // println!("op: {:?}\t| stack: {:?}", op, stack);
+
             match op {
                 Op::Value(Term::Variable(i)) => match values.get(i) {
-                    Some(term) => stack.push(term.clone()),
+                    Some(term) => stack.push(StackElem::Term(term.clone())),
                     None => {
                         //println!("unknown variable {}", i);
                         return Err(error::Expression::UnknownVariable(*i));
                     }
                 },
-                Op::Value(term) => stack.push(term.clone()),
+                Op::Value(term) => stack.push(StackElem::Term(term.clone())),
                 Op::Unary(unary) => match stack.pop() {
-                    None => {
-                        //println!("expected a value on the stack");
+                    Some(StackElem::Term(term)) => {
+                        stack.push(StackElem::Term(unary.evaluate(term, symbols)?))
+                    }
+                    _ => {
                         return Err(error::Expression::InvalidStack);
                     }
-                    Some(term) => stack.push(unary.evaluate(term, symbols)?),
                 },
                 Op::Binary(binary) => match (stack.pop(), stack.pop()) {
-                    (Some(right_term), Some(left_term)) => {
-                        stack.push(binary.evaluate(left_term, right_term, symbols)?)
+                    (Some(StackElem::Term(right_term)), Some(StackElem::Term(left_term))) => stack
+                        .push(StackElem::Term(
+                            binary.evaluate(left_term, right_term, symbols)?,
+                        )),
+                    (
+                        Some(StackElem::Closure(params, right_ops)),
+                        Some(StackElem::Term(left_term)),
+                    ) => {
+                        if values
+                            .keys()
+                            .collect::<HashSet<_>>()
+                            .intersection(&params.iter().collect())
+                            .next()
+                            .is_some()
+                        {
+                            return Err(error::Expression::ShadowedVariable);
+                        }
+                        let mut values = values.clone();
+                        stack.push(StackElem::Term(binary.evaluate_with_closure(
+                            left_term,
+                            right_ops,
+                            &params,
+                            &mut values,
+                            symbols,
+                        )?))
                     }
 
                     _ => {
-                        //println!("expected two values on the stack");
                         return Err(error::Expression::InvalidStack);
                     }
                 },
+                Op::Closure(params, ops) => {
+                    stack.push(StackElem::Closure(params.clone(), ops.clone()));
+                }
             }
         }
 
         if stack.len() == 1 {
-            Ok(stack.remove(0))
+            match stack.remove(0) {
+                StackElem::Term(t) => Ok(t),
+                _ => Err(error::Expression::InvalidStack),
+            }
         } else {
             Err(error::Expression::InvalidStack)
         }
@@ -374,6 +465,24 @@ impl Expression {
                     (Some(right), Some(left)) => stack.push(binary.print(left, right, symbols)),
                     _ => return None,
                 },
+                Op::Closure(params, ops) => {
+                    let exp_body = Expression { ops: ops.clone() };
+                    let body = match exp_body.print(symbols) {
+                        Some(c) => c,
+                        _ => return None,
+                    };
+
+                    if params.is_empty() {
+                        stack.push(body);
+                    } else {
+                        let param_group = params
+                            .iter()
+                            .map(|s| symbols.print_term(&Term::Variable(*s)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        stack.push(format!("{param_group} -> {body}"));
+                    }
+                }
             }
         }
 
@@ -697,6 +806,245 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn laziness() {
+        let symbols = SymbolTable::new();
+        let mut symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Bool(false)),
+            Op::Closure(
+                vec![],
+                vec![
+                    Op::Value(Term::Bool(true)),
+                    Op::Closure(vec![], vec![Op::Value(Term::Bool(true))]),
+                    Op::Binary(Binary::LazyAnd),
+                ],
+            ),
+            Op::Binary(Binary::LazyOr),
+        ];
+        let e2 = Expression { ops: ops1 };
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut symbols).unwrap();
+        assert_eq!(res2, Term::Bool(true));
+    }
+
+    #[test]
+    fn any() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Bool(false), Term::Bool(true)].into())),
+            Op::Closure(vec![p], vec![Op::Value(Term::Variable(p))]),
+            Op::Binary(Binary::Any),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
+
+        let ops2 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{:?}", e2.print(&symbols));
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res2, Term::Bool(false));
+
+        let ops3 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(vec![p], vec![Op::Value(Term::Integer(0))]),
+            Op::Binary(Binary::Any),
+        ];
+        let e3 = Expression { ops: ops3 };
+        println!("{:?}", e3.print(&symbols));
+
+        let err3 = e3.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap_err();
+        assert_eq!(err3, error::Expression::InvalidType);
+    }
+
+    #[test]
+    fn all() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
+
+        let ops2 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::LessThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{:?}", e2.print(&symbols));
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res2, Term::Bool(false));
+
+        let ops3 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(vec![p], vec![Op::Value(Term::Integer(0))]),
+            Op::Binary(Binary::All),
+        ];
+        let e3 = Expression { ops: ops3 };
+        println!("{:?}", e3.print(&symbols));
+
+        let err3 = e3.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap_err();
+        assert_eq!(err3, error::Expression::InvalidType);
+    }
+
+    #[test]
+    fn nested_closures() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("p") as u32;
+        let q = symbols.insert("q") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set(
+                [Term::Integer(1), Term::Integer(2), Term::Integer(3)].into(),
+            )),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(1)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Closure(
+                        vec![],
+                        vec![
+                            Op::Value(Term::Set(
+                                [Term::Integer(3), Term::Integer(4), Term::Integer(5)].into(),
+                            )),
+                            Op::Closure(
+                                vec![q],
+                                vec![
+                                    Op::Value(Term::Variable(p)),
+                                    Op::Value(Term::Variable(q)),
+                                    Op::Binary(Binary::Equal),
+                                ],
+                            ),
+                            Op::Binary(Binary::Any),
+                        ],
+                    ),
+                    Op::Binary(Binary::LazyAnd),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{}", e1.print(&symbols).unwrap());
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
+    }
+
+    #[test]
+    fn variable_shadowing() {
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("param") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops1 = vec![
+            Op::Value(Term::Set([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let mut values = HashMap::new();
+        values.insert(p, Term::Null);
+        let res1 = e1.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res1, Err(error::Expression::ShadowedVariable));
+
+        let mut symbols = SymbolTable::new();
+        let p = symbols.insert("p") as u32;
+        let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
+
+        let ops2 = vec![
+            Op::Value(Term::Set(
+                [Term::Integer(1), Term::Integer(2), Term::Integer(3)].into(),
+            )),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(1)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Closure(
+                        vec![],
+                        vec![
+                            Op::Value(Term::Set(
+                                [Term::Integer(3), Term::Integer(4), Term::Integer(5)].into(),
+                            )),
+                            Op::Closure(
+                                vec![p],
+                                vec![
+                                    Op::Value(Term::Variable(p)),
+                                    Op::Value(Term::Variable(p)),
+                                    Op::Binary(Binary::Equal),
+                                ],
+                            ),
+                            Op::Binary(Binary::Any),
+                        ],
+                    ),
+                    Op::Binary(Binary::LazyAnd),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e2 = Expression { ops: ops2 };
+        println!("{}", e2.print(&symbols).unwrap());
+
+        let res2 = e2.evaluate(&HashMap::new(), &mut tmp_symbols);
+        assert_eq!(res2, Err(error::Expression::ShadowedVariable));
     }
 
     #[test]

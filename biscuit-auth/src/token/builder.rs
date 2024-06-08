@@ -1057,6 +1057,7 @@ pub enum Op {
     Value(Term),
     Unary(Unary),
     Binary(Binary),
+    Closure(Vec<String>, Vec<Op>),
 }
 
 impl Convert<datalog::Op> for Op {
@@ -1065,6 +1066,10 @@ impl Convert<datalog::Op> for Op {
             Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
             Op::Unary(u) => datalog::Op::Unary(u.clone()),
             Op::Binary(b) => datalog::Op::Binary(b.clone()),
+            Op::Closure(ps, os) => datalog::Op::Closure(
+                ps.iter().map(|p| symbols.insert(p) as u32).collect(),
+                os.iter().map(|o| o.convert(symbols)).collect(),
+            ),
         }
     }
 
@@ -1073,6 +1078,14 @@ impl Convert<datalog::Op> for Op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
             datalog::Op::Unary(u) => Op::Unary(u.clone()),
             datalog::Op::Binary(b) => Op::Binary(b.clone()),
+            datalog::Op::Closure(ps, os) => Op::Closure(
+                ps.iter()
+                    .map(|p| symbols.print_symbol(*p as u64))
+                    .collect::<Result<_, _>>()?,
+                os.iter()
+                    .map(|o| Op::convert_from(o, symbols))
+                    .collect::<Result<_, _>>()?,
+            ),
         })
     }
 }
@@ -1083,6 +1096,9 @@ impl From<biscuit_parser::builder::Op> for Op {
             biscuit_parser::builder::Op::Value(t) => Op::Value(t.into()),
             biscuit_parser::builder::Op::Unary(u) => Op::Unary(u.into()),
             biscuit_parser::builder::Op::Binary(b) => Op::Binary(b.into()),
+            biscuit_parser::builder::Op::Closure(ps, os) => {
+                Op::Closure(ps, os.into_iter().map(|o| o.into()).collect())
+            }
         }
     }
 }
@@ -1123,6 +1139,10 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::NotEqual => Binary::NotEqual,
             biscuit_parser::builder::Binary::HeterogeneousEqual => Binary::HeterogeneousEqual,
             biscuit_parser::builder::Binary::HeterogeneousNotEqual => Binary::HeterogeneousNotEqual,
+            biscuit_parser::builder::Binary::LazyAnd => Binary::LazyAnd,
+            biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
+            biscuit_parser::builder::Binary::All => Binary::All,
+            biscuit_parser::builder::Binary::Any => Binary::Any,
         }
     }
 }

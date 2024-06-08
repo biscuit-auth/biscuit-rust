@@ -1245,7 +1245,7 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if true;\ncheck if !false;\ncheck if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if true === true;\ncheck if false === false;\ncheck if 1 < 2;\ncheck if 2 > 1;\ncheck if 1 <= 2;\ncheck if 1 <= 1;\ncheck if 2 >= 1;\ncheck if 2 >= 2;\ncheck if 3 === 3;\ncheck if 1 + 2 * 3 - 4 / 2 === 5;\ncheck if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\");\ncheck if \"aaabde\".matches(\"a*c?.e\");\ncheck if \"aaabde\".contains(\"abd\");\ncheck if \"aaabde\" === \"aaa\" + \"b\" + \"de\";\ncheck if \"abcD12\" === \"abcD12\";\ncheck if \"abcD12\".length() === 6;\ncheck if \"é\".length() === 2;\ncheck if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;\ncheck if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;\ncheck if hex:12ab === hex:12ab;\ncheck if {1, 2}.contains(2);\ncheck if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);\ncheck if {false, true}.contains(true);\ncheck if {\"abc\", \"def\"}.contains(\"abc\");\ncheck if {hex:12ab, hex:34de}.contains(hex:34de);\ncheck if {1, 2}.contains({2});\ncheck if {1, 2} === {1, 2};\ncheck if {1, 2}.intersection({2, 3}) === {2};\ncheck if {1, 2}.union({2, 3}) === {1, 2, 3};\ncheck if {1, 2, 3}.intersection({1, 2}).contains(1);\ncheck if {1, 2, 3}.intersection({1, 2}).length() === 2;\n"
+          "code": "check if true;\ncheck if !false;\ncheck if true === true;\ncheck if false === false;\ncheck if 1 < 2;\ncheck if 2 > 1;\ncheck if 1 <= 2;\ncheck if 1 <= 1;\ncheck if 2 >= 1;\ncheck if 2 >= 2;\ncheck if 3 === 3;\ncheck if 1 + 2 * 3 - 4 / 2 === 5;\ncheck if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\");\ncheck if \"aaabde\".matches(\"a*c?.e\");\ncheck if \"aaabde\".contains(\"abd\");\ncheck if \"aaabde\" === \"aaa\" + \"b\" + \"de\";\ncheck if \"abcD12\" === \"abcD12\";\ncheck if \"abcD12\".length() === 6;\ncheck if \"é\".length() === 2;\ncheck if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;\ncheck if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;\ncheck if hex:12ab === hex:12ab;\ncheck if {1, 2}.contains(2);\ncheck if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);\ncheck if {false, true}.contains(true);\ncheck if {\"abc\", \"def\"}.contains(\"abc\");\ncheck if {hex:12ab, hex:34de}.contains(hex:34de);\ncheck if {1, 2}.contains({2});\ncheck if {1, 2} === {1, 2};\ncheck if {1, 2}.intersection({2, 3}) === {2};\ncheck if {1, 2}.union({2, 3}) === {1, 2, 3};\ncheck if {1, 2, 3}.intersection({1, 2}).contains(1);\ncheck if {1, 2, 3}.intersection({1, 2}).length() === 2;\n"
         }
       ],
       "validations": {
@@ -1258,7 +1258,6 @@
                 "origin": 0,
                 "checks": [
                   "check if !false",
-                  "check if !false && true",
                   "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
                   "check if \"aaabde\".contains(\"abd\")",
                   "check if \"aaabde\".matches(\"a*c?.e\")",
@@ -1266,7 +1265,6 @@
                   "check if \"abcD12\".length() === 6",
                   "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
                   "check if \"é\".length() === 2",
-                  "check if (true || false) && true",
                   "check if 1 + 2 * 3 - 4 / 2 === 5",
                   "check if 1 < 2",
                   "check if 1 <= 1",
@@ -1283,7 +1281,6 @@
                   "check if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z",
                   "check if 3 === 3",
                   "check if false === false",
-                  "check if false || true",
                   "check if hex:12ab === hex:12ab",
                   "check if true",
                   "check if true === true",
@@ -1310,7 +1307,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c"
+            "a2640c5f1c1e86302e77422ccda6f7f02a21f63d88d1c34b5b01956227fa0228e49d76482be9d2f251a23c38c425a49ce957b001edd3c18504f37cbd9a341c0b"
           ]
         }
       }
@@ -2098,7 +2095,7 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "check if true || 10000000000 * 10000000000 != 0;\ncheck if true || 9223372036854775807 + 1 != 0;\ncheck if true || -9223372036854775808 - 1 != 0;\n"
+          "code": "check if 10000000000 * 10000000000 != 0;\ncheck if 9223372036854775807 + 1 != 0;\ncheck if -9223372036854775808 - 1 != 0;\n"
         }
       ],
       "validations": {
@@ -2110,9 +2107,9 @@
               {
                 "origin": 0,
                 "checks": [
-                  "check if true || -9223372036854775808 - 1 != 0",
-                  "check if true || 10000000000 * 10000000000 != 0",
-                  "check if true || 9223372036854775807 + 1 != 0"
+                  "check if -9223372036854775808 - 1 != 0",
+                  "check if 10000000000 * 10000000000 != 0",
+                  "check if 9223372036854775807 + 1 != 0"
                 ]
               }
             ],
@@ -2127,7 +2124,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "a57be539aae237040fe6c2c28c4263516147c9f0d1d7ba88a385f1574f504c544164a2c747efd8b30eaab9d351c383cc1875642f173546d5f4b53b2220c87a0a"
+            "365092619226161cf3973343f02c829fe05ab2b0d01f09555272348c9fcce041846be6159badd643aee108c9ce735ca8d12a009979c46b6e2c46e7999824c008"
           ]
         }
       }
@@ -2608,19 +2605,18 @@
       }
     },
     {
-      "title": "test expression syntax and all available operations (v5 blocks)",
-      "filename": "test032_expressions_v5.bc",
+      "title": "test laziness and closures",
+      "filename": "test032_laziness_closures.bc",
       "token": [
         {
           "symbols": [
-            "a",
-            "b",
-            "c",
-            "d"
+            "x",
+            "p",
+            "q"
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\n"
+          "code": "check if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if !(false && \"x\".intersection(\"x\"));\ncheck if true || \"x\".intersection(\"x\");\ncheck if {1, 2, 3}.all($p -> $p > 0);\ncheck if !{1, 2, 3}.all($p -> $p == 2);\ncheck if {1, 2, 3}.any($p -> $p > 2);\ncheck if !{1, 2, 3}.any($p -> $p > 3);\ncheck if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q));\n"
         }
       ],
       "validations": {
@@ -2632,15 +2628,103 @@
               {
                 "origin": 0,
                 "checks": [
+                  "check if !(false && \"x\".intersection(\"x\"))",
                   "check if !false && true",
+                  "check if !{1, 2, 3}.all($p -> $p == 2)",
+                  "check if !{1, 2, 3}.any($p -> $p > 3)",
                   "check if (true || false) && true",
+                  "check if false || true",
+                  "check if true || \"x\".intersection(\"x\")",
+                  "check if {1, 2, 3}.all($p -> $p > 0)",
+                  "check if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q))",
+                  "check if {1, 2, 3}.any($p -> $p > 2)"
+                ]
+              }
+            ],
+            "policies": [
+              "allow if true"
+            ]
+          },
+          "result": {
+            "Ok": 0
+          },
+          "authorizer_code": "allow if true;\n",
+          "revocation_ids": [
+            "65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b"
+          ]
+        },
+        "shadowing": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              {
+                "origin": 0,
+                "checks": [
+                  "check if !(false && \"x\".intersection(\"x\"))",
+                  "check if !false && true",
+                  "check if !{1, 2, 3}.all($p -> $p == 2)",
+                  "check if !{1, 2, 3}.any($p -> $p > 3)",
+                  "check if (true || false) && true",
+                  "check if false || true",
+                  "check if true || \"x\".intersection(\"x\")",
+                  "check if {1, 2, 3}.all($p -> $p > 0)",
+                  "check if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q))",
+                  "check if {1, 2, 3}.any($p -> $p > 2)"
+                ]
+              }
+            ],
+            "policies": [
+              "allow if [true].any($p -> [true].all($p -> $p))"
+            ]
+          },
+          "result": {
+            "Err": {
+              "Execution": "InvalidType"
+            }
+          },
+          "authorizer_code": "allow if [true].any($p -> [true].all($p -> $p));\n",
+          "revocation_ids": [
+            "65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b"
+          ]
+        }
+      }
+    },
+    {
+      "title": "test array and map operations (v5 blocks)",
+      "filename": "test033_array_map.bc",
+      "token": [
+        {
+          "symbols": [
+            "a",
+            "b",
+            "c",
+            "p",
+            "d"
+          ],
+          "public_keys": [],
+          "external_key": null,
+          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if ![1, 2, 3].all($p -> $p == 2);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\n"
+        }
+      ],
+      "validations": {
+        "": {
+          "world": {
+            "facts": [],
+            "rules": [],
+            "checks": [
+              {
+                "origin": 0,
+                "checks": [
+                  "check if ![1, 2, 3].all($p -> $p == 2)",
                   "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
                   "check if [\"a\", \"b\"] != [1, 2, 3]",
                   "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
                   "check if [1, 2, 1].length() == 3",
+                  "check if [1, 2, 3].all($p -> $p > 0)",
+                  "check if [1, 2, 3].any($p -> $p > 2)",
                   "check if [1, 2, 3].starts_with([1, 2])",
                   "check if [4, 5, 6].ends_with([6])",
-                  "check if false || true",
                   "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
                   "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
                   "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
@@ -2654,34 +2738,12 @@
           },
           "result": {
             "Err": {
-              "FailedLogic": {
-                "Unauthorized": {
-                  "policy": {
-                    "Allow": 0
-                  },
-                  "checks": [
-                    {
-                      "Block": {
-                        "block_id": 0,
-                        "check_id": 5,
-                        "rule": "check if [\"a\", \"b\"] == [\"a\", \"b\"]"
-                      }
-                    },
-                    {
-                      "Block": {
-                        "block_id": 0,
-                        "check_id": 11,
-                        "rule": "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}"
-                      }
-                    }
-                  ]
-                }
-              }
+              "Execution": "InvalidType"
             }
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "5fde54d0492a63711a6a6697c058f0320c3b0449ecb055809ce4dde176fb1da53016258abe3ed58221e4bbbf6e83a7a3c2524d701377f01bf1405bfce2a65702"
+            "f027c1e0b86bd3d53bbfffead4e61d71e907b58e0b0ec339c0bc2bdcab21aea4fb4c45643934816608533bc818c9ed14dc31d058021cbe4cec8dde5e519f0e07"
           ]
         }
       }
