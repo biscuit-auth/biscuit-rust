@@ -1235,5 +1235,60 @@ mod tests {
         let e = Expression { ops };
         let res = e.evaluate(&values, &mut tmp_symbols);
         assert_eq!(res, Ok(Term::Null));
+
+        // array get out of bounds
+        let ops = vec![
+            Op::Value(Term::Array(vec![
+                Term::Integer(0),
+                Term::Integer(1),
+                Term::Integer(2),
+            ])),
+            Op::Value(Term::Integer(3)),
+            Op::Binary(Binary::Get),
+        ];
+
+        let values = HashMap::new();
+        let e = Expression { ops };
+        let res = e.evaluate(&values, &mut tmp_symbols);
+        assert_eq!(res, Ok(Term::Null));
+
+        // array all
+        let p = tmp_symbols.insert("param") as u32;
+        let ops1 = vec![
+            Op::Value(Term::Array([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::GreaterThan),
+                ],
+            ),
+            Op::Binary(Binary::All),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(true));
+
+        // array any
+        let ops1 = vec![
+            Op::Value(Term::Array([Term::Integer(1), Term::Integer(2)].into())),
+            Op::Closure(
+                vec![p],
+                vec![
+                    Op::Value(Term::Variable(p)),
+                    Op::Value(Term::Integer(0)),
+                    Op::Binary(Binary::Equal),
+                ],
+            ),
+            Op::Binary(Binary::Any),
+        ];
+        let e1 = Expression { ops: ops1 };
+        println!("{:?}", e1.print(&symbols));
+
+        let res1 = e1.evaluate(&HashMap::new(), &mut tmp_symbols).unwrap();
+        assert_eq!(res1, Term::Bool(false));
     }
 }
