@@ -1301,7 +1301,7 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if 1 + 2 * 3 - 4 /2 === 5;
 
         // string prefix and suffix
-        check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+        check if "hello world".starts_with("hello"), "hello world".ends_with("world");
         // string regex
         check if "aaabde".matches("a*c?.e");
         // string contains

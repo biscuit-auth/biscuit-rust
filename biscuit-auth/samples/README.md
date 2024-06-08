@@ -1231,7 +1231,7 @@ check if 2 >= 1;
 check if 2 >= 2;
 check if 3 === 3;
 check if 1 + 2 * 3 - 4 / 2 === 5;
-check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+check if "hello world".starts_with("hello"), "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
 check if "aaabde" === "aaa" + "b" + "de";
@@ -1267,7 +1267,7 @@ allow if true;
 ```
 
 revocation ids:
-- `a2640c5f1c1e86302e77422ccda6f7f02a21f63d88d1c34b5b01956227fa0228e49d76482be9d2f251a23c38c425a49ce957b001edd3c18504f37cbd9a341c0b`
+- `d0420227266e3583a42dfaa0e38550d99f681d150dd18856f3af9a697bc9c5c8bf06b4b0fe5b9df0377d1b963574e2fd210a0a76a8b0756a65f640c602bebd07`
 
 authorizer world:
 ```
@@ -1286,7 +1286,7 @@ World {
             "check if \"aaabde\".matches(\"a*c?.e\")",
             "check if \"abcD12\" === \"abcD12\"",
             "check if \"abcD12\".length() === 6",
-            "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
+            "check if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\")",
             "check if \"é\".length() === 2",
             "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
