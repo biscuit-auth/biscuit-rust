@@ -1994,6 +1994,7 @@ fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "test null".to_string();
     let filename = "test030_null".to_string();
+    let token;
 
     let biscuit = biscuit!(
         r#"
@@ -2003,7 +2004,7 @@ fn null(target: &str, root: &KeyPair, test: bool) -> TestResult {
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
-    let token = print_blocks(&biscuit);
+    token = print_blocks(&biscuit);
 
     let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
 
