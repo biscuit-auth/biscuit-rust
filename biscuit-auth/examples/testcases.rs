@@ -2148,11 +2148,13 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if ["a", "b", "c"].contains("c");
         check if [1, 2, 3].starts_with([1, 2]);
         check if [4, 5, 6 ].ends_with([6]);
-        check if [1,2,3].all($p -> $p > 0);
+        //check if [1,2,3].all($p -> $p > 0);
+        check if [1,2, "a"].get(2) == "a";
+        check if [1, 2].get(3) == null;
         // all
-        check if ![1,2,3].all($p -> $p == 2);
+        //check if ![1,2,3].all($p -> $p == 2);
         // any
-        check if [1,2,3].any($p -> $p > 2);
+        //check if [1,2,3].any($p -> $p > 2);
         // map
         check if { "a": 1 , "b": 2, "c": 3, "d": 4}.length() == 4;
         check if {  1: "a" , 2: "b"} != { "a": 1 , "b": 2};

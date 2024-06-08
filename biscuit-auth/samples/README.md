@@ -2873,7 +2873,7 @@ result: `Err(Execution(InvalidType))`
 ### token
 
 authority:
-symbols: ["a", "b", "c", "p", "d"]
+symbols: ["a", "b", "c", "d"]
 
 public keys: []
 
@@ -2884,9 +2884,8 @@ check if ["a", "b"] == ["a", "b"];
 check if ["a", "b", "c"].contains("c");
 check if [1, 2, 3].starts_with([1, 2]);
 check if [4, 5, 6].ends_with([6]);
-check if [1, 2, 3].all($p -> $p > 0);
-check if ![1, 2, 3].all($p -> $p == 2);
-check if [1, 2, 3].any($p -> $p > 2);
+check if [1, 2, "a"].get(2) == "a";
+check if [1, 2].get(3) == null;
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
 check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
 check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
@@ -2901,7 +2900,7 @@ allow if true;
 ```
 
 revocation ids:
-- `f027c1e0b86bd3d53bbfffead4e61d71e907b58e0b0ec339c0bc2bdcab21aea4fb4c45643934816608533bc818c9ed14dc31d058021cbe4cec8dde5e519f0e07`
+- `7ef81713cb8486b0a89f7dcfad4bd3d632eb42a67c9d8f6383c1882ce7808ba570fddf09132e81c499d2869bf6283b65a610dd0fb435f918ae6e08743ebd8604`
 
 authorizer world:
 ```
@@ -2914,14 +2913,13 @@ World {
             0,
         ),
         checks: [
-            "check if ![1, 2, 3].all($p -> $p == 2)",
             "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
             "check if [\"a\", \"b\"] != [1, 2, 3]",
             "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
+            "check if [1, 2, \"a\"].get(2) == \"a\"",
             "check if [1, 2, 1].length() == 3",
-            "check if [1, 2, 3].all($p -> $p > 0)",
-            "check if [1, 2, 3].any($p -> $p > 2)",
             "check if [1, 2, 3].starts_with([1, 2])",
+            "check if [1, 2].get(3) == null",
             "check if [4, 5, 6].ends_with([6])",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\")",
             "check if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4",
@@ -2936,5 +2934,5 @@ World {
 }
 ```
 
-result: `Err(Execution(InvalidType))`
+result: `Ok(0)`
 

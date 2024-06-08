@@ -308,12 +308,13 @@ impl Binary {
             (Binary::HeterogeneousNotEqual, Term::Null, _) => Ok(Term::Bool(true)),
             (Binary::HeterogeneousNotEqual, _, Term::Null) => Ok(Term::Bool(true)),
 
-            (Binary::HeterogeneousEqual, _, _) => Ok(Term::Bool(false)),
-            (Binary::HeterogeneousNotEqual, _, _) => Ok(Term::Bool(true)),
-
             // array
-            (Binary::Equal, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Array(i), Term::Array(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Array(i), Term::Array(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Array(i), Term::Array(j)) => {
+                Ok(Term::Bool(i != j))
+            }
             (Binary::Contains, Term::Array(i), j) => {
                 Ok(Term::Bool(i.iter().any(|elem| elem == &j)))
             }
@@ -325,8 +326,12 @@ impl Binary {
                 .unwrap_or(Term::Null)),
 
             // map
-            (Binary::Equal, Term::Map(i), Term::Map(j)) => Ok(Term::Bool(i == j)),
-            (Binary::NotEqual, Term::Map(i), Term::Map(j)) => Ok(Term::Bool(i != j)),
+            (Binary::Equal | Binary::HeterogeneousEqual, Term::Map(i), Term::Map(j)) => {
+                Ok(Term::Bool(i == j))
+            }
+            (Binary::NotEqual | Binary::HeterogeneousNotEqual, Term::Map(i), Term::Map(j)) => {
+                Ok(Term::Bool(i != j))
+            }
             (Binary::Contains, Term::Map(i), j) => {
                 Ok(Term::Bool(i.iter().any(|elem| match (elem.0, &j) {
                     (super::MapKey::Integer(k), Term::Integer(l)) => k == l,
@@ -334,6 +339,10 @@ impl Binary {
                     _ => false,
                 })))
             }
+
+            (Binary::HeterogeneousEqual, _, _) => Ok(Term::Bool(false)),
+            (Binary::HeterogeneousNotEqual, _, _) => Ok(Term::Bool(true)),
+
             _ => {
                 //println!("unexpected value type on the stack");
                 Err(error::Expression::InvalidType)
