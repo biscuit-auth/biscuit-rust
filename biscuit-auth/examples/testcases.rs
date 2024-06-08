@@ -2158,6 +2158,7 @@ fn typeof_op(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [true, false].type() == "set";
         set([true, false]);
         check if set($t), $t.type() == "set";
+        check if null.type() == "null";
         null(null);
         check if null($t), $t.type() == "null";
     "#

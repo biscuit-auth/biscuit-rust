@@ -2897,6 +2897,7 @@ check if true.type() == "bool";
 check if bool($t), $t.type() == "bool";
 check if [false, true].type() == "set";
 check if set($t), $t.type() == "set";
+check if null.type() == "null";
 check if null($t), $t.type() == "null";
 ```
 
@@ -2908,7 +2909,7 @@ allow if true;
 ```
 
 revocation ids:
-- `388798e8ccb432572e6eb3dc8d0ca0501245597a44a605209f6f7571cae39f21a55edad33b55c4ec660be18f2141b75e7aabbfc0c7ff6461f12e80e1dc7b4d0a`
+- `1d9153b1a5fd0a5ac4ba0c8c524850c9b94833574643bcfdb072de7a67a759c4bd92ef83710f22775a791409340468f3be00d882f43d837a2aafb10f376a440b`
 
 authorizer world:
 ```
@@ -2948,6 +2949,7 @@ World {
             "check if hex:aa.type() == \"bytes\"",
             "check if integer($t), $t.type() == \"integer\"",
             "check if null($t), $t.type() == \"null\"",
+            "check if null.type() == \"null\"",
             "check if set($t), $t.type() == \"set\"",
             "check if string($t), $t.type() == \"string\"",
             "check if true.type() == \"bool\"",
