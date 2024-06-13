@@ -1,7 +1,10 @@
 //! error types
 //!
 
-use std::convert::{From, Infallible};
+use std::{
+    convert::{From, Infallible},
+    fmt::Display,
+};
 use thiserror::Error;
 
 /// the global error type for Biscuit
@@ -16,7 +19,7 @@ pub enum Token {
     AppendOnSealed,
     #[error("tried to seal an already sealed token")]
     AlreadySealed,
-    #[error("authorization failed")]
+    #[error("authorization failed: {0}")]
     FailedLogic(Logic),
     #[error("error generating Datalog: {0}")]
     Language(biscuit_parser::error::LanguageError),
@@ -168,9 +171,9 @@ pub enum Signature {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Logic {
-    #[error("a rule provided by a block is generating facts with the authority or ambient tag, or has head variables not used in its body")]
+    #[error("a rule provided by a block is producing a fact with unbound variables")]
     InvalidBlockRule(u32, String),
-    #[error("authorization failed")]
+    #[error("{policy}, and the following checks failed: {checks:?}")]
     Unauthorized {
         /// the policy that matched
         policy: MatchedPolicy,
@@ -179,7 +182,7 @@ pub enum Logic {
     },
     #[error("the authorizer already contains a token")]
     AuthorizerNotEmpty,
-    #[error("no matching policy was found")]
+    #[error("no matching policy was found, and the following checks failed: {checks:?}")]
     NoMatchingPolicy {
         /// list of checks that failed validation
         checks: Vec<FailedCheck>,
@@ -189,9 +192,9 @@ pub enum Logic {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum MatchedPolicy {
-    #[error("an allow policy matched")]
+    #[error("an allow policy matched (policy index: {0})")]
     Allow(usize),
-    #[error("a deny policy matched")]
+    #[error("a deny policy matched (policy index: {0})")]
     Deny(usize),
 }
 
@@ -199,9 +202,9 @@ pub enum MatchedPolicy {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum FailedCheck {
-    #[error("a check failed in a block")]
+    #[error("a check failed in a block: {0}")]
     Block(FailedBlockCheck),
-    #[error("a check provided by the authorizer failed")]
+    #[error("a check provided by the authorizer failed: {0}")]
     Authorizer(FailedAuthorizerCheck),
 }
 
@@ -214,12 +217,28 @@ pub struct FailedBlockCheck {
     pub rule: String,
 }
 
+impl Display for FailedBlockCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Check n°{} in block n°{}: {}",
+            self.check_id, self.block_id, self.rule
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedAuthorizerCheck {
     pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
+}
+
+impl Display for FailedAuthorizerCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Check n°{} in authorizer: {}", self.check_id, self.rule)
+    }
 }
 
 /// Datalog execution errors
