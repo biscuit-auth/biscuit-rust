@@ -834,6 +834,11 @@ impl RuleSet {
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
     }
+
+    /// number of rules of a specific origin
+    pub fn len(&self) -> usize {
+        self.inner.iter().fold(0, |acc, v| acc+v.1.len())
+    }
 }
 
 pub struct SchemaVersion {
