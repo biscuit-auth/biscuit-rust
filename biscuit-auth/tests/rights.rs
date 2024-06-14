@@ -1,4 +1,5 @@
 #![allow(unused_must_use)]
+#![cfg(not(feature = "capi"))]
 use biscuit::builder::*;
 use biscuit::datalog::SymbolTable;
 use biscuit::KeyPair;

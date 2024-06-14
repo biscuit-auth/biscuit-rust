@@ -8,7 +8,7 @@ mod capi {
         (assert_c! {
             #include <stdio.h>
             #include <string.h>
-            #include "biscuit_auth.h"
+            #include "biscuit_capi.h"
 
             int main() {
                 char *seed = "abcdefghabcdefghabcdefghabcdefgh";
@@ -135,7 +135,7 @@ wrote 322 bytes
         (assert_c! {
             #include <stdio.h>
             #include <string.h>
-            #include "biscuit_auth.h"
+            #include "biscuit_capi.h"
 
             int main() {
                 char *seed = "abcdefghabcdefghabcdefghabcdefgh";
