@@ -631,7 +631,7 @@ impl From<biscuit_parser::builder::Scope> for Scope {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
 pub enum Algorithm {
     Ed25519,
     Secp256r1,
