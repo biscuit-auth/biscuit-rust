@@ -3,6 +3,7 @@ use biscuit_quote::{
     authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,
     rule,
 };
+use serde_json::json;
 use std::{collections::BTreeSet, convert::TryInto};
 
 #[test]
@@ -228,8 +229,12 @@ fn json() {
     let key_pair = KeyPair::new();
     let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
 
-    let value: serde_json::Value =
-        serde_json::from_str(r#"{ "id": 123, "roles": ["admin"] }"#).unwrap();
+    let value: serde_json::Value = json!(
+        r#"{
+            "id": 123,
+            "roles": ["admin"]
+        }"#
+    );
     let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
 
     let authorizer = authorizer!(
