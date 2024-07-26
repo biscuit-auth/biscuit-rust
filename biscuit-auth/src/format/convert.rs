@@ -198,7 +198,7 @@ pub fn proto_snapshot_block_to_token_block(
 
     let external_key = match &input.external_key {
         None => None,
-        Some(key) => Some(PublicKey::from_proto(&key)?),
+        Some(key) => Some(PublicKey::from_proto(key)?),
     };
 
     Ok(Block {

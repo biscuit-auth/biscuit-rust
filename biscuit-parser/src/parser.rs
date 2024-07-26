@@ -372,7 +372,7 @@ fn scope(i: &str) -> IResult<&str, builder::Scope, Error> {
     alt((
         map(tag("authority"), |_| builder::Scope::Authority),
         map(tag("previous"), |_| builder::Scope::Previous),
-        map(public_key, |bytes| builder::Scope::PublicKey(bytes)),
+        map(public_key, builder::Scope::PublicKey),
         map(delimited(char('{'), name, char('}')), |n| {
             builder::Scope::Parameter(n.to_string())
         }),
@@ -785,7 +785,7 @@ fn parse_hex(i: &str) -> IResult<&str, Vec<u8>, Error> {
     map_res(
         take_while1(|c| {
             let c = c as u8;
-            (b'0'..=b'9').contains(&c) || (b'a'..=b'f').contains(&c) || (b'A'..=b'F').contains(&c)
+            c.is_ascii_digit() || (b'a'..=b'f').contains(&c) || (b'A'..=b'F').contains(&c)
         }),
         hex::decode,
     )(i)

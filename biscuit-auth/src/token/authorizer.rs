@@ -184,26 +184,11 @@ impl Authorizer {
     /// you can use this to save a set of policies and load them quickly before
     /// verification. This will not store data obtained or generated from a token.
     pub fn save(&self) -> Result<AuthorizerPolicies, error::Token> {
-        let facts = self
-            .authorizer_block_builder
-            .facts
-            .iter()
-            .cloned()
-            .collect();
+        let facts = self.authorizer_block_builder.facts.to_vec();
 
-        let rules = self
-            .authorizer_block_builder
-            .rules
-            .iter()
-            .cloned()
-            .collect();
+        let rules = self.authorizer_block_builder.rules.to_vec();
 
-        let checks = self
-            .authorizer_block_builder
-            .checks
-            .iter()
-            .cloned()
-            .collect();
+        let checks = self.authorizer_block_builder.checks.to_vec();
 
         Ok(AuthorizerPolicies {
             version: crate::token::MAX_SCHEMA_VERSION,
@@ -841,7 +826,7 @@ impl Authorizer {
                     errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
                         block_id: 0u32,
                         check_id: j as u32,
-                        rule: self.symbols.print_check(&check),
+                        rule: self.symbols.print_check(check),
                     }));
                 }
             }
@@ -880,7 +865,7 @@ impl Authorizer {
         }
 
         if let Some(blocks) = self.blocks.as_ref() {
-            for (i, block) in (&blocks[1..]).iter().enumerate() {
+            for (i, block) in (blocks[1..]).iter().enumerate() {
                 let block_trusted_origins = TrustedOrigins::from_scopes(
                     &block.scopes,
                     &TrustedOrigins::default(),
@@ -940,7 +925,7 @@ impl Authorizer {
                         errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
                             block_id: (i + 1) as u32,
                             check_id: j as u32,
-                            rule: self.symbols.print_check(&check),
+                            rule: self.symbols.print_check(check),
                         }));
                     }
                 }
@@ -1010,21 +995,21 @@ impl Authorizer {
             let _ = writeln!(f, "{fact};");
         }
         if !facts.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for rule in &rules {
             let _ = writeln!(f, "{rule};");
         }
         if !rules.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for check in &checks {
             let _ = writeln!(f, "{check};");
         }
         if !checks.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for policy in &policies {
