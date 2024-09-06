@@ -6,7 +6,7 @@ use biscuit_parser::{
     parser::{parse_block_source, parse_source},
 };
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{abort_call_site, proc_macro_error};
+use proc_macro_error2::{abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{

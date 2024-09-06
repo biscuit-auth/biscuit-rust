@@ -241,9 +241,9 @@ mod capi;
 #[cfg(cargo_c)]
 pub use capi::*;
 
-#[cfg(bwk)]
+#[cfg(feature = "bwk")]
 mod bwk;
-#[cfg(bwk)]
+#[cfg(feature = "bwk")]
 pub use bwk::*;
 
 mod time;
