@@ -12,6 +12,8 @@ use crate::{error::Format, format::schema};
 use super::error;
 #[cfg(feature = "pem")]
 use ed25519_dalek::pkcs8::DecodePrivateKey;
+#[cfg(feature = "pem")]
+use ed25519_dalek::pkcs8::DecodePublicKey;
 use ed25519_dalek::*;
 
 use nom::Finish;
@@ -168,6 +170,20 @@ impl PublicKey {
             algorithm: schema::public_key::Algorithm::Ed25519 as i32,
             key: self.to_bytes().to_vec(),
         }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        let verification_key = ed25519_dalek::VerifyingKey::from_public_key_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(verification_key))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_pem(pem: &str) -> Result<Self, error::Format> {
+        let verification_key = ed25519_dalek::VerifyingKey::from_public_key_pem(pem)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(verification_key))
     }
 
     pub fn print(&self) -> String {
