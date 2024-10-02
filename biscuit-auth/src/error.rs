@@ -150,6 +150,8 @@ pub enum Format {
     UnknownExternalKey,
     #[error("the symbol id was not in the table")]
     UnknownSymbol(u64),
+    #[error("missing FFI name field")]
+    MissingFfiName,
 }
 
 /// Signature errors
@@ -250,6 +252,10 @@ pub enum Expression {
     InvalidStack,
     #[error("Shadowed variable")]
     ShadowedVariable,
+    #[error("Incorrect arity for extern func")]
+    IncorrectArityExtern,
+    #[error("Undefined extern func: {0}")]
+    UndefinedExtern(String),
 }
 
 /// runtime limits errors

@@ -284,6 +284,7 @@ pub enum Unary {
     Parens,
     Length,
     TypeOf,
+    Ffi(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,6 +317,7 @@ pub enum Binary {
     All,
     Any,
     Get,
+    Ffi(String),
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -343,6 +345,7 @@ impl ToTokens for Unary {
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
             Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
             Unary::TypeOf => quote! {::biscuit_auth::datalog::Unary::TypeOf },
+            Unary::Ffi(name) => quote! {::biscuit_auth::datalog::Unary::Ffi(#name.to_string()) },
         });
     }
 }
@@ -383,6 +386,7 @@ impl ToTokens for Binary {
             Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
             Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
             Binary::Get => quote! { ::biscuit_auth::datalog::Binary::Get },
+            Binary::Ffi(name) => quote! {::biscuit_auth::datalog::Binary::Ffi(#name.to_string()) },
         });
     }
 }
