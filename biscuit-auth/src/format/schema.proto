@@ -125,9 +125,11 @@ message OpUnary {
     Parens = 1;
     Length = 2;
     TypeOf = 3;
+    Ffi = 1024;
   }
 
   required Kind kind = 1;
+  optional string ffiName = 2;
 }
 
 message OpBinary {
@@ -159,9 +161,11 @@ message OpBinary {
     LazyOr = 24;
     All = 25;
     Any = 26;
+    Ffi = 1024;
   }
 
   required Kind kind = 1;
+  optional string ffiName = 2;
 }
 
 message OpClosure {
