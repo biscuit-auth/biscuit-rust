@@ -668,7 +668,12 @@ pub mod v2 {
                         Unary::Parens => Kind::Parens,
                         Unary::Length => Kind::Length,
                         Unary::TypeOf => Kind::TypeOf,
+                        Unary::Ffi(_) => Kind::Ffi,
                     } as i32,
+                    ffi_name: match u {
+                        Unary::Ffi(name) => Some(name.to_owned()),
+                        _ => None,
+                    },
                 })
             }
             Op::Binary(b) => {
@@ -704,7 +709,12 @@ pub mod v2 {
                         Binary::All => Kind::All,
                         Binary::Any => Kind::Any,
                         Binary::Get => Kind::Get,
+                        Binary::Ffi(_) => Kind::Ffi,
                     } as i32,
+                    ffi_name: match b {
+                        Binary::Ffi(name) => Some(name.to_owned()),
+                        _ => None,
+                    },
                 })
             }
             Op::Closure(params, ops) => schema::op::Content::Closure(schema::OpClosure {
@@ -733,6 +743,11 @@ pub mod v2 {
                 Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
                 Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
                 Some(op_unary::Kind::TypeOf) => Op::Unary(Unary::TypeOf),
+                Some(op_unary::Kind::Ffi) => match u.ffi_name.as_ref() {
+                    // todo clementd error if ffi name is defined with another kind
+                    Some(n) => Op::Unary(Unary::Ffi(n.to_owned())),
+                    None => return Err(error::Format::MissingFfiName),
+                },
                 None => {
                     return Err(error::Format::DeserializationError(
                         "deserialization error: unary operation is empty".to_string(),
@@ -770,6 +785,11 @@ pub mod v2 {
                 Some(op_binary::Kind::All) => Op::Binary(Binary::All),
                 Some(op_binary::Kind::Any) => Op::Binary(Binary::Any),
                 Some(op_binary::Kind::Get) => Op::Binary(Binary::Get),
+                Some(op_binary::Kind::Ffi) => match b.ffi_name.as_ref() {
+                    // todo clementd error if ffi name is defined with another kind
+                    Some(n) => Op::Binary(Binary::Ffi(n.to_owned())),
+                    None => return Err(error::Format::MissingFfiName),
+                },
                 None => {
                     return Err(error::Format::DeserializationError(
                         "deserialization error: binary operation is empty".to_string(),
