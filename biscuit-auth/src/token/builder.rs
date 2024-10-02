@@ -999,6 +999,7 @@ impl From<biscuit_parser::builder::Unary> for Unary {
             biscuit_parser::builder::Unary::Negate => Unary::Negate,
             biscuit_parser::builder::Unary::Parens => Unary::Parens,
             biscuit_parser::builder::Unary::Length => Unary::Length,
+            biscuit_parser::builder::Unary::Ffi(name) => Unary::Ffi(name),
         }
     }
 }
@@ -1033,6 +1034,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
             biscuit_parser::builder::Binary::All => Binary::All,
             biscuit_parser::builder::Binary::Any => Binary::Any,
+            biscuit_parser::builder::Binary::Ffi(name) => Binary::Ffi(name),
         }
     }
 }
