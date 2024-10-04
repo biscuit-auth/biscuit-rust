@@ -913,6 +913,46 @@ pub enum Op {
     Closure(Vec<String>, Vec<Op>),
 }
 
+impl Op {
+    fn collect_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Op::Value(Term::Parameter(ref name)) => {
+                parameters.insert(name.to_owned(), None);
+            }
+            Op::Closure(_, ops) => {
+                for op in ops {
+                    op.collect_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_parameters(self, parameters: &HashMap<String, Option<Term>>) -> Self {
+        println!("applying params {self:?}");
+        match self {
+            Op::Value(Term::Parameter(ref name)) => {
+                println!("trying to replace {name} with {parameters:?}");
+                if let Some(Some(t)) = parameters.get(name) {
+                    println!("replaced {name}");
+                    Op::Value(t.clone())
+                } else {
+                    self
+                }
+            }
+            Op::Value(_) => self,
+            Op::Unary(_) => self,
+            Op::Binary(_) => self,
+            Op::Closure(args, mut ops) => Op::Closure(
+                args,
+                ops.drain(..)
+                    .map(|op| op.apply_parameters(parameters))
+                    .collect(),
+            ),
+        }
+    }
+}
+
 impl Convert<datalog::Op> for Op {
     fn convert(&self, symbols: &mut SymbolTable) -> datalog::Op {
         match self {
@@ -962,6 +1002,7 @@ impl From<biscuit_parser::builder::Unary> for Unary {
             biscuit_parser::builder::Unary::Negate => Unary::Negate,
             biscuit_parser::builder::Unary::Parens => Unary::Parens,
             biscuit_parser::builder::Unary::Length => Unary::Length,
+            biscuit_parser::builder::Unary::Ffi(name) => Unary::Ffi(name),
         }
     }
 }
@@ -996,6 +1037,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
             biscuit_parser::builder::Binary::All => Binary::All,
             biscuit_parser::builder::Binary::Any => Binary::Any,
+            biscuit_parser::builder::Binary::Ffi(name) => Binary::Ffi(name),
         }
     }
 }
@@ -1036,9 +1078,7 @@ impl Rule {
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
-                }
+                op.collect_parameters(&mut parameters);
             }
         }
 
@@ -1282,14 +1322,7 @@ impl Rule {
                 expression.ops = expression
                     .ops
                     .drain(..)
-                    .map(|op| {
-                        if let Op::Value(Term::Parameter(name)) = &op {
-                            if let Some(Some(term)) = parameters.get(name) {
-                                return Op::Value(term.clone());
-                            }
-                        }
-                        op
-                    })
+                    .map(|op| op.apply_parameters(&parameters))
                     .collect();
             }
         }
@@ -2380,6 +2413,20 @@ mod tests {
 
         let s = rule.to_string();
         assert_eq!(s, "fact($var1, \"hello\", [0]) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+    }
+
+    #[test]
+    fn set_closure_parameters() {
+        let mut rule = Rule::try_from("fact(true) <- false || {p1}").unwrap();
+        rule.set_lenient("p1", true).unwrap();
+        println!("{rule:?}");
+        let s = rule.to_string();
+        assert_eq!(s, "fact(true) <- false || true");
+
+        let mut rule = Rule::try_from("fact(true) <- false || {p1}").unwrap();
+        rule.set("p1", true).unwrap();
+        let s = rule.to_string();
+        assert_eq!(s, "fact(true) <- false || true");
     }
 
     #[test]

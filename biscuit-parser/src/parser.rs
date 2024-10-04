@@ -494,6 +494,16 @@ fn binary_op_7(i: &str) -> IResult<&str, builder::Binary, Error> {
     alt((value(Binary::Mul, tag("*")), value(Binary::Div, tag("/"))))(i)
 }
 
+fn extern_un(i: &str) -> IResult<&str, builder::Unary, Error> {
+    let (i, func) = preceded(tag("extern::"), name)(i)?;
+    Ok((i, builder::Unary::Ffi(func.to_string())))
+}
+
+fn extern_bin(i: &str) -> IResult<&str, builder::Binary, Error> {
+    let (i, func) = preceded(tag("extern::"), name)(i)?;
+    Ok((i, builder::Binary::Ffi(func.to_string())))
+}
+
 fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
 
@@ -506,6 +516,7 @@ fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Union, tag("union")),
         value(Binary::All, tag("all")),
         value(Binary::Any, tag("any")),
+        extern_bin,
     ))(i)
 }
 
@@ -713,7 +724,7 @@ fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Option<Vec<String>>
 
 fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
     use builder::Unary;
-    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+    let (i, op) = alt((value(Unary::Length, tag("length")), extern_un))(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
@@ -2492,6 +2503,31 @@ mod tests {
                     Op::Unary(Unary::Length),
                     Op::Value(set([int(3)].into_iter().collect())),
                     Op::Binary(Binary::Union),
+                ],
+            ))
+        );
+    }
+
+    #[test]
+    fn extern_funcs() {
+        use builder::{int, Binary, Op};
+
+        assert_eq!(
+            super::expr("2.extern::toto()").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![Op::Value(int(2)), Op::Unary(Unary::Ffi("toto".to_string()))],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("2.extern::toto(3)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(2)),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Ffi("toto".to_string())),
                 ],
             ))
         );
