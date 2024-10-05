@@ -230,10 +230,10 @@ fn json() {
     let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
 
     let value: serde_json::Value = json!(
-        r#"{
+        {
             "id": 123,
             "roles": ["admin"]
-        }"#
+        }
     );
     let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
 
