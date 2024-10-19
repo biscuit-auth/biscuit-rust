@@ -252,7 +252,11 @@ pub fn sign(
     Ok(signature)
 }
 
-pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
+pub fn verify_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+    previous_signature: Option<&Signature>,
+) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
 
@@ -274,6 +278,17 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
         to_verify
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&public_key.to_bytes());
+        let previous_signature = match previous_signature {
+            Some(s) => s,
+            None => {
+                return Err(error::Format::Signature(
+                    error::Signature::InvalidSignature(
+                        "the first block must not contain an external signature".to_string(),
+                    ),
+                ))
+            }
+        };
+        to_verify.extend(&previous_signature.to_bytes());
 
         external_signature
             .public_key

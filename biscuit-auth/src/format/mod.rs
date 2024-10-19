@@ -380,13 +380,16 @@ impl SerializedBiscuit {
     pub fn verify(&self, root: &PublicKey) -> Result<(), error::Format> {
         //FIXME: try batched signature verification
         let mut current_pub = root;
+        let mut previous_signature = None;
 
-        crypto::verify_block_signature(&self.authority, current_pub)?;
+        crypto::verify_block_signature(&self.authority, current_pub, previous_signature)?;
         current_pub = &self.authority.next_key;
+        previous_signature = Some(&self.authority.signature);
 
         for block in &self.blocks {
-            crypto::verify_block_signature(block, current_pub)?;
+            crypto::verify_block_signature(block, current_pub, previous_signature)?;
             current_pub = &block.next_key;
+            previous_signature = Some(&block.signature);
         }
 
         match &self.proof {
