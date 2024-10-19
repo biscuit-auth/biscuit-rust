@@ -326,6 +326,14 @@ impl UnverifiedBiscuit {
         to_verify
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
+        to_verify.extend(
+            self.container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature
+                .to_bytes(),
+        );
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(

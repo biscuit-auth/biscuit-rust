@@ -219,6 +219,7 @@ impl SerializedBiscuit {
             next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
             external_signature: None,
+            version: None,
         };
 
         let mut blocks = Vec::new();
@@ -233,6 +234,11 @@ impl SerializedBiscuit {
                         public_key: external_signature.public_key.to_proto(),
                     }
                 }),
+                version: if block.external_signature.is_some() {
+                    Some(1)
+                } else {
+                    None
+                },
             };
 
             blocks.push(b);

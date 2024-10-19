@@ -19,6 +19,7 @@ use super::public_keys::PublicKeys;
 pub struct ThirdPartyRequest {
     pub(crate) previous_key: PublicKey,
     pub(crate) public_keys: PublicKeys,
+    pub(crate) previous_signature: Vec<u8>,
 }
 
 impl ThirdPartyRequest {
@@ -56,9 +57,17 @@ impl ThirdPartyRequest {
             .unwrap_or(&container.authority)
             .next_key;
 
+        let previous_signature = container
+            .blocks
+            .last()
+            .unwrap_or(&container.authority)
+            .signature
+            .to_bytes()
+            .to_vec();
         Ok(ThirdPartyRequest {
             previous_key,
             public_keys,
+            previous_signature,
         })
     }
 
@@ -71,10 +80,12 @@ impl ThirdPartyRequest {
             .collect();
 
         let previous_key = self.previous_key.to_proto();
+        let previous_signature = self.previous_signature.clone();
 
         let request = schema::ThirdPartyBlockRequest {
             previous_key,
             public_keys,
+            previous_signature,
         };
         let mut v = Vec::new();
 
@@ -103,9 +114,12 @@ impl ThirdPartyRequest {
             public_keys.insert(&PublicKey::from_proto(&key)?);
         }
 
+        let previous_signature = data.previous_signature.to_vec();
+
         Ok(ThirdPartyRequest {
             previous_key,
             public_keys,
+            previous_signature,
         })
     }
 
@@ -138,6 +152,7 @@ impl ThirdPartyRequest {
 
         v.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         v.extend(self.previous_key.to_bytes());
+        v.extend(&self.previous_signature);
 
         let keypair = KeyPair::from(private_key);
         let signature = keypair
