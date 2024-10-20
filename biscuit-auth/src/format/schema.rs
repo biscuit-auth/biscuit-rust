@@ -127,6 +127,7 @@ pub mod check_v2 {
     pub enum Kind {
         One = 0,
         All = 1,
+        Reject = 2,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -138,7 +139,7 @@ pub struct PredicateV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TermV2 {
-    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8")]
     pub content: ::core::option::Option<term_v2::Content>,
 }
 /// Nested message and enum types in `TermV2`.
@@ -159,6 +160,8 @@ pub mod term_v2 {
         Bool(bool),
         #[prost(message, tag="7")]
         Set(super::TermSet),
+        #[prost(message, tag="8")]
+        Null(super::Empty),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -173,7 +176,7 @@ pub struct ExpressionV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Op {
-    #[prost(oneof="op::Content", tags="1, 2, 3")]
+    #[prost(oneof="op::Content", tags="1, 2, 3, 4")]
     pub content: ::core::option::Option<op::Content>,
 }
 /// Nested message and enum types in `Op`.
@@ -186,6 +189,8 @@ pub mod op {
         Unary(super::OpUnary),
         #[prost(message, tag="3")]
         Binary(super::OpBinary),
+        #[prost(message, tag="4")]
+        Closure(super::OpClosure),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -234,7 +239,20 @@ pub mod op_binary {
         BitwiseOr = 18,
         BitwiseXor = 19,
         NotEqual = 20,
+        HeterogeneousEqual = 21,
+        HeterogeneousNotEqual = 22,
+        LazyAnd = 23,
+        LazyOr = 24,
+        All = 25,
+        Any = 26,
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpClosure {
+    #[prost(uint32, repeated, packed="false", tag="1")]
+    pub params: ::prost::alloc::vec::Vec<u32>,
+    #[prost(message, repeated, tag="2")]
+    pub ops: ::prost::alloc::vec::Vec<Op>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Policy {

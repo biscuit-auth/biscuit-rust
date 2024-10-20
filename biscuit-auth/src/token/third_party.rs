@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use ed25519_dalek::Signer;
 use prost::Message;
 
@@ -86,7 +88,7 @@ impl ThirdPartyRequest {
     ) -> Result<ThirdPartyBlock, error::Token> {
         let symbols = SymbolTable::new();
         let mut block = block_builder.build(symbols);
-        block.version = super::MAX_SCHEMA_VERSION;
+        block.version = max(super::THIRD_PARTY_BLOCK_VERSION, block.version);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)

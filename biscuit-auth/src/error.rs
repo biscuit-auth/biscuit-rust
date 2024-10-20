@@ -248,6 +248,8 @@ pub enum Expression {
     DivideByZero,
     #[error("Wrong number of elements on stack")]
     InvalidStack,
+    #[error("Shadowed variable")]
+    ShadowedVariable,
 }
 
 /// runtime limits errors

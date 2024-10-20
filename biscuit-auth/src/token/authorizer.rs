@@ -746,6 +746,12 @@ impl Authorizer {
                         self.world
                             .query_match_all(query, &rule_trusted_origins, &self.symbols)?
                     }
+                    CheckKind::Reject => !self.world.query_match(
+                        query,
+                        usize::MAX,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                    )?,
                 };
 
                 let now = Instant::now();
@@ -796,6 +802,12 @@ impl Authorizer {
                         )?,
                         CheckKind::All => self.world.query_match_all(
                             query.clone(),
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        )?,
+                        CheckKind::Reject => !self.world.query_match(
+                            query.clone(),
+                            0,
                             &rule_trusted_origins,
                             &self.symbols,
                         )?,
@@ -889,6 +901,12 @@ impl Authorizer {
                             )?,
                             CheckKind::All => self.world.query_match_all(
                                 query.clone(),
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            )?,
+                            CheckKind::Reject => !self.world.query_match(
+                                query.clone(),
+                                i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
                             )?,
