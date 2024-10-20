@@ -269,14 +269,12 @@ pub fn verify_block_signature(
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
-    println!("will verify block with key {:?}", public_key);
     public_key
         .0
         .verify_strict(&to_verify, &block.signature)
         .map_err(|s| s.to_string())
         .map_err(error::Signature::InvalidSignature)
         .map_err(error::Format::Signature)?;
-    println!("block signature verified");
 
     if let Some(external_signature) = block.external_signature.as_ref() {
         let mut to_verify = block.data.to_vec();
@@ -284,10 +282,6 @@ pub fn verify_block_signature(
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&public_key.to_bytes());
 
-        println!(
-            "verifying external signature in mode {:?}",
-            verification_mode
-        );
         if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
             let previous_signature = match previous_signature {
                 Some(s) => s,
