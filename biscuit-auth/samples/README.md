@@ -1221,9 +1221,6 @@ public keys: []
 ```
 check if true;
 check if !false;
-check if !false && true;
-check if false || true;
-check if (true || false) && true;
 check if true === true;
 check if false === false;
 check if 1 < 2;
@@ -1234,7 +1231,7 @@ check if 2 >= 1;
 check if 2 >= 2;
 check if 3 === 3;
 check if 1 + 2 * 3 - 4 / 2 === 5;
-check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+check if "hello world".starts_with("hello"), "hello world".ends_with("world");
 check if "aaabde".matches("a*c?.e");
 check if "aaabde".contains("abd");
 check if "aaabde" === "aaa" + "b" + "de";
@@ -1270,7 +1267,7 @@ allow if true;
 ```
 
 revocation ids:
-- `3d5b23b502b3dd920bfb68b9039164d1563bb8927210166fa5c17f41b76b31bb957bc2ed3318452958f658baa2d398fe4cf25c58a27e6c8bc42c9702c8aa1b0c`
+- `d0420227266e3583a42dfaa0e38550d99f681d150dd18856f3af9a697bc9c5c8bf06b4b0fe5b9df0377d1b963574e2fd210a0a76a8b0756a65f640c602bebd07`
 
 authorizer world:
 ```
@@ -1284,15 +1281,13 @@ World {
         ),
         checks: [
             "check if !false",
-            "check if !false && true",
             "check if \"aaabde\" === \"aaa\" + \"b\" + \"de\"",
             "check if \"aaabde\".contains(\"abd\")",
             "check if \"aaabde\".matches(\"a*c?.e\")",
             "check if \"abcD12\" === \"abcD12\"",
             "check if \"abcD12\".length() === 6",
-            "check if \"hello world\".starts_with(\"hello\") && \"hello world\".ends_with(\"world\")",
+            "check if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\")",
             "check if \"é\".length() === 2",
-            "check if (true || false) && true",
             "check if 1 + 2 * 3 - 4 / 2 === 5",
             "check if 1 < 2",
             "check if 1 <= 1",
@@ -1320,7 +1315,6 @@ World {
             "check if [false, true].contains(true)",
             "check if [hex:12ab, hex:34de].contains(hex:34de)",
             "check if false === false",
-            "check if false || true",
             "check if hex:12ab === hex:12ab",
             "check if true",
             "check if true === true",
@@ -2041,7 +2035,7 @@ check if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755
 1:
 symbols: []
 
-public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"]
+public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
 external signature by: "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
 
@@ -2055,7 +2049,7 @@ check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5
 2:
 symbols: []
 
-public keys: []
+public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
 external signature by: "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
 
@@ -2068,7 +2062,7 @@ check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5
 3:
 symbols: []
 
-public keys: []
+public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
 external signature by: "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
 
@@ -2081,7 +2075,7 @@ check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5
 4:
 symbols: []
 
-public keys: ["ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136"]
+public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136"]
 
 ```
 query(4);
@@ -2103,10 +2097,10 @@ allow if true;
 
 revocation ids:
 - `3771cefe71beb21ead35a59c8116ee82627a5717c0295f35980662abccb159fe1b37848cb1818e548656bd4fd882d0094a2daab631c76b2b72e3a093914bfe04`
-- `45133b90f228a81fe4d3042a79f6c6b7608e656e903d6b1f4db32cd774b09b8315af360879a5f210ad7be37ff55e3eb34f237bcc9711407b6329ac6018bfb400`
-- `179f054f3c572646aba5013159ae192ac42f5666dbdd984129955f4652b6829e59f54aa251e451f96329d42a2524ce569c3e1ec52e708b642dd8994af51dd703`
-- `edab54789d6656936fcd28200b9c61643434842d531f09f209fad555e11ff53174db174dafba126e6de448983a56f78d2042bc5782d71a45799c022fe69fb30d`
-- `6a62306831e9dbe83e7b33db96b758c77dd690930f2d2d87e239b210b1944c5582bf6d7e1bfea8e7f928c27f2fff0e2ee2e0adc41e11e0c3abe8d7b96b9ede07`
+- `daa32c7e4e45bee454ce3f56dac2eb9fbe9683f2e06d85a75fc017626913b7cae6384758d026b43a3be05bc46f69cc2ba5224f462e7d22d989d4d774997ad903`
+- `807401d99b9e29e70750b13038aa72ec3ecad8dcbf9b7c2fbcc8eaa0cb384da045c135445bea084cf1188825b6d85559f0dcc8e4a728553dfa19b5030fbb450d`
+- `c28c64621b575b12a4959093b7831f2a73a96ffd13a44330b465f4d895db761761a4d60b8f2d8fc8771e0ff9eda3e18a13a1c88d2d790464a4f3f8ec2c67ef0f`
+- `3f675d6c364e06405d4868c904e40f3d81c32b083d91586db814d4cb4bf536b4ba209d82f11b4cb6da293b60b20d6122fc3e0e08e80c381dee83edd848211900`
 
 authorizer world:
 ```
@@ -2263,9 +2257,9 @@ symbols: []
 public keys: []
 
 ```
-check if true || 10000000000 * 10000000000 != 0;
-check if true || 9223372036854775807 + 1 != 0;
-check if true || -9223372036854775808 - 1 != 0;
+check if 10000000000 * 10000000000 != 0;
+check if 9223372036854775807 + 1 != 0;
+check if -9223372036854775808 - 1 != 0;
 ```
 
 ### validation
@@ -2276,7 +2270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `a57be539aae237040fe6c2c28c4263516147c9f0d1d7ba88a385f1574f504c544164a2c747efd8b30eaab9d351c383cc1875642f173546d5f4b53b2220c87a0a`
+- `365092619226161cf3973343f02c829fe05ab2b0d01f09555272348c9fcce041846be6159badd643aee108c9ce735ca8d12a009979c46b6e2c46e7999824c008`
 
 authorizer world:
 ```
@@ -2289,9 +2283,9 @@ World {
             0,
         ),
         checks: [
-            "check if true || -9223372036854775808 - 1 != 0",
-            "check if true || 10000000000 * 10000000000 != 0",
-            "check if true || 9223372036854775807 + 1 != 0",
+            "check if -9223372036854775808 - 1 != 0",
+            "check if 10000000000 * 10000000000 != 0",
+            "check if 9223372036854775807 + 1 != 0",
         ],
     },
 ]
@@ -2768,7 +2762,114 @@ result: `Err(FailedLogic(Unauthorized { policy: Allow(0), checks: [Block(FailedB
 
 ------------------------------
 
-## ECDSA secp256r1 signatures: test032_secp256r1.bc
+## test laziness and closures: test032_laziness_closures.bc
+### token
+
+authority:
+symbols: ["x", "p", "q"]
+
+public keys: []
+
+```
+check if !false && true;
+check if false || true;
+check if (true || false) && true;
+check if !(false && "x".intersection("x"));
+check if true || "x".intersection("x");
+check if [1, 2, 3].all($p -> $p > 0);
+check if ![1, 2, 3].all($p -> $p == 2);
+check if [1, 2, 3].any($p -> $p > 2);
+check if ![1, 2, 3].any($p -> $p > 3);
+check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q));
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if ![1, 2, 3].all($p -> $p == 2)",
+            "check if ![1, 2, 3].any($p -> $p > 3)",
+            "check if !false && true",
+            "check if (true || false) && true",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q))",
+            "check if [1, 2, 3].any($p -> $p > 2)",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+### validation for "shadowing"
+
+authorizer code:
+```
+allow if [true].any($p -> [true].all($p -> $p));
+```
+
+revocation ids:
+- `65e4da4fa213559d3b1097424504d2c9daeb28b4db51c49254852b6f57dc55e200f2f977b459f0c35e17c3c06394bfcaf5db7106e23bb2a623f48c4b84649a0b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if !(false && \"x\".intersection(\"x\"))",
+            "check if ![1, 2, 3].all($p -> $p == 2)",
+            "check if ![1, 2, 3].any($p -> $p > 3)",
+            "check if !false && true",
+            "check if (true || false) && true",
+            "check if [1, 2, 3].all($p -> $p > 0)",
+            "check if [1, 2, 3].any($p -> $p > 1 && [3, 4, 5].any($q -> $p == $q))",
+            "check if [1, 2, 3].any($p -> $p > 2)",
+            "check if false || true",
+            "check if true || \"x\".intersection(\"x\")",
+        ],
+    },
+]
+  policies: [
+    "allow if [true].any($p -> [true].all($p -> $p))",
+]
+}
+```
+
+result: `Err(Execution(ShadowedVariable))`
+
+
+------------------------------
+
+## ECDSA secp256r1 signatures: test033_secp256r1.bc
 ### token
 
 authority:

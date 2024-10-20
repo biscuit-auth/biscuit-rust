@@ -1,5 +1,4 @@
 //! main structures to interact with Biscuit tokens
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use builder::{BiscuitBuilder, BlockBuilder};
@@ -77,7 +76,6 @@ pub struct Biscuit {
     pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
     pub(crate) container: SerializedBiscuit,
-    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
 }
 
 impl Biscuit {
@@ -276,7 +274,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_key_to_block_id: HashMap::new(),
         })
     }
 
@@ -299,7 +296,7 @@ impl Biscuit {
         container: SerializedBiscuit,
         mut symbols: SymbolTable,
     ) -> Result<Self, error::Token> {
-        let (authority, blocks, public_key_to_block_id) = container.extract_blocks(&mut symbols)?;
+        let (authority, blocks) = container.extract_blocks(&mut symbols)?;
 
         let root_key_id = container.root_key_id;
 
@@ -309,7 +306,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_key_to_block_id,
         })
     }
 
@@ -350,23 +346,12 @@ impl Biscuit {
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
-        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
         let container = self.container.append(keypair, &block, None)?;
 
         symbols.extend(&block.symbols)?;
         symbols.public_keys.extend(&block.public_keys)?;
 
-        if let Some(index) = block
-            .external_key
-            .as_ref()
-            .and_then(|pk| symbols.public_keys.get(pk))
-        {
-            public_key_to_block_id
-                .entry(index as usize)
-                .or_default()
-                .push(self.block_count() + 1);
-        }
         let deser = schema::Block::decode(
             &container
                 .blocks
@@ -388,7 +373,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_key_to_block_id,
         })
     }
 
@@ -453,29 +437,12 @@ impl Biscuit {
             signature,
         };
 
-        let mut symbols = self.symbols.clone();
-        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
+        let symbols = self.symbols.clone();
         let mut blocks = self.blocks.clone();
 
         let container =
             self.container
                 .append_serialized(&next_keypair, payload, Some(external_signature))?;
-
-        let token_block = proto_block_to_token_block(&block, Some(external_key)).unwrap();
-        for key in &token_block.public_keys.keys {
-            symbols.public_keys.insert_fallible(key)?;
-        }
-
-        if let Some(index) = token_block
-            .external_key
-            .as_ref()
-            .and_then(|pk| symbols.public_keys.get(pk))
-        {
-            public_key_to_block_id
-                .entry(index as usize)
-                .or_default()
-                .push(self.block_count());
-        }
 
         blocks.push(block);
 
@@ -485,7 +452,6 @@ impl Biscuit {
             blocks,
             symbols,
             container,
-            public_key_to_block_id,
         })
     }
 
@@ -545,7 +511,7 @@ impl Biscuit {
     }
 
     pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
-        let mut block = if index == 0 {
+        let block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,
                 self.container
@@ -572,9 +538,6 @@ impl Biscuit {
             .map_err(error::Token::Format)?
         };
 
-        // we have to add the entire list of public keys here because
-        // they are used to validate 3rd party tokens
-        block.symbols.public_keys = self.symbols.public_keys.clone();
         Ok(block)
     }
 }
@@ -642,7 +605,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
         block.symbols.strings(),
         block.version,
         block.context.as_deref().unwrap_or(""),
-        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_else(String::new),
+        block.external_key.as_ref().map(|k| hex::encode(k.to_bytes())).unwrap_or_default(),
         block.public_keys.keys.iter().map(|k | hex::encode(k.to_bytes())).collect::<Vec<_>>(),
         block.scopes,
         facts,
@@ -655,7 +618,7 @@ fn print_block(symbols: &SymbolTable, block: &Block) -> String {
 pub enum Scope {
     Authority,
     Previous,
-    // index of the public key in the token's list
+    // index of the public key in the symbol table
     PublicKey(u64),
 }
 
@@ -771,7 +734,7 @@ mod tests {
         */
 
         let serialized2 = {
-            let biscuit1_deser = Biscuit::from(&serialized1, &root.public()).unwrap();
+            let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new check: can only have read access1
             let mut block2 = BlockBuilder::new();
@@ -827,7 +790,7 @@ mod tests {
         println!("generated biscuit token 3: {} bytes", serialized3.len());
         //panic!();
 
-        let final_token = Biscuit::from(&serialized3, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
             let mut authorizer = final_token.authorizer().unwrap();
@@ -1070,7 +1033,7 @@ mod tests {
         let sealed = biscuit2.seal().unwrap().to_vec().unwrap();
         //println!("biscuit2 sealed ({} bytes):\n{}", sealed.len(), sealed.to_hex(16));
 
-        let biscuit3 = Biscuit::from(&sealed, &root.public()).unwrap();
+        let biscuit3 = Biscuit::from(sealed, root.public()).unwrap();
 
         {
             let mut authorizer = biscuit3.authorizer().unwrap();
@@ -1437,7 +1400,7 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         println!("generated biscuit token 2: {} bytes", serialized2.len());
 
-        let final_token = Biscuit::from(&serialized2, &root.public()).unwrap();
+        let final_token = Biscuit::from(&serialized2, root.public()).unwrap();
         println!("final token:\n{}", final_token);
 
         let mut authorizer = final_token.authorizer().unwrap();

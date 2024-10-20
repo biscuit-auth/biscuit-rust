@@ -5,7 +5,7 @@ use super::builder::{
 };
 use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
-use crate::builder::{CheckKind, Convert};
+use crate::builder::{self, CheckKind, Convert};
 use crate::crypto::PublicKey;
 use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
@@ -87,16 +87,15 @@ impl Authorizer {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
 
-        for (key_id, block_ids) in &token.public_key_to_block_id {
-            let key = token
-                .symbols
-                .public_keys
-                .get_key(*key_id as u64)
-                .ok_or(error::Format::UnknownExternalKey)?;
-            let new_key_id = self.symbols.public_keys.insert(key);
+        for (i, block) in token.container.blocks.iter().enumerate() {
+            if let Some(sig) = block.external_signature.as_ref() {
+                let new_key_id = self.symbols.public_keys.insert(&sig.public_key);
 
-            self.public_key_to_block_id
-                .insert(new_key_id as usize, block_ids.clone());
+                self.public_key_to_block_id
+                    .entry(new_key_id as usize)
+                    .or_default()
+                    .push(i + 1);
+            }
         }
 
         let mut blocks = Vec::new();
@@ -120,7 +119,7 @@ impl Authorizer {
         Ok(())
     }
 
-    /// we need to modify the block loaded from the token, because the authorizer's and th token's symbol table can differ
+    /// we need to modify the block loaded from the token, because the authorizer's and the token's symbol table can differ
     fn load_and_translate_block(
         &mut self,
         block: &mut Block,
@@ -131,13 +130,16 @@ impl Authorizer {
         let block_symbols = if i == 0 || block.external_key.is_none() {
             token_symbols.clone()
         } else {
-            let mut symbols = block.symbols.clone();
-            symbols.public_keys = token_symbols.public_keys.clone();
-            symbols
+            block.symbols.clone()
         };
 
         let mut block_origin = Origin::default();
         block_origin.insert(i);
+
+        for scope in block.scopes.iter_mut() {
+            *scope = builder::Scope::convert_from(scope, &block_symbols)
+                .map(|s| s.convert(&mut self.symbols))?;
+        }
 
         let block_trusted_origins = TrustedOrigins::from_scopes(
             &block.scopes,
@@ -184,26 +186,11 @@ impl Authorizer {
     /// you can use this to save a set of policies and load them quickly before
     /// verification. This will not store data obtained or generated from a token.
     pub fn save(&self) -> Result<AuthorizerPolicies, error::Token> {
-        let facts = self
-            .authorizer_block_builder
-            .facts
-            .iter()
-            .cloned()
-            .collect();
+        let facts = self.authorizer_block_builder.facts.to_vec();
 
-        let rules = self
-            .authorizer_block_builder
-            .rules
-            .iter()
-            .cloned()
-            .collect();
+        let rules = self.authorizer_block_builder.rules.to_vec();
 
-        let checks = self
-            .authorizer_block_builder
-            .checks
-            .iter()
-            .cloned()
-            .collect();
+        let checks = self.authorizer_block_builder.checks.to_vec();
 
         Ok(AuthorizerPolicies {
             version: crate::token::MAX_SCHEMA_VERSION,
@@ -843,7 +830,7 @@ impl Authorizer {
                     errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
                         block_id: 0u32,
                         check_id: j as u32,
-                        rule: self.symbols.print_check(&check),
+                        rule: self.symbols.print_check(check),
                     }));
                 }
             }
@@ -882,7 +869,7 @@ impl Authorizer {
         }
 
         if let Some(blocks) = self.blocks.as_ref() {
-            for (i, block) in (&blocks[1..]).iter().enumerate() {
+            for (i, block) in (blocks[1..]).iter().enumerate() {
                 let block_trusted_origins = TrustedOrigins::from_scopes(
                     &block.scopes,
                     &TrustedOrigins::default(),
@@ -942,7 +929,7 @@ impl Authorizer {
                         errors.push(error::FailedCheck::Block(error::FailedBlockCheck {
                             block_id: (i + 1) as u32,
                             check_id: j as u32,
-                            rule: self.symbols.print_check(&check),
+                            rule: self.symbols.print_check(check),
                         }));
                     }
                 }
@@ -1012,21 +999,21 @@ impl Authorizer {
             let _ = writeln!(f, "{fact};");
         }
         if !facts.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for rule in &rules {
             let _ = writeln!(f, "{rule};");
         }
         if !rules.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for check in &checks {
             let _ = writeln!(f, "{check};");
         }
         if !checks.is_empty() {
-            let _ = writeln!(f, "");
+            let _ = writeln!(f);
         }
 
         for policy in &policies {

@@ -153,6 +153,8 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, heterogeneous_equal(&target, &root, test));
 
+    add_test_result(&mut results, closures(&target, &root, test));
+
     add_test_result(&mut results, secp256r1(&target, &root, test));
 
     if json {
@@ -1280,12 +1282,6 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if true;
         //boolean false and negation
         check if !false;
-        //boolean and
-        check if !false && true;
-        //boolean or
-        check if false || true;
-        //boolean parens
-        check if (true || false) && true;
         // boolean strict equality
         check if true === true;
         check if false === false;
@@ -1306,7 +1302,7 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if 1 + 2 * 3 - 4 /2 === 5;
 
         // string prefix and suffix
-        check if "hello world".starts_with("hello") && "hello world".ends_with("world");
+        check if "hello world".starts_with("hello"), "hello world".ends_with("world");
         // string regex
         check if "aaabde".matches("a*c?.e");
         // string contains
@@ -1912,12 +1908,9 @@ fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-          // integer overflows must abort evaluating the whole expression
-          // todo update this test when integer overflows abort
-          // the whole datalog evaluation
-          check if true || 10000000000 * 10000000000 != 0;
-          check if true || 9223372036854775807 + 1 != 0;
-          check if true || -9223372036854775808 - 1 != 0;
+          check if 10000000000 * 10000000000 != 0;
+          check if 9223372036854775807 + 1 != 0;
+          check if -9223372036854775808 - 1 != 0;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2098,10 +2091,69 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
     }
 }
 
+fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test laziness and closures".to_string();
+    let filename = "test032_laziness_closures".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        // boolean and
+        check if !false && true;
+        // boolean or
+        check if false || true;
+        // boolean parens
+        check if (true || false) && true;
+        // boolean and laziness
+        check if !(false && "x".intersection("x"));
+        // boolean or laziness
+        check if true || "x".intersection("x");
+        // all
+        check if [1,2,3].all($p -> $p > 0);
+        // all
+        check if ![1,2,3].all($p -> $p == 2);
+        // any
+        check if [1,2,3].any($p -> $p > 2);
+        // any
+        check if ![1,2,3].any($p -> $p > 3);
+        // nested closures
+        check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
+        "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+    validations.insert(
+        "shadowing".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "allow if [true].any($p -> [true].all($p -> $p))",
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
 fn secp256r1(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "ECDSA secp256r1 signatures".to_string();
-    let filename = "test032_secp256r1".to_string();
+    let filename = "test033_secp256r1".to_string();
     let token;
 
     let keypair2 = KeyPair::new_with_rng(Algorithm::Secp256r1, &mut rng);

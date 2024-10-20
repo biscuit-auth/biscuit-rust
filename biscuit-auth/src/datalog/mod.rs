@@ -137,12 +137,12 @@ impl Rule {
 
         CombineIt::new(variables, &self.body, facts, symbols)
         .map(move |(origin, variables)| {
-                    let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+                    let mut temporary_symbols = TemporarySymbolTable::new(symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
                             Ok(Term::Bool(true)) => {}
                             Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
-                            Ok(_) => return Err(error::Expression::InvalidType.into()),
+                            Ok(_) => return Err(error::Expression::InvalidType),
                             Err(e) => {
                                 //println!("expr returned {:?}", res);
                                 return Err(e);
@@ -209,7 +209,7 @@ impl Rule {
         for (_, variables) in CombineIt::new(variables, &self.body, fact_it, symbols) {
             found = true;
 
-            let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+            let mut temporary_symbols = TemporarySymbolTable::new(symbols);
             for e in self.expressions.iter() {
                 match e.evaluate(&variables, &mut temporary_symbols) {
                     Ok(Term::Bool(true)) => {}
@@ -780,7 +780,7 @@ impl FactSet {
             .flatten()
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
@@ -834,7 +834,7 @@ impl RuleSet {
         }
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
@@ -878,7 +878,7 @@ impl SchemaVersion {
             }
         } else if version < 5 && self.contains_v5 {
             Err(error::Format::DeserializationError(
-                "v5 blocks must not have reject if".to_string(),
+                "v3 or v4 blocks must not have v5 features".to_string(),
             ))
         } else {
             Ok(())
@@ -918,7 +918,7 @@ pub fn get_schema_version(
                 .any(|query| contains_v4_op(&query.expressions))
         });
 
-    // null
+    // null, heterogeneous equals, closures
     if !contains_v5 {
         contains_v5 = rules.iter().any(|rule| {
             contains_v5_predicate(&rule.head)
@@ -958,7 +958,7 @@ pub fn contains_v4_op(expressions: &[Expression]) -> bool {
                     _ => return false,
                 }
             }
-            return false;
+            false
         })
     })
 }
@@ -967,10 +967,16 @@ fn contains_v5_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v5_term(term),
-            Op::Binary(binary) => match binary {
-                Binary::HeterogeneousEqual | Binary::HeterogeneousNotEqual => true,
-                _ => false,
-            },
+            Op::Closure(_, _) => true,
+            Op::Binary(binary) => matches!(
+                binary,
+                Binary::HeterogeneousEqual
+                    | Binary::HeterogeneousNotEqual
+                    | Binary::LazyAnd
+                    | Binary::LazyOr
+                    | Binary::All
+                    | Binary::Any
+            ),
             _ => false,
         })
     })
@@ -1049,10 +1055,14 @@ mod tests {
         println!("adding r2: {}", syms.print_rule(&r2));
         w.add_rule(0, &[0].iter().collect(), r2);
 
-        w.run_with_limits(&syms, RunLimits {
-             max_time: Duration::from_secs(10),
-            ..Default::default()
-        }).unwrap();
+        w.run_with_limits(
+            &syms,
+            RunLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         println!("parents:");
         let res = w
@@ -1658,7 +1668,7 @@ mod tests {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
 
         let res = w
             .query_rule(
@@ -1681,7 +1691,7 @@ mod tests {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
     }
 
     #[test]
@@ -1777,6 +1787,6 @@ mod tests {
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
     }
 }

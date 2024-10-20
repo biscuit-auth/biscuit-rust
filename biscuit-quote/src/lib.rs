@@ -6,7 +6,7 @@ use biscuit_parser::{
     parser::{parse_block_source, parse_source},
 };
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{abort_call_site, proc_macro_error};
+use proc_macro_error2::{abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -511,7 +511,7 @@ pub fn rule(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // here. The block management happens only at compile-time, so it won't
     // affect runtime performance.
     let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
-    let builder = Builder::block_source(ty, None, &datalog, parameters)
+    let builder = Builder::block_source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut rule_item = if let Some(r) = builder.rules.first() {
@@ -579,7 +579,7 @@ pub fn fact(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // here. The block management happens only at compile-time, so it won't
     // affect runtime performance.
     let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
-    let builder = Builder::block_source(ty, None, &datalog, parameters)
+    let builder = Builder::block_source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut fact_item = if let Some(f) = builder.facts.first() {
@@ -647,7 +647,7 @@ pub fn check(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // here. The block management happens only at compile-time, so it won't
     // affect runtime performance.
     let ty = syn::parse_quote!(::biscuit_auth::builder::BlockBuilder);
-    let builder = Builder::block_source(ty, None, &datalog, parameters)
+    let builder = Builder::block_source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut check_item = if let Some(c) = builder.checks.first() {
@@ -715,7 +715,7 @@ pub fn policy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // here. The block management happens only at compile-time, so it won't
     // affect runtime performance.
     let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
-    let builder = Builder::source(ty, None, &datalog, parameters)
+    let builder = Builder::source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
     let mut policy_item = if let Some(p) = builder.policies.first() {

@@ -17,7 +17,7 @@ fn main() {
         biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
-    let token = biscuit_auth::Biscuit::from(&data[..], &root).unwrap();
+    let token = biscuit_auth::Biscuit::from(&data[..], root).unwrap();
 
     println!("Token content:");
     for i in 0..token.block_count() {
