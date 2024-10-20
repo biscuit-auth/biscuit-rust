@@ -735,11 +735,14 @@ fn name(i: &str) -> IResult<&str, &str, Error> {
 fn parameter_name(i: &str) -> IResult<&str, &str, Error> {
     let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
 
-    reduce(
+    error(
         recognize(preceded(
             satisfy(|c: char| is_alphabetic(c as u8)),
-            take_while1(is_name_char),
+            take_while(is_name_char),
         )),
+        |_| {
+            "invalid parameter name: it must start with an alphabetic character, followed by alphanumeric characters, underscores or colons".to_string()
+        },
         " ,:(\n;",
     )(i)
 }
@@ -1348,6 +1351,17 @@ mod tests {
             super::parameter("{param}"),
             Ok(("", builder::parameter("param")))
         );
+
+        assert_eq!(
+            super::parameter("{1param}"),
+            Err(nom::Err::Error(crate::parser::Error {
+                input: "1param}",
+                code: nom::error::ErrorKind::Satisfy,
+                message:  Some("invalid parameter name: it must start with an alphabetic character, followed by alphanumeric characters, underscores or colons".to_string())
+            }))
+        );
+
+        assert_eq!(super::parameter("{p}"), Ok(("", builder::parameter("p"))));
     }
 
     #[test]
