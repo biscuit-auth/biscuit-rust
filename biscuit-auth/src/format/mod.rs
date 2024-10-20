@@ -26,6 +26,7 @@ pub mod convert;
 
 use self::convert::*;
 
+pub(crate) const THIRD_PARTY_SIGNATURE_VERSION: u32 = 1;
 /// Intermediate structure for token serialization
 ///
 /// This structure contains the blocks serialized to byte arrays. Those arrays
@@ -43,7 +44,10 @@ impl SerializedBiscuit {
     where
         KP: RootKeyProvider,
     {
-        let deser = SerializedBiscuit::deserialize(slice)?;
+        let deser = SerializedBiscuit::deserialize(
+            slice,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let root = key_provider.choose(deser.root_key_id)?;
         deser.verify(&root)?;
@@ -51,7 +55,26 @@ impl SerializedBiscuit {
         Ok(deser)
     }
 
-    pub(crate) fn deserialize(slice: &[u8]) -> Result<Self, error::Format> {
+    pub(crate) fn unsafe_from_slice<KP>(
+        slice: &[u8],
+        key_provider: KP,
+    ) -> Result<Self, error::Format>
+    where
+        KP: RootKeyProvider,
+    {
+        let deser =
+            SerializedBiscuit::deserialize(slice, ThirdPartyVerificationMode::UnsafeLegacy)?;
+
+        let root = key_provider.choose(deser.root_key_id)?;
+        deser.verify_inner(&root, ThirdPartyVerificationMode::UnsafeLegacy)?;
+
+        Ok(deser)
+    }
+
+    pub(crate) fn deserialize(
+        slice: &[u8],
+        verification_mode: ThirdPartyVerificationMode,
+    ) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
@@ -75,6 +98,7 @@ impl SerializedBiscuit {
             next_key,
             signature,
             external_signature: None,
+            version: data.authority.version.unwrap_or_default(),
         };
 
         let mut blocks = Vec::new();
@@ -88,6 +112,14 @@ impl SerializedBiscuit {
             let signature = ed25519_dalek::Signature::from_bytes(&bytes);
 
             let external_signature = if let Some(ex) = block.external_signature.as_ref() {
+                if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
+                    if block.version != Some(THIRD_PARTY_SIGNATURE_VERSION) {
+                        return Err(error::Format::DeserializationError(
+                            "Unsupported third party block version".to_string(),
+                        ));
+                    }
+                }
+
                 let public_key = PublicKey::from_proto(&ex.public_key)?;
 
                 let bytes: [u8; 64] = (&ex.signature[..])
@@ -109,6 +141,7 @@ impl SerializedBiscuit {
                 next_key,
                 signature,
                 external_signature,
+                version: block.version.unwrap_or_default(),
             });
         }
 
@@ -235,7 +268,7 @@ impl SerializedBiscuit {
                     }
                 }),
                 version: if block.external_signature.is_some() {
-                    Some(1)
+                    Some(THIRD_PARTY_SIGNATURE_VERSION)
                 } else {
                     None
                 },
@@ -299,6 +332,7 @@ impl SerializedBiscuit {
                 next_key: next_keypair.public(),
                 signature,
                 external_signature: None,
+                version: THIRD_PARTY_SIGNATURE_VERSION,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -333,6 +367,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
+            version: THIRD_PARTY_SIGNATURE_VERSION,
         });
 
         Ok(SerializedBiscuit {
@@ -366,6 +401,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
+            version: THIRD_PARTY_SIGNATURE_VERSION,
         });
 
         Ok(SerializedBiscuit {
@@ -378,16 +414,41 @@ impl SerializedBiscuit {
 
     /// checks the signature on a deserialized token
     pub fn verify(&self, root: &PublicKey) -> Result<(), error::Format> {
+        self.verify_inner(root, ThirdPartyVerificationMode::PreviousSignatureHashing)
+    }
+
+    pub(crate) fn verify_inner(
+        &self,
+        root: &PublicKey,
+        verification_mode: ThirdPartyVerificationMode,
+    ) -> Result<(), error::Format> {
         //FIXME: try batched signature verification
         let mut current_pub = root;
         let mut previous_signature = None;
 
-        crypto::verify_block_signature(&self.authority, current_pub, previous_signature)?;
+        crypto::verify_block_signature(
+            &self.authority,
+            current_pub,
+            previous_signature,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
         current_pub = &self.authority.next_key;
         previous_signature = Some(&self.authority.signature);
 
         for block in &self.blocks {
-            crypto::verify_block_signature(block, current_pub, previous_signature)?;
+            let verification_mode = match (block.version, verification_mode) {
+                (0, ThirdPartyVerificationMode::UnsafeLegacy) => {
+                    ThirdPartyVerificationMode::UnsafeLegacy
+                }
+                _ => ThirdPartyVerificationMode::PreviousSignatureHashing,
+            };
+
+            crypto::verify_block_signature(
+                block,
+                current_pub,
+                previous_signature,
+                verification_mode,
+            )?;
             current_pub = &block.next_key;
             previous_signature = Some(&block.signature);
         }
@@ -460,6 +521,12 @@ impl SerializedBiscuit {
             proof: TokenNext::Seal(signature),
         })
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ThirdPartyVerificationMode {
+    UnsafeLegacy,
+    PreviousSignatureHashing,
 }
 
 #[cfg(test)]

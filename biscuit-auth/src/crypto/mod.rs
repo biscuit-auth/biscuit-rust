@@ -7,6 +7,7 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
+use crate::format::ThirdPartyVerificationMode;
 use crate::{error::Format, format::schema};
 
 use super::error;
@@ -211,6 +212,7 @@ pub struct Block {
     pub(crate) next_key: PublicKey,
     pub signature: ed25519_dalek::Signature,
     pub external_signature: Option<ExternalSignature>,
+    pub version: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -256,6 +258,7 @@ pub fn verify_block_signature(
     block: &Block,
     public_key: &PublicKey,
     previous_signature: Option<&Signature>,
+    verification_mode: ThirdPartyVerificationMode,
 ) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
@@ -266,29 +269,39 @@ pub fn verify_block_signature(
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
 
+    println!("will verify block with key {:?}", public_key);
     public_key
         .0
         .verify_strict(&to_verify, &block.signature)
         .map_err(|s| s.to_string())
         .map_err(error::Signature::InvalidSignature)
         .map_err(error::Format::Signature)?;
+    println!("block signature verified");
 
     if let Some(external_signature) = block.external_signature.as_ref() {
         let mut to_verify = block.data.to_vec();
         to_verify
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&public_key.to_bytes());
-        let previous_signature = match previous_signature {
-            Some(s) => s,
-            None => {
-                return Err(error::Format::Signature(
-                    error::Signature::InvalidSignature(
-                        "the first block must not contain an external signature".to_string(),
-                    ),
-                ))
-            }
-        };
-        to_verify.extend(&previous_signature.to_bytes());
+
+        println!(
+            "verifying external signature in mode {:?}",
+            verification_mode
+        );
+        if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
+            let previous_signature = match previous_signature {
+                Some(s) => s,
+                None => {
+                    return Err(error::Format::Signature(
+                        error::Signature::InvalidSignature(
+                            "the authority block must not contain an external signature"
+                                .to_string(),
+                        ),
+                    ))
+                }
+            };
+            to_verify.extend(&previous_signature.to_bytes());
+        }
 
         external_signature
             .public_key
