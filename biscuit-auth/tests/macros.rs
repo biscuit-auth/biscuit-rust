@@ -94,6 +94,7 @@ fn biscuit_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
 
@@ -156,6 +157,7 @@ fn rule_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();
@@ -185,6 +187,7 @@ fn check_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();
@@ -205,6 +208,7 @@ fn policy_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();

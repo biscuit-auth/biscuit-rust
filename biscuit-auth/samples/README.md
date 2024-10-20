@@ -141,7 +141,7 @@ check if resource($0), operation("read"), right($0, "read");
 
 ### validation
 
-result: `Err(Format(InvalidSignatureSize(16)))`
+result: `Err(Format(BlockSignatureDeserializationError("block signature deserialization error: [117, 149, 161, 18, 161, 235, 91, 129, 166, 227, 152, 133, 46, 97, 24, 183]")))`
 
 
 ------------------------------
@@ -1835,7 +1835,7 @@ allow if true;
 
 revocation ids:
 - `470e4bf7aa2a01ab39c98150bd06aa15b4aa5d86509044a8809a8634cd8cf2b42269a51a774b65d10bac9369d013070b00187925196a8e680108473f11cf8f03`
-- `342167bc54bc642b6718a276875e55b6d39e9b21e4ce13b926a3d398b6c057fc436385bf4c817a16f9ecdf0b0d950e8b8258a20aeb3fd8896c5e9c1f0a53da03`
+- `93a7315ab1272da9eeef015f6fecbc9ac96fe4660e6204bf64ea2105ebe309e9c9cadc0a26c5604f13910fae3f2cd0800756afb6b6b208bf77adeb1ab2f42405`
 
 authorizer world:
 ```
@@ -2097,9 +2097,9 @@ allow if true;
 
 revocation ids:
 - `3771cefe71beb21ead35a59c8116ee82627a5717c0295f35980662abccb159fe1b37848cb1818e548656bd4fd882d0094a2daab631c76b2b72e3a093914bfe04`
-- `6528db2c9a561ada9086268549a600a8a52ff434ea8183812623eec0e9b6c5d3c41ab7868808623021d92294d583afdf92f4354bcdaa1bc50453e1b89afd630d`
-- `5d5679fe69bfe74b7919323515e9ecba9d01422b16be9341b57f88e695b2bb0bd7966b781001d2b9e00ee618fdc239c96e17e32cb379f13f12d6bd7b1b47ad04`
-- `c37bf24c063f0310eccab8864e48dbeffcdd7240b4f8d1e01eba4fc703e6c9082b845bb55543b10f008dc7f4e78540411912ac1f36fa2aa90011dca40f323b09`
+- `daa32c7e4e45bee454ce3f56dac2eb9fbe9683f2e06d85a75fc017626913b7cae6384758d026b43a3be05bc46f69cc2ba5224f462e7d22d989d4d774997ad903`
+- `807401d99b9e29e70750b13038aa72ec3ecad8dcbf9b7c2fbcc8eaa0cb384da045c135445bea084cf1188825b6d85559f0dcc8e4a728553dfa19b5030fbb450d`
+- `c28c64621b575b12a4959093b7831f2a73a96ffd13a44330b465f4d895db761761a4d60b8f2d8fc8771e0ff9eda3e18a13a1c88d2d790464a4f3f8ec2c67ef0f`
 - `3f675d6c364e06405d4868c904e40f3d81c32b083d91586db814d4cb4bf536b4ba209d82f11b4cb6da293b60b20d6122fc3e0e08e80c381dee83edd848211900`
 
 authorizer world:
@@ -2865,4 +2865,89 @@ World {
 ```
 
 result: `Err(Execution(ShadowedVariable))`
+
+
+------------------------------
+
+## ECDSA secp256r1 signatures: test033_secp256r1.bc
+### token
+
+authority:
+symbols: ["file1", "file2"]
+
+public keys: []
+
+```
+right("file1", "read");
+right("file2", "read");
+right("file1", "write");
+```
+
+1:
+symbols: ["0"]
+
+public keys: []
+
+```
+check if resource($0), operation("read"), right($0, "read");
+```
+
+### validation
+
+authorizer code:
+```
+resource("file1");
+operation("read");
+
+allow if true;
+```
+
+revocation ids:
+- `760785de30d7348e9c847aab8b3bdad6a0d463f4f50ed9667aade563e9112ee6d2f589630dd7553c2eced2a57edf3636d5c874b35df15120c62fddcbdbd2de09`
+- `30440220039667c7a4d964e4b449289dc8fd206d7aa0e77eb701a9253b3307d32c177fa8022023f7523c143c5fb55ee4cafe49804702ef05a70883ebf42185b54bd36a7e7cd4`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            None,
+        },
+        facts: [
+            "operation(\"read\")",
+            "resource(\"file1\")",
+        ],
+    },
+    Facts {
+        origin: {
+            Some(
+                0,
+            ),
+        },
+        facts: [
+            "right(\"file1\", \"read\")",
+            "right(\"file1\", \"write\")",
+            "right(\"file2\", \"read\")",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            1,
+        ),
+        checks: [
+            "check if resource($0), operation(\"read\"), right($0, \"read\")",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
 

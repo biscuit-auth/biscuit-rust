@@ -9,6 +9,7 @@ use crate::datalog::*;
 use crate::error;
 use crate::token::public_keys::PublicKeys;
 use crate::token::Scope;
+use crate::token::THIRD_PARTY_BLOCK_VERSION;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
 use crate::token::{MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
 
@@ -86,7 +87,7 @@ pub fn proto_block_to_token_block(
         }
     }
 
-    if version != MAX_SCHEMA_VERSION && external_key.is_some() {
+    if version < THIRD_PARTY_BLOCK_VERSION && external_key.is_some() {
         return Err(error::Format::DeserializationError(
             "deserialization error: third-party blocks must be v5".to_string(),
         ));
