@@ -7,6 +7,7 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
+use crate::format::ThirdPartyVerificationMode;
 use crate::{error::Format, format::schema};
 
 use super::error;
@@ -211,6 +212,7 @@ pub struct Block {
     pub(crate) next_key: PublicKey,
     pub signature: ed25519_dalek::Signature,
     pub external_signature: Option<ExternalSignature>,
+    pub version: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -252,7 +254,12 @@ pub fn sign(
     Ok(signature)
 }
 
-pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
+pub fn verify_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+    previous_signature: Option<&Signature>,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
     let mut to_verify = block.data.to_vec();
 
@@ -275,6 +282,21 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&public_key.to_bytes());
 
+        if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
+            let previous_signature = match previous_signature {
+                Some(s) => s,
+                None => {
+                    return Err(error::Format::Signature(
+                        error::Signature::InvalidSignature(
+                            "the authority block must not contain an external signature"
+                                .to_string(),
+                        ),
+                    ))
+                }
+            };
+            to_verify.extend(&previous_signature.to_bytes());
+        }
+
         external_signature
             .public_key
             .0
@@ -285,101 +307,6 @@ pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(
     }
 
     Ok(())
-}
-
-impl Token {
-    #[allow(dead_code)]
-    pub fn new<T: RngCore + CryptoRng>(
-        keypair: &KeyPair,
-        next_key: &KeyPair,
-        message: &[u8],
-    ) -> Result<Self, error::Token> {
-        let signature = sign(keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature: None,
-        };
-
-        Ok(Token {
-            root: keypair.public(),
-            blocks: vec![block],
-            next: TokenNext::Secret(next_key.private()),
-        })
-    }
-
-    #[allow(dead_code)]
-    pub fn append<T: RngCore + CryptoRng>(
-        &self,
-        next_key: &KeyPair,
-        message: &[u8],
-        external_signature: Option<ExternalSignature>,
-    ) -> Result<Self, error::Token> {
-        let keypair = match self.next.keypair() {
-            Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
-            other => other,
-        }?;
-
-        let signature = sign(&keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature,
-        };
-
-        let mut t = Token {
-            root: self.root,
-            blocks: self.blocks.clone(),
-            next: TokenNext::Secret(next_key.private()),
-        };
-
-        t.blocks.push(block);
-
-        Ok(t)
-    }
-
-    #[allow(dead_code)]
-    pub fn verify(&self, root: PublicKey) -> Result<(), error::Token> {
-        //FIXME: try batched signature verification
-        let mut current_pub = root;
-
-        for block in &self.blocks {
-            verify_block_signature(block, &current_pub)?;
-            current_pub = block.next_key;
-        }
-
-        match &self.next {
-            TokenNext::Secret(private) => {
-                if current_pub != private.public() {
-                    return Err(error::Format::Signature(error::Signature::InvalidSignature(
-                        "the last public key does not match the private key".to_string(),
-                    ))
-                    .into());
-                }
-            }
-            TokenNext::Seal(signature) => {
-                //FIXME: replace with SHA512 hashing
-                let mut to_verify = Vec::new();
-                for block in &self.blocks {
-                    to_verify.extend(&block.data);
-                    to_verify.extend(&block.next_key.to_bytes());
-                }
-
-                current_pub
-                    .0
-                    .verify_strict(&to_verify, signature)
-                    .map_err(|s| s.to_string())
-                    .map_err(error::Signature::InvalidSignature)
-                    .map_err(error::Format::Signature)?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl TokenNext {
