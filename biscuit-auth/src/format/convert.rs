@@ -86,6 +86,12 @@ pub fn proto_block_to_token_block(
         }
     }
 
+    if version != MAX_SCHEMA_VERSION && external_key.is_some() {
+        return Err(error::Format::DeserializationError(
+            "deserialization error: third-party blocks must be v5".to_string(),
+        ));
+    }
+
     for check in input.checks_v2.iter() {
         checks.push(v2::proto_check_to_token_check(check, version)?);
     }
@@ -95,12 +101,12 @@ pub fn proto_block_to_token_block(
 
     let context = input.context.clone();
 
-    let symbols = SymbolTable::from(input.symbols.clone())?;
     let mut public_keys = PublicKeys::new();
-
     for pk in &input.public_keys {
         public_keys.insert_fallible(&PublicKey::from_proto(pk)?)?;
     }
+    let symbols =
+        SymbolTable::from_symbols_and_public_keys(input.symbols.clone(), public_keys.keys.clone())?;
 
     let detected_schema_version = get_schema_version(&facts, &rules, &checks, &scopes);
 

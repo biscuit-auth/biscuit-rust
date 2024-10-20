@@ -14,7 +14,6 @@ use super::token::Block;
 use crate::crypto::ExternalSignature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
-use std::collections::HashMap;
 use std::convert::TryInto;
 
 /// Structures generated from the Protobuf schema
@@ -143,14 +142,7 @@ impl SerializedBiscuit {
     pub(crate) fn extract_blocks(
         &self,
         symbols: &mut SymbolTable,
-    ) -> Result<
-        (
-            schema::Block,
-            Vec<schema::Block>,
-            HashMap<usize, Vec<usize>>,
-        ),
-        error::Token,
-    > {
+    ) -> Result<(schema::Block, Vec<schema::Block>), error::Token> {
         let mut block_external_keys = Vec::new();
 
         let authority = schema::Block::decode(&self.authority.data[..]).map_err(|e| {
@@ -182,34 +174,21 @@ impl SerializedBiscuit {
             })?;
 
             if let Some(external_signature) = &block.external_signature {
-                symbols.public_keys.insert(&external_signature.public_key);
                 block_external_keys.push(Some(external_signature.public_key));
             } else {
                 block_external_keys.push(None);
                 symbols.extend(&SymbolTable::from(deser.symbols.clone())?)?;
-            }
-
-            for pk in &deser.public_keys {
-                symbols
-                    .public_keys
-                    .insert_fallible(&PublicKey::from_proto(pk)?)?;
+                for pk in &deser.public_keys {
+                    symbols
+                        .public_keys
+                        .insert_fallible(&PublicKey::from_proto(pk)?)?;
+                }
             }
 
             blocks.push(deser);
         }
 
-        let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (index, opt_key) in block_external_keys.into_iter().enumerate() {
-            if let Some(key) = opt_key {
-                if let Some(key_index) = symbols.public_keys.get(&key) {
-                    public_key_to_block_id
-                        .entry(key_index as usize)
-                        .or_default()
-                        .push(index);
-                }
-            }
-        }
-        Ok((authority, blocks, public_key_to_block_id))
+        Ok((authority, blocks))
     }
 
     /// serializes the token
