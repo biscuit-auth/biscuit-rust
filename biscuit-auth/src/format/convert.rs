@@ -10,7 +10,7 @@ use crate::error;
 use crate::token::public_keys::PublicKeys;
 use crate::token::Scope;
 use crate::token::{authorizer::AuthorizerPolicies, Block};
-use crate::token::{MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
+use crate::token::{DATALOG_3_1, DATALOG_3_2, DATALOG_3_3, MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION};
 
 pub fn token_block_to_proto_block(input: &Block) -> schema::Block {
     schema::Block {
@@ -73,22 +73,25 @@ pub fn proto_block_to_token_block(
 
     if version < MAX_SCHEMA_VERSION {
         for c in input.checks_v2.iter() {
-            if version == MIN_SCHEMA_VERSION && c.kind.is_some() {
+            if version < DATALOG_3_1 && c.kind.is_some() {
                 return Err(error::Format::DeserializationError(
-                    "deserialization error: v3 blocks must not contain a check kind".to_string(),
+                    "deserialization error: check kinds are only supported on datalog v3.1+ blocks"
+                        .to_string(),
                 ));
-            } else if c.kind == Some(schema::check_v2::Kind::Reject as i32) {
+            } else if version < DATALOG_3_3 && c.kind == Some(schema::check_v2::Kind::Reject as i32)
+            {
                 return Err(error::Format::DeserializationError(
-                    "deserialization error: v4 blocks must not contain reject if checks"
+                    "deserialization error: reject if is only supported in datalog v3.3+"
                         .to_string(),
                 ));
             }
         }
     }
 
-    if version != MAX_SCHEMA_VERSION && external_key.is_some() {
+    if version < DATALOG_3_2 && external_key.is_some() {
         return Err(error::Format::DeserializationError(
-            "deserialization error: third-party blocks must be v5".to_string(),
+            "deserialization error: third-party blocks are only supported in datalog v3.2+"
+                .to_string(),
         ));
     }
 
@@ -319,7 +322,7 @@ pub mod v2 {
     use crate::error;
     use crate::format::schema::Empty;
     use crate::token::Scope;
-    use crate::token::MIN_SCHEMA_VERSION;
+    use crate::token::DATALOG_3_1;
     use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
@@ -456,9 +459,9 @@ pub mod v2 {
             expressions.push(proto_expression_to_token_expression(c)?);
         }
 
-        if version == MIN_SCHEMA_VERSION && !input.scope.is_empty() {
+        if version < DATALOG_3_1 && !input.scope.is_empty() {
             return Err(error::Format::DeserializationError(
-                "deserialization error: v3 blocks must not have scopes".to_string(),
+                "deserialization error: scopes are only supported in datalog v3.1+".to_string(),
             ));
         }
 

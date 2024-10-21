@@ -88,7 +88,7 @@ impl ThirdPartyRequest {
     ) -> Result<ThirdPartyBlock, error::Token> {
         let symbols = SymbolTable::new();
         let mut block = block_builder.build(symbols);
-        block.version = max(super::THIRD_PARTY_BLOCK_VERSION, block.version);
+        block.version = max(super::DATALOG_3_2, block.version);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)
