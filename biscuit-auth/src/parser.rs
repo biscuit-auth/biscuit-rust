@@ -383,7 +383,11 @@ mod tests {
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
         let result = e
-            .evaluate(&h, &mut TemporarySymbolTable::new(&syms))
+            .evaluate(
+                &h,
+                &mut TemporarySymbolTable::new(&syms),
+                &Default::default(),
+            )
             .unwrap();
         println!("evaluates to: {:?}", result);
 
@@ -414,7 +418,11 @@ mod tests {
         println!("print: {}", e.print(&syms).unwrap());
         let h = HashMap::new();
         let result = e
-            .evaluate(&h, &mut TemporarySymbolTable::new(&syms))
+            .evaluate(
+                &h,
+                &mut TemporarySymbolTable::new(&syms),
+                &Default::default(),
+            )
             .unwrap();
         println!("evaluates to: {:?}", result);
 

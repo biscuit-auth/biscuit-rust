@@ -188,11 +188,28 @@ pub enum Op {
     Closure(Vec<String>, Vec<Op>),
 }
 
+impl Op {
+    fn collect_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Op::Value(Term::Parameter(ref name)) => {
+                parameters.insert(name.to_owned(), None);
+            }
+            Op::Closure(_, ops) => {
+                for op in ops {
+                    op.collect_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Negate,
     Parens,
     Length,
+    Ffi(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -224,6 +241,7 @@ pub enum Binary {
     LazyOr,
     All,
     Any,
+    Ffi(String),
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -250,6 +268,7 @@ impl ToTokens for Unary {
             Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
             Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
+            Unary::Ffi(name) => quote! {::biscuit_auth::datalog::Unary::Ffi(#name.to_string()) },
         });
     }
 }
@@ -289,6 +308,7 @@ impl ToTokens for Binary {
             Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
             Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
             Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
+            Binary::Ffi(name) => quote! {::biscuit_auth::datalog::Binary::Ffi(#name.to_string()) },
         });
     }
 }
@@ -332,9 +352,7 @@ impl Rule {
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
-                }
+                op.collect_parameters(&mut parameters);
             }
         }
 
