@@ -32,7 +32,7 @@ pub use third_party::*;
 pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// maximum supported version of the serialization format
 pub const MAX_SCHEMA_VERSION: u32 = 6;
-/// starting version for datalog 3.1 features (check all, binary operators, …)
+/// starting version for datalog 3.1 features (check all, bitwise operators, !=, …)
 pub const DATALOG_3_1: u32 = 4;
 /// starting version for 3rd party blocks (datalog 3.2)
 pub const DATALOG_3_2: u32 = 5;
