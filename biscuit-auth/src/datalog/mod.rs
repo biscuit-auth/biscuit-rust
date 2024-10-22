@@ -978,7 +978,7 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v3_3_term(term),
             Op::Closure(_, _) => true,
-            Op::Unary(Unary::TypeOf) => true,
+            Op::Unary(unary) => matches!(unary, Unary::TypeOf | Unary::Ffi(_)),
             Op::Binary(binary) => matches!(
                 binary,
                 Binary::HeterogeneousEqual
@@ -987,8 +987,8 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
                     | Binary::LazyOr
                     | Binary::All
                     | Binary::Any
+                    | Binary::Ffi(_)
             ),
-            _ => false,
         })
     })
 }
