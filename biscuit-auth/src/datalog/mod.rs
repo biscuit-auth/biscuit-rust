@@ -921,19 +921,20 @@ pub fn get_schema_version(
     // null, heterogeneous equals, closures
     if !contains_v3_3 {
         contains_v3_3 = rules.iter().any(|rule| {
-            contains_v5_predicate(&rule.head)
-                || rule.body.iter().any(contains_v5_predicate)
-                || contains_v5_op(&rule.expressions)
+            contains_v3_3_predicate(&rule.head)
+                || rule.body.iter().any(contains_v3_3_predicate)
+                || contains_v3_3_op(&rule.expressions)
         }) || checks.iter().any(|check| {
             check.queries.iter().any(|query| {
-                query.body.iter().any(contains_v5_predicate) || contains_v5_op(&query.expressions)
+                query.body.iter().any(contains_v3_3_predicate)
+                    || contains_v3_3_op(&query.expressions)
             })
         });
     }
     if !contains_v3_3 {
         contains_v3_3 = facts
             .iter()
-            .any(|fact| contains_v5_predicate(&fact.predicate))
+            .any(|fact| contains_v3_3_predicate(&fact.predicate))
     }
 
     SchemaVersion {
@@ -963,10 +964,10 @@ pub fn contains_v3_1_op(expressions: &[Expression]) -> bool {
     })
 }
 
-fn contains_v5_op(expressions: &[Expression]) -> bool {
+fn contains_v3_3_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| match op {
-            Op::Value(term) => contains_v5_term(term),
+            Op::Value(term) => contains_v3_3_term(term),
             Op::Closure(_, _) => true,
             Op::Binary(binary) => matches!(
                 binary,
@@ -982,11 +983,11 @@ fn contains_v5_op(expressions: &[Expression]) -> bool {
     })
 }
 
-fn contains_v5_predicate(predicate: &Predicate) -> bool {
-    predicate.terms.iter().any(contains_v5_term)
+fn contains_v3_3_predicate(predicate: &Predicate) -> bool {
+    predicate.terms.iter().any(contains_v3_3_term)
 }
 
-fn contains_v5_term(term: &Term) -> bool {
+fn contains_v3_3_term(term: &Term) -> bool {
     match term {
         Term::Null => true,
         Term::Set(s) => s.contains(&Term::Null),
