@@ -188,6 +188,22 @@ pub enum Op {
     Closure(Vec<String>, Vec<Op>),
 }
 
+impl Op {
+    fn collect_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Op::Value(Term::Parameter(ref name)) => {
+                parameters.insert(name.to_owned(), None);
+            }
+            Op::Closure(_, ops) => {
+                for op in ops {
+                    op.collect_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Negate,
@@ -332,9 +348,7 @@ impl Rule {
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
-                }
+                op.collect_parameters(&mut parameters);
             }
         }
 
