@@ -1,7 +1,7 @@
 //! helper functions and structure to create tokens and blocks
 use super::{default_symbol_table, Biscuit, Block};
 use crate::crypto::{KeyPair, PublicKey};
-use crate::datalog::{self, get_schema_version, SymbolTable};
+use crate::datalog::{self, get_schema_version, SymbolTable, TemporarySymbolTable};
 use crate::error;
 use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
@@ -517,6 +517,56 @@ pub enum MapKey {
     Integer(i64),
     Str(String),
     Parameter(String),
+}
+
+impl Term {
+    pub fn to_datalog(self, symbols: &mut TemporarySymbolTable) -> datalog::Term {
+        match self {
+            Term::Variable(s) => datalog::Term::Variable(symbols.insert(&s) as u32),
+            Term::Integer(i) => datalog::Term::Integer(i),
+            Term::Str(s) => datalog::Term::Str(symbols.insert(&s)),
+            Term::Date(d) => datalog::Term::Date(d),
+            Term::Bytes(s) => datalog::Term::Bytes(s),
+            Term::Bool(b) => datalog::Term::Bool(b),
+            Term::Set(s) => {
+                datalog::Term::Set(s.into_iter().map(|i| i.to_datalog(symbols)).collect())
+            }
+            Term::Null => datalog::Term::Null,
+            // The error is caught in the `add_xxx` functions, so this should
+            // not happen™
+            Term::Parameter(s) => panic!("Remaining parameter {}", &s),
+        }
+    }
+
+    pub fn from_datalog(
+        term: datalog::Term,
+        symbols: &TemporarySymbolTable,
+    ) -> Result<Self, error::Expression> {
+        Ok(match term {
+            datalog::Term::Variable(s) => Term::Variable(
+                symbols
+                    .get_symbol(s as u64)
+                    .ok_or(error::Expression::UnknownVariable(s))?
+                    .to_string(),
+            ),
+            datalog::Term::Integer(i) => Term::Integer(i),
+            datalog::Term::Str(s) => Term::Str(
+                symbols
+                    .get_symbol(s)
+                    .ok_or(error::Expression::UnknownSymbol(s))?
+                    .to_string(),
+            ),
+            datalog::Term::Date(d) => Term::Date(d),
+            datalog::Term::Bytes(s) => Term::Bytes(s),
+            datalog::Term::Bool(b) => Term::Bool(b),
+            datalog::Term::Set(s) => Term::Set(
+                s.into_iter()
+                    .map(|i| Self::from_datalog(i, symbols))
+                    .collect::<Result<_, _>>()?,
+            ),
+            datalog::Term::Null => Term::Null,
+        })
+    }
 }
 
 impl Convert<datalog::Term> for Term {
