@@ -1,19 +1,48 @@
-use crate::error;
+use crate::{builder, error};
 
 use super::{MapKey, Term};
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+    rc::Rc,
+};
 
-type ExternBinary = fn(&mut TemporarySymbolTable, &Term, &Term) -> Result<Term, error::Expression>;
+#[derive(Clone)]
+pub struct ExternFunc(
+    pub Rc<dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String>>,
+);
 
-type ExternUnary = fn(&mut TemporarySymbolTable, &Term) -> Result<Term, error::Expression>;
+impl std::fmt::Debug for ExternFunc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<function>")
+    }
+}
 
-#[derive(Debug, Clone)]
-pub enum ExternFunc {
-    Unary(ExternUnary),
-    Binary(ExternBinary),
+impl ExternFunc {
+    pub fn new(
+        f: Rc<dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String>>,
+    ) -> Self {
+        Self(f)
+    }
+
+    pub fn call(
+        &self,
+        symbols: &mut TemporarySymbolTable,
+        name: &str,
+        left: Term,
+        right: Option<Term>,
+    ) -> Result<Term, error::Expression> {
+        let left = builder::Term::from_datalog(left, symbols)?;
+        let right = right
+            .map(|right| builder::Term::from_datalog(right, symbols))
+            .transpose()?;
+        match self.0(left, right) {
+            Ok(t) => Ok(t.to_datalog(symbols)),
+            Err(e) => Err(error::Expression::ExternEvalError(name.to_string(), e)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
@@ -77,10 +106,7 @@ impl Unary {
                 let fun = extern_funcs
                     .get(name)
                     .ok_or(error::Expression::UndefinedExtern(name.to_owned()))?;
-                match fun {
-                    ExternFunc::Unary(fun) => fun(symbols, &i),
-                    ExternFunc::Binary(_) => Err(error::Expression::IncorrectArityExtern),
-                }
+                fun.call(symbols, name, i, None)
             }
             _ => {
                 //println!("unexpected value type on the stack");
@@ -472,10 +498,7 @@ impl Binary {
                 let fun = extern_funcs
                     .get(name)
                     .ok_or(error::Expression::UndefinedExtern(name.to_owned()))?;
-                match fun {
-                    ExternFunc::Binary(fun) => fun(symbols, &left, &right),
-                    ExternFunc::Unary(_) => Err(error::Expression::IncorrectArityExtern),
-                }
+                fun.call(symbols, name, left, Some(right))
             }
 
             _ => {
@@ -1666,34 +1689,29 @@ mod tests {
         let mut extern_funcs: HashMap<String, ExternFunc> = Default::default();
         extern_funcs.insert(
             "test_bin".to_owned(),
-            ExternFunc::Binary(|sym, left, right| match (left, right) {
-                (Term::Integer(left), Term::Integer(right)) => {
+            ExternFunc::new(Rc::new(|left, right| match (left, right) {
+                (builder::Term::Integer(left), Some(builder::Term::Integer(right))) => {
                     println!("{left} {right}");
-                    Ok(Term::Bool((left % 60) == (right % 60)))
+                    Ok(builder::Term::Bool((left % 60) == (right % 60)))
                 }
-                (Term::Str(left), Term::Str(right)) => {
-                    let left = sym
-                        .get_symbol(*left)
-                        .ok_or(error::Expression::UnknownSymbol(*left))?;
-                    let right = sym
-                        .get_symbol(*right)
-                        .ok_or(error::Expression::UnknownSymbol(*right))?;
-
+                (builder::Term::Str(left), Some(builder::Term::Str(right))) => {
                     println!("{left} {right}");
-                    Ok(Term::Bool(left.to_lowercase() == right.to_lowercase()))
+                    Ok(builder::Term::Bool(
+                        left.to_lowercase() == right.to_lowercase(),
+                    ))
                 }
-                _ => Err(error::Expression::InvalidType),
-            }),
+                _ => Err("Expected two strings or two integers".to_string()),
+            })),
         );
         extern_funcs.insert(
             "test_un".to_owned(),
-            ExternFunc::Unary(|_, value| match value {
-                Term::Integer(value) => Ok(Term::Bool(*value == 42)),
+            ExternFunc::new(Rc::new(|left, right| match (&left, &right) {
+                (builder::Term::Integer(left), None) => Ok(builder::boolean(*left == 42)),
                 _ => {
-                    println!("{value:?}");
-                    Err(error::Expression::InvalidType)
+                    println!("{left:?}, {right:?}");
+                    Err("expecting a single integer".to_string())
                 }
-            }),
+            })),
         );
         let res = e.evaluate(&values, &mut tmp_symbols, &extern_funcs);
         assert_eq!(res, Ok(Term::Bool(true)));
