@@ -219,12 +219,12 @@
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
 
-mod crypto;
+pub mod crypto;
 pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod parser;
-mod token;
+pub mod token;
 
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
 pub use token::authorizer::{Authorizer, AuthorizerLimits};
@@ -234,12 +234,6 @@ pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;
 pub use token::RootKeyProvider;
 pub use token::{ThirdPartyBlock, ThirdPartyRequest};
-
-#[cfg(cargo_c)]
-mod capi;
-
-#[cfg(cargo_c)]
-pub use capi::*;
 
 #[cfg(feature = "bwk")]
 mod bwk;

@@ -73,9 +73,9 @@ pub fn default_symbol_table() -> SymbolTable {
 #[derive(Clone, Debug)]
 pub struct Biscuit {
     pub(crate) root_key_id: Option<u32>,
-    pub(crate) authority: schema::Block,
-    pub(crate) blocks: Vec<schema::Block>,
-    pub(crate) symbols: SymbolTable,
+    pub authority: schema::Block,
+    pub blocks: Vec<schema::Block>,
+    pub symbols: SymbolTable,
     pub(crate) container: SerializedBiscuit,
 }
 
@@ -500,7 +500,7 @@ impl Biscuit {
         1 + self.blocks.len()
     }
 
-    pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
+    pub fn block(&self, index: usize) -> Result<Block, error::Token> {
         let block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,

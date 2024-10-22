@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 permissions:
   contents: write
@@ -12,43 +12,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest-large
+            target_arch: x86_64-apple-darwin
+          - os: macos-latest
+            target_arch: aarch64-apple-darwin
+          - os: ubuntu-latest
+            target_arch: x86_64-unknown-linux-gnu
 
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v2
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo
-          target/
-        key: ${{ runner.os }}-cargoc-${{ hashFiles('Cargo.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-cargoc-${{ hashFiles('Cargo.toml') }}
-          ${{ runner.os }}-cargoc-
-          ${{ runner.os }}-${{ hashFiles('Cargo.toml') }}
-          ${{ runner.os }}-
-    - name: Install cargo-c
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: cargo-c
-    - name: Run cargo-c tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: ctest
-        args: --release
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: cinstall
-        args: --release --prefix=/usr --destdir=./build
-    - name: Compress
-      run: tar cvzf biscuit_c-${{github.ref_name}}-x86_64.tar.gz -C build/ .
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: biscuit_c-${{github.ref_name}}-x86_64.tar.gz
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target_arch }}
+      - name: Install cargo-c
+        run: cargo install cargo-c --version 0.10.5+cargo-0.83.0
+      - name: Run cargo-c tests
+        run: cargo ctest --release --features="capi"
+      - name: Build C-API
+        run: cargo cinstall --release --prefix=/usr --destdir=./build --features="capi"
+      - name: Compress
+        run: tar cvzf biscuit_capi-${{github.ref_name}}-${{matrix.target_arch}}.tar.gz -C build/ .
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: biscuit_capi-${{github.ref_name}}-${{matrix.target_arch}}.tar.gz
