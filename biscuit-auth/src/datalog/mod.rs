@@ -4,7 +4,7 @@ use crate::error::Execution;
 use crate::time::Instant;
 use crate::token::{Scope, DATALOG_3_1, DATALOG_3_3, MIN_SCHEMA_VERSION};
 use crate::{builder, error};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -26,6 +26,14 @@ pub enum Term {
     Bool(bool),
     Set(BTreeSet<Term>),
     Null,
+    Array(Vec<Term>),
+    Map(BTreeMap<MapKey, Term>),
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+pub enum MapKey {
+    Integer(i64),
+    Str(SymbolIndex),
 }
 
 impl From<&Term> for Term {
@@ -39,6 +47,8 @@ impl From<&Term> for Term {
             Term::Bool(ref b) => Term::Bool(*b),
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
+            Term::Map(m) => Term::Map(m.clone()),
         }
     }
 }
@@ -564,6 +574,8 @@ pub fn match_preds(rule_pred: &Predicate, fact_pred: &Predicate) -> bool {
                 (Term::Bool(i), Term::Bool(j)) => i == j,
                 (Term::Null, Term::Null) => true,
                 (Term::Set(i), Term::Set(j)) => i == j,
+                (Term::Array(i), Term::Array(j)) => i == j,
+                (Term::Map(i), Term::Map(j)) => i == j,
                 _ => false,
             })
 }
