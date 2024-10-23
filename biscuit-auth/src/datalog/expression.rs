@@ -5,11 +5,13 @@ use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ExternFunc(
-    pub Rc<dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String>>,
+    pub  Arc<
+        dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String> + Send + Sync,
+    >,
 );
 
 impl std::fmt::Debug for ExternFunc {
@@ -20,7 +22,11 @@ impl std::fmt::Debug for ExternFunc {
 
 impl ExternFunc {
     pub fn new(
-        f: Rc<dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String>>,
+        f: Arc<
+            dyn Fn(builder::Term, Option<builder::Term>) -> Result<builder::Term, String>
+                + Send
+                + Sync,
+        >,
     ) -> Self {
         Self(f)
     }
@@ -1689,7 +1695,7 @@ mod tests {
         let mut extern_funcs: HashMap<String, ExternFunc> = Default::default();
         extern_funcs.insert(
             "test_bin".to_owned(),
-            ExternFunc::new(Rc::new(|left, right| match (left, right) {
+            ExternFunc::new(Arc::new(|left, right| match (left, right) {
                 (builder::Term::Integer(left), Some(builder::Term::Integer(right))) => {
                     println!("{left} {right}");
                     Ok(builder::Term::Bool((left % 60) == (right % 60)))
@@ -1705,7 +1711,7 @@ mod tests {
         );
         extern_funcs.insert(
             "test_un".to_owned(),
-            ExternFunc::new(Rc::new(|left, right| match (&left, &right) {
+            ExternFunc::new(Arc::new(|left, right| match (&left, &right) {
                 (builder::Term::Integer(left), None) => Ok(builder::boolean(*left == 42)),
                 _ => {
                     println!("{left:?}, {right:?}");
