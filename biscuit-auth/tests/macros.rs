@@ -34,6 +34,14 @@ check if "my_value".starts_with("my");
 check if {false, true}.any($p -> true);
 "#,
     );
+
+    let b = block!(r#"check if "test".extern::toto() && "test".extern::test("test");"#);
+
+    assert_eq!(
+        b.to_string(),
+        r#"check if "test".extern::toto() && "test".extern::test("test");
+"#
+    );
 }
 
 #[test]

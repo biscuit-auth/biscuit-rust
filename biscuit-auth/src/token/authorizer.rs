@@ -469,10 +469,15 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
+        let extern_binary = limits.extern_funcs.clone();
         self.world.run_with_limits(&self.symbols, limits)?;
-        let res = self
-            .world
-            .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
+        let res = self.world.query_rule(
+            rule,
+            usize::MAX,
+            &rule_trusted_origins,
+            &self.symbols,
+            &extern_binary,
+        )?;
 
         res.inner
             .into_iter()
@@ -552,6 +557,7 @@ impl Authorizer {
         rule: datalog::Rule,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
+        let extern_binary = limits.extern_funcs.clone();
         self.world.run_with_limits(&self.symbols, limits)?;
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
@@ -568,9 +574,13 @@ impl Authorizer {
             )
         };
 
-        let res = self
-            .world
-            .query_rule(rule, 0, &rule_trusted_origins, &self.symbols)?;
+        let res = self.world.query_rule(
+            rule,
+            0,
+            &rule_trusted_origins,
+            &self.symbols,
+            &extern_binary,
+        )?;
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -741,16 +751,20 @@ impl Authorizer {
                         usize::MAX,
                         &rule_trusted_origins,
                         &self.symbols,
+                        &limits.extern_funcs,
                     )?,
-                    CheckKind::All => {
-                        self.world
-                            .query_match_all(query, &rule_trusted_origins, &self.symbols)?
-                    }
+                    CheckKind::All => self.world.query_match_all(
+                        query,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                        &limits.extern_funcs,
+                    )?,
                     CheckKind::Reject => !self.world.query_match(
                         query,
                         usize::MAX,
                         &rule_trusted_origins,
                         &self.symbols,
+                        &limits.extern_funcs,
                     )?,
                 };
 
@@ -799,17 +813,20 @@ impl Authorizer {
                             0,
                             &rule_trusted_origins,
                             &self.symbols,
+                            &limits.extern_funcs,
                         )?,
                         CheckKind::All => self.world.query_match_all(
                             query.clone(),
                             &rule_trusted_origins,
                             &self.symbols,
+                            &limits.extern_funcs,
                         )?,
                         CheckKind::Reject => !self.world.query_match(
                             query.clone(),
                             0,
                             &rule_trusted_origins,
                             &self.symbols,
+                            &limits.extern_funcs,
                         )?,
                     };
 
@@ -849,6 +866,7 @@ impl Authorizer {
                     usize::MAX,
                     &rule_trusted_origins,
                     &self.symbols,
+                    &limits.extern_funcs,
                 )?;
 
                 let now = Instant::now();
@@ -898,17 +916,20 @@ impl Authorizer {
                                 i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
+                                &limits.extern_funcs,
                             )?,
                             CheckKind::All => self.world.query_match_all(
                                 query.clone(),
                                 &rule_trusted_origins,
                                 &self.symbols,
+                                &limits.extern_funcs,
                             )?,
                             CheckKind::Reject => !self.world.query_match(
                                 query.clone(),
                                 i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
+                                &limits.extern_funcs,
                             )?,
                         };
 
