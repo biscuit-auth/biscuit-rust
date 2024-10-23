@@ -219,12 +219,12 @@
 //! biscuit implementations come with a default symbol table to avoid transmitting
 //! frequent values with every token.
 
-pub mod crypto;
+mod crypto;
 pub mod datalog;
 pub mod error;
 pub mod format;
 pub mod parser;
-pub mod token;
+mod token;
 
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
 pub use token::authorizer::{Authorizer, AuthorizerLimits};

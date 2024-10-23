@@ -288,12 +288,12 @@ pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
     })
 }
 
-pub struct Biscuit(biscuit_auth::token::Biscuit);
-pub struct KeyPair(biscuit_auth::crypto::KeyPair);
-pub struct PublicKey(biscuit_auth::crypto::PublicKey);
-pub struct BiscuitBuilder(biscuit_auth::token::builder::BiscuitBuilder);
-pub struct BlockBuilder(biscuit_auth::token::builder::BlockBuilder);
-pub struct Authorizer(biscuit_auth::token::authorizer::Authorizer);
+pub struct Biscuit(biscuit_auth::Biscuit);
+pub struct KeyPair(biscuit_auth::KeyPair);
+pub struct PublicKey(biscuit_auth::PublicKey);
+pub struct BiscuitBuilder(biscuit_auth::builder::BiscuitBuilder);
+pub struct BlockBuilder(biscuit_auth::builder::BlockBuilder);
+pub struct Authorizer(biscuit_auth::Authorizer);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -311,9 +311,9 @@ pub unsafe extern "C" fn key_pair_new<'a>(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    Some(Box::new(KeyPair(
-        biscuit_auth::crypto::KeyPair::new_with_rng(&mut rng),
-    )))
+    Some(Box::new(KeyPair(biscuit_auth::KeyPair::new_with_rng(
+        &mut rng,
+    ))))
 }
 
 #[no_mangle]
@@ -346,14 +346,12 @@ pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *m
 pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match biscuit_auth::crypto::PrivateKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PrivateKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
         }
-        Some(privkey) => Some(Box::new(KeyPair(biscuit_auth::crypto::KeyPair::from(
-            &privkey,
-        )))),
+        Some(privkey) => Some(Box::new(KeyPair(biscuit_auth::KeyPair::from(&privkey)))),
     }
 }
 
@@ -383,7 +381,7 @@ pub unsafe extern "C" fn public_key_serialize(
 pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match biscuit_auth::crypto::PublicKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PublicKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -397,9 +395,7 @@ pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder() -> Option<Box<BiscuitBuilder>> {
-    Some(Box::new(BiscuitBuilder(
-        biscuit_auth::token::Biscuit::builder(),
-    )))
+    Some(Box::new(BiscuitBuilder(biscuit_auth::Biscuit::builder())))
 }
 
 #[no_mangle]
@@ -573,7 +569,7 @@ pub unsafe extern "C" fn biscuit_from<'a>(
     }
     let root = root?;
 
-    biscuit_auth::token::Biscuit::from(biscuit, root.0)
+    biscuit_auth::Biscuit::from(biscuit, root.0)
         .map(Biscuit)
         .map(Box::new)
         .ok()
@@ -699,7 +695,7 @@ pub unsafe extern "C" fn biscuit_block_count(biscuit: Option<&Biscuit>) -> usize
 
     let biscuit = biscuit.unwrap();
 
-    biscuit.0.blocks.len() + 1
+    biscuit.0.block_count()
 }
 
 #[no_mangle]
@@ -797,7 +793,7 @@ pub unsafe extern "C" fn biscuit_block_fact(
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
         }
-        Some(fact) => match CString::new(biscuit.0.symbols.print_fact(fact)) {
+        Some(fact) => match CString::new(biscuit.0.print_fact(fact)) {
             Ok(s) => s.into_raw(),
             Err(_) => {
                 update_last_error(Error::InvalidArgument);
@@ -833,7 +829,7 @@ pub unsafe extern "C" fn biscuit_block_rule(
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
         }
-        Some(rule) => match CString::new(biscuit.0.symbols.print_rule(rule)) {
+        Some(rule) => match CString::new(biscuit.0.print_rule(rule)) {
             Ok(s) => s.into_raw(),
             Err(_) => {
                 update_last_error(Error::InvalidArgument);
@@ -869,7 +865,7 @@ pub unsafe extern "C" fn biscuit_block_check(
             update_last_error(Error::InvalidArgument);
             return std::ptr::null_mut();
         }
-        Some(check) => match CString::new(biscuit.0.symbols.print_check(check)) {
+        Some(check) => match CString::new(biscuit.0.print_check(check)) {
             Ok(s) => s.into_raw(),
             Err(_) => {
                 update_last_error(Error::InvalidArgument);
@@ -892,26 +888,30 @@ pub unsafe extern "C" fn biscuit_block_context(
     let biscuit = biscuit.unwrap();
 
     let block = if block_index == 0 {
-        &biscuit.0.authority
+        match biscuit.0.block(0) {
+            Ok(b) => b,
+            Err(err) => {
+                update_last_error(Error::Biscuit(err));
+                return std::ptr::null_mut();
+            }
+        }
     } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b,
-            None => {
-                update_last_error(Error::InvalidArgument);
+        match biscuit.0.block(block_index as usize - 1) {
+            Ok(b) => b,
+            Err(err) => {
+                update_last_error(Error::Biscuit(err));
                 return std::ptr::null_mut();
             }
         }
     };
 
     match &block.context {
-        None => {
-            return std::ptr::null_mut();
-        }
+        None => std::ptr::null_mut(),
         Some(context) => match CString::new(context.clone()) {
             Ok(s) => s.into_raw(),
             Err(_) => {
                 update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
+                std::ptr::null_mut()
             }
         },
     }
@@ -919,9 +919,7 @@ pub unsafe extern "C" fn biscuit_block_context(
 
 #[no_mangle]
 pub unsafe extern "C" fn create_block() -> Box<BlockBuilder> {
-    Box::new(BlockBuilder(
-        biscuit_auth::token::builder::BlockBuilder::new(),
-    ))
+    Box::new(BlockBuilder(biscuit_auth::builder::BlockBuilder::new()))
 }
 
 #[no_mangle]

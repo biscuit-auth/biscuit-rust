@@ -73,9 +73,9 @@ pub fn default_symbol_table() -> SymbolTable {
 #[derive(Clone, Debug)]
 pub struct Biscuit {
     pub(crate) root_key_id: Option<u32>,
-    pub authority: schema::Block,
-    pub blocks: Vec<schema::Block>,
-    pub symbols: SymbolTable,
+    pub(crate) authority: schema::Block,
+    pub(crate) blocks: Vec<schema::Block>,
+    pub(crate) symbols: SymbolTable,
     pub(crate) container: SerializedBiscuit,
 }
 
@@ -219,6 +219,19 @@ impl Biscuit {
             };
             block.print_source(symbols)
         })
+    }
+
+    /// prints the content of a block as a protobuf message
+    pub fn print_fact(&self, fact: &crate::datalog::Fact) -> String {
+        self.symbols.print_fact(fact)
+    }
+
+    pub fn print_rule(&self, rule: &crate::datalog::Rule) -> String {
+        self.symbols.print_rule(rule)
+    }
+
+    pub fn print_check(&self, check: &crate::datalog::Check) -> String {
+        self.symbols.print_check(check)
     }
 
     /// creates a new token, using a provided CSPRNG
