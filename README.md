@@ -172,19 +172,7 @@ biscuit implementations come with a default symbol table to avoid transmitting f
 
 # C bindings
 
-This project can generate C bindings with [cargo-c](https://crates.io/crates/cargo-c).
-
-compile it with:
-
-```
-cargo cinstall --prefix=/usr --destdir=./build
-```
-
-Run C integration tests with:
-
-```
-cargo ctest
-```
+You can find the C bindings and documentation in the [`biscuit-capi`](./biscuit-capi/README.md) crate.
 
 ## License
 

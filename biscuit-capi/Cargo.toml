@@ -1,0 +1,30 @@
+[package]
+name = "biscuit-capi"
+version = "5.0.0"                                            # Should keep the same version as biscuit-auth
+description = "C API for Biscuit"
+authors = ["Geoffroy Couprie <contact@geoffroycouprie.com>"]
+edition = "2018"
+license = "Apache-2.0"
+documentation = "https://docs.rs/biscuit-auth"
+homepage = "https://github.com/biscuit-auth/biscuit"
+repository = "https://github.com/biscuit-auth/biscuit-rust"
+
+[dependencies]
+biscuit-auth = { version = "5.0.0", path = "../biscuit-auth", features = [
+    "datalog-macro",
+    "serde-error",
+] }
+inline-c = { version = "0.1", optional = true }
+rand = "0.8"
+
+[features]
+default = []
+capi = ["inline-c"]
+
+[package.metadata.capi.library]
+# Used as the library name and defaults to the crate name. This might get
+# prefixed with `lib` depending on the target platform.
+name = "biscuit_auth"
+
+[package.metadata.capi.header]
+name = "biscuit_auth"
