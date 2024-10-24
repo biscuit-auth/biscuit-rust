@@ -321,8 +321,10 @@ pub mod v2 {
     use crate::datalog::*;
     use crate::error;
     use crate::format::schema::Empty;
+    use crate::format::schema::MapEntry;
     use crate::token::Scope;
     use crate::token::DATALOG_3_1;
+    use std::collections::BTreeMap;
     use std::collections::BTreeSet;
 
     pub fn token_fact_to_proto_fact(input: &Fact) -> schema::FactV2 {
@@ -532,6 +534,32 @@ pub mod v2 {
             Term::Null => schema::TermV2 {
                 content: Some(Content::Null(Empty {})),
             },
+            Term::Array(a) => schema::TermV2 {
+                content: Some(Content::Array(schema::Array {
+                    array: a.iter().map(token_term_to_proto_id).collect(),
+                })),
+            },
+            Term::Map(m) => schema::TermV2 {
+                content: Some(Content::Map(schema::Map {
+                    entries: m
+                        .iter()
+                        .map(|(key, term)| {
+                            let key = match key {
+                                MapKey::Integer(i) => schema::MapKey {
+                                    content: Some(schema::map_key::Content::Integer(*i)),
+                                },
+                                MapKey::Str(s) => schema::MapKey {
+                                    content: Some(schema::map_key::Content::String(*s)),
+                                },
+                            };
+                            schema::MapEntry {
+                                key,
+                                value: token_term_to_proto_id(term),
+                            }
+                        })
+                        .collect(),
+                })),
+            },
         }
     }
 
@@ -570,6 +598,8 @@ pub mod v2 {
                             ));
                         }
                         Some(Content::Null(_)) => 8,
+                        Some(Content::Array(_)) => 9,
+                        Some(Content::Map(_)) => 10,
                         None => {
                             return Err(error::Format::DeserializationError(
                                 "deserialization error: ID content enum is empty".to_string(),
@@ -594,6 +624,34 @@ pub mod v2 {
                 Ok(Term::Set(set))
             }
             Some(Content::Null(_)) => Ok(Term::Null),
+            Some(Content::Array(a)) => {
+                let array = a
+                    .array
+                    .iter()
+                    .map(proto_id_to_token_term)
+                    .collect::<Result<_, _>>()?;
+
+                Ok(Term::Array(array))
+            }
+            Some(Content::Map(m)) => {
+                let mut map = BTreeMap::new();
+
+                for MapEntry { key, value } in m.entries.iter() {
+                    let key = match key.content {
+                        Some(schema::map_key::Content::Integer(i)) => MapKey::Integer(i),
+                        Some(schema::map_key::Content::String(s)) => MapKey::Str(s),
+                        None => {
+                            return Err(error::Format::DeserializationError(
+                                "deserialization error: ID content enum is empty".to_string(),
+                            ))
+                        }
+                    };
+
+                    map.insert(key, proto_id_to_token_term(&value)?);
+                }
+
+                Ok(Term::Map(map))
+            }
         }
     }
 
@@ -609,7 +667,12 @@ pub mod v2 {
                         Unary::Parens => Kind::Parens,
                         Unary::Length => Kind::Length,
                         Unary::TypeOf => Kind::TypeOf,
+                        Unary::Ffi(_) => Kind::Ffi,
                     } as i32,
+                    ffi_name: match u {
+                        Unary::Ffi(name) => Some(name.to_owned()),
+                        _ => None,
+                    },
                 })
             }
             Op::Binary(b) => {
@@ -644,7 +707,13 @@ pub mod v2 {
                         Binary::LazyOr => Kind::LazyOr,
                         Binary::All => Kind::All,
                         Binary::Any => Kind::Any,
+                        Binary::Get => Kind::Get,
+                        Binary::Ffi(_) => Kind::Ffi,
                     } as i32,
+                    ffi_name: match b {
+                        Binary::Ffi(name) => Some(name.to_owned()),
+                        _ => None,
+                    },
                 })
             }
             Op::Closure(params, ops) => schema::op::Content::Closure(schema::OpClosure {
@@ -673,6 +742,11 @@ pub mod v2 {
                 Some(op_unary::Kind::Parens) => Op::Unary(Unary::Parens),
                 Some(op_unary::Kind::Length) => Op::Unary(Unary::Length),
                 Some(op_unary::Kind::TypeOf) => Op::Unary(Unary::TypeOf),
+                Some(op_unary::Kind::Ffi) => match u.ffi_name.as_ref() {
+                    // todo clementd error if ffi name is defined with another kind
+                    Some(n) => Op::Unary(Unary::Ffi(n.to_owned())),
+                    None => return Err(error::Format::MissingFfiName),
+                },
                 None => {
                     return Err(error::Format::DeserializationError(
                         "deserialization error: unary operation is empty".to_string(),
@@ -709,6 +783,12 @@ pub mod v2 {
                 Some(op_binary::Kind::LazyOr) => Op::Binary(Binary::LazyOr),
                 Some(op_binary::Kind::All) => Op::Binary(Binary::All),
                 Some(op_binary::Kind::Any) => Op::Binary(Binary::Any),
+                Some(op_binary::Kind::Get) => Op::Binary(Binary::Get),
+                Some(op_binary::Kind::Ffi) => match b.ffi_name.as_ref() {
+                    // todo clementd error if ffi name is defined with another kind
+                    Some(n) => Op::Binary(Binary::Ffi(n.to_owned())),
+                    None => return Err(error::Format::MissingFfiName),
+                },
                 None => {
                     return Err(error::Format::DeserializationError(
                         "deserialization error: binary operation is empty".to_string(),

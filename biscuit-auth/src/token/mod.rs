@@ -36,7 +36,7 @@ pub const MAX_SCHEMA_VERSION: u32 = 6;
 pub const DATALOG_3_1: u32 = 4;
 /// starting version for 3rd party blocks (datalog 3.2)
 pub const DATALOG_3_2: u32 = 5;
-/// starting version for datalog 3.3 features (reject if, closures, array/map, null, …)
+/// starting version for datalog 3.3 features (reject if, closures, array/map, null, external functions, …)
 pub const DATALOG_3_3: u32 = 6;
 
 /// some symbols are predefined and available in every implementation, to avoid
@@ -1300,14 +1300,14 @@ mod tests {
 
         let mut block2 = BlockBuilder::new();
         block2
-            .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
+            .add_rule("has_bytes($0) <- bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
         let keypair2 = KeyPair::new_with_rng(&mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut authorizer = biscuit2.authorizer().unwrap();
         authorizer
-            .add_check("check if bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
+            .add_check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
         authorizer.allow().unwrap();
 
