@@ -197,6 +197,8 @@ pub mod op {
 pub struct OpUnary {
     #[prost(enumeration="op_unary::Kind", required, tag="1")]
     pub kind: i32,
+    #[prost(string, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Nested message and enum types in `OpUnary`.
 pub mod op_unary {
@@ -207,12 +209,15 @@ pub mod op_unary {
         Parens = 1,
         Length = 2,
         TypeOf = 3,
+        Ffi = 1024,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpBinary {
     #[prost(enumeration="op_binary::Kind", required, tag="1")]
     pub kind: i32,
+    #[prost(string, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Nested message and enum types in `OpBinary`.
 pub mod op_binary {
@@ -246,6 +251,7 @@ pub mod op_binary {
         LazyOr = 24,
         All = 25,
         Any = 26,
+        Ffi = 1024,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
