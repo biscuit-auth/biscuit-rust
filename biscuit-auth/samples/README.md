@@ -2866,3 +2866,101 @@ World {
 
 result: `Err(Execution(ShadowedVariable))`
 
+
+------------------------------
+
+## test .type(): test033_typeof.bc
+### token
+
+authority:
+symbols: ["integer", "string", "test", "date", "bytes", "bool", "set", "null", "t"]
+
+public keys: []
+
+```
+integer(1);
+string("test");
+date(2023-12-28T00:00:00Z);
+bytes(hex:aa);
+bool(true);
+set([false, true]);
+null(null);
+check if 1.type() == "integer";
+check if integer($t), $t.type() == "integer";
+check if "test".type() == "string";
+check if string($t), $t.type() == "string";
+check if (2023-12-28T00:00:00Z).type() == "date";
+check if date($t), $t.type() == "date";
+check if hex:aa.type() == "bytes";
+check if bytes($t), $t.type() == "bytes";
+check if true.type() == "bool";
+check if bool($t), $t.type() == "bool";
+check if [false, true].type() == "set";
+check if set($t), $t.type() == "set";
+check if null.type() == "null";
+check if null($t), $t.type() == "null";
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `be401996253dce45ac3d8b2f4b289af1f2cc2a4447a8265a1a2ca879c43377978ffc5ac6633053cd7c30e7c33cf258a37767226834bc80b005c48eb0229c4502`
+
+authorizer world:
+```
+World {
+  facts: [
+    Facts {
+        origin: {
+            Some(
+                0,
+            ),
+        },
+        facts: [
+            "bool(true)",
+            "bytes(hex:aa)",
+            "date(2023-12-28T00:00:00Z)",
+            "integer(1)",
+            "null(null)",
+            "set([false, true])",
+            "string(\"test\")",
+        ],
+    },
+]
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if \"test\".type() == \"string\"",
+            "check if (2023-12-28T00:00:00Z).type() == \"date\"",
+            "check if 1.type() == \"integer\"",
+            "check if [false, true].type() == \"set\"",
+            "check if bool($t), $t.type() == \"bool\"",
+            "check if bytes($t), $t.type() == \"bytes\"",
+            "check if date($t), $t.type() == \"date\"",
+            "check if hex:aa.type() == \"bytes\"",
+            "check if integer($t), $t.type() == \"integer\"",
+            "check if null($t), $t.type() == \"null\"",
+            "check if null.type() == \"null\"",
+            "check if set($t), $t.type() == \"set\"",
+            "check if string($t), $t.type() == \"string\"",
+            "check if true.type() == \"bool\"",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+
