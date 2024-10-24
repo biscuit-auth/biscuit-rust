@@ -70,6 +70,7 @@ fn check_inner(i: &str) -> IResult<&str, builder::Check, Error> {
     let (i, kind) = alt((
         map(tag_no_case("check if"), |_| CheckKind::One),
         map(tag_no_case("check all"), |_| CheckKind::All),
+        map(tag_no_case("reject if"), |_| CheckKind::Reject),
     ))(i)?;
 
     let (i, queries) = cut(check_body)(i)?;
@@ -387,6 +388,7 @@ pub enum Expr {
     Value(builder::Term),
     Unary(builder::Op, Box<Expr>),
     Binary(builder::Op, Box<Expr>, Box<Expr>),
+    Closure(Vec<String>, Box<Expr>),
 }
 
 impl Expr {
@@ -407,6 +409,11 @@ impl Expr {
                 left.into_opcodes(v);
                 right.into_opcodes(v);
                 v.push(op);
+            }
+            Expr::Closure(params, expr) => {
+                let mut ops = vec![];
+                expr.into_opcodes(&mut ops);
+                v.push(builder::Op::Closure(params, ops))
             }
         }
     }
@@ -440,12 +447,12 @@ fn unary_parens(i: &str) -> IResult<&str, Expr, Error> {
 
 fn binary_op_0(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    value(Binary::Or, tag("||"))(i)
+    value(Binary::LazyOr, tag("||"))(i)
 }
 
 fn binary_op_1(i: &str) -> IResult<&str, builder::Binary, Error> {
     use builder::Binary;
-    value(Binary::And, tag("&&"))(i)
+    value(Binary::LazyAnd, tag("&&"))(i)
 }
 
 fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
@@ -455,8 +462,10 @@ fn binary_op_2(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::GreaterOrEqual, tag(">=")),
         value(Binary::LessThan, tag("<")),
         value(Binary::GreaterThan, tag(">")),
-        value(Binary::Equal, tag("==")),
-        value(Binary::NotEqual, tag("!=")),
+        value(Binary::Equal, tag("===")),
+        value(Binary::NotEqual, tag("!==")),
+        value(Binary::HeterogeneousEqual, tag("==")),
+        value(Binary::HeterogeneousNotEqual, tag("!=")),
     ))(i)
 }
 
@@ -495,6 +504,8 @@ fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Regex, tag("matches")),
         value(Binary::Intersection, tag("intersection")),
         value(Binary::Union, tag("union")),
+        value(Binary::All, tag("all")),
+        value(Binary::Any, tag("any")),
     ))(i)
 }
 
@@ -507,7 +518,14 @@ fn expr_term(i: &str) -> IResult<&str, Expr, Error> {
 fn fold_exprs(initial: Expr, remainder: Vec<(builder::Binary, Expr)>) -> Expr {
     remainder.into_iter().fold(initial, |acc, pair| {
         let (op, expr) = pair;
-        Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr))
+        match op {
+            builder::Binary::LazyAnd | builder::Binary::LazyOr => Expr::Binary(
+                builder::Op::Binary(op),
+                Box::new(acc),
+                Box::new(Expr::Closure(vec![], Box::new(expr))),
+            ),
+            _ => Expr::Binary(builder::Op::Binary(op), Box::new(acc), Box::new(expr)),
+        }
     })
 }
 
@@ -634,10 +652,24 @@ fn expr9(i: &str) -> IResult<&str, Expr, Error> {
             let bin_result = binary_method(i);
             let un_result = unary_method(i);
             match (bin_result, un_result) {
-                (Ok((i, (op, arg))), _) => {
+                (Ok((i, (op, params, arg))), _) => {
                     input = i;
-                    initial =
-                        Expr::Binary(builder::Op::Binary(op), Box::new(initial), Box::new(arg));
+                    match params {
+                        Some(params) => {
+                            initial = Expr::Binary(
+                                builder::Op::Binary(op),
+                                Box::new(initial),
+                                Box::new(Expr::Closure(params, Box::new(arg))),
+                            );
+                        }
+                        None => {
+                            initial = Expr::Binary(
+                                builder::Op::Binary(op),
+                                Box::new(initial),
+                                Box::new(arg),
+                            );
+                        }
+                    }
                 }
                 (_, Ok((i, op))) => {
                     input = i;
@@ -652,22 +684,39 @@ fn expr9(i: &str) -> IResult<&str, Expr, Error> {
     }
 }
 
-fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Expr), Error> {
+fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Option<Vec<String>>, Expr), Error> {
     let (i, op) = binary_op_8(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
     // we only support a single argument for now
-    let (i, arg) = expr(i)?;
-    let (i, _) = space0(i)?;
-    let (i, _) = char(')')(i)?;
+    match op {
+        builder::Binary::All | builder::Binary::Any => {
+            let (i, param) = preceded(char('$'), name)(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = tag("->")(i)?;
+            let (i, _) = space0(i)?;
+            let (i, arg) = expr(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = char(')')(i)?;
+            Ok((i, (op, Some(vec![param.to_owned()]), arg)))
+        }
+        _ => {
+            let (i, arg) = expr(i)?;
+            let (i, _) = space0(i)?;
+            let (i, _) = char(')')(i)?;
 
-    Ok((i, (op, arg)))
+            Ok((i, (op, None, arg)))
+        }
+    }
 }
 
 fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
     use builder::Unary;
-    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+    let (i, op) = alt((
+        value(Unary::Length, tag("length")),
+        value(Unary::TypeOf, tag("type")),
+    ))(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
@@ -765,6 +814,10 @@ fn boolean(i: &str) -> IResult<&str, builder::Term, Error> {
     parse_bool(i).map(|(i, b)| (i, builder::boolean(b)))
 }
 
+fn null(i: &str) -> IResult<&str, builder::Term, Error> {
+    tag("null")(i).map(|(i, _)| (i, builder::null()))
+}
+
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
     //println!("set:\t{}", i);
     let (i, _) = preceded(space0, char('['))(i)?;
@@ -795,6 +848,7 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
                 }))
             }
             builder::Term::Parameter(_) => 7,
+            builder::Term::Null => 8,
         };
 
         if let Some(k) = kind {
@@ -821,7 +875,7 @@ fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, set,
+            parameter, string, date, variable, integer, bytes, boolean, null, set,
         )),
     )(i)
 }
@@ -830,7 +884,7 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, set)),
+            alt((parameter, string, date, integer, bytes, boolean, null, set)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in facts".to_string(),
@@ -845,7 +899,7 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean)),
+            alt((parameter, string, date, integer, bytes, boolean, null)),
             |input| match input.chars().next() {
                 None | Some(',') | Some(']') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
@@ -1317,12 +1371,61 @@ mod tests {
         );
 
         assert_eq!(
+            super::expr("$0 === 1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1)),
+                    Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
             super::expr("$0 == 1").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
                     Op::Value(var("0")),
                     Op::Value(int(1)),
+                    Op::Binary(Binary::HeterogeneousEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0 !== 1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1)),
+                    Op::Binary(Binary::NotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0 != 1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(int(1)),
+                    Op::Binary(Binary::HeterogeneousNotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() === $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
                     Op::Binary(Binary::Equal),
                 ],
             ))
@@ -1335,6 +1438,45 @@ mod tests {
                 vec![
                     Op::Value(var("0")),
                     Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::HeterogeneousEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() !== $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::NotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0.length() != $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Length),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::HeterogeneousNotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!$0 === $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
                     Op::Value(var("1")),
                     Op::Binary(Binary::Equal),
                 ],
@@ -1349,7 +1491,33 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Unary(Unary::Negate),
                     Op::Value(var("1")),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!$0 !== $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::NotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("!$0 != $1").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Unary(Unary::Negate),
+                    Op::Value(var("1")),
+                    Op::Binary(Binary::HeterogeneousNotEqual),
                 ],
             ))
         );
@@ -1361,8 +1529,8 @@ mod tests {
                 vec![
                     Op::Value(boolean(false)),
                     Op::Unary(Unary::Negate),
-                    Op::Value(boolean(true)),
-                    Op::Binary(Binary::And),
+                    Op::Closure(vec![], vec![Op::Value(boolean(true)),]),
+                    Op::Binary(Binary::LazyAnd),
                 ],
             ))
         );
@@ -1373,11 +1541,31 @@ mod tests {
                 "",
                 vec![
                     Op::Value(boolean(true)),
-                    Op::Value(boolean(true)),
-                    Op::Value(boolean(true)),
-                    Op::Binary(Binary::And),
-                    Op::Binary(Binary::Or),
+                    Op::Closure(
+                        vec![],
+                        vec![
+                            Op::Value(boolean(true)),
+                            Op::Closure(vec![], vec![Op::Value(boolean(true)),]),
+                            Op::Binary(Binary::LazyAnd),
+                        ]
+                    ),
+                    Op::Binary(Binary::LazyOr),
                 ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) === 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::Equal),
+                ]
             ))
         );
 
@@ -1391,7 +1579,37 @@ mod tests {
                     Op::Binary(Binary::GreaterThan),
                     Op::Unary(Unary::Parens),
                     Op::Value(int(3)),
-                    Op::Binary(Binary::Equal),
+                    Op::Binary(Binary::HeterogeneousEqual),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) !== 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::NotEqual),
+                ]
+            ))
+        );
+
+        assert_eq!(
+            super::expr("(1 > 2) != 3").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(int(1)),
+                    Op::Value(int(2)),
+                    Op::Binary(Binary::GreaterThan),
+                    Op::Unary(Unary::Parens),
+                    Op::Value(int(3)),
+                    Op::Binary(Binary::HeterogeneousNotEqual),
                 ]
             ))
         );
@@ -1449,13 +1667,49 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("$0 == \"abc\"").map(|(i, o)| (i, o.opcodes())),
+            super::expr("$0 === \"abc\"").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
                     Op::Value(var("0")),
                     Op::Value(string("abc")),
                     Op::Binary(Binary::Equal),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0 == \"abc\"").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::HeterogeneousEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0 !== \"abc\"").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::NotEqual),
+                ],
+            ))
+        );
+
+        assert_eq!(
+            super::expr("$0 != \"abc\"").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(var("0")),
+                    Op::Value(string("abc")),
+                    Op::Binary(Binary::HeterogeneousNotEqual),
                 ],
             ))
         );
