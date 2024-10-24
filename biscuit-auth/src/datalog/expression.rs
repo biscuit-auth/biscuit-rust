@@ -684,7 +684,7 @@ impl Expression {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     use super::*;
     use crate::datalog::{MapKey, SymbolTable, TemporarySymbolTable};
@@ -1688,6 +1688,66 @@ mod tests {
             Op::Value(Term::Integer(42)),
             Op::Unary(Unary::Ffi("test_un".to_owned())),
             Op::Binary(Binary::And),
+            Op::Value(Term::Integer(42)),
+            Op::Unary(Unary::Ffi("test_closure".to_owned())),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Str(i)),
+            Op::Unary(Unary::Ffi("test_closure".to_owned())),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Integer(42)),
+            Op::Unary(Unary::Ffi("test_fn".to_owned())),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Integer(42)),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Integer(42)),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Str(i)),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Str(i)),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Bool(true)),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Bool(true)),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Date(0)),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Date(0)),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Bytes(vec![42])),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Bytes(vec![42])),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Null),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Null),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Array(vec![Term::Null])),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Array(vec![Term::Null])),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Set(BTreeSet::from([Term::Null]))),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Set(BTreeSet::from([Term::Null]))),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
+            Op::Value(Term::Map(BTreeMap::from([
+                (MapKey::Integer(42), Term::Null),
+                (MapKey::Str(i), Term::Null),
+            ]))),
+            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Value(Term::Map(BTreeMap::from([
+                (MapKey::Integer(42), Term::Null),
+                (MapKey::Str(i), Term::Null),
+            ]))),
+            Op::Binary(Binary::HeterogeneousEqual),
+            Op::Binary(Binary::And),
         ];
 
         let values = HashMap::new();
@@ -1719,7 +1779,36 @@ mod tests {
                 }
             })),
         );
+        extern_funcs.insert(
+            "id".to_string(),
+            ExternFunc::new(Arc::new(|left, right| match (left, right) {
+                (a, None) => Ok(a),
+                _ => Err("expecting a single value".to_string()),
+            })),
+        );
+        let closed_over_int = 42;
+        let closed_over_string = "test".to_string();
+        extern_funcs.insert(
+            "test_closure".to_owned(),
+            ExternFunc::new(Arc::new(move |left, right| match (&left, &right) {
+                (builder::Term::Integer(left), None) => {
+                    Ok(builder::boolean(*left == closed_over_int))
+                }
+                (builder::Term::Str(left), None) => {
+                    Ok(builder::boolean(left == &closed_over_string))
+                }
+                _ => {
+                    println!("{left:?}, {right:?}");
+                    Err("expecting a single integer".to_string())
+                }
+            })),
+        );
+        extern_funcs.insert("test_fn".to_owned(), ExternFunc::new(Arc::new(toto)));
         let res = e.evaluate(&values, &mut tmp_symbols, &extern_funcs);
         assert_eq!(res, Ok(Term::Bool(true)));
+    }
+
+    fn toto(_left: builder::Term, _right: Option<builder::Term>) -> Result<builder::Term, String> {
+        Ok(builder::Term::Bool(true))
     }
 }
