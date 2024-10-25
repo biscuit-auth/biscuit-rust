@@ -79,7 +79,6 @@ pub enum ErrorKind {
     FormatPublicKeyTableOverlap,
     FormatUnknownExternalKey,
     FormatUnknownSymbol,
-    FormatMissingFfiName,
     AppendOnSealed,
     LogicInvalidBlockRule,
     LogicUnauthorized,
@@ -159,7 +158,6 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::FormatUnknownExternalKey
                     }
                     Token::Format(Format::UnknownSymbol(_)) => ErrorKind::FormatUnknownSymbol,
-                    Token::Format(Format::MissingFfiName) => ErrorKind::FormatMissingFfiName,
                     Token::AppendOnSealed => ErrorKind::AppendOnSealed,
                     Token::AlreadySealed => ErrorKind::AlreadySealed,
                     Token::Language(_) => ErrorKind::LanguageError,
