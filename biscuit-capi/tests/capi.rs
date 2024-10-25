@@ -114,7 +114,7 @@ biscuit append error? (null)
 authorizer creation error? (null)
 authorizer add check error? (null)
 authorizer add policy error? (null)
-authorizer error(code = 22): authorization failed
+authorizer error(code = 21): authorization failed
 failed checks (2):
   Authorizer check 0: check if right("efgh")
   Block 1, check 0: check if operation("read")

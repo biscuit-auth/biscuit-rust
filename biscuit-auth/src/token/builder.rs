@@ -532,6 +532,25 @@ impl Term {
                 datalog::Term::Set(s.into_iter().map(|i| i.to_datalog(symbols)).collect())
             }
             Term::Null => datalog::Term::Null,
+            Term::Array(a) => {
+                datalog::Term::Array(a.into_iter().map(|i| i.to_datalog(symbols)).collect())
+            }
+            Term::Map(m) => datalog::Term::Map(
+                m.into_iter()
+                    .map(|(k, i)| {
+                        (
+                            match k {
+                                MapKey::Integer(i) => datalog::MapKey::Integer(i),
+                                MapKey::Str(s) => datalog::MapKey::Str(symbols.insert(&s)),
+                                // The error is caught in the `add_xxx` functions, so this should
+                                // not happen™
+                                MapKey::Parameter(s) => panic!("Remaining parameter {}", &s),
+                            },
+                            i.to_datalog(symbols),
+                        )
+                    })
+                    .collect(),
+            ),
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
@@ -565,6 +584,29 @@ impl Term {
                     .collect::<Result<_, _>>()?,
             ),
             datalog::Term::Null => Term::Null,
+            datalog::Term::Array(a) => Term::Array(
+                a.into_iter()
+                    .map(|i| Self::from_datalog(i, symbols))
+                    .collect::<Result<_, _>>()?,
+            ),
+            datalog::Term::Map(m) => Term::Map(
+                m.into_iter()
+                    .map(|(k, i)| {
+                        Ok((
+                            match k {
+                                datalog::MapKey::Integer(i) => MapKey::Integer(i),
+                                datalog::MapKey::Str(s) => MapKey::Str(
+                                    symbols
+                                        .get_symbol(s)
+                                        .ok_or(error::Expression::UnknownSymbol(s))?
+                                        .to_string(),
+                                ),
+                            },
+                            Self::from_datalog(i, symbols)?,
+                        ))
+                    })
+                    .collect::<Result<_, _>>()?,
+            ),
         })
     }
 }
