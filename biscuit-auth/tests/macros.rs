@@ -247,5 +247,5 @@ fn json() {
           $value.get("roles").contains("admin");"#
     );
 
-    assert!(biscuit.authorize(&authorizer).is_ok());
+    assert_eq!(biscuit.authorize(&authorizer).unwrap(), 0);
 }
