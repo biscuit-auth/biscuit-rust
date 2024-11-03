@@ -1,20 +1,24 @@
-use biscuit_auth::builder;
+use biscuit_auth::{builder, KeyPair};
 use biscuit_quote::{
     authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,
     rule,
 };
-use std::collections::BTreeSet;
+use serde_json::json;
+use std::{collections::BTreeSet, convert::TryInto};
 
 #[test]
 fn block_macro() {
     let mut term_set = BTreeSet::new();
     term_set.insert(builder::int(0i64));
     let my_key = "my_value";
+    let array_param = 2;
+    let mapkey = "hello";
+
     let mut b = block!(
-        r#"fact("test", hex:aabbcc, [true], {my_key}, {term_set});
+        r#"fact("test", hex:aabbcc, [1, {array_param}], {my_key}, {term_set}, {"a": 1, 2 : "abcd", {mapkey}: 0 });
             rule($0, true) <- fact($0, $1, $2, {my_key}), true || false;
             check if {my_key}.starts_with("my");
-            check if [true,false].any($p -> true);
+            check if {true,false}.any($p -> true);
             "#,
     );
 
@@ -23,11 +27,11 @@ fn block_macro() {
 
     assert_eq!(
         b.to_string(),
-        r#"fact("test", hex:aabbcc, [true], "my_value", [0]);
+        r#"fact("test", hex:aabbcc, [1, 2], "my_value", {0}, {2: "abcd", "a": 1, "hello": 0});
 appended(true);
 rule($0, true) <- fact($0, $1, $2, "my_value"), true || false;
 check if "my_value".starts_with("my");
-check if [false, true].any($p -> true);
+check if {false, true}.any($p -> true);
 "#,
     );
 }
@@ -167,7 +171,7 @@ fn rule_macro() {
 
     assert_eq!(
         r.to_string(),
-        r#"rule($0, true) <- fact($0, $1, $2, "my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"rule($0, true) <- fact($0, $1, $2, "my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }
 
@@ -177,7 +181,7 @@ fn fact_macro() {
     term_set.insert(builder::int(0i64));
     let f = fact!(r#"fact({my_key}, {term_set})"#, my_key = "my_value",);
 
-    assert_eq!(f.to_string(), r#"fact("my_value", [0])"#,);
+    assert_eq!(f.to_string(), r#"fact("my_value", {0})"#,);
 }
 
 #[test]
@@ -196,7 +200,7 @@ fn check_macro() {
 
     assert_eq!(
         c.to_string(),
-        r#"check if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"check if fact("my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
 }
 
@@ -216,6 +220,32 @@ fn policy_macro() {
 
     assert_eq!(
         p.to_string(),
-        r#"allow if fact("my_value", [0]) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
+        r#"allow if fact("my_value", {0}) trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db"#,
     );
+}
+
+#[test]
+fn json() {
+    let key_pair = KeyPair::new();
+    let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
+
+    let value: serde_json::Value = json!(
+        {
+            "id": 123,
+            "roles": ["admin"]
+        }
+    );
+    let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
+
+    let authorizer = authorizer!(
+        r#"
+        user_roles({json_value});
+        allow if
+          user($id),
+          user_roles($value),
+          $value.get("id") == $id,
+          $value.get("roles").contains("admin");"#
+    );
+
+    assert!(biscuit.authorize(&authorizer).is_ok());
 }

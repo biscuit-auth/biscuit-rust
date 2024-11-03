@@ -7,6 +7,7 @@ use crate::token::builder_ext::BuilderExt;
 use biscuit_parser::parser::parse_block_source;
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
+use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::{
     collections::{BTreeSet, HashMap},
@@ -430,6 +431,94 @@ pub enum Term {
     Set(BTreeSet<Term>),
     Parameter(String),
     Null,
+    Array(Vec<Term>),
+    Map(BTreeMap<MapKey, Term>),
+}
+
+impl Term {
+    fn extract_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Term::Parameter(name) => {
+                parameters.insert(name.to_string(), None);
+            }
+            Term::Set(s) => {
+                for term in s {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Array(a) => {
+                for term in a {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Map(m) => {
+                for (key, term) in m {
+                    if let MapKey::Parameter(name) = key {
+                        parameters.insert(name.to_string(), None);
+                    }
+                    term.extract_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_parameters(self, parameters: &HashMap<String, Option<Term>>) -> Term {
+        match self {
+            Term::Parameter(name) => {
+                if let Some(Some(term)) = parameters.get(&name) {
+                    term.clone()
+                } else {
+                    Term::Parameter(name)
+                }
+            }
+            Term::Map(m) => Term::Map(
+                m.into_iter()
+                    .map(|(key, term)| {
+                        println!("will try to apply parameters on {key:?} -> {term:?}");
+                        (
+                            match key {
+                                MapKey::Parameter(name) => {
+                                    if let Some(Some(key_term)) = parameters.get(&name) {
+                                        println!("found key term: {key_term}");
+                                        match key_term {
+                                            Term::Integer(i) => MapKey::Integer(*i),
+                                            Term::Str(s) => MapKey::Str(s.clone()),
+                                            //FIXME: we should return an error
+                                            _ => MapKey::Parameter(name),
+                                        }
+                                    } else {
+                                        MapKey::Parameter(name)
+                                    }
+                                }
+                                _ => key,
+                            },
+                            term.apply_parameters(parameters),
+                        )
+                    })
+                    .collect(),
+            ),
+            Term::Array(array) => Term::Array(
+                array
+                    .into_iter()
+                    .map(|term| term.apply_parameters(parameters))
+                    .collect(),
+            ),
+            Term::Set(set) => Term::Set(
+                set.into_iter()
+                    .map(|term| term.apply_parameters(parameters))
+                    .collect(),
+            ),
+            _ => self,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MapKey {
+    Integer(i64),
+    Str(String),
+    Parameter(String),
 }
 
 impl Convert<datalog::Term> for Term {
@@ -446,6 +535,20 @@ impl Convert<datalog::Term> for Term {
             // The error is caught in the `add_xxx` functions, so this should
             // not happen™
             Term::Parameter(s) => panic!("Remaining parameter {}", &s),
+            Term::Array(a) => datalog::Term::Array(a.iter().map(|i| i.convert(symbols)).collect()),
+            Term::Map(m) => datalog::Term::Map(
+                m.iter()
+                    .map(|(key, term)| {
+                        let key = match key {
+                            MapKey::Integer(i) => datalog::MapKey::Integer(*i),
+                            MapKey::Str(s) => datalog::MapKey::Str(symbols.insert(s)),
+                            MapKey::Parameter(s) => panic!("Remaining parameter {}", &s),
+                        };
+
+                        (key, term.convert(symbols))
+                    })
+                    .collect(),
+            ),
         }
     }
 
@@ -463,6 +566,23 @@ impl Convert<datalog::Term> for Term {
                     .collect::<Result<BTreeSet<_>, error::Format>>()?,
             ),
             datalog::Term::Null => Term::Null,
+            datalog::Term::Array(a) => Term::Array(
+                a.iter()
+                    .map(|i| Term::convert_from(i, symbols))
+                    .collect::<Result<Vec<_>, error::Format>>()?,
+            ),
+            datalog::Term::Map(m) => Term::Map(
+                m.iter()
+                    .map(|(key, term)| {
+                        let key = match key {
+                            datalog::MapKey::Integer(i) => Ok(MapKey::Integer(*i)),
+                            datalog::MapKey::Str(s) => symbols.print_symbol(*s).map(MapKey::Str),
+                        };
+
+                        key.and_then(|k| Term::convert_from(term, symbols).map(|term| (k, term)))
+                    })
+                    .collect::<Result<BTreeMap<_, _>, error::Format>>()?,
+            ),
         })
     }
 }
@@ -479,6 +599,8 @@ impl From<&Term> for Term {
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
+            Term::Map(m) => Term::Map(m.clone()),
         }
     }
 }
@@ -497,6 +619,25 @@ impl From<biscuit_parser::builder::Term> for Term {
             }
             biscuit_parser::builder::Term::Null => Term::Null,
             biscuit_parser::builder::Term::Parameter(ref p) => Term::Parameter(p.clone()),
+            biscuit_parser::builder::Term::Array(a) => {
+                Term::Array(a.into_iter().map(|t| t.into()).collect())
+            }
+            biscuit_parser::builder::Term::Map(a) => Term::Map(
+                a.into_iter()
+                    .map(|(key, term)| {
+                        (
+                            match key {
+                                biscuit_parser::builder::MapKey::Parameter(s) => {
+                                    MapKey::Parameter(s)
+                                }
+                                biscuit_parser::builder::MapKey::Integer(i) => MapKey::Integer(i),
+                                biscuit_parser::builder::MapKey::Str(s) => MapKey::Str(s),
+                            },
+                            term.into(),
+                        )
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -534,12 +675,27 @@ impl fmt::Display for Term {
             }
             Term::Set(s) => {
                 let terms = s.iter().map(|term| term.to_string()).collect::<Vec<_>>();
-                write!(f, "[{}]", terms.join(", "))
+                write!(f, "{{{}}}", terms.join(", "))
             }
             Term::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
             Term::Null => write!(f, "null"),
+            Term::Array(a) => {
+                let terms = a.iter().map(|term| term.to_string()).collect::<Vec<_>>();
+                write!(f, "[{}]", terms.join(", "))
+            }
+            Term::Map(m) => {
+                let terms = m
+                    .iter()
+                    .map(|(key, term)| match key {
+                        MapKey::Integer(i) => format!("{i}: {}", term.to_string()),
+                        MapKey::Str(s) => format!("\"{s}\": {}", term.to_string()),
+                        MapKey::Parameter(s) => format!("{{{s}}}: {}", term.to_string()),
+                    })
+                    .collect::<Vec<_>>();
+                write!(f, "{{{}}}", terms.join(", "))
+            }
         }
     }
 }
@@ -696,9 +852,7 @@ impl Fact {
         let terms: Vec<Term> = terms.into();
 
         for term in &terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
         Fact {
             predicate: Predicate::new(name, terms),
@@ -802,14 +956,7 @@ impl Fact {
                 .predicate
                 .terms
                 .drain(..)
-                .map(|t| {
-                    if let Term::Parameter(name) = &t {
-                        if let Some(Some(term)) = parameters.get(name) {
-                            return term.clone();
-                        }
-                    }
-                    t
-                })
+                .map(|t| t.apply_parameters(&parameters))
                 .collect();
         }
     }
@@ -1034,6 +1181,7 @@ impl From<biscuit_parser::builder::Binary> for Binary {
             biscuit_parser::builder::Binary::LazyOr => Binary::LazyOr,
             biscuit_parser::builder::Binary::All => Binary::All,
             biscuit_parser::builder::Binary::Any => Binary::Any,
+            biscuit_parser::builder::Binary::Get => Binary::Get,
         }
     }
 }
@@ -1059,16 +1207,12 @@ impl Rule {
         let mut parameters = HashMap::new();
         let mut scope_parameters = HashMap::new();
         for term in &head.terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
 
         for predicate in &body {
             for term in &predicate.terms {
-                if let Term::Parameter(name) = &term {
-                    parameters.insert(name.to_string(), None);
-                }
+                term.extract_parameters(&mut parameters);
             }
         }
 
@@ -1933,6 +2077,13 @@ pub trait ToAnyParam {
     fn to_any_param(&self) -> AnyParam;
 }
 
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Term {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.clone())
+    }
+}
+
 impl From<i64> for Term {
     fn from(i: i64) -> Self {
         Term::Integer(i)
@@ -2119,6 +2270,37 @@ impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T>
                 "expected set, got {:?}",
                 value
             ))),
+        }
+    }
+}
+
+// TODO: From and ToAnyParam for arrays and maps
+impl TryFrom<serde_json::Value> for Term {
+    type Error = &'static str;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        match value {
+            serde_json::Value::Null => Ok(Term::Null),
+            serde_json::Value::Bool(b) => Ok(Term::Bool(b)),
+            serde_json::Value::Number(i) => match i.as_i64() {
+                Some(i) => Ok(Term::Integer(i)),
+                None => Err("Biscuit values do not support floating point numbers"),
+            },
+            serde_json::Value::String(s) => Ok(Term::Str(s)),
+            serde_json::Value::Array(array) => Ok(Term::Array(
+                array
+                    .into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<Result<_, _>>()?,
+            )),
+            serde_json::Value::Object(o) => Ok(Term::Map(
+                o.into_iter()
+                    .map(|(key, value)| {
+                        let value: Term = value.try_into()?;
+                        Ok::<_, &'static str>((MapKey::Str(key), value))
+                    })
+                    .collect::<Result<_, _>>()?,
+            )),
         }
     }
 }
@@ -2408,7 +2590,7 @@ mod tests {
         rule.set("p5", term_set).unwrap();
 
         let s = rule.to_string();
-        assert_eq!(s, "fact($var1, \"hello\", [0]) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
+        assert_eq!(s, "fact($var1, \"hello\", {0}) <- f1($var1, $var3), f2(\"hello\", $var3, 1), $var3.starts_with(\"hello\")");
     }
 
     #[test]

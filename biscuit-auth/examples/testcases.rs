@@ -156,6 +156,7 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, type_of(&target, &root, test));
 
+    add_test_result(&mut results, array_map(&target, &root, test));
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -1332,22 +1333,22 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if hex:12ab === hex:12ab;
 
         // set contains
-        check if [1, 2].contains(2);
-        check if [2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00].contains(2020-12-04T09:46:41+00:00);
-        check if [true, false, true].contains(true);
-        check if ["abc", "def"].contains("abc");
-        check if [hex:12ab, hex:34de].contains(hex:34de);
-        check if [1, 2].contains([2]);
+        check if {1, 2}.contains(2);
+        check if { 2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00}.contains(2020-12-04T09:46:41+00:00);
+        check if {true, false, true}.contains(true);
+        check if {"abc", "def"}.contains("abc");
+        check if {hex:12ab, hex:34de}.contains(hex:34de);
+        check if {1, 2}.contains({2});
         // set strict equal
-        check if [1, 2] === [1, 2];
+        check if {1, 2} === {1, 2};
         // set intersection
-        check if [1, 2].intersection([2, 3]) === [2];
+        check if {1, 2}.intersection({2, 3}) === {2};
         // set union
-        check if [1, 2].union([2, 3]) === [1, 2, 3];
+        check if {1, 2}.union({2, 3}) === {1, 2, 3};
         // chained method calls
-        check if [1, 2, 3].intersection([1, 2]).contains(1);
+        check if {1, 2, 3}.intersection({1, 2}).contains(1);
         // chained method calls with unary method
-        check if [1, 2, 3].intersection([1, 2]).length() === 2;
+        check if {1, 2, 3}.intersection({1, 2}).length() === 2;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -2093,15 +2094,15 @@ fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
         // boolean or laziness
         check if true || "x".intersection("x");
         // all
-        check if [1,2,3].all($p -> $p > 0);
+        check if {1,2,3}.all($p -> $p > 0);
         // all
-        check if ![1,2,3].all($p -> $p == 2);
+        check if !{1,2,3}.all($p -> $p == 2);
         // any
-        check if [1,2,3].any($p -> $p > 2);
+        check if {1,2,3}.any($p -> $p > 2);
         // any
-        check if ![1,2,3].any($p -> $p > 3);
+        check if !{1,2,3}.any($p -> $p > 3);
         // nested closures
-        check if [1,2,3].any($p -> $p > 1 && [3,4,5].any($q -> $p == $q));
+        check if {1,2,3}.any($p -> $p > 1 && {3,4,5}.any($q -> $p == $q));
         "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2156,8 +2157,8 @@ fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if true.type() == "bool";
         bool(true);
         check if bool($t), $t.type() == "bool";
-        check if [true, false].type() == "set";
-        set([true, false]);
+        check if {true, false}.type() == "set";
+        set({true, false});
         check if set($t), $t.type() == "set";
         check if null.type() == "null";
         null(null);
@@ -2167,6 +2168,60 @@ fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
     .unwrap();
 
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test array and map operations (v5 blocks)".to_string();
+    let filename = "test034_array_map".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        // array
+        check if [1, 2, 1].length() == 3;
+        check if ["a", "b"] != [1, 2, 3];
+        check if ["a", "b"] == ["a", "b"];
+        check if ["a", "b", "c"].contains("c");
+        check if [1, 2, 3].starts_with([1, 2]);
+        check if [4, 5, 6 ].ends_with([6]);
+        check if [1,2, "a"].get(2) == "a";
+        check if [1, 2].get(3) == null;
+        check if [1,2,3].all($p -> $p > 0);
+        check if [1,2,3].any($p -> $p > 2);
+        // map
+        check if { "a": 1 , "b": 2, "c": 3, "d": 4}.length() == 4;
+        check if {  1: "a" , 2: "b"} != { "a": 1 , "b": 2};
+        check if {  1: "a" , 2: "b"} == { 2: "b", 1: "a"  };
+        check if { "a": 1 , "b": 2, "c": 3, "d": 4}.contains("d");
+        check if { "a": 1 , "b": 2, 1: "A" }.get("a") == 1;
+        check if { "a": 1 , "b": 2, 1: "A" }.get(1) == "A";
+        check if { "a": 1 , "b": 2, 1: "A" }.get("c") == null;
+        check if { "a": 1 , "b": 2, 1: "A" }.get(2) == null;
+        check if { "a": 1 , "b": 2 }.all($kv -> $kv.get(0) != "c" && $kv.get(1) < 3 );
+        check if { "a": 1 , "b": 2, 1: "A" }.any($kv -> $kv.get(0) == 1 && $kv.get(1) == "A" );
+        // nesting
+        check if { "user": { "id": 1, "roles": ["admin"] } }.get("user").get("roles").contains("admin");
+    "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
     token = print_blocks(&biscuit);
 
     let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
