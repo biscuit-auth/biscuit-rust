@@ -17,8 +17,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest-large
-            target_arch: x86_64-apple-darwin
+          # - os: macos-latest-large
+          #   target_arch: x86_64-apple-darwin
           - os: macos-latest
             target_arch: aarch64-apple-darwin
           - os: ubuntu-latest
