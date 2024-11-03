@@ -16,7 +16,7 @@ You can then link against the generated library in your C code.
 
 ### Downloading pre-built binaries
 In the [releases section](https://github.com/biscuit-auth/biscuit-rust/releases) of this repository, you can find pre-built binaries for the C API.
-Currently, only Linux x86_64 and MacOS (x86 + arm) are provided.
+Currently, only Linux x86_64 and MacOS (arm) are provided.
 
 ### Running the tests
 
