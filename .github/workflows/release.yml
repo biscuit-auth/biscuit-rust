@@ -17,6 +17,7 @@ jobs:
     strategy:
       matrix:
         include:
+          # deactivated for now, the x86 workers are more expensive
           # - os: macos-latest-large
           #   target_arch: x86_64-apple-darwin
           - os: macos-latest
