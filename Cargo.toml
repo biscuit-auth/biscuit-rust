@@ -1,2 +1,2 @@
 [workspace]
-members = ["biscuit-auth", "biscuit-quote", "biscuit-parser"]
+members = ["biscuit-auth", "biscuit-quote", "biscuit-parser", "biscuit-capi"]

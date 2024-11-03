@@ -8,6 +8,7 @@ mod capi {
         (assert_c! {
             #include <stdio.h>
             #include <string.h>
+            #include <inttypes.h>
             #include "biscuit_auth.h"
 
             int main() {
@@ -51,19 +52,19 @@ mod capi {
 
                     if(error_kind() == LogicUnauthorized) {
                         uint64_t error_count = error_check_count();
-                        printf("failed checks (%ld):\n", error_count);
+                        printf("failed checks (%" PRIu64 "):\n", error_count);
 
                         for(uint64_t i = 0; i < error_count; i++) {
                             if(error_check_is_authorizer(i)) {
                                 uint64_t check_id = error_check_id(i);
                                 const char* rule = error_check_rule(i);
 
-                                printf("  Authorizer check %ld: %s\n", check_id, rule);
+                                printf("  Authorizer check %" PRIu64 ": %s\n", check_id, rule);
                             } else {
                                 uint64_t check_id = error_check_id(i);
                                 uint64_t block_id = error_check_block_id(i);
                                 const char* rule = error_check_rule(i);
-                                printf("  Block %ld, check %ld: %s\n", block_id, check_id, rule);
+                                printf("  Block %" PRIu64 ", check %" PRIu64 ": %s\n", block_id, check_id, rule);
                             }
 
                         }
@@ -76,10 +77,19 @@ mod capi {
                 string_free(world_print);
 
                 uint64_t sz = biscuit_serialized_size(b2);
-                printf("serialized size: %ld\n", sz);
+                printf("serialized size: %" PRIu64 "\n", sz);
                 uint8_t * buffer = malloc(sz);
                 uint64_t written = biscuit_serialize(b2, buffer);
-                printf("wrote %ld bytes\n", written);
+                printf("wrote %" PRIu64 " bytes\n", written);
+
+                const char *biscuit_source = biscuit_print_block_source(b2, 0);
+                printf("biscuit block 0 source: %s\n", biscuit_source);
+
+                uintptr_t count = biscuit_block_count(b2);
+                printf("biscuit block count: %" PRIuPTR "\n", count);
+
+                char *block_context_0 = biscuit_block_context(b2, 0);
+                printf("biscuit block 0 context: %s\n", block_context_0);
 
                 free(buffer);
                 authorizer_free(authorizer);
@@ -126,6 +136,10 @@ allow if true;
 
 serialized size: 322
 wrote 322 bytes
+biscuit block 0 source: right("file1", "read");
+
+biscuit block count: 2
+biscuit block 0 context: (null)
 "#,
         );
     }
