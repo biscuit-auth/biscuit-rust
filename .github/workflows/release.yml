@@ -34,6 +34,7 @@ jobs:
         run: cargo install cargo-c --version 0.10.5+cargo-0.83.0
       - name: Run cargo-c tests
         run: cargo ctest --release --features="capi"
+        if: matrix.os == 'ubuntu-latest' && matrix.target_arch == 'x86_64-unknown-linux-gnu'
       - name: Build C-API
         run: cargo cinstall --release --prefix=/usr --destdir=./build --features="capi"
       - name: Compress

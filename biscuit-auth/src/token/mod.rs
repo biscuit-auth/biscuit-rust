@@ -221,19 +221,6 @@ impl Biscuit {
         })
     }
 
-    /// prints the content of a block as a protobuf message
-    pub fn print_fact(&self, fact: &crate::datalog::Fact) -> String {
-        self.symbols.print_fact(fact)
-    }
-
-    pub fn print_rule(&self, rule: &crate::datalog::Rule) -> String {
-        self.symbols.print_rule(rule)
-    }
-
-    pub fn print_check(&self, check: &crate::datalog::Check) -> String {
-        self.symbols.print_check(check)
-    }
-
     /// creates a new token, using a provided CSPRNG
     ///
     /// the public part of the root keypair must be used for verification

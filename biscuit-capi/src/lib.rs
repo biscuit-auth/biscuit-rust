@@ -1,3 +1,4 @@
+#![allow(clippy::missing_safety_doc)]
 use rand::prelude::*;
 use std::{
     cell::RefCell,
@@ -768,114 +769,6 @@ pub unsafe extern "C" fn biscuit_block_check_count(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_block_fact(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    fact_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.facts.get(fact_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(fact) => match CString::new(biscuit.0.print_fact(fact)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_rule(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    rule_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.rules.get(rule_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(rule) => match CString::new(biscuit.0.print_rule(rule)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_check(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    check_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.checks.get(check_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(check) => match CString::new(biscuit.0.print_check(check)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn biscuit_block_context(
     biscuit: Option<&Biscuit>,
     block_index: u32,
@@ -1244,6 +1137,34 @@ pub unsafe extern "C" fn biscuit_print(biscuit: Option<&Biscuit>) -> *const c_ch
         Err(_) => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null();
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_print_block_source(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> *const c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null();
+    }
+    let biscuit = biscuit.unwrap();
+
+    let block_source = match biscuit.0.print_block_source(block_index as usize) {
+        Ok(s) => s,
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            return std::ptr::null();
+        }
+    };
+
+    match CString::new(block_source) {
+        Ok(s) => s.into_raw(),
+        Err(_) => {
+            update_last_error(Error::InvalidArgument);
+            std::ptr::null()
         }
     }
 }
