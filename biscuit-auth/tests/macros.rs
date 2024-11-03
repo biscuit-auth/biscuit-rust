@@ -1,10 +1,10 @@
-use biscuit_auth::{builder, KeyPair};
+use biscuit_auth::{builder, datalog::RunLimits, KeyPair};
 use biscuit_quote::{
     authorizer, authorizer_merge, biscuit, biscuit_merge, block, block_merge, check, fact, policy,
     rule,
 };
 use serde_json::json;
-use std::{collections::BTreeSet, convert::TryInto};
+use std::{collections::BTreeSet, convert::TryInto, time::Duration};
 
 #[test]
 fn block_macro() {
@@ -237,7 +237,7 @@ fn json() {
     );
     let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
 
-    let authorizer = authorizer!(
+    let mut authorizer = authorizer!(
         r#"
         user_roles({json_value});
         allow if
@@ -247,5 +247,14 @@ fn json() {
           $value.get("roles").contains("admin");"#
     );
 
-    assert_eq!(biscuit.authorize(&authorizer).unwrap(), 0);
+    authorizer.add_token(&biscuit).unwrap();
+    assert_eq!(
+        authorizer
+            .authorize_with_limits(RunLimits {
+                max_time: Duration::from_secs(1),
+                ..Default::default()
+            })
+            .unwrap(),
+        0
+    );
 }
