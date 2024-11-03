@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
+use crate::builder::Algorithm;
 use crate::{error, PublicKey};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -47,7 +48,7 @@ impl TryFrom<BiscuitWebKeyRepr> for BiscuitWebKey {
             )));
         }
 
-        let public_key = PublicKey::from_bytes_hex(&value.key_bytes)?;
+        let public_key = PublicKey::from_bytes_hex(&value.key_bytes, Algorithm::Ed25519)?;
 
         Ok(BiscuitWebKey {
             public_key,
@@ -67,7 +68,7 @@ mod tests {
 
     #[test]
     fn roundtrips() {
-        let keypair = KeyPair::new();
+        let keypair = KeyPair::new(Algorithm::Ed25519);
         let bwk = BiscuitWebKey {
             public_key: keypair.public(),
             key_id: 12,
@@ -79,7 +80,7 @@ mod tests {
         let parsed: BiscuitWebKey = serde_json::from_str(&serialized).unwrap();
         assert_eq!(parsed, bwk);
 
-        let keypair = KeyPair::new();
+        let keypair = KeyPair::new(Algorithm::Ed25519);
         let bwk = BiscuitWebKey {
             public_key: keypair.public(),
             key_id: 0,
@@ -91,7 +92,7 @@ mod tests {
         let parsed: BiscuitWebKey = serde_json::from_str(&serialized).unwrap();
         assert_eq!(parsed, bwk);
 
-        let keypair = KeyPair::new();
+        let keypair = KeyPair::new(Algorithm::Ed25519);
         let bwk = BiscuitWebKey {
             public_key: keypair.public(),
             key_id: 0,
@@ -120,7 +121,8 @@ mod tests {
             .unwrap(),
             BiscuitWebKey {
                 public_key: PublicKey::from_bytes_hex(
-                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a"
+                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a",
+                    Algorithm::Ed25519
                 )
                 .unwrap(),
                 key_id: 12,
@@ -145,7 +147,8 @@ mod tests {
             .unwrap(),
             BiscuitWebKey {
                 public_key: PublicKey::from_bytes_hex(
-                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a"
+                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a",
+                    Algorithm::Ed25519
                 )
                 .unwrap(),
                 key_id: 12,
@@ -166,7 +169,8 @@ mod tests {
             .unwrap(),
             BiscuitWebKey {
                 public_key: PublicKey::from_bytes_hex(
-                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a"
+                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a",
+                    Algorithm::Ed25519
                 )
                 .unwrap(),
                 key_id: 12,
@@ -187,7 +191,8 @@ mod tests {
             .unwrap(),
             BiscuitWebKey {
                 public_key: PublicKey::from_bytes_hex(
-                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a"
+                    "63c7a8628c14b778a4b66a22e1f53dab4542423295b6fb5a52283da58bcf6d9a",
+                    Algorithm::Ed25519
                 )
                 .unwrap(),
                 key_id: u32::MAX,
