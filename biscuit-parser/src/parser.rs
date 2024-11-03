@@ -3,16 +3,19 @@ use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
     character::{
-        complete::{char, digit1, multispace0 as space0},
-        is_alphanumeric,
+        complete::{char, digit1, multispace0 as space0, satisfy},
+        is_alphabetic, is_alphanumeric,
     },
     combinator::{consumed, cut, eof, map, map_res, opt, recognize, value},
     error::{ErrorKind, FromExternalError, ParseError},
     multi::{many0, separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     IResult, Offset,
 };
-use std::{collections::BTreeSet, convert::TryInto};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    convert::TryInto,
+};
 use thiserror::Error;
 
 /// parse a Datalog fact
@@ -506,6 +509,7 @@ fn binary_op_8(i: &str) -> IResult<&str, builder::Binary, Error> {
         value(Binary::Union, tag("union")),
         value(Binary::All, tag("all")),
         value(Binary::Any, tag("any")),
+        value(Binary::Get, tag("get")),
     ))(i)
 }
 
@@ -713,7 +717,10 @@ fn binary_method(i: &str) -> IResult<&str, (builder::Binary, Option<Vec<String>>
 
 fn unary_method(i: &str) -> IResult<&str, builder::Unary, Error> {
     use builder::Unary;
-    let (i, op) = value(Unary::Length, tag("length"))(i)?;
+    let (i, op) = alt((
+        value(Unary::Length, tag("length")),
+        value(Unary::TypeOf, tag("type")),
+    ))(i)?;
 
     let (i, _) = char('(')(i)?;
     let (i, _) = space0(i)?;
@@ -726,6 +733,21 @@ fn name(i: &str) -> IResult<&str, &str, Error> {
     let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
 
     reduce(take_while1(is_name_char), " ,:(\n;")(i)
+}
+
+fn parameter_name(i: &str) -> IResult<&str, &str, Error> {
+    let is_name_char = |c: char| is_alphanumeric(c as u8) || c == '_' || c == ':';
+
+    error(
+        recognize(preceded(
+            satisfy(|c: char| is_alphabetic(c as u8)),
+            take_while(is_name_char),
+        )),
+        |_| {
+            "invalid parameter name: it must start with an alphabetic character, followed by alphanumeric characters, underscores or colons".to_string()
+        },
+        " ,:(\n;",
+    )(i)
 }
 
 fn printable(i: &str) -> IResult<&str, &str, Error> {
@@ -766,7 +788,9 @@ fn integer(i: &str) -> IResult<&str, builder::Term, Error> {
 fn parse_date(i: &str) -> IResult<&str, u64, Error> {
     map_res(
         map_res(
-            take_while1(|c: char| c != ',' && c != ' ' && c != ')' && c != ']' && c != ';'),
+            take_while1(|c: char| {
+                c != ',' && c != ' ' && c != ')' && c != ']' && c != ';' && c != '}'
+            }),
             |s| time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339),
         ),
         |t| t.unix_timestamp().try_into(),
@@ -800,7 +824,10 @@ fn variable(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn parameter(i: &str) -> IResult<&str, builder::Term, Error> {
-    map(delimited(char('{'), name, char('}')), builder::parameter)(i)
+    map(
+        delimited(char('{'), parameter_name, char('}')),
+        builder::parameter,
+    )(i)
 }
 
 fn parse_bool(i: &str) -> IResult<&str, bool, Error> {
@@ -816,8 +843,7 @@ fn null(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
-    //println!("set:\t{}", i);
-    let (i, _) = preceded(space0, char('['))(i)?;
+    let (i, _) = preceded(space0, char('{'))(i)?;
     let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
 
     let mut set = BTreeSet::new();
@@ -846,6 +872,8 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
             }
             builder::Term::Parameter(_) => 7,
             builder::Term::Null => 8,
+            builder::Term::Array(_) => 9,
+            builder::Term::Map(_) => 10,
         };
 
         if let Some(k) = kind {
@@ -863,16 +891,55 @@ fn set(i: &str) -> IResult<&str, builder::Term, Error> {
         set.insert(term);
     }
 
-    let (i, _) = preceded(space0, char(']'))(i)?;
+    let (i, _) = preceded(space0, char('}'))(i)?;
 
     Ok((i, builder::set(set)))
+}
+
+fn array(i: &str) -> IResult<&str, builder::Term, Error> {
+    let (i, _) = preceded(space0, char('['))(i)?;
+    let (i, array) = cut(separated_list0(preceded(space0, char(',')), term_in_fact))(i)?;
+    let (i, _) = preceded(space0, char(']'))(i)?;
+
+    Ok((i, builder::array(array)))
+}
+
+fn parse_map(i: &str) -> IResult<&str, builder::Term, Error> {
+    let (i, _) = preceded(space0, char('{'))(i)?;
+    let (i, mut list) = cut(separated_list0(
+        preceded(space0, char(',')),
+        separated_pair(map_key, preceded(space0, char(':')), term_in_fact),
+    ))(i)?;
+
+    let mut map = BTreeMap::new();
+
+    for (key, term) in list.drain(..) {
+        map.insert(key, term);
+    }
+
+    let (i, _) = preceded(space0, char('}'))(i)?;
+
+    Ok((i, builder::map(map)))
+}
+
+fn map_key(i: &str) -> IResult<&str, builder::MapKey, Error> {
+    preceded(
+        space0,
+        alt((
+            map(delimited(char('{'), parameter_name, char('}')), |s| {
+                builder::MapKey::Parameter(s.to_string())
+            }),
+            map(parse_string, |s| builder::MapKey::Str(s.to_string())),
+            map(parse_integer, builder::MapKey::Integer),
+        )),
+    )(i)
 }
 
 fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, null, set,
+            parameter, string, date, variable, integer, bytes, boolean, null, set, array, parse_map,
         )),
     )(i)
 }
@@ -881,7 +948,9 @@ fn term_in_fact(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, null, set)),
+            alt((
+                parameter, string, date, integer, bytes, boolean, null, set, array, parse_map,
+            )),
             |input| match input.chars().next() {
                 None | Some(',') | Some(')') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in facts".to_string(),
@@ -896,13 +965,15 @@ fn term_in_set(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         error(
-            alt((parameter, string, date, integer, bytes, boolean, null)),
+            alt((
+                parameter, string, date, integer, bytes, boolean, null, parse_map,
+            )),
             |input| match input.chars().next() {
-                None | Some(',') | Some(']') => "missing term".to_string(),
+                None | Some(',') | Some('}') => "missing term".to_string(),
                 Some('$') => "variables are not allowed in sets".to_string(),
                 _ => "expected a valid term".to_string(),
             },
-            " ,]\n;",
+            " ,}\n;",
         ),
     )(i)
 }
@@ -1235,7 +1306,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::{self, Unary};
+    use crate::builder::{self, array, int, var, Binary, Op, Unary};
 
     #[test]
     fn name() {
@@ -1283,6 +1354,17 @@ mod tests {
             super::parameter("{param}"),
             Ok(("", builder::parameter("param")))
         );
+
+        assert_eq!(
+            super::parameter("{1param}"),
+            Err(nom::Err::Error(crate::parser::Error {
+                input: "1param}",
+                code: nom::error::ErrorKind::Satisfy,
+                message:  Some("invalid parameter name: it must start with an alphabetic character, followed by alphanumeric characters, underscores or colons".to_string())
+            }))
+        );
+
+        assert_eq!(super::parameter("{p}"), Ok(("", builder::parameter("p"))));
     }
 
     #[test]
@@ -1639,7 +1721,7 @@ mod tests {
 
         let h = [int(1), int(2)].iter().cloned().collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1, 2}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1651,7 +1733,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{ 1, 2}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1659,6 +1741,25 @@ mod tests {
                     Op::Value(var("0")),
                     Op::Binary(Binary::Contains),
                     Op::Unary(Unary::Negate),
+                ],
+            ))
+        );
+
+        let h = [
+            builder::Term::Date(1575452801),
+            builder::Term::Date(1607075201),
+        ]
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<builder::Term>>();
+        assert_eq!(
+            super::expr("{2020-12-04T09:46:41+00:00, 2019-12-04T09:46:41+00:00}.contains(2020-12-04T09:46:41+00:00)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(set(h)),
+                    Op::Value(builder::Term::Date(1607075201)),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );
@@ -1752,7 +1853,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1764,7 +1865,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1781,7 +1882,7 @@ mod tests {
             .cloned()
             .collect::<BTreeSet<_>>();
         assert_eq!(
-            super::expr("[\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -1793,7 +1894,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("![\"abc\", \"def\"].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("!{\"abc\", \"def\"}.contains($0)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2453,7 +2554,7 @@ mod tests {
         use builder::{int, set, Binary, Op};
 
         assert_eq!(
-            super::expr("[1].intersection([2]).contains(3)").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).contains(3)").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2467,7 +2568,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("[1].intersection([2]).union([3]).length()").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).union({3}).length()").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2482,7 +2583,7 @@ mod tests {
         );
 
         assert_eq!(
-            super::expr("[1].intersection([2]).length().union([3])").map(|(i, o)| (i, o.opcodes())),
+            super::expr("{1}.intersection({2}).length().union({3})").map(|(i, o)| (i, o.opcodes())),
             Ok((
                 "",
                 vec![
@@ -2492,6 +2593,22 @@ mod tests {
                     Op::Unary(Unary::Length),
                     Op::Value(set([int(3)].into_iter().collect())),
                     Op::Binary(Binary::Union),
+                ],
+            ))
+        );
+    }
+
+    #[test]
+    fn arrays() {
+        let h = vec![int(1), int(2)];
+        assert_eq!(
+            super::expr("[1, 2].contains($0)").map(|(i, o)| (i, o.opcodes())),
+            Ok((
+                "",
+                vec![
+                    Op::Value(array(h.clone())),
+                    Op::Value(var("0")),
+                    Op::Binary(Binary::Contains),
                 ],
             ))
         );

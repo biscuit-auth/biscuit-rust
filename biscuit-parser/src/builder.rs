@@ -1,6 +1,6 @@
 //! helper functions and structure to create tokens and blocks
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -19,6 +19,44 @@ pub enum Term {
     Set(BTreeSet<Term>),
     Parameter(String),
     Null,
+    Array(Vec<Term>),
+    Map(BTreeMap<MapKey, Term>),
+}
+
+impl Term {
+    fn extract_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Term::Parameter(name) => {
+                parameters.insert(name.to_string(), None);
+            }
+            Term::Set(s) => {
+                for term in s {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Array(a) => {
+                for term in a {
+                    term.extract_parameters(parameters);
+                }
+            }
+            Term::Map(m) => {
+                for (key, term) in m {
+                    if let MapKey::Parameter(name) = key {
+                        parameters.insert(name.to_string(), None);
+                    }
+                    term.extract_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MapKey {
+    Parameter(String),
+    Integer(i64),
+    Str(String),
 }
 
 impl From<&Term> for Term {
@@ -33,6 +71,8 @@ impl From<&Term> for Term {
             Term::Set(ref s) => Term::Set(s.clone()),
             Term::Parameter(ref p) => Term::Parameter(p.clone()),
             Term::Null => Term::Null,
+            Term::Array(ref a) => Term::Array(a.clone()),
+            Term::Map(ref m) => Term::Map(m.clone()),
         }
     }
 }
@@ -61,8 +101,44 @@ impl ToTokens for Term {
                 }}
             }
             Term::Null => quote! { ::biscuit_auth::builder::Term::Null },
-
+            Term::Array(v) => {
+                quote! {{
+                    use std::iter::FromIterator;
+                    ::biscuit_auth::builder::Term::Array(::std::vec::Vec::from_iter(<[::biscuit_auth::builder::Term]>::into_vec( Box::new([ #(#v),*]))))
+                }}
+            }
+            Term::Map(m) => {
+                let  it = m.iter().map(|(key, term)| MapEntry {key, term });
+                quote! {{
+                    use std::iter::FromIterator;
+                    ::biscuit_auth::builder::Term::Map(::std::collections::BTreeMap::from_iter(<[(::biscuit_auth::builder::MapKey,::biscuit_auth::builder::Term)]>::into_vec(Box::new([ #(#it),*]))))
+                }}
+            }
         })
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+struct MapEntry<'a> {
+    key: &'a MapKey,
+    term: &'a Term,
+}
+
+#[cfg(feature = "datalog-macro")]
+impl<'a> ToTokens for MapEntry<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let term = self.term;
+        tokens.extend(match self.key {
+            MapKey::Parameter(p) => {
+                quote! { (::biscuit_auth::builder::MapKey::Parameter(#p.to_string()) , #term )}
+            }
+            MapKey::Integer(i) => {
+                quote! { (::biscuit_auth::builder::MapKey::Integer(#i) , #term )}
+            }
+            MapKey::Str(s) => {
+                quote! { (::biscuit_auth::builder::MapKey::Str(#s.to_string()) , #term )}
+            }
+        });
     }
 }
 
@@ -136,9 +212,7 @@ impl Fact {
         let terms: Vec<Term> = terms.into();
 
         for term in &terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
         Fact {
             predicate: Predicate::new(name, terms),
@@ -188,11 +262,28 @@ pub enum Op {
     Closure(Vec<String>, Vec<Op>),
 }
 
+impl Op {
+    fn collect_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Op::Value(term) => {
+                term.extract_parameters(parameters);
+            }
+            Op::Closure(_, ops) => {
+                for op in ops {
+                    op.collect_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Negate,
     Parens,
     Length,
+    TypeOf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -224,6 +315,7 @@ pub enum Binary {
     LazyOr,
     All,
     Any,
+    Get,
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -250,6 +342,7 @@ impl ToTokens for Unary {
             Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
             Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
+            Unary::TypeOf => quote! {::biscuit_auth::datalog::Unary::TypeOf },
         });
     }
 }
@@ -289,6 +382,7 @@ impl ToTokens for Binary {
             Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
             Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
             Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
+            Binary::Get => quote! { ::biscuit_auth::datalog::Binary::Get },
         });
     }
 }
@@ -317,24 +411,18 @@ impl Rule {
         let mut scope_parameters = HashMap::new();
 
         for term in &head.terms {
-            if let Term::Parameter(name) = &term {
-                parameters.insert(name.to_string(), None);
-            }
+            term.extract_parameters(&mut parameters);
         }
 
         for predicate in &body {
             for term in &predicate.terms {
-                if let Term::Parameter(name) = &term {
-                    parameters.insert(name.to_string(), None);
-                }
+                term.extract_parameters(&mut parameters);
             }
         }
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(Term::Parameter(name)) = &op {
-                    parameters.insert(name.to_string(), None);
-                }
+                op.collect_parameters(&mut parameters);
             }
         }
 
@@ -603,6 +691,16 @@ pub fn set(s: BTreeSet<Term>) -> Term {
 /// creates a null
 pub fn null() -> Term {
     Term::Null
+}
+
+/// creates an array
+pub fn array(a: Vec<Term>) -> Term {
+    Term::Array(a)
+}
+
+/// creates a map
+pub fn map(m: BTreeMap<MapKey, Term>) -> Term {
+    Term::Map(m)
 }
 
 /// creates a parameter

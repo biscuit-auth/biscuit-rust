@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::TryInto;
 
 use super::{default_symbol_table, Biscuit, Block};
@@ -26,7 +25,6 @@ pub struct UnverifiedBiscuit {
     pub(crate) authority: schema::Block,
     pub(crate) blocks: Vec<schema::Block>,
     pub(crate) symbols: SymbolTable,
-    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
     container: SerializedBiscuit,
 }
 
@@ -52,13 +50,12 @@ impl UnverifiedBiscuit {
         )?;
         let mut symbols = default_symbol_table();
 
-        let (authority, blocks, public_key_to_block_id) = container.extract_blocks(&mut symbols)?;
+        let (authority, blocks) = container.extract_blocks(&mut symbols)?;
 
         Ok(UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
-            public_key_to_block_id,
             container,
         })
     }
@@ -93,7 +90,6 @@ impl UnverifiedBiscuit {
             authority: self.authority,
             blocks: self.blocks,
             symbols: self.symbols,
-            public_key_to_block_id: self.public_key_to_block_id,
             container: self.container,
         })
     }
@@ -127,13 +123,12 @@ impl UnverifiedBiscuit {
             crate::format::ThirdPartyVerificationMode::PreviousSignatureHashing,
         )?;
 
-        let (authority, blocks, public_key_to_block_id) = container.extract_blocks(&mut symbols)?;
+        let (authority, blocks) = container.extract_blocks(&mut symbols)?;
 
         Ok(UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
-            public_key_to_block_id,
             container,
         })
     }
@@ -165,23 +160,11 @@ impl UnverifiedBiscuit {
         let authority = self.authority.clone();
         let mut blocks = self.blocks.clone();
         let mut symbols = self.symbols.clone();
-        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
 
         let container = self.container.append(keypair, &block, None)?;
 
         symbols.extend(&block.symbols)?;
         symbols.public_keys.extend(&block.public_keys)?;
-
-        if let Some(index) = block
-            .external_key
-            .as_ref()
-            .and_then(|pk| symbols.public_keys.get(pk))
-        {
-            public_key_to_block_id
-                .entry(index as usize)
-                .or_default()
-                .push(self.block_count() + 1);
-        }
 
         let deser = schema::Block::decode(
             &container
@@ -202,7 +185,6 @@ impl UnverifiedBiscuit {
             authority,
             blocks,
             symbols,
-            public_key_to_block_id,
             container,
         })
     }
@@ -375,7 +357,6 @@ impl UnverifiedBiscuit {
         };
 
         let mut symbols = self.symbols.clone();
-        let mut public_key_to_block_id = self.public_key_to_block_id.clone();
         let mut blocks = self.blocks.clone();
 
         let container =
@@ -387,17 +368,6 @@ impl UnverifiedBiscuit {
             symbols.public_keys.insert_fallible(key)?;
         }
 
-        if let Some(index) = token_block
-            .external_key
-            .as_ref()
-            .and_then(|pk| symbols.public_keys.get(pk))
-        {
-            public_key_to_block_id
-                .entry(index as usize)
-                .or_default()
-                .push(self.block_count());
-        }
-
         blocks.push(block);
 
         Ok(UnverifiedBiscuit {
@@ -405,7 +375,6 @@ impl UnverifiedBiscuit {
             blocks,
             symbols,
             container,
-            public_key_to_block_id,
         })
     }
 

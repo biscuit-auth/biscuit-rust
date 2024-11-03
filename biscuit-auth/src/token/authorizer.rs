@@ -5,7 +5,7 @@ use super::builder::{
 };
 use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
-use crate::builder::{CheckKind, Convert};
+use crate::builder::{self, CheckKind, Convert};
 use crate::crypto::PublicKey;
 use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
@@ -87,16 +87,15 @@ impl Authorizer {
             return Err(error::Logic::AuthorizerNotEmpty.into());
         }
 
-        for (key_id, block_ids) in &token.public_key_to_block_id {
-            let key = token
-                .symbols
-                .public_keys
-                .get_key(*key_id as u64)
-                .ok_or(error::Format::UnknownExternalKey)?;
-            let new_key_id = self.symbols.public_keys.insert(key);
+        for (i, block) in token.container.blocks.iter().enumerate() {
+            if let Some(sig) = block.external_signature.as_ref() {
+                let new_key_id = self.symbols.public_keys.insert(&sig.public_key);
 
-            self.public_key_to_block_id
-                .insert(new_key_id as usize, block_ids.clone());
+                self.public_key_to_block_id
+                    .entry(new_key_id as usize)
+                    .or_default()
+                    .push(i + 1);
+            }
         }
 
         let mut blocks = Vec::new();
@@ -120,7 +119,7 @@ impl Authorizer {
         Ok(())
     }
 
-    /// we need to modify the block loaded from the token, because the authorizer's and th token's symbol table can differ
+    /// we need to modify the block loaded from the token, because the authorizer's and the token's symbol table can differ
     fn load_and_translate_block(
         &mut self,
         block: &mut Block,
@@ -131,13 +130,16 @@ impl Authorizer {
         let block_symbols = if i == 0 || block.external_key.is_none() {
             token_symbols.clone()
         } else {
-            let mut symbols = block.symbols.clone();
-            symbols.public_keys = token_symbols.public_keys.clone();
-            symbols
+            block.symbols.clone()
         };
 
         let mut block_origin = Origin::default();
         block_origin.insert(i);
+
+        for scope in block.scopes.iter_mut() {
+            *scope = builder::Scope::convert_from(scope, &block_symbols)
+                .map(|s| s.convert(&mut self.symbols))?;
+        }
 
         let block_trusted_origins = TrustedOrigins::from_scopes(
             &block.scopes,
