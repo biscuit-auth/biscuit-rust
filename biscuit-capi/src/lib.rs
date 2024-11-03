@@ -700,75 +700,6 @@ pub unsafe extern "C" fn biscuit_block_count(biscuit: Option<&Biscuit>) -> usize
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn biscuit_block_fact_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.facts.len()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_rule_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.rules.len()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_check_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.checks.len()
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn biscuit_block_context(
     biscuit: Option<&Biscuit>,
     block_index: u32,
@@ -780,31 +711,24 @@ pub unsafe extern "C" fn biscuit_block_context(
 
     let biscuit = biscuit.unwrap();
 
-    let block = if block_index == 0 {
-        match biscuit.0.block(0) {
-            Ok(b) => b,
-            Err(err) => {
-                update_last_error(Error::Biscuit(err));
-                return std::ptr::null_mut();
-            }
-        }
-    } else {
-        match biscuit.0.block(block_index as usize - 1) {
-            Ok(b) => b,
-            Err(err) => {
-                update_last_error(Error::Biscuit(err));
-                return std::ptr::null_mut();
-            }
-        }
-    };
+    let context = biscuit.0.context();
 
-    match &block.context {
-        None => std::ptr::null_mut(),
-        Some(context) => match CString::new(context.clone()) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                std::ptr::null_mut()
+    match context.get(block_index as usize) {
+        None => {
+            update_last_error(Error::Biscuit(biscuit_auth::error::Token::Format(
+                biscuit_auth::error::Format::InvalidBlockId(block_index as usize),
+            )));
+
+            std::ptr::null_mut()
+        }
+        Some(context) => match context {
+            None => std::ptr::null_mut(),
+            Some(context) => {
+                let c = CString::new(context.clone());
+                match c {
+                    Err(_) => std::ptr::null_mut(),
+                    Ok(context_cstring) => context_cstring.into_raw(),
+                }
             }
         },
     }

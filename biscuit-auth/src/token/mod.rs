@@ -500,7 +500,7 @@ impl Biscuit {
         1 + self.blocks.len()
     }
 
-    pub fn block(&self, index: usize) -> Result<Block, error::Token> {
+    pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
         let block = if index == 0 {
             proto_block_to_token_block(
                 &self.authority,

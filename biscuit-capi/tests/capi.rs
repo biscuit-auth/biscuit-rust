@@ -85,6 +85,12 @@ mod capi {
                 const char *biscuit_source = biscuit_print_block_source(b2, 0);
                 printf("biscuit block 0 source: %s\n", biscuit_source);
 
+                uintptr_t count = biscuit_block_count(b2);
+                printf("biscuit block count: %" PRIuPTR "\n", count);
+
+                char *block_context_0 = biscuit_block_context(b2, 0);
+                printf("biscuit block 0 context: %s\n", block_context_0);
+
                 free(buffer);
                 authorizer_free(authorizer);
                 block_builder_free(bb);
@@ -132,6 +138,8 @@ serialized size: 322
 wrote 322 bytes
 biscuit block 0 source: right("file1", "read");
 
+biscuit block count: 2
+biscuit block 0 context: (null)
 "#,
         );
     }
