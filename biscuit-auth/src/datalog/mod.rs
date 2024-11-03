@@ -2,7 +2,7 @@
 use crate::builder::{CheckKind, Convert};
 use crate::error::Execution;
 use crate::time::Instant;
-use crate::token::{Scope, MIN_SCHEMA_VERSION};
+use crate::token::{Scope, DATALOG_3_1, DATALOG_3_3, MIN_SCHEMA_VERSION};
 use crate::{builder, error};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::convert::AsRef;
@@ -147,12 +147,12 @@ impl Rule {
 
         CombineIt::new(variables, &self.body, facts, symbols)
         .map(move |(origin, variables)| {
-                    let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+                    let mut temporary_symbols = TemporarySymbolTable::new(symbols);
                     for e in self.expressions.iter() {
                         match e.evaluate(&variables, &mut temporary_symbols) {
                             Ok(Term::Bool(true)) => {}
                             Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
-                            Ok(_) => return Err(error::Expression::InvalidType.into()),
+                            Ok(_) => return Err(error::Expression::InvalidType),
                             Err(e) => {
                                 //println!("expr returned {:?}", res);
                                 return Err(e);
@@ -219,7 +219,7 @@ impl Rule {
         for (_, variables) in CombineIt::new(variables, &self.body, fact_it, symbols) {
             found = true;
 
-            let mut temporary_symbols = TemporarySymbolTable::new(&symbols);
+            let mut temporary_symbols = TemporarySymbolTable::new(symbols);
             for e in self.expressions.iter() {
                 match e.evaluate(&variables, &mut temporary_symbols) {
                     Ok(Term::Bool(true)) => {}
@@ -792,7 +792,7 @@ impl FactSet {
             .flatten()
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, facts)| facts.iter().map(move |fact| (ids, fact)))
@@ -846,7 +846,7 @@ impl RuleSet {
         }
     }
 
-    pub fn iter_all<'a>(&'a self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
+    pub fn iter_all(&self) -> impl Iterator<Item = (&TrustedOrigins, &Rule)> + Clone {
         self.inner
             .iter()
             .flat_map(move |(ids, rules)| rules.iter().map(move |(_, rule)| (ids, rule)))
@@ -855,42 +855,42 @@ impl RuleSet {
 
 pub struct SchemaVersion {
     contains_scopes: bool,
-    contains_v4: bool,
+    contains_v3_1: bool,
     contains_check_all: bool,
-    contains_v5: bool,
+    contains_v3_3: bool,
 }
 
 impl SchemaVersion {
     pub fn version(&self) -> u32 {
-        if self.contains_v5 {
-            5
-        } else if self.contains_scopes || self.contains_v4 || self.contains_check_all {
-            4
+        if self.contains_v3_3 {
+            DATALOG_3_3
+        } else if self.contains_scopes || self.contains_v3_1 || self.contains_check_all {
+            DATALOG_3_1
         } else {
             MIN_SCHEMA_VERSION
         }
     }
 
     pub fn check_compatibility(&self, version: u32) -> Result<(), error::Format> {
-        if version < 4 {
+        if version < DATALOG_3_1 {
             if self.contains_scopes {
                 Err(error::Format::DeserializationError(
-                    "v3 blocks must not have scopes".to_string(),
+                    "scopes are only supported in datalog v3.1+".to_string(),
                 ))
-            } else if self.contains_v4 {
+            } else if self.contains_v3_1 {
                 Err(error::Format::DeserializationError(
-                    "v3 blocks must not have v4 operators (bitwise operators or !=)".to_string(),
+                    "bitwise operators and != are only supported in datalog v3.1+".to_string(),
                 ))
             } else if self.contains_check_all {
                 Err(error::Format::DeserializationError(
-                    "v3 blocks must not have check all".to_string(),
+                    "check all is only supported in datalog v3.1+".to_string(),
                 ))
             } else {
                 Ok(())
             }
-        } else if version < 5 && self.contains_v5 {
+        } else if version < DATALOG_3_3 && self.contains_v3_3 {
             Err(error::Format::DeserializationError(
-                "v3 or v4 blocks must not have v5 features".to_string(),
+                "maps, arrays, null, closures are only supported in datalog v3.3+".to_string(),
             ))
         } else {
             Ok(())
@@ -912,53 +912,54 @@ pub fn get_schema_version(
             .any(|c: &Check| c.queries.iter().any(|q| !q.scopes.is_empty()));
 
     let mut contains_check_all = false;
-    let mut contains_v5 = false;
+    let mut contains_v3_3 = false;
 
     for c in checks.iter() {
         if c.kind == CheckKind::All {
             contains_check_all = true;
         } else if c.kind == CheckKind::Reject {
-            contains_v5 = true;
+            contains_v3_3 = true;
         }
     }
 
-    let contains_v4 = rules.iter().any(|rule| contains_v4_op(&rule.expressions))
+    let contains_v3_1 = rules.iter().any(|rule| contains_v3_1_op(&rule.expressions))
         || checks.iter().any(|check| {
             check
                 .queries
                 .iter()
-                .any(|query| contains_v4_op(&query.expressions))
+                .any(|query| contains_v3_1_op(&query.expressions))
         });
 
     // null, heterogeneous equals, closures
-    if !contains_v5 {
-        contains_v5 = rules.iter().any(|rule| {
-            contains_v5_predicate(&rule.head)
-                || rule.body.iter().any(contains_v5_predicate)
-                || contains_v5_op(&rule.expressions)
+    if !contains_v3_3 {
+        contains_v3_3 = rules.iter().any(|rule| {
+            contains_v3_3_predicate(&rule.head)
+                || rule.body.iter().any(contains_v3_3_predicate)
+                || contains_v3_3_op(&rule.expressions)
         }) || checks.iter().any(|check| {
             check.queries.iter().any(|query| {
-                query.body.iter().any(contains_v5_predicate) || contains_v5_op(&query.expressions)
+                query.body.iter().any(contains_v3_3_predicate)
+                    || contains_v3_3_op(&query.expressions)
             })
         });
     }
-    if !contains_v5 {
-        contains_v5 = facts
+    if !contains_v3_3 {
+        contains_v3_3 = facts
             .iter()
-            .any(|fact| contains_v5_predicate(&fact.predicate))
+            .any(|fact| contains_v3_3_predicate(&fact.predicate))
     }
 
     SchemaVersion {
         contains_scopes,
-        contains_v4,
+        contains_v3_1,
         contains_check_all,
-        contains_v5,
+        contains_v3_3,
     }
 }
 
-/// Determine whether any of the expression contain a v4 operator.
-/// Bitwise operators and != are only supported in biscuits v4+
-pub fn contains_v4_op(expressions: &[Expression]) -> bool {
+/// Determine whether any of the expression contain a v3.1 operator.
+/// Bitwise operators and != are only supported in biscuits v3.1+
+pub fn contains_v3_1_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| {
             if let Op::Binary(binary) = op {
@@ -970,16 +971,17 @@ pub fn contains_v4_op(expressions: &[Expression]) -> bool {
                     _ => return false,
                 }
             }
-            return false;
+            false
         })
     })
 }
 
-fn contains_v5_op(expressions: &[Expression]) -> bool {
+fn contains_v3_3_op(expressions: &[Expression]) -> bool {
     expressions.iter().any(|expression| {
         expression.ops.iter().any(|op| match op {
-            Op::Value(term) => contains_v5_term(term),
+            Op::Value(term) => contains_v3_3_term(term),
             Op::Closure(_, _) => true,
+            Op::Unary(Unary::TypeOf) => true,
             Op::Binary(binary) => matches!(
                 binary,
                 Binary::HeterogeneousEqual
@@ -994,11 +996,11 @@ fn contains_v5_op(expressions: &[Expression]) -> bool {
     })
 }
 
-fn contains_v5_predicate(predicate: &Predicate) -> bool {
-    predicate.terms.iter().any(contains_v5_term)
+fn contains_v3_3_predicate(predicate: &Predicate) -> bool {
+    predicate.terms.iter().any(contains_v3_3_term)
 }
 
-fn contains_v5_term(term: &Term) -> bool {
+fn contains_v3_3_term(term: &Term) -> bool {
     match term {
         Term::Null => true,
         Term::Set(s) => s.contains(&Term::Null),
@@ -1680,7 +1682,7 @@ mod tests {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
 
         let res = w
             .query_rule(
@@ -1703,7 +1705,7 @@ mod tests {
             println!("\t{}", syms.print_fact(fact));
         }
 
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
     }
 
     #[test]
@@ -1799,6 +1801,6 @@ mod tests {
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
-        assert!(res.len() == 0);
+        assert!(res.is_empty());
     }
 }

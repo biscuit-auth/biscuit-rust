@@ -262,11 +262,28 @@ pub enum Op {
     Closure(Vec<String>, Vec<Op>),
 }
 
+impl Op {
+    fn collect_parameters(&self, parameters: &mut HashMap<String, Option<Term>>) {
+        match self {
+            Op::Value(term) => {
+                term.extract_parameters(parameters);
+            }
+            Op::Closure(_, ops) => {
+                for op in ops {
+                    op.collect_parameters(parameters);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Negate,
     Parens,
     Length,
+    TypeOf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,6 +342,7 @@ impl ToTokens for Unary {
             Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
             Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
             Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
+            Unary::TypeOf => quote! {::biscuit_auth::datalog::Unary::TypeOf },
         });
     }
 }
@@ -404,9 +422,7 @@ impl Rule {
 
         for expression in &expressions {
             for op in &expression.ops {
-                if let Op::Value(term) = &op {
-                    term.extract_parameters(&mut parameters);
-                }
+                op.collect_parameters(&mut parameters);
             }
         }
 

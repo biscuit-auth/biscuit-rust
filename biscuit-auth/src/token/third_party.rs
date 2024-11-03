@@ -12,13 +12,10 @@ use crate::{
     KeyPair, PrivateKey,
 };
 
-use super::public_keys::PublicKeys;
-
 /// Third party block request
 #[derive(Debug)]
 pub struct ThirdPartyRequest {
     pub(crate) previous_key: PublicKey,
-    pub(crate) public_keys: PublicKeys,
 }
 
 impl ThirdPartyRequest {
@@ -29,52 +26,21 @@ impl ThirdPartyRequest {
             return Err(error::Token::AppendOnSealed);
         }
 
-        let mut public_keys = PublicKeys::new();
-
-        for pk in &schema::Block::decode(&container.authority.data[..])
-            .map_err(|e| {
-                error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-            })?
-            .public_keys
-        {
-            public_keys.insert(&PublicKey::from_proto(pk)?);
-        }
-        for block in &container.blocks {
-            for pk in &schema::Block::decode(&block.data[..])
-                .map_err(|e| {
-                    error::Format::DeserializationError(format!("deserialization error: {:?}", e))
-                })?
-                .public_keys
-            {
-                public_keys.insert(&PublicKey::from_proto(pk)?);
-            }
-        }
-
         let previous_key = container
             .blocks
             .last()
             .unwrap_or(&container.authority)
             .next_key;
 
-        Ok(ThirdPartyRequest {
-            previous_key,
-            public_keys,
-        })
+        Ok(ThirdPartyRequest { previous_key })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
-        let public_keys = self
-            .public_keys
-            .keys
-            .iter()
-            .map(|key| key.to_proto())
-            .collect();
-
         let previous_key = self.previous_key.to_proto();
 
         let request = schema::ThirdPartyBlockRequest {
             previous_key,
-            public_keys,
+            public_keys: Vec::new(),
         };
         let mut v = Vec::new();
 
@@ -97,16 +63,13 @@ impl ThirdPartyRequest {
 
         let previous_key = PublicKey::from_proto(&data.previous_key)?;
 
-        let mut public_keys = PublicKeys::new();
-
-        for key in data.public_keys {
-            public_keys.insert(&PublicKey::from_proto(&key)?);
+        if !data.public_keys.is_empty() {
+            return Err(error::Token::Format(error::Format::DeserializationError(
+                "public keys were provided in third-party block request".to_owned(),
+            )));
         }
 
-        Ok(ThirdPartyRequest {
-            previous_key,
-            public_keys,
-        })
+        Ok(ThirdPartyRequest { previous_key })
     }
 
     pub fn deserialize_base64<T>(slice: T) -> Result<Self, error::Token>
@@ -123,10 +86,9 @@ impl ThirdPartyRequest {
         private_key: &PrivateKey,
         block_builder: BlockBuilder,
     ) -> Result<ThirdPartyBlock, error::Token> {
-        let mut symbols = SymbolTable::new();
-        symbols.public_keys = self.public_keys.clone();
+        let symbols = SymbolTable::new();
         let mut block = block_builder.build(symbols);
-        block.version = max(super::THIRD_PARTY_BLOCK_VERSION, block.version);
+        block.version = max(super::DATALOG_3_2, block.version);
 
         let mut v = Vec::new();
         token_block_to_proto_block(&block)

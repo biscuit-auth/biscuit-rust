@@ -154,8 +154,9 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, closures(&target, &root, test));
 
-    add_test_result(&mut results, array_map(&target, &root, test));
+    add_test_result(&mut results, type_of(&target, &root, test));
 
+    add_test_result(&mut results, array_map(&target, &root, test));
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -2133,10 +2134,62 @@ fn closures(target: &str, root: &KeyPair, test: bool) -> TestResult {
     }
 }
 
+fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test .type()".to_string();
+    let filename = "test033_typeof".to_string();
+    let token;
+
+    let biscuit = biscuit!(
+        r#"
+        check if 1.type() == "integer";
+        integer(1);
+        check if integer($t), $t.type() == "integer";
+        check if "test".type() == "string";
+        string("test");
+        check if string($t), $t.type() == "string";
+        check if (2023-12-28T00:00:00Z).type() == "date";
+        date(2023-12-28T00:00:00Z);
+        check if date($t), $t.type() == "date";
+        check if hex:aa.type() == "bytes";
+        bytes(hex:aa);
+        check if bytes($t), $t.type() == "bytes";
+        check if true.type() == "bool";
+        bool(true);
+        check if bool($t), $t.type() == "bool";
+        check if {true, false}.type() == "set";
+        set({true, false});
+        check if set($t), $t.type() == "set";
+        check if null.type() == "null";
+        null(null);
+        check if null($t), $t.type() == "null";
+        "#
+    )
+    .build_with_rng(&root, SymbolTable::default(), &mut rng)
+    .unwrap();
+
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
 fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "test array and map operations (v5 blocks)".to_string();
-    let filename = "test033_array_map".to_string();
+    let filename = "test034_array_map".to_string();
     let token;
 
     let biscuit = biscuit!(
@@ -2186,6 +2239,7 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         validations,
     }
 }
+
 fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
     let mut v = Vec::new();
 

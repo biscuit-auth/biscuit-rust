@@ -184,7 +184,7 @@ impl SymbolTable {
         match term {
             Term::Variable(i) => format!("${}", self.print_symbol_default(*i as u64)),
             Term::Integer(i) => i.to_string(),
-            Term::Str(index) => format!("\"{}\"", self.print_symbol_default(*index as u64)),
+            Term::Str(index) => format!("\"{}\"", self.print_symbol_default(*index)),
             Term::Date(d) => OffsetDateTime::from_unix_timestamp(*d as i64)
                 .ok()
                 .and_then(|t| t.format(&Rfc3339).ok())
@@ -355,7 +355,7 @@ impl<'a> TemporarySymbolTable<'a> {
 
     pub fn insert(&mut self, s: &str) -> SymbolIndex {
         if let Some(index) = self.base.get(s) {
-            return index as u64;
+            return index;
         }
 
         match self.symbols.iter().position(|sym| sym.as_str() == s) {
