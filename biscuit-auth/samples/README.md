@@ -2873,7 +2873,7 @@ result: `Err(Execution(ShadowedVariable))`
 ### token
 
 authority:
-symbols: ["integer", "string", "test", "date", "bytes", "bool", "set", "null", "t"]
+symbols: ["integer", "string", "test", "date", "bytes", "bool", "set", "null", "array", "map", "a", "t"]
 
 public keys: []
 
@@ -2885,6 +2885,8 @@ bytes(hex:aa);
 bool(true);
 set({false, true});
 null(null);
+array([1, 2, 3]);
+map({"a": true});
 check if 1.type() == "integer";
 check if integer($t), $t.type() == "integer";
 check if "test".type() == "string";
@@ -2899,6 +2901,8 @@ check if {false, true}.type() == "set";
 check if set($t), $t.type() == "set";
 check if null.type() == "null";
 check if null($t), $t.type() == "null";
+check if array($t), $t.type() == "array";
+check if map($t), $t.type() == "map";
 ```
 
 ### validation
@@ -2909,7 +2913,7 @@ allow if true;
 ```
 
 revocation ids:
-- `be401996253dce45ac3d8b2f4b289af1f2cc2a4447a8265a1a2ca879c43377978ffc5ac6633053cd7c30e7c33cf258a37767226834bc80b005c48eb0229c4502`
+- `c8f7ff152b40a3e8f3ab19a435ccd16c41288762864022895b99d2abb6330c794b3f1378a4651b31d249f4c35b69246d88124d40e05e634a0eb9ca9e54b1ca0a`
 
 authorizer world:
 ```
@@ -2922,10 +2926,12 @@ World {
             ),
         },
         facts: [
+            "array([1, 2, 3])",
             "bool(true)",
             "bytes(hex:aa)",
             "date(2023-12-28T00:00:00Z)",
             "integer(1)",
+            "map({\"a\": true})",
             "null(null)",
             "set({false, true})",
             "string(\"test\")",
@@ -2942,11 +2948,13 @@ World {
             "check if \"test\".type() == \"string\"",
             "check if (2023-12-28T00:00:00Z).type() == \"date\"",
             "check if 1.type() == \"integer\"",
+            "check if array($t), $t.type() == \"array\"",
             "check if bool($t), $t.type() == \"bool\"",
             "check if bytes($t), $t.type() == \"bytes\"",
             "check if date($t), $t.type() == \"date\"",
             "check if hex:aa.type() == \"bytes\"",
             "check if integer($t), $t.type() == \"integer\"",
+            "check if map($t), $t.type() == \"map\"",
             "check if null($t), $t.type() == \"null\"",
             "check if null.type() == \"null\"",
             "check if set($t), $t.type() == \"set\"",

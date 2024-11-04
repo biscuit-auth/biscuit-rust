@@ -2163,6 +2163,10 @@ fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if null.type() == "null";
         null(null);
         check if null($t), $t.type() == "null";
+        array([1,2,3]);
+        check if array($t), $t.type() == "array";
+        map({"a": true});
+        check if map($t), $t.type() == "map";
         "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
