@@ -15,6 +15,7 @@ use rand_core::{CryptoRng, RngCore};
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
+use crate::format::ThirdPartyVerificationMode;
 use authorizer::Authorizer;
 
 pub mod authorizer;
@@ -426,25 +427,25 @@ impl Biscuit {
             .last()
             .unwrap_or(&self.container.authority)
             .next_key;
-        let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&previous_key.to_bytes());
-        to_verify.extend(
-            self.container
-                .blocks
-                .last()
-                .unwrap_or(&self.container.authority)
-                .signature
-                .to_bytes(),
-        );
 
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        let external_signature = crypto::ExternalSignature {
+            public_key: external_key,
+            signature,
+        };
+        crypto::verify_external_signature(
+            &payload,
+            &previous_key,
+            Some(
+                &self
+                    .container
+                    .blocks
+                    .last()
+                    .unwrap_or(&self.container.authority)
+                    .signature,
+            ),
+            &external_signature,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
@@ -452,11 +453,6 @@ impl Biscuit {
                 e
             )))
         })?;
-
-        let external_signature = crypto::ExternalSignature {
-            public_key: external_key,
-            signature,
-        };
 
         let symbols = self.symbols.clone();
         let mut blocks = self.blocks.clone();

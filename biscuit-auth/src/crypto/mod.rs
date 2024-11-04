@@ -277,34 +277,50 @@ pub fn verify_block_signature(
         .map_err(error::Format::Signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
-        let mut to_verify = block.data.to_vec();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&public_key.to_bytes());
-
-        if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
-            let previous_signature = match previous_signature {
-                Some(s) => s,
-                None => {
-                    return Err(error::Format::Signature(
-                        error::Signature::InvalidSignature(
-                            "the authority block must not contain an external signature"
-                                .to_string(),
-                        ),
-                    ))
-                }
-            };
-            to_verify.extend(&previous_signature.to_bytes());
-        }
-
-        external_signature
-            .public_key
-            .0
-            .verify_strict(&to_verify, &external_signature.signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        verify_external_signature(
+            &block.data,
+            public_key,
+            previous_signature,
+            external_signature,
+            verification_mode,
+        )?;
     }
+
+    Ok(())
+}
+
+pub fn verify_external_signature(
+    payload: &[u8],
+    public_key: &PublicKey,
+    previous_signature: Option<&Signature>,
+    external_signature: &ExternalSignature,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
+    let mut to_verify = payload.to_vec();
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&public_key.to_bytes());
+
+    if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
+        let previous_signature = match previous_signature {
+            Some(s) => s,
+            None => {
+                return Err(error::Format::Signature(
+                    error::Signature::InvalidSignature(
+                        "the authority block must not contain an external signature".to_string(),
+                    ),
+                ))
+            }
+        };
+        to_verify.extend(&previous_signature.to_bytes());
+    }
+
+    external_signature
+        .public_key
+        .0
+        .verify_strict(&to_verify, &external_signature.signature)
+        .map_err(|s| s.to_string())
+        .map_err(error::Signature::InvalidSignature)
+        .map_err(error::Format::Signature)?;
 
     Ok(())
 }
