@@ -138,6 +138,7 @@ impl Rule {
         facts: IT,
         rule_origin: usize,
         symbols: &'a SymbolTable,
+        extern_funcs: &'a HashMap<String, ExternFunc>,
     ) -> impl Iterator<Item = Result<(Origin, Fact), error::Expression>> + 'a
     where
         IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
@@ -149,7 +150,7 @@ impl Rule {
         .map(move |(origin, variables)| {
                     let mut temporary_symbols = TemporarySymbolTable::new(symbols);
                     for e in self.expressions.iter() {
-                        match e.evaluate(&variables, &mut temporary_symbols) {
+                        match e.evaluate(&variables, &mut temporary_symbols, extern_funcs) {
                             Ok(Term::Bool(true)) => {}
                             Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
                             Ok(_) => return Err(error::Expression::InvalidType),
@@ -194,9 +195,10 @@ impl Rule {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
-        let mut it = self.apply(fact_it, origin, symbols);
+        let mut it = self.apply(fact_it, origin, symbols, extern_funcs);
 
         let next = it.next();
         match next {
@@ -211,6 +213,7 @@ impl Rule {
         facts: &FactSet,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
         let variables = MatchedVariables::new(self.variables_set());
@@ -221,7 +224,7 @@ impl Rule {
 
             let mut temporary_symbols = TemporarySymbolTable::new(symbols);
             for e in self.expressions.iter() {
-                match e.evaluate(&variables, &mut temporary_symbols) {
+                match e.evaluate(&variables, &mut temporary_symbols, extern_funcs) {
                     Ok(Term::Bool(true)) => {}
                     Ok(Term::Bool(false)) => {
                         //println!("expr returned {:?}", res);
@@ -619,7 +622,7 @@ impl World {
             for (scope, rules) in self.rules.inner.iter() {
                 let it = self.facts.iterator(scope);
                 for (origin, rule) in rules {
-                    for res in rule.apply(it.clone(), *origin, symbols) {
+                    for res in rule.apply(it.clone(), *origin, symbols, &limits.extern_funcs) {
                         match res {
                             Ok((origin, fact)) => {
                                 new_facts.insert(&origin, fact);
@@ -690,11 +693,12 @@ impl World {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<FactSet, Execution> {
         let mut new_facts = FactSet::default();
         let it = self.facts.iterator(scope);
         //new_facts.extend(rule.apply(it, origin, symbols));
-        for res in rule.apply(it.clone(), origin, symbols) {
+        for res in rule.apply(it.clone(), origin, symbols, extern_funcs) {
             match res {
                 Ok((origin, fact)) => {
                     new_facts.insert(&origin, fact);
@@ -714,8 +718,9 @@ impl World {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
-        rule.find_match(&self.facts, origin, scope, symbols)
+        rule.find_match(&self.facts, origin, scope, symbols, extern_funcs)
     }
 
     pub fn query_match_all(
@@ -723,8 +728,9 @@ impl World {
         rule: Rule,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
-        rule.check_match_all(&self.facts, scope, symbols)
+        rule.check_match_all(&self.facts, scope, symbols, extern_funcs)
     }
 }
 
@@ -737,6 +743,8 @@ pub struct RunLimits {
     pub max_iterations: u64,
     /// maximum execution time
     pub max_time: Duration,
+
+    pub extern_funcs: HashMap<String, ExternFunc>,
 }
 
 impl std::default::Default for RunLimits {
@@ -745,6 +753,7 @@ impl std::default::Default for RunLimits {
             max_facts: 1000,
             max_iterations: 100,
             max_time: Duration::from_millis(1),
+            extern_funcs: Default::default(),
         }
     }
 }
@@ -981,7 +990,7 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v3_3_term(term),
             Op::Closure(_, _) => true,
-            Op::Unary(Unary::TypeOf) => true,
+            Op::Unary(unary) => matches!(unary, Unary::TypeOf | Unary::Ffi(_)),
             Op::Binary(binary) => matches!(
                 binary,
                 Binary::HeterogeneousEqual
@@ -990,8 +999,8 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
                     | Binary::LazyOr
                     | Binary::All
                     | Binary::Any
+                    | Binary::Ffi(_)
             ),
-            _ => false,
         })
     })
 }
@@ -1047,7 +1056,8 @@ mod tests {
 
         println!("symbols: {:?}", syms);
         println!("testing r1: {}", syms.print_rule(&r1));
-        let query_rule_result = w.query_rule(r1, 0, &[0].iter().collect(), &syms);
+        let query_rule_result =
+            w.query_rule(r1, 0, &[0].iter().collect(), &syms, &Default::default());
         println!("grandparents query_rules: {:?}", query_rule_result);
         println!("current facts: {:?}", w.facts);
 
@@ -1092,6 +1102,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1109,7 +1120,8 @@ mod tests {
                 ),
                 0,
                 &[0].iter().collect(),
-                &syms
+                &syms,
+                &Default::default()
             )
         );
         println!(
@@ -1125,7 +1137,8 @@ mod tests {
                 ),
                 0,
                 &[0].iter().collect(),
-                &syms
+                &syms,
+                &Default::default()
             )
         );
         w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &e]));
@@ -1143,6 +1156,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
         println!("grandparents after inserting parent(C, E): {:?}", res);
@@ -1218,6 +1232,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1267,6 +1282,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1353,6 +1369,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap()
             .iter_all()
@@ -1433,7 +1450,9 @@ mod tests {
         );
 
         println!("testing r1: {}", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
+        let res = w
+            .query_rule(r1, 0, &[0].iter().collect(), &syms, &Default::default())
+            .unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1471,7 +1490,9 @@ mod tests {
         );
 
         println!("testing r2: {}", syms.print_rule(&r2));
-        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms).unwrap();
+        let res = w
+            .query_rule(r2, 0, &[0].iter().collect(), &syms, &Default::default())
+            .unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1534,6 +1555,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1585,6 +1607,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1630,6 +1653,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1675,6 +1699,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1698,6 +1723,7 @@ mod tests {
                 0,
                 &[0].iter().collect(),
                 &syms,
+                &Default::default(),
             )
             .unwrap();
 
@@ -1740,7 +1766,9 @@ mod tests {
 
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
+        let res = w
+            .query_rule(r1, 0, &[0].iter().collect(), &syms, &Default::default())
+            .unwrap();
         for (_, fact) in res.iter_all() {
             println!("\t{}", syms.print_fact(fact));
         }
@@ -1779,7 +1807,9 @@ mod tests {
         );
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r1: {}\n", syms.print_rule(&r1));
-        let res = w.query_rule(r1, 0, &[0].iter().collect(), &syms).unwrap();
+        let res = w
+            .query_rule(r1, 0, &[0].iter().collect(), &syms, &Default::default())
+            .unwrap();
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
@@ -1795,7 +1825,9 @@ mod tests {
         let r2 = rule(check, &[&read], &[pred(operation, &[&read])]);
         println!("world:\n{}\n", syms.print_world(&w));
         println!("\ntesting r2: {}\n", syms.print_rule(&r2));
-        let res = w.query_rule(r2, 0, &[0].iter().collect(), &syms).unwrap();
+        let res = w
+            .query_rule(r2, 0, &[0].iter().collect(), &syms, &Default::default())
+            .unwrap();
 
         println!("generated facts:");
         for (_, fact) in res.iter_all() {
