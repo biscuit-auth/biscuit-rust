@@ -261,13 +261,7 @@ pub fn verify_block_signature(
     verification_mode: ThirdPartyVerificationMode,
 ) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
-    let mut to_verify = block.data.to_vec();
-
-    if let Some(signature) = block.external_signature.as_ref() {
-        to_verify.extend_from_slice(&signature.signature.to_bytes());
-    }
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_verify.extend(&block.next_key.to_bytes());
+    let to_verify = generate_block_signature_payload_v0(block);
 
     public_key
         .0
@@ -296,23 +290,14 @@ pub fn verify_external_signature(
     external_signature: &ExternalSignature,
     verification_mode: ThirdPartyVerificationMode,
 ) -> Result<(), error::Format> {
-    let mut to_verify = payload.to_vec();
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_verify.extend(&public_key.to_bytes());
-
-    if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
-        let previous_signature = match previous_signature {
-            Some(s) => s,
-            None => {
-                return Err(error::Format::Signature(
-                    error::Signature::InvalidSignature(
-                        "the authority block must not contain an external signature".to_string(),
-                    ),
-                ))
-            }
-        };
-        to_verify.extend(&previous_signature.to_bytes());
-    }
+    let to_verify = match verification_mode {
+        ThirdPartyVerificationMode::UnsafeLegacy => {
+            generate_external_signature_payload_v0(payload, public_key)
+        }
+        ThirdPartyVerificationMode::PreviousSignatureHashing => {
+            generate_external_signature_payload_v1(payload, public_key, previous_signature)?
+        }
+    };
 
     external_signature
         .public_key
@@ -323,6 +308,48 @@ pub fn verify_external_signature(
         .map_err(error::Format::Signature)?;
 
     Ok(())
+}
+
+fn generate_block_signature_payload_v0(block: &Block) -> Vec<u8> {
+    let mut to_verify = block.data.to_vec();
+
+    if let Some(signature) = block.external_signature.as_ref() {
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
+    }
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&block.next_key.to_bytes());
+    to_verify
+}
+
+fn generate_external_signature_payload_v0(payload: &[u8], public_key: &PublicKey) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&public_key.to_bytes());
+
+    to_verify
+}
+
+fn generate_external_signature_payload_v1(
+    payload: &[u8],
+    public_key: &PublicKey,
+    previous_signature: Option<&Signature>,
+) -> Result<Vec<u8>, error::Format> {
+    let mut to_verify = payload.to_vec();
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&public_key.to_bytes());
+
+    let previous_signature = match previous_signature {
+        Some(s) => s,
+        None => {
+            return Err(error::Format::Signature(
+                error::Signature::InvalidSignature(
+                    "the authority block must not contain an external signature".to_string(),
+                ),
+            ))
+        }
+    };
+    to_verify.extend(&previous_signature.to_bytes());
+    Ok(to_verify)
 }
 
 impl TokenNext {
