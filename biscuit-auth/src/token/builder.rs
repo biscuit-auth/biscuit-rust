@@ -475,12 +475,10 @@ impl Term {
             Term::Map(m) => Term::Map(
                 m.into_iter()
                     .map(|(key, term)| {
-                        println!("will try to apply parameters on {key:?} -> {term:?}");
                         (
                             match key {
                                 MapKey::Parameter(name) => {
                                     if let Some(Some(key_term)) = parameters.get(&name) {
-                                        println!("found key term: {key_term}");
                                         match key_term {
                                             Term::Integer(i) => MapKey::Integer(*i),
                                             Term::Str(s) => MapKey::Str(s.clone()),
