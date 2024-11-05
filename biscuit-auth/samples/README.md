@@ -2985,8 +2985,11 @@ public keys: []
 
 ```
 check if [1, 2, 1].length() == 3;
+check if ["a", "b"] != true;
 check if ["a", "b"] != [1, 2, 3];
 check if ["a", "b"] == ["a", "b"];
+check if ["a", "b"] === ["a", "b"];
+check if ["a", "b"] !== ["a", "c"];
 check if ["a", "b", "c"].contains("c");
 check if [1, 2, 3].starts_with([1, 2]);
 check if [4, 5, 6].ends_with([6]);
@@ -2995,8 +2998,11 @@ check if [1, 2].get(3) == null;
 check if [1, 2, 3].all($p -> $p > 0);
 check if [1, 2, 3].any($p -> $p > 2);
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.length() == 4;
+check if {1: "a", 2: "b"} != true;
 check if {1: "a", 2: "b"} != {"a": 1, "b": 2};
 check if {1: "a", 2: "b"} == {1: "a", 2: "b"};
+check if {1: "a", 2: "b"} !== {"a": 1, "b": 2};
+check if {1: "a", 2: "b"} === {1: "a", 2: "b"};
 check if {"a": 1, "b": 2, "c": 3, "d": 4}.contains("d");
 check if {1: "A", "a": 1, "b": 2}.get("a") == 1;
 check if {1: "A", "a": 1, "b": 2}.get(1) == "A";
@@ -3015,7 +3021,7 @@ allow if true;
 ```
 
 revocation ids:
-- `2b71fa87b7bf27672a4f2cff5908035a2ab9b6eb8d74446cad10ae07d1349a10ab2dc6b557ddb6c497fd9b359136c035699ded4395be515a06195493729c9e03`
+- `8041144f92616477f1cd00b81e8be79581202a3853b08b3d477797b0d91f30c02fd7c01ca91a00f8a222d6be4794cc287baa361a1a00d5941518c1917967ec03`
 
 authorizer world:
 ```
@@ -3030,7 +3036,10 @@ World {
         checks: [
             "check if [\"a\", \"b\", \"c\"].contains(\"c\")",
             "check if [\"a\", \"b\"] != [1, 2, 3]",
+            "check if [\"a\", \"b\"] != true",
+            "check if [\"a\", \"b\"] !== [\"a\", \"c\"]",
             "check if [\"a\", \"b\"] == [\"a\", \"b\"]",
+            "check if [\"a\", \"b\"] === [\"a\", \"b\"]",
             "check if [1, 2, \"a\"].get(2) == \"a\"",
             "check if [1, 2, 1].length() == 3",
             "check if [1, 2, 3].all($p -> $p > 0)",
@@ -3047,8 +3056,11 @@ World {
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null",
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\"",
             "check if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null",
+            "check if {1: \"a\", 2: \"b\"} != true",
             "check if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2}",
+            "check if {1: \"a\", 2: \"b\"} !== {\"a\": 1, \"b\": 2}",
             "check if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"}",
+            "check if {1: \"a\", 2: \"b\"} === {1: \"a\", 2: \"b\"}",
         ],
     },
 ]
