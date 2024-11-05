@@ -1135,7 +1135,7 @@ fn block_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
         valid_date("file1") <- time($0), resource("file1"), $0 <= 2030-12-31T12:59:59Z;
 
         // generate a valid date fact for any file other than "file1" if before Friday, December 31, 1999 12:59:59 PM UTC
-        valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !["file1"].contains($1);
+        valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{"file1"}.contains($1);
 
         check if valid_date($0), resource($0);
     "#)).unwrap();
@@ -1689,7 +1689,7 @@ fn check_all(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit1 = biscuit!(
         r#"
-        allowed_operations(["A", "B"]);
+        allowed_operations({"A", "B"});
         check all operation($op), allowed_operations($allowed), $allowed.contains($op);
     "#
     )
@@ -1937,7 +1937,7 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //bytes not strict equal
         check if hex:12abcd !== hex:12ab;
         // set not strict equal
-        check if [1, 4] !== [1, 2];
+        check if {1, 4} !== {1, 2};
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)

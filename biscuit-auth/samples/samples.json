@@ -862,7 +862,7 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z;\nvalid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1);\ncheck if valid_date($0), resource($0);\n"
+          "code": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z;\nvalid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{\"file1\"}.contains($1);\ncheck if valid_date($0), resource($0);\n"
         }
       ],
       "validations": {
@@ -902,7 +902,7 @@
                 "origin": 1,
                 "rules": [
                   "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{\"file1\"}.contains($1)"
                 ]
               }
             ],
@@ -924,7 +924,7 @@
           "authorizer_code": "resource(\"file1\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
           "revocation_ids": [
             "c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006",
-            "da16dfc6d0db04e3378dedce4f0250792646e53408a9116e6d5e1651a4ed692d257e1f7b107cdc40fe6e47257d9c189b0d66a83991d67459608ea1807a9a9b04"
+            "a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00"
           ]
         },
         "file2": {
@@ -954,7 +954,7 @@
                 "origin": 1,
                 "rules": [
                   "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z",
-                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, ![\"file1\"].contains($1)"
+                  "valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{\"file1\"}.contains($1)"
                 ]
               }
             ],
@@ -993,7 +993,7 @@
           "authorizer_code": "resource(\"file2\");\ntime(2020-12-21T09:23:12Z);\n\nallow if true;\n",
           "revocation_ids": [
             "c46d071ff3f33434223c8305fdad529f62bf78bb5d9cbfc2a345d4bca6bf314014840e18ba353f86fdb9073d58b12b8c872ac1f8e593c2e9064b90f6c2ede006",
-            "da16dfc6d0db04e3378dedce4f0250792646e53408a9116e6d5e1651a4ed692d257e1f7b107cdc40fe6e47257d9c189b0d66a83991d67459608ea1807a9a9b04"
+            "a0c4c163a0b3ca406df4ece3d1371356190df04208eccef72f77e875ed0531b5d37e243d6f388b1967776a5dfd16ef228f19c5bdd6d2820f145c5ed3c3dcdc00"
           ]
         }
       }
@@ -1814,7 +1814,7 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "allowed_operations([\"A\", \"B\"]);\ncheck all operation($op), allowed_operations($allowed), $allowed.contains($op);\n"
+          "code": "allowed_operations({\"A\", \"B\"});\ncheck all operation($op), allowed_operations($allowed), $allowed.contains($op);\n"
         }
       ],
       "validations": {
@@ -1835,7 +1835,7 @@
                   0
                 ],
                 "facts": [
-                  "allowed_operations([\"A\", \"B\"])"
+                  "allowed_operations({\"A\", \"B\"})"
                 ]
               }
             ],
@@ -1857,7 +1857,7 @@
           },
           "authorizer_code": "operation(\"A\");\noperation(\"B\");\n\nallow if true;\n",
           "revocation_ids": [
-            "899e1fa26d72b860fa6a6e6d58e71cc873230260dcb41d3390e0703c6e134d955defbd0741c23272ac6e6abb2066a23cff2fe815dc5e5bfd712d177cf74ee108"
+            "c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d"
           ]
         },
         "A, invalid": {
@@ -1877,7 +1877,7 @@
                   0
                 ],
                 "facts": [
-                  "allowed_operations([\"A\", \"B\"])"
+                  "allowed_operations({\"A\", \"B\"})"
                 ]
               }
             ],
@@ -1916,7 +1916,7 @@
           },
           "authorizer_code": "operation(\"A\");\noperation(\"invalid\");\n\nallow if true;\n",
           "revocation_ids": [
-            "899e1fa26d72b860fa6a6e6d58e71cc873230260dcb41d3390e0703c6e134d955defbd0741c23272ac6e6abb2066a23cff2fe815dc5e5bfd712d177cf74ee108"
+            "c456817012e1d523c6d145b6d6a3475d9f7dd4383c535454ff3f745ecf4234984ce09b9dec0551f3d783abe850f826ce43b12f1fd91999a4753a56ecf4c56d0d"
           ]
         }
       }
@@ -2148,7 +2148,7 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if 1 !== 3;\ncheck if 1 | 2 ^ 3 === 0;\ncheck if \"abcD12x\" !== \"abcD12\";\ncheck if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;\ncheck if hex:12abcd !== hex:12ab;\ncheck if [1, 4] !== [1, 2];\n"
+          "code": "check if 1 !== 3;\ncheck if 1 | 2 ^ 3 === 0;\ncheck if \"abcD12x\" !== \"abcD12\";\ncheck if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;\ncheck if hex:12abcd !== hex:12ab;\ncheck if {1, 4} !== {1, 2};\n"
         }
       ],
       "validations": {
@@ -2164,8 +2164,8 @@
                   "check if 1 !== 3",
                   "check if 1 | 2 ^ 3 === 0",
                   "check if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z",
-                  "check if [1, 4] !== [1, 2]",
-                  "check if hex:12abcd !== hex:12ab"
+                  "check if hex:12abcd !== hex:12ab",
+                  "check if {1, 4} !== {1, 2}"
                 ]
               }
             ],
@@ -2178,7 +2178,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "04f9b08f5cf677aa890fd830a4acc2a0ec7d4c9e2657d65ac691ae6512b549184fd7c6deaf17c446f12324a1c454fe373290fe8981bae69cc6054de7312da00f"
+            "117fa653744c859561555e6a6f5990e3a8e7817f91b87aa6991b6d64297158b4e884c92d10f49f74c96069df722aa676839b72751ca9d1fe83a7025b591de00b"
           ]
         }
       }
