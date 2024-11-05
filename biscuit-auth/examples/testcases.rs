@@ -2043,8 +2043,24 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-    check if fact(1, $value), 1 == $value;
-    check if fact2(1, $value), 1 != $value;
+    check if true == true;
+    check if false != false;
+    check if 1 != true;
+    check if 1 == 1;
+    check if 1 != 3;
+    check if 1 != true;
+    check if "abcD12" == "abcD12";
+    check if "abcD12x" != "abcD12";
+    check if "abcD12x" != true;
+    check if 2022-12-04T09:46:41+00:00 == 2022-12-04T09:46:41+00:00;
+    check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
+    check if 2022-12-04T09:46:41+00:00 != true;
+    check if hex:12abcd == hex:12abcd;
+    check if hex:12abcd != hex:12ab;
+    check if hex:12abcd != true;
+    check if {1, 2} == {1, 2};
+    check if {1, 4} != {1, 2};
+    check if {1, 4} != true;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2055,16 +2071,8 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        "authorized same type".to_string(),
-        validate_token(root, &data[..], "fact(1, 1); fact2(1, 2); allow if true"),
-    );
-    validations.insert(
-        "unauthorized failed logic different type".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            "fact(1, true); fact2(1, false); allow if true",
-        ),
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
