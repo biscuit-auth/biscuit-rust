@@ -302,7 +302,7 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = crypto::sign(root_keypair, next_keypair, &v)?;
+        let signature = crypto::sign(root_keypair, next_keypair, &v, None)?;
 
         Ok(SerializedBiscuit {
             root_key_id,
@@ -333,11 +333,8 @@ impl SerializedBiscuit {
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
-        if let Some(signature) = &external_signature {
-            v.extend_from_slice(&signature.signature.to_bytes());
-        }
 
-        let signature = crypto::sign(&keypair, next_keypair, &v)?;
+        let signature = crypto::sign(&keypair, next_keypair, &v, external_signature.as_ref())?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -366,12 +363,7 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
-        let mut v = block.clone();
-        if let Some(signature) = &external_signature {
-            v.extend_from_slice(&signature.signature.to_bytes());
-        }
-
-        let signature = crypto::sign(&keypair, next_keypair, &v)?;
+        let signature = crypto::sign(&keypair, next_keypair, &block, external_signature.as_ref())?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -444,19 +436,13 @@ impl SerializedBiscuit {
             }
             TokenNext::Seal(signature) => {
                 //FIXME: replace with SHA512 hashing
-                let mut to_verify = Vec::new();
-
                 let block = if self.blocks.is_empty() {
                     &self.authority
                 } else {
                     &self.blocks[self.blocks.len() - 1]
                 };
-                to_verify.extend(&block.data);
-                to_verify.extend(
-                    &(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes(),
-                );
-                to_verify.extend(&block.next_key.to_bytes());
-                to_verify.extend(&block.signature.to_bytes());
+
+                let to_verify = crypto::generate_seal_signature_payload_v0(block);
 
                 current_pub
                     .0
@@ -474,17 +460,13 @@ impl SerializedBiscuit {
         let keypair = self.proof.keypair()?;
 
         //FIXME: replace with SHA512 hashing
-        let mut to_sign = Vec::new();
         let block = if self.blocks.is_empty() {
             &self.authority
         } else {
             &self.blocks[self.blocks.len() - 1]
         };
-        to_sign.extend(&block.data);
-        to_sign
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_sign.extend(&block.next_key.to_bytes());
-        to_sign.extend(&block.signature.to_bytes());
+
+        let to_sign = crypto::generate_seal_signature_payload_v0(block);
 
         let signature = keypair
             .kp

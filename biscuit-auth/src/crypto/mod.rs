@@ -238,11 +238,11 @@ pub fn sign(
     keypair: &KeyPair,
     next_key: &KeyPair,
     message: &[u8],
+    external_signature: Option<&ExternalSignature>,
 ) -> Result<Signature, error::Token> {
     //FIXME: replace with SHA512 hashing
-    let mut to_sign = message.to_vec();
-    to_sign.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_sign.extend(&next_key.public().to_bytes());
+    let to_sign =
+        generate_block_signature_payload_v0(&message, &next_key.public(), external_signature);
 
     let signature = keypair
         .kp
@@ -261,7 +261,11 @@ pub fn verify_block_signature(
     verification_mode: ThirdPartyVerificationMode,
 ) -> Result<(), error::Format> {
     //FIXME: replace with SHA512 hashing
-    let to_verify = generate_block_signature_payload_v0(block);
+    let to_verify = generate_block_signature_payload_v0(
+        &block.data,
+        &block.next_key,
+        block.external_signature.as_ref(),
+    );
 
     public_key
         .0
@@ -310,14 +314,18 @@ pub fn verify_external_signature(
     Ok(())
 }
 
-fn generate_block_signature_payload_v0(block: &Block) -> Vec<u8> {
-    let mut to_verify = block.data.to_vec();
+pub(crate) fn generate_block_signature_payload_v0(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
 
-    if let Some(signature) = block.external_signature.as_ref() {
+    if let Some(signature) = external_signature.as_ref() {
         to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_verify.extend(&block.next_key.to_bytes());
+    to_verify.extend(next_key.to_bytes());
     to_verify
 }
 
@@ -350,6 +358,14 @@ fn generate_external_signature_payload_v1(
     };
     to_verify.extend(&previous_signature.to_bytes());
     Ok(to_verify)
+}
+
+pub(crate) fn generate_seal_signature_payload_v0(block: &Block) -> Vec<u8> {
+    let mut to_verify = block.data.to_vec();
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&block.next_key.to_bytes());
+    to_verify.extend(&block.signature.to_bytes());
+    to_verify
 }
 
 impl TokenNext {
