@@ -5,12 +5,14 @@ use prost::Message;
 
 use crate::{
     builder::BlockBuilder,
-    crypto::PublicKey,
+    crypto::{generate_external_signature_payload_v1, PublicKey},
     datalog::SymbolTable,
     error,
     format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
     KeyPair, PrivateKey,
 };
+
+use super::THIRD_PARTY_SIGNATURE_VERSION;
 
 /// Third party block request
 #[derive(Debug)]
@@ -108,22 +110,24 @@ impl ThirdPartyRequest {
         let mut block = block_builder.build(symbols);
         block.version = max(super::DATALOG_3_2, block.version);
 
-        let mut v = Vec::new();
+        let mut payload = Vec::new();
         token_block_to_proto_block(&block)
-            .encode(&mut v)
+            .encode(&mut payload)
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
-        let payload = v.clone();
 
-        v.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        v.extend(self.previous_key.to_bytes());
-        v.extend(&self.previous_signature);
+        let signed_payload = generate_external_signature_payload_v1(
+            &payload,
+            &self.previous_key,
+            &self.previous_signature,
+            THIRD_PARTY_SIGNATURE_VERSION,
+        )?;
 
         let keypair = KeyPair::from(private_key);
         let signature = keypair
             .kp
-            .try_sign(&v)
+            .try_sign(&signed_payload)
             .map_err(|s| s.to_string())
             .map_err(error::Signature::InvalidSignatureGeneration)
             .map_err(error::Format::Signature)?;

@@ -15,7 +15,7 @@ use rand_core::{CryptoRng, RngCore};
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
-use crate::format::ThirdPartyVerificationMode;
+use crate::format::{ThirdPartyVerificationMode, THIRD_PARTY_SIGNATURE_VERSION};
 use authorizer::Authorizer;
 
 pub mod authorizer;
@@ -444,6 +444,7 @@ impl Biscuit {
                     .signature,
             ),
             &external_signature,
+            THIRD_PARTY_SIGNATURE_VERSION,
             ThirdPartyVerificationMode::PreviousSignatureHashing,
         )?;
 
