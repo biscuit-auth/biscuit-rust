@@ -1135,7 +1135,7 @@ fn block_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
         valid_date("file1") <- time($0), resource("file1"), $0 <= 2030-12-31T12:59:59Z;
 
         // generate a valid date fact for any file other than "file1" if before Friday, December 31, 1999 12:59:59 PM UTC
-        valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !["file1"].contains($1);
+        valid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{"file1"}.contains($1);
 
         check if valid_date($0), resource($0);
     "#)).unwrap();
@@ -1689,7 +1689,7 @@ fn check_all(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit1 = biscuit!(
         r#"
-        allowed_operations(["A", "B"]);
+        allowed_operations({"A", "B"});
         check all operation($op), allowed_operations($allowed), $allowed.contains($op);
     "#
     )
@@ -1937,7 +1937,7 @@ fn expressions_v4(target: &str, root: &KeyPair, test: bool) -> TestResult {
         //bytes not strict equal
         check if hex:12abcd !== hex:12ab;
         // set not strict equal
-        check if [1, 4] !== [1, 2];
+        check if {1, 4} !== {1, 2};
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2043,8 +2043,24 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-    check if fact(1, $value), 1 == $value;
-    check if fact2(1, $value), 1 != $value;
+    check if true == true;
+    check if false != false;
+    check if 1 != true;
+    check if 1 == 1;
+    check if 1 != 3;
+    check if 1 != true;
+    check if "abcD12" == "abcD12";
+    check if "abcD12x" != "abcD12";
+    check if "abcD12x" != true;
+    check if 2022-12-04T09:46:41+00:00 == 2022-12-04T09:46:41+00:00;
+    check if 2022-12-04T09:46:41+00:00 != 2020-12-04T09:46:41+00:00;
+    check if 2022-12-04T09:46:41+00:00 != true;
+    check if hex:12abcd == hex:12abcd;
+    check if hex:12abcd != hex:12ab;
+    check if hex:12abcd != true;
+    check if {1, 2} == {1, 2};
+    check if {1, 4} != {1, 2};
+    check if {1, 4} != true;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2055,16 +2071,8 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let mut validations = BTreeMap::new();
     validations.insert(
-        "authorized same type".to_string(),
-        validate_token(root, &data[..], "fact(1, 1); fact2(1, 2); allow if true"),
-    );
-    validations.insert(
-        "unauthorized failed logic different type".to_string(),
-        validate_token(
-            root,
-            &data[..],
-            "fact(1, true); fact2(1, false); allow if true",
-        ),
+        "".to_string(),
+        validate_token(root, &data[..], "allow if true"),
     );
 
     TestResult {
@@ -2163,6 +2171,10 @@ fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if null.type() == "null";
         null(null);
         check if null($t), $t.type() == "null";
+        array([1,2,3]);
+        check if array($t), $t.type() == "array";
+        map({"a": true});
+        check if map($t), $t.type() == "map";
         "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2196,8 +2208,11 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         r#"
         // array
         check if [1, 2, 1].length() == 3;
+        check if ["a", "b"] != true;
         check if ["a", "b"] != [1, 2, 3];
         check if ["a", "b"] == ["a", "b"];
+        check if ["a", "b"] === ["a", "b"];
+        check if ["a", "b"] !== ["a", "c"];
         check if ["a", "b", "c"].contains("c");
         check if [1, 2, 3].starts_with([1, 2]);
         check if [4, 5, 6 ].ends_with([6]);
@@ -2207,8 +2222,11 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if [1,2,3].any($p -> $p > 2);
         // map
         check if { "a": 1 , "b": 2, "c": 3, "d": 4}.length() == 4;
+        check if {  1: "a" , 2: "b"} != true;
         check if {  1: "a" , 2: "b"} != { "a": 1 , "b": 2};
         check if {  1: "a" , 2: "b"} == { 2: "b", 1: "a"  };
+        check if {  1: "a" , 2: "b"} !== { "a": 1 , "b": 2};
+        check if {  1: "a" , 2: "b"} === { 2: "b", 1: "a"  };
         check if { "a": 1 , "b": 2, "c": 3, "d": 4}.contains("d");
         check if { "a": 1 , "b": 2, 1: "A" }.get("a") == 1;
         check if { "a": 1 , "b": 2, 1: "A" }.get(1) == "A";
