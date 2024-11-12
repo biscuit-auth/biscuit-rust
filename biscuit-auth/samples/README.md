@@ -3139,3 +3139,51 @@ World {
 
 result: `Ok(0)`
 
+
+------------------------------
+
+## test ffi calls (v6 blocks): test035_ffi.bc
+### token
+
+authority:
+symbols: ["a", "equal strings"]
+
+public keys: []
+
+```
+check if true.extern::test(), "a".extern::test("a") == "equal strings";
+```
+
+### validation
+
+authorizer code:
+```
+allow if true;
+```
+
+revocation ids:
+- `b1696fd9f9ec456d65a863df034cb132dc7dca076d16f5bc3e73986a4cc88cc4e7902dc8519cb60961e3f33799c147f874c7e0d7e12ef1b461e361e0c0aa580b`
+
+authorizer world:
+```
+World {
+  facts: []
+  rules: []
+  checks: [
+    Checks {
+        origin: Some(
+            0,
+        ),
+        checks: [
+            "check if true.extern::test(), \"a\".extern::test(\"a\") == \"equal strings\"",
+        ],
+    },
+]
+  policies: [
+    "allow if true",
+]
+}
+```
+
+result: `Ok(0)`
+
