@@ -2044,7 +2044,8 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let biscuit = biscuit!(
         r#"
     check if true == true;
-    check if false != false;
+    check if false == false;
+    check if false != true;
     check if 1 != true;
     check if 1 == 1;
     check if 1 != 3;
@@ -2061,6 +2062,8 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
     check if {1, 2} == {1, 2};
     check if {1, 4} != {1, 2};
     check if {1, 4} != true;
+    check if fact(1, $value), 1 == $value;
+    check if fact2(1, $value), 1 != $value;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)
@@ -2072,7 +2075,15 @@ fn heterogeneous_equal(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token(root, &data[..], "allow if true"),
+        validate_token(root, &data[..], "fact(1,1); fact2(1,2); allow if true"),
+    );
+    validations.insert(
+        "evaluate to false".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            "fact(1,2); fact2(1,1); check if false != false; allow if true",
+        ),
     );
 
     TestResult {
