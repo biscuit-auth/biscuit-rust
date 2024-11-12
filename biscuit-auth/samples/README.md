@@ -3042,7 +3042,7 @@ result: `Ok(0)`
 
 ------------------------------
 
-## test array and map operations (v5 blocks): test034_array_map.bc
+## test array and map operations: test034_array_map.bc
 ### token
 
 authority:

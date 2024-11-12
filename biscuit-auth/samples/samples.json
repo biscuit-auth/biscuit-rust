@@ -2841,7 +2841,7 @@
       }
     },
     {
-      "title": "test array and map operations (v5 blocks)",
+      "title": "test array and map operations",
       "filename": "test034_array_map.bc",
       "token": [
         {

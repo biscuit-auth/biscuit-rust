@@ -2211,7 +2211,7 @@ fn type_of(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
 fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-    let title = "test array and map operations (v5 blocks)".to_string();
+    let title = "test array and map operations".to_string();
     let filename = "test034_array_map".to_string();
     let token;
 
