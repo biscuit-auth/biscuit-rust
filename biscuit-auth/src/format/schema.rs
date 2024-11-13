@@ -235,8 +235,8 @@ pub mod op {
 pub struct OpUnary {
     #[prost(enumeration="op_unary::Kind", required, tag="1")]
     pub kind: i32,
-    #[prost(string, optional, tag="2")]
-    pub ffi_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<u64>,
 }
 /// Nested message and enum types in `OpUnary`.
 pub mod op_unary {
@@ -254,8 +254,8 @@ pub mod op_unary {
 pub struct OpBinary {
     #[prost(enumeration="op_binary::Kind", required, tag="1")]
     pub kind: i32,
-    #[prost(string, optional, tag="2")]
-    pub ffi_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<u64>,
 }
 /// Nested message and enum types in `OpBinary`.
 pub mod op_binary {

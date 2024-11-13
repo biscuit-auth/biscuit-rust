@@ -17,7 +17,10 @@ use std::{
 };
 
 // reexport those because the builder uses the same definitions
-pub use crate::datalog::{Binary, Expression as DatalogExpression, Op as DatalogOp, Unary};
+pub use crate::datalog::{
+    Binary as DatalogBinary, Expression as DatalogExpression, Op as DatalogOp,
+    Unary as DatalogUnary,
+};
 
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
@@ -417,6 +420,50 @@ pub trait Convert<T>: Sized {
     ) -> Result<T, error::Format> {
         Ok(Self::convert_from(f, from_symbols)?.convert(to_symbols))
     }
+}
+
+/// Builder for a unary operation
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Unary {
+    Negate,
+    Parens,
+    Length,
+    TypeOf,
+    Ffi(String),
+}
+
+/// Builder for a binary operation
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Binary {
+    LessThan,
+    GreaterThan,
+    LessOrEqual,
+    GreaterOrEqual,
+    Equal,
+    Contains,
+    Prefix,
+    Suffix,
+    Regex,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    And,
+    Or,
+    Intersection,
+    Union,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    NotEqual,
+    HeterogeneousEqual,
+    HeterogeneousNotEqual,
+    LazyAnd,
+    LazyOr,
+    All,
+    Any,
+    Get,
+    Ffi(String),
 }
 
 /// Builder for a Datalog value
@@ -1191,8 +1238,8 @@ impl Convert<datalog::Op> for Op {
     fn convert(&self, symbols: &mut SymbolTable) -> datalog::Op {
         match self {
             Op::Value(t) => datalog::Op::Value(t.convert(symbols)),
-            Op::Unary(u) => datalog::Op::Unary(u.clone()),
-            Op::Binary(b) => datalog::Op::Binary(b.clone()),
+            Op::Unary(u) => datalog::Op::Unary(u.convert(symbols)),
+            Op::Binary(b) => datalog::Op::Binary(b.convert(symbols)),
             Op::Closure(ps, os) => datalog::Op::Closure(
                 ps.iter().map(|p| symbols.insert(p) as u32).collect(),
                 os.iter().map(|o| o.convert(symbols)).collect(),
@@ -1203,8 +1250,8 @@ impl Convert<datalog::Op> for Op {
     fn convert_from(op: &datalog::Op, symbols: &SymbolTable) -> Result<Self, error::Format> {
         Ok(match op {
             datalog::Op::Value(t) => Op::Value(Term::convert_from(t, symbols)?),
-            datalog::Op::Unary(u) => Op::Unary(u.clone()),
-            datalog::Op::Binary(b) => Op::Binary(b.clone()),
+            datalog::Op::Unary(u) => Op::Unary(Unary::convert_from(u, symbols)?),
+            datalog::Op::Binary(b) => Op::Binary(Binary::convert_from(b, symbols)?),
             datalog::Op::Closure(ps, os) => Op::Closure(
                 ps.iter()
                     .map(|p| symbols.print_symbol(*p as u64))
@@ -1230,6 +1277,28 @@ impl From<biscuit_parser::builder::Op> for Op {
     }
 }
 
+impl Convert<datalog::Unary> for Unary {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Unary {
+        match self {
+            Unary::Negate => datalog::Unary::Negate,
+            Unary::Parens => datalog::Unary::Parens,
+            Unary::Length => datalog::Unary::Length,
+            Unary::TypeOf => datalog::Unary::TypeOf,
+            Unary::Ffi(n) => datalog::Unary::Ffi(symbols.insert(n)),
+        }
+    }
+
+    fn convert_from(f: &datalog::Unary, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        match f {
+            datalog::Unary::Negate => Ok(Unary::Negate),
+            datalog::Unary::Parens => Ok(Unary::Parens),
+            datalog::Unary::Length => Ok(Unary::Length),
+            datalog::Unary::TypeOf => Ok(Unary::TypeOf),
+            datalog::Unary::Ffi(i) => Ok(Unary::Ffi(symbols.print_symbol(*i)?)),
+        }
+    }
+}
+
 impl From<biscuit_parser::builder::Unary> for Unary {
     fn from(unary: biscuit_parser::builder::Unary) -> Self {
         match unary {
@@ -1238,6 +1307,76 @@ impl From<biscuit_parser::builder::Unary> for Unary {
             biscuit_parser::builder::Unary::Length => Unary::Length,
             biscuit_parser::builder::Unary::TypeOf => Unary::TypeOf,
             biscuit_parser::builder::Unary::Ffi(name) => Unary::Ffi(name),
+        }
+    }
+}
+
+impl Convert<datalog::Binary> for Binary {
+    fn convert(&self, symbols: &mut SymbolTable) -> datalog::Binary {
+        match self {
+            Binary::LessThan => datalog::Binary::LessThan,
+            Binary::GreaterThan => datalog::Binary::GreaterThan,
+            Binary::LessOrEqual => datalog::Binary::LessOrEqual,
+            Binary::GreaterOrEqual => datalog::Binary::GreaterOrEqual,
+            Binary::Equal => datalog::Binary::Equal,
+            Binary::Contains => datalog::Binary::Contains,
+            Binary::Prefix => datalog::Binary::Prefix,
+            Binary::Suffix => datalog::Binary::Suffix,
+            Binary::Regex => datalog::Binary::Regex,
+            Binary::Add => datalog::Binary::Add,
+            Binary::Sub => datalog::Binary::Sub,
+            Binary::Mul => datalog::Binary::Mul,
+            Binary::Div => datalog::Binary::Div,
+            Binary::And => datalog::Binary::And,
+            Binary::Or => datalog::Binary::Or,
+            Binary::Intersection => datalog::Binary::Intersection,
+            Binary::Union => datalog::Binary::Union,
+            Binary::BitwiseAnd => datalog::Binary::BitwiseAnd,
+            Binary::BitwiseOr => datalog::Binary::BitwiseOr,
+            Binary::BitwiseXor => datalog::Binary::BitwiseXor,
+            Binary::NotEqual => datalog::Binary::NotEqual,
+            Binary::HeterogeneousEqual => datalog::Binary::HeterogeneousEqual,
+            Binary::HeterogeneousNotEqual => datalog::Binary::HeterogeneousNotEqual,
+            Binary::LazyAnd => datalog::Binary::LazyAnd,
+            Binary::LazyOr => datalog::Binary::LazyOr,
+            Binary::All => datalog::Binary::All,
+            Binary::Any => datalog::Binary::Any,
+            Binary::Get => datalog::Binary::Get,
+            Binary::Ffi(n) => datalog::Binary::Ffi(symbols.insert(n)),
+        }
+    }
+
+    fn convert_from(f: &datalog::Binary, symbols: &SymbolTable) -> Result<Self, error::Format> {
+        match f {
+            datalog::Binary::LessThan => Ok(Binary::LessThan),
+            datalog::Binary::GreaterThan => Ok(Binary::GreaterThan),
+            datalog::Binary::LessOrEqual => Ok(Binary::LessOrEqual),
+            datalog::Binary::GreaterOrEqual => Ok(Binary::GreaterOrEqual),
+            datalog::Binary::Equal => Ok(Binary::Equal),
+            datalog::Binary::Contains => Ok(Binary::Contains),
+            datalog::Binary::Prefix => Ok(Binary::Prefix),
+            datalog::Binary::Suffix => Ok(Binary::Suffix),
+            datalog::Binary::Regex => Ok(Binary::Regex),
+            datalog::Binary::Add => Ok(Binary::Add),
+            datalog::Binary::Sub => Ok(Binary::Sub),
+            datalog::Binary::Mul => Ok(Binary::Mul),
+            datalog::Binary::Div => Ok(Binary::Div),
+            datalog::Binary::And => Ok(Binary::And),
+            datalog::Binary::Or => Ok(Binary::Or),
+            datalog::Binary::Intersection => Ok(Binary::Intersection),
+            datalog::Binary::Union => Ok(Binary::Union),
+            datalog::Binary::BitwiseAnd => Ok(Binary::BitwiseAnd),
+            datalog::Binary::BitwiseOr => Ok(Binary::BitwiseOr),
+            datalog::Binary::BitwiseXor => Ok(Binary::BitwiseXor),
+            datalog::Binary::NotEqual => Ok(Binary::NotEqual),
+            datalog::Binary::HeterogeneousEqual => Ok(Binary::HeterogeneousEqual),
+            datalog::Binary::HeterogeneousNotEqual => Ok(Binary::HeterogeneousNotEqual),
+            datalog::Binary::LazyAnd => Ok(Binary::LazyAnd),
+            datalog::Binary::LazyOr => Ok(Binary::LazyOr),
+            datalog::Binary::All => Ok(Binary::All),
+            datalog::Binary::Any => Ok(Binary::Any),
+            datalog::Binary::Get => Ok(Binary::Get),
+            datalog::Binary::Ffi(i) => Ok(Binary::Ffi(symbols.print_symbol(*i)?)),
         }
     }
 }

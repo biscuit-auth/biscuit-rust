@@ -2920,6 +2920,7 @@
       "token": [
         {
           "symbols": [
+            "test",
             "a",
             "equal strings"
           ],
@@ -2950,7 +2951,7 @@
           },
           "authorizer_code": "allow if true;\n",
           "revocation_ids": [
-            "b1696fd9f9ec456d65a863df034cb132dc7dca076d16f5bc3e73986a4cc88cc4e7902dc8519cb60961e3f33799c147f874c7e0d7e12ef1b461e361e0c0aa580b"
+            "faf26fe6f5dfa08c114a0a29321405b6fb7be79b0d80694d27925f7deb01effe5707600e42fd74f9a1d2920466446d51949155f4548f0fd68f3e9326c7e12404"
           ]
         }
       }

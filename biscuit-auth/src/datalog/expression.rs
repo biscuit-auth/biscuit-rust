@@ -1,6 +1,6 @@
 use crate::{builder, error};
 
-use super::{MapKey, Term};
+use super::{MapKey, SymbolIndex, Term};
 use super::{SymbolTable, TemporarySymbolTable};
 use regex::Regex;
 use std::sync::Arc;
@@ -71,7 +71,7 @@ pub enum Unary {
     Parens,
     Length,
     TypeOf,
-    Ffi(String),
+    Ffi(SymbolIndex),
 }
 
 impl Unary {
@@ -109,10 +109,14 @@ impl Unary {
                 Ok(Term::Str(sym))
             }
             (Unary::Ffi(name), i) => {
+                let name = symbols
+                    .get_symbol(*name)
+                    .ok_or(error::Expression::UnknownSymbol(*name))?
+                    .to_owned();
                 let fun = extern_funcs
-                    .get(name)
+                    .get(&name)
                     .ok_or(error::Expression::UndefinedExtern(name.to_owned()))?;
-                fun.call(symbols, name, i, None)
+                fun.call(symbols, &name, i, None)
             }
             _ => {
                 //println!("unexpected value type on the stack");
@@ -121,13 +125,15 @@ impl Unary {
         }
     }
 
-    pub fn print(&self, value: String, _symbols: &SymbolTable) -> String {
+    pub fn print(&self, value: String, symbols: &SymbolTable) -> String {
         match self {
             Unary::Negate => format!("!{}", value),
             Unary::Parens => format!("({})", value),
             Unary::Length => format!("{}.length()", value),
             Unary::TypeOf => format!("{}.type()", value),
-            Unary::Ffi(name) => format!("{value}.extern::{name}()"),
+            Unary::Ffi(name) => {
+                format!("{value}.extern::{}()", symbols.print_symbol_default(*name))
+            }
         }
     }
 }
@@ -163,7 +169,7 @@ pub enum Binary {
     All,
     Any,
     Get,
-    Ffi(String),
+    Ffi(SymbolIndex),
 }
 
 impl Binary {
@@ -501,10 +507,14 @@ impl Binary {
 
             // FFI
             (Binary::Ffi(name), left, right) => {
+                let name = symbols
+                    .get_symbol(*name)
+                    .ok_or(error::Expression::UnknownSymbol(*name))?
+                    .to_owned();
                 let fun = extern_funcs
-                    .get(name)
+                    .get(&name)
                     .ok_or(error::Expression::UndefinedExtern(name.to_owned()))?;
-                fun.call(symbols, name, left, Some(right))
+                fun.call(symbols, &name, left, Some(right))
             }
 
             _ => {
@@ -514,7 +524,7 @@ impl Binary {
         }
     }
 
-    pub fn print(&self, left: String, right: String, _symbols: &SymbolTable) -> String {
+    pub fn print(&self, left: String, right: String, symbols: &SymbolTable) -> String {
         match self {
             Binary::LessThan => format!("{} < {}", left, right),
             Binary::GreaterThan => format!("{} > {}", left, right),
@@ -544,7 +554,10 @@ impl Binary {
             Binary::All => format!("{left}.all({right})"),
             Binary::Any => format!("{left}.any({right})"),
             Binary::Get => format!("{left}.get({right})"),
-            Binary::Ffi(name) => format!("{left}.extern::{name}({right})"),
+            Binary::Ffi(name) => format!(
+                "{left}.extern::{}({right})",
+                symbols.print_symbol_default(*name)
+            ),
         }
     }
 }
@@ -1676,64 +1689,69 @@ mod tests {
         let mut symbols = SymbolTable::new();
         let i = symbols.insert("test");
         let j = symbols.insert("TeSt");
+        let test_bin = symbols.insert("test_bin");
+        let test_un = symbols.insert("test_un");
+        let test_closure = symbols.insert("test_closure");
+        let test_fn = symbols.insert("test_fn");
+        let id_fn = symbols.insert("id");
         let mut tmp_symbols = TemporarySymbolTable::new(&symbols);
         let ops = vec![
             Op::Value(Term::Integer(60)),
             Op::Value(Term::Integer(0)),
-            Op::Binary(Binary::Ffi("test_bin".to_owned())),
+            Op::Binary(Binary::Ffi(test_bin)),
             Op::Value(Term::Str(i)),
             Op::Value(Term::Str(j)),
-            Op::Binary(Binary::Ffi("test_bin".to_owned())),
+            Op::Binary(Binary::Ffi(test_bin)),
             Op::Binary(Binary::And),
             Op::Value(Term::Integer(42)),
-            Op::Unary(Unary::Ffi("test_un".to_owned())),
+            Op::Unary(Unary::Ffi(test_un)),
             Op::Binary(Binary::And),
             Op::Value(Term::Integer(42)),
-            Op::Unary(Unary::Ffi("test_closure".to_owned())),
+            Op::Unary(Unary::Ffi(test_closure)),
             Op::Binary(Binary::And),
             Op::Value(Term::Str(i)),
-            Op::Unary(Unary::Ffi("test_closure".to_owned())),
+            Op::Unary(Unary::Ffi(test_closure)),
             Op::Binary(Binary::And),
             Op::Value(Term::Integer(42)),
-            Op::Unary(Unary::Ffi("test_fn".to_owned())),
+            Op::Unary(Unary::Ffi(test_fn)),
             Op::Binary(Binary::And),
             Op::Value(Term::Integer(42)),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Integer(42)),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Str(i)),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Str(i)),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Bool(true)),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Bool(true)),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Date(0)),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Date(0)),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Bytes(vec![42])),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Bytes(vec![42])),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Null),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Null),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Array(vec![Term::Null])),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Array(vec![Term::Null])),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
             Op::Value(Term::Set(BTreeSet::from([Term::Null]))),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Set(BTreeSet::from([Term::Null]))),
             Op::Binary(Binary::HeterogeneousEqual),
             Op::Binary(Binary::And),
@@ -1741,7 +1759,7 @@ mod tests {
                 (MapKey::Integer(42), Term::Null),
                 (MapKey::Str(i), Term::Null),
             ]))),
-            Op::Unary(Unary::Ffi("id".to_owned())),
+            Op::Unary(Unary::Ffi(id_fn)),
             Op::Value(Term::Map(BTreeMap::from([
                 (MapKey::Integer(42), Term::Null),
                 (MapKey::Str(i), Term::Null),

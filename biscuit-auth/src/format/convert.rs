@@ -744,7 +744,7 @@ pub mod v2 {
                     (Some(op_unary::Kind::Parens), None) => Op::Unary(Unary::Parens),
                     (Some(op_unary::Kind::Length), None) => Op::Unary(Unary::Length),
                     (Some(op_unary::Kind::TypeOf), None) => Op::Unary(Unary::TypeOf),
-                    (Some(op_unary::Kind::Ffi), Some(n)) => Op::Unary(Unary::Ffi(n.to_owned())),
+                    (Some(op_unary::Kind::Ffi), Some(n)) => Op::Unary(Unary::Ffi(*n)),
                     (Some(op_unary::Kind::Ffi), None) => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: missing ffi name".to_string(),
@@ -799,7 +799,7 @@ pub mod v2 {
                     (Some(op_binary::Kind::All), None) => Op::Binary(Binary::All),
                     (Some(op_binary::Kind::Any), None) => Op::Binary(Binary::Any),
                     (Some(op_binary::Kind::Get), None) => Op::Binary(Binary::Get),
-                    (Some(op_binary::Kind::Ffi), Some(n)) => Op::Binary(Binary::Ffi(n.to_owned())),
+                    (Some(op_binary::Kind::Ffi), Some(n)) => Op::Binary(Binary::Ffi(*n)),
                     (Some(op_binary::Kind::Ffi), None) => {
                         return Err(error::Format::DeserializationError(
                             "deserialization error: missing ffi name".to_string(),
