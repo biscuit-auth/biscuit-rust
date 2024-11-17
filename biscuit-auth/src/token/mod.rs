@@ -1513,7 +1513,7 @@ mod tests {
     fn third_party_unsafe_deserialize() {
         // this is a token generated with the old third party signature, that does not include the previous block's signature
         let token_bytes = include_bytes!("../../tests/fixtures/unsafe_third_party.bc");
-        let _ = UnverifiedBiscuit::unsafe_from(token_bytes).unwrap();
+        let _ = UnverifiedBiscuit::unsafe_deprecated_deserialize(token_bytes).unwrap();
         assert_eq!(
             UnverifiedBiscuit::from(token_bytes).unwrap_err(),
             error::Token::Format(error::Format::DeserializationError(

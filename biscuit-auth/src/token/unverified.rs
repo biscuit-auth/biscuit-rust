@@ -40,7 +40,7 @@ impl UnverifiedBiscuit {
     /// deserializes a token from raw bytes
     ///
     /// This allows the deprecated 3rd party block format
-    pub fn unsafe_from<T>(slice: T) -> Result<Self, error::Token>
+    pub fn unsafe_deprecated_deserialize<T>(slice: T) -> Result<Self, error::Token>
     where
         T: AsRef<[u8]>,
     {
