@@ -231,7 +231,11 @@ impl SerializedBiscuit {
             next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
             external_signature: None,
-            version: Some(self.authority.version),
+            version: if self.authority.version > 0 {
+                Some(self.authority.version)
+            } else {
+                None
+            },
         };
 
         let mut blocks = Vec::new();
@@ -246,7 +250,11 @@ impl SerializedBiscuit {
                         public_key: external_signature.public_key.to_proto(),
                     }
                 }),
-                version: Some(block.version),
+                version: if block.version > 0 {
+                    Some(block.version)
+                } else {
+                    None
+                },
             };
 
             blocks.push(b);
@@ -298,13 +306,14 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
+        let authority_signature_version = 0;
         let signature = crypto::sign(
             root_keypair,
             next_keypair,
             &v,
             None,
             None,
-            THIRD_PARTY_SIGNATURE_VERSION,
+            authority_signature_version,
         )?;
 
         Ok(SerializedBiscuit {
@@ -314,7 +323,7 @@ impl SerializedBiscuit {
                 next_key: next_keypair.public(),
                 signature,
                 external_signature: None,
-                version: THIRD_PARTY_SIGNATURE_VERSION,
+                version: authority_signature_version,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -337,13 +346,19 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
+        let signature_version = if external_signature.is_some() {
+            THIRD_PARTY_SIGNATURE_VERSION
+        } else {
+            0
+        };
+
         let signature = crypto::sign(
             &keypair,
             next_keypair,
             &v,
             external_signature.as_ref(),
             Some(&self.last_block().signature),
-            THIRD_PARTY_SIGNATURE_VERSION,
+            signature_version,
         )?;
 
         // Add new block
@@ -353,7 +368,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
-            version: THIRD_PARTY_SIGNATURE_VERSION,
+            version: signature_version,
         });
 
         Ok(SerializedBiscuit {
@@ -373,13 +388,19 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
+        let signature_version = if external_signature.is_some() {
+            THIRD_PARTY_SIGNATURE_VERSION
+        } else {
+            0
+        };
+
         let signature = crypto::sign(
             &keypair,
             next_keypair,
             &block,
             external_signature.as_ref(),
             Some(&self.last_block().signature),
-            THIRD_PARTY_SIGNATURE_VERSION,
+            signature_version,
         )?;
 
         // Add new block
@@ -389,7 +410,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
-            version: THIRD_PARTY_SIGNATURE_VERSION,
+            version: signature_version,
         });
 
         Ok(SerializedBiscuit {
