@@ -231,7 +231,7 @@ impl SerializedBiscuit {
             next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
             external_signature: None,
-            version: None,
+            version: Some(self.authority.version),
         };
 
         let mut blocks = Vec::new();
@@ -246,11 +246,7 @@ impl SerializedBiscuit {
                         public_key: external_signature.public_key.to_proto(),
                     }
                 }),
-                version: if block.external_signature.is_some() {
-                    Some(THIRD_PARTY_SIGNATURE_VERSION)
-                } else {
-                    None
-                },
+                version: Some(block.version),
             };
 
             blocks.push(b);
@@ -302,7 +298,14 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = crypto::sign(root_keypair, next_keypair, &v, None)?;
+        let signature = crypto::sign(
+            root_keypair,
+            next_keypair,
+            &v,
+            None,
+            None,
+            THIRD_PARTY_SIGNATURE_VERSION,
+        )?;
 
         Ok(SerializedBiscuit {
             root_key_id,
@@ -334,7 +337,14 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = crypto::sign(&keypair, next_keypair, &v, external_signature.as_ref())?;
+        let signature = crypto::sign(
+            &keypair,
+            next_keypair,
+            &v,
+            external_signature.as_ref(),
+            Some(&self.last_block().signature),
+            THIRD_PARTY_SIGNATURE_VERSION,
+        )?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -363,7 +373,14 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
-        let signature = crypto::sign(&keypair, next_keypair, &block, external_signature.as_ref())?;
+        let signature = crypto::sign(
+            &keypair,
+            next_keypair,
+            &block,
+            external_signature.as_ref(),
+            Some(&self.last_block().signature),
+            THIRD_PARTY_SIGNATURE_VERSION,
+        )?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -481,6 +498,10 @@ impl SerializedBiscuit {
             blocks: self.blocks.clone(),
             proof: TokenNext::Seal(signature),
         })
+    }
+
+    pub(crate) fn last_block(&self) -> &crypto::Block {
+        self.blocks.last().unwrap_or(&self.authority)
     }
 }
 

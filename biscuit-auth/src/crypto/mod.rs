@@ -239,10 +239,26 @@ pub fn sign(
     next_key: &KeyPair,
     message: &[u8],
     external_signature: Option<&ExternalSignature>,
+    previous_signature: Option<&Signature>,
+    version: u32,
 ) -> Result<Signature, error::Token> {
-    //FIXME: replace with SHA512 hashing
-    let to_sign =
-        generate_block_signature_payload_v0(&message, &next_key.public(), external_signature);
+    let to_sign = match version {
+        0 => generate_block_signature_payload_v0(&message, &next_key.public(), external_signature),
+        1 => generate_block_signature_payload_v1(
+            &message,
+            &next_key.public(),
+            external_signature,
+            previous_signature,
+            version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                version
+            ))
+            .into())
+        }
+    };
 
     let signature = keypair
         .kp
@@ -260,12 +276,26 @@ pub fn verify_block_signature(
     previous_signature: Option<&Signature>,
     verification_mode: ThirdPartyVerificationMode,
 ) -> Result<(), error::Format> {
-    //FIXME: replace with SHA512 hashing
-    let to_verify = generate_block_signature_payload_v0(
-        &block.data,
-        &block.next_key,
-        block.external_signature.as_ref(),
-    );
+    let to_verify = match block.version {
+        0 => generate_block_signature_payload_v0(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+        ),
+        1 => generate_block_signature_payload_v1(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+            previous_signature,
+            block.version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                block.version
+            )))
+        }
+    };
 
     public_key
         .0
@@ -351,7 +381,7 @@ pub(crate) fn generate_block_signature_payload_v1(
     payload: &[u8],
     next_key: &PublicKey,
     external_signature: Option<&ExternalSignature>,
-    previous_signature: Option<&[u8]>,
+    previous_signature: Option<&Signature>,
     version: u32,
 ) -> Vec<u8> {
     let mut to_verify = b"\0VERSION\0".to_vec();
@@ -367,7 +397,7 @@ pub(crate) fn generate_block_signature_payload_v1(
 
     if let Some(signature) = previous_signature {
         to_verify.extend(b"\0PREVSIG\0".to_vec());
-        to_verify.extend(signature);
+        to_verify.extend(signature.to_bytes().as_slice());
     }
 
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
