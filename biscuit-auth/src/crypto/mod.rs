@@ -427,9 +427,6 @@ pub(crate) fn generate_external_signature_payload_v1(
     to_verify.extend(b"\0PAYLOAD\0".to_vec());
     to_verify.extend(payload.to_vec());
 
-    to_verify.extend(b"\0ALGORITHM\0".to_vec());
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-
     to_verify.extend(b"\0PREVSIG\0".to_vec());
     to_verify.extend(previous_signature);
     to_verify
