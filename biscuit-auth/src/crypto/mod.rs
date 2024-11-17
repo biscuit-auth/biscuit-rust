@@ -317,7 +317,7 @@ pub fn verify_external_signature(
                 public_key,
                 previous_signature.to_bytes().as_slice(),
                 version,
-            )?
+            )
         }
     };
 
@@ -347,20 +347,52 @@ pub(crate) fn generate_block_signature_payload_v0(
     to_verify
 }
 
-fn generate_external_signature_payload_v0(payload: &[u8], public_key: &PublicKey) -> Vec<u8> {
+pub(crate) fn generate_block_signature_payload_v1(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+    previous_signature: Option<&[u8]>,
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    if let Some(signature) = external_signature.as_ref() {
+        to_verify.extend(b"\0EXTERNAL\0".to_vec());
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
+    }
+
+    if let Some(signature) = previous_signature {
+        to_verify.extend(b"\0PREVSIG\0".to_vec());
+        to_verify.extend(signature);
+    }
+
+    to_verify.extend(b"\0ALGORITHM\0".to_vec());
+    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+
+    to_verify.extend(b"\0NEXTKEY\0".to_vec());
+    to_verify.extend(&next_key.to_bytes());
+
+    to_verify
+}
+
+fn generate_external_signature_payload_v0(payload: &[u8], previous_key: &PublicKey) -> Vec<u8> {
     let mut to_verify = payload.to_vec();
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_verify.extend(&public_key.to_bytes());
+    to_verify.extend(&previous_key.to_bytes());
 
     to_verify
 }
 
 pub(crate) fn generate_external_signature_payload_v1(
     payload: &[u8],
-    public_key: &PublicKey,
+    previous_key: &PublicKey,
     previous_signature: &[u8],
     version: u32,
-) -> Result<Vec<u8>, error::Format> {
+) -> Vec<u8> {
     let mut to_verify = b"\0VERSION\0".to_vec();
     to_verify.extend(version.to_le_bytes());
 
@@ -370,12 +402,12 @@ pub(crate) fn generate_external_signature_payload_v1(
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
 
-    to_verify.extend(b"\0PUBKEY\0".to_vec());
-    to_verify.extend(&public_key.to_bytes());
+    to_verify.extend(b"\0PREVKEY\0".to_vec());
+    to_verify.extend(&previous_key.to_bytes());
 
     to_verify.extend(b"\0PREVSIG\0".to_vec());
     to_verify.extend(previous_signature);
-    Ok(to_verify)
+    to_verify
 }
 
 pub(crate) fn generate_seal_signature_payload_v0(block: &Block) -> Vec<u8> {

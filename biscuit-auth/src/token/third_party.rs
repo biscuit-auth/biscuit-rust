@@ -122,7 +122,7 @@ impl ThirdPartyRequest {
             &self.previous_key,
             &self.previous_signature,
             THIRD_PARTY_SIGNATURE_VERSION,
-        )?;
+        );
 
         let keypair = KeyPair::from(private_key);
         let signature = keypair
