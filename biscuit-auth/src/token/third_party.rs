@@ -119,7 +119,6 @@ impl ThirdPartyRequest {
 
         let signed_payload = generate_external_signature_payload_v1(
             &payload,
-            &self.previous_key,
             &self.previous_signature,
             THIRD_PARTY_SIGNATURE_VERSION,
         );

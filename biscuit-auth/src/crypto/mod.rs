@@ -344,7 +344,6 @@ pub fn verify_external_signature(
             };
             generate_external_signature_payload_v1(
                 payload,
-                public_key,
                 previous_signature.to_bytes().as_slice(),
                 version,
             )
@@ -419,7 +418,6 @@ fn generate_external_signature_payload_v0(payload: &[u8], previous_key: &PublicK
 
 pub(crate) fn generate_external_signature_payload_v1(
     payload: &[u8],
-    previous_key: &PublicKey,
     previous_signature: &[u8],
     version: u32,
 ) -> Vec<u8> {
@@ -431,9 +429,6 @@ pub(crate) fn generate_external_signature_payload_v1(
 
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-
-    to_verify.extend(b"\0PREVKEY\0".to_vec());
-    to_verify.extend(&previous_key.to_bytes());
 
     to_verify.extend(b"\0PREVSIG\0".to_vec());
     to_verify.extend(previous_signature);
