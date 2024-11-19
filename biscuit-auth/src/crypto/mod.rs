@@ -382,16 +382,16 @@ pub(crate) fn generate_block_signature_payload_v1(
     to_verify.extend(b"\0PAYLOAD\0".to_vec());
     to_verify.extend(payload.to_vec());
 
-    if let Some(signature) = previous_signature {
-        to_verify.extend(b"\0PREVSIG\0".to_vec());
-        to_verify.extend(signature.to_bytes().as_slice());
-    }
-
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
     to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
 
     to_verify.extend(b"\0NEXTKEY\0".to_vec());
     to_verify.extend(&next_key.to_bytes());
+
+    if let Some(signature) = previous_signature {
+        to_verify.extend(b"\0PREVSIG\0".to_vec());
+        to_verify.extend(signature.to_bytes().as_slice());
+    }
 
     if let Some(signature) = external_signature.as_ref() {
         to_verify.extend(b"\0EXTERNALSIG\0".to_vec());
