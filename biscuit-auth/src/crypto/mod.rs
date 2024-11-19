@@ -17,7 +17,8 @@ mod p256;
 
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{fmt::Display, hash::Hash, str::FromStr};
+use std::hash::Hash;
+use std::str::FromStr;
 
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
@@ -243,7 +244,10 @@ impl PublicKey {
     }
 
     pub fn print(&self) -> String {
-        self.to_string()
+        match self {
+            PublicKey::Ed25519(key) => key.print(),
+            PublicKey::P256(key) => key.print(),
+        }
     }
 }
 
@@ -278,15 +282,6 @@ impl FromStr for PublicKey {
                 biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
             },
         )?)
-    }
-}
-
-impl Display for PublicKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PublicKey::Ed25519(key) => write!(f, "ed25519/{}", hex::encode(key.to_bytes())),
-            PublicKey::P256(key) => write!(f, "secp256r1/{}", hex::encode(&key.to_bytes())),
-        }
     }
 }
 
