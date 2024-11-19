@@ -31,7 +31,6 @@ impl super::Authorizer {
             max_facts: limits.max_facts,
             max_iterations: limits.max_iterations,
             max_time: Duration::from_nanos(limits.max_time),
-            extern_funcs: Default::default(),
         };
 
         let execution_time = Duration::from_nanos(execution_time);

@@ -305,14 +305,21 @@ enum AuthorizerResult {
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validation {
-    validate_token_with_limits(root, data, authorizer_code, RunLimits::default())
+    validate_token_with_limits_and_external_functions(
+        root,
+        data,
+        authorizer_code,
+        RunLimits::default(),
+        Default::default(),
+    )
 }
 
-fn validate_token_with_limits(
+fn validate_token_with_limits_and_external_functions(
     root: &KeyPair,
     data: &[u8],
     authorizer_code: &str,
     run_limits: RunLimits,
+    extern_funcs: HashMap<String, ExternFunc>,
 ) -> Validation {
     let token = match Biscuit::from(&data[..], &root.public()) {
         Ok(t) => t,
@@ -333,6 +340,7 @@ fn validate_token_with_limits(
     }
 
     let mut authorizer = Authorizer::new();
+    authorizer.set_extern_funcs(extern_funcs);
     authorizer.add_code(authorizer_code).unwrap();
     let authorizer_code = authorizer.dump_code();
 
@@ -2303,28 +2311,26 @@ fn ffi(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut validations = BTreeMap::new();
     validations.insert(
         "".to_string(),
-        validate_token_with_limits(
+        validate_token_with_limits_and_external_functions(
             root,
             &data[..],
             "allow if true",
-            RunLimits {
-                extern_funcs: HashMap::from([(
-                    "test".to_string(),
-                    ExternFunc::new(Arc::new(|left, right| match (left, right) {
-                        (t, None) => Ok(t),
-                        (builder::Term::Str(left), Some(builder::Term::Str(right)))
-                            if left == right =>
-                        {
-                            Ok(builder::Term::Str("equal strings".to_string()))
-                        }
-                        (builder::Term::Str(_), Some(builder::Term::Str(_))) => {
-                            Ok(builder::Term::Str("different strings".to_string()))
-                        }
-                        _ => Err("unsupported operands".to_string()),
-                    })),
-                )]),
-                ..Default::default()
-            },
+            RunLimits::default(),
+            HashMap::from([(
+                "test".to_string(),
+                ExternFunc::new(Arc::new(|left, right| match (left, right) {
+                    (t, None) => Ok(t),
+                    (builder::Term::Str(left), Some(builder::Term::Str(right)))
+                        if left == right =>
+                    {
+                        Ok(builder::Term::Str("equal strings".to_string()))
+                    }
+                    (builder::Term::Str(_), Some(builder::Term::Str(_))) => {
+                        Ok(builder::Term::Str("different strings".to_string()))
+                    }
+                    _ => Err("unsupported operands".to_string()),
+                })),
+            )]),
         ),
     );
 

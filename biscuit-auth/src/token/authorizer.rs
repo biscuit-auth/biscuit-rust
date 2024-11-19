@@ -7,7 +7,7 @@ use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
 use crate::builder::{self, CheckKind, Convert};
 use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
+use crate::datalog::{self, ExternFunc, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
@@ -397,6 +397,26 @@ impl Authorizer {
         self.limits = limits;
     }
 
+    /// Returns the currently registered external functions
+    pub fn external_funcs(&self) -> &HashMap<String, ExternFunc> {
+        &self.world.extern_funcs
+    }
+
+    /// Replaces the registered external functions
+    pub fn set_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+        self.world.extern_funcs = extern_funcs;
+    }
+
+    /// Registers the provided external functions (possibly replacing already registered functions)
+    pub fn register_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+        self.world.extern_funcs.extend(extern_funcs);
+    }
+
+    /// Registers the provided external function (possibly replacing an already registered function)
+    pub fn register_extern_func(&mut self, name: String, func: ExternFunc) {
+        self.world.extern_funcs.insert(name, func);
+    }
+
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// ```rust
@@ -469,15 +489,10 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        let extern_binary = limits.extern_funcs.clone();
         self.world.run_with_limits(&self.symbols, limits)?;
-        let res = self.world.query_rule(
-            rule,
-            usize::MAX,
-            &rule_trusted_origins,
-            &self.symbols,
-            &extern_binary,
-        )?;
+        let res = self
+            .world
+            .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
 
         res.inner
             .into_iter()
@@ -557,7 +572,6 @@ impl Authorizer {
         rule: datalog::Rule,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
-        let extern_binary = limits.extern_funcs.clone();
         self.world.run_with_limits(&self.symbols, limits)?;
 
         let rule_trusted_origins = if rule.scopes.is_empty() {
@@ -574,13 +588,9 @@ impl Authorizer {
             )
         };
 
-        let res = self.world.query_rule(
-            rule,
-            0,
-            &rule_trusted_origins,
-            &self.symbols,
-            &extern_binary,
-        )?;
+        let res = self
+            .world
+            .query_rule(rule, 0, &rule_trusted_origins, &self.symbols)?;
 
         let r: HashSet<_> = res.into_iter().map(|(_, fact)| fact).collect();
 
@@ -751,20 +761,16 @@ impl Authorizer {
                         usize::MAX,
                         &rule_trusted_origins,
                         &self.symbols,
-                        &limits.extern_funcs,
                     )?,
-                    CheckKind::All => self.world.query_match_all(
-                        query,
-                        &rule_trusted_origins,
-                        &self.symbols,
-                        &limits.extern_funcs,
-                    )?,
+                    CheckKind::All => {
+                        self.world
+                            .query_match_all(query, &rule_trusted_origins, &self.symbols)?
+                    }
                     CheckKind::Reject => !self.world.query_match(
                         query,
                         usize::MAX,
                         &rule_trusted_origins,
                         &self.symbols,
-                        &limits.extern_funcs,
                     )?,
                 };
 
@@ -813,20 +819,17 @@ impl Authorizer {
                             0,
                             &rule_trusted_origins,
                             &self.symbols,
-                            &limits.extern_funcs,
                         )?,
                         CheckKind::All => self.world.query_match_all(
                             query.clone(),
                             &rule_trusted_origins,
                             &self.symbols,
-                            &limits.extern_funcs,
                         )?,
                         CheckKind::Reject => !self.world.query_match(
                             query.clone(),
                             0,
                             &rule_trusted_origins,
                             &self.symbols,
-                            &limits.extern_funcs,
                         )?,
                     };
 
@@ -866,7 +869,6 @@ impl Authorizer {
                     usize::MAX,
                     &rule_trusted_origins,
                     &self.symbols,
-                    &limits.extern_funcs,
                 )?;
 
                 let now = Instant::now();
@@ -916,20 +918,17 @@ impl Authorizer {
                                 i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
-                                &limits.extern_funcs,
                             )?,
                             CheckKind::All => self.world.query_match_all(
                                 query.clone(),
                                 &rule_trusted_origins,
                                 &self.symbols,
-                                &limits.extern_funcs,
                             )?,
                             CheckKind::Reject => !self.world.query_match(
                                 query.clone(),
                                 i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
-                                &limits.extern_funcs,
                             )?,
                         };
 
