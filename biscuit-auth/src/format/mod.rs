@@ -111,12 +111,12 @@ impl SerializedBiscuit {
             let signature = ed25519_dalek::Signature::from_bytes(&bytes);
 
             let external_signature = if let Some(ex) = block.external_signature.as_ref() {
-                if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing {
-                    if block.version != Some(THIRD_PARTY_SIGNATURE_VERSION) {
-                        return Err(error::Format::DeserializationError(
-                            "Unsupported third party block version".to_string(),
-                        ));
-                    }
+                if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing
+                    && block.version != Some(THIRD_PARTY_SIGNATURE_VERSION)
+                {
+                    return Err(error::Format::DeserializationError(
+                        "Unsupported third party block version".to_string(),
+                    ));
                 }
 
                 let public_key = PublicKey::from_proto(&ex.public_key)?;

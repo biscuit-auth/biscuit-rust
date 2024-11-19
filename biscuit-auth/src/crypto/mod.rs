@@ -222,13 +222,6 @@ pub struct ExternalSignature {
 }
 
 #[derive(Clone, Debug)]
-pub struct Token {
-    pub root: PublicKey,
-    pub blocks: Vec<Block>,
-    pub next: TokenNext,
-}
-
-#[derive(Clone, Debug)]
 pub enum TokenNext {
     Secret(PrivateKey),
     Seal(ed25519_dalek::Signature),
@@ -454,100 +447,4 @@ impl TokenNext {
             TokenNext::Secret(_) => false,
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    /*
-    use super::*;
-    use rand::prelude::*;
-    use rand_core::SeedableRng;
-
-    #[test]
-    fn basic_signature() {
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message = b"hello world";
-        let keypair = KeyPair::new_with_rng(&mut rng);
-
-        let signature = keypair.sign(&mut rng, message);
-
-        assert!(verify(&keypair.public, message, &signature));
-
-        assert!(!verify(&keypair.public, b"AAAA", &signature));
-    }
-
-    #[test]
-    fn three_messages() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        assert_eq!(token2.verify(), Ok(()), "cannot verify second token");
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(token3.verify(), Ok(()), "cannot verify third token");
-    }
-
-    #[test]
-    fn change_message() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let mut token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        token2.messages[1] = Vec::from(&b"you"[..]);
-
-        assert_eq!(
-            token2.verify(),
-            Err(error::Signature::InvalidSignature),
-            "second token should not be valid"
-        );
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(
-            token3.verify(),
-            Err(error::Signature::InvalidSignature),
-            "cannot verify third token"
-        );
-    }*/
 }
