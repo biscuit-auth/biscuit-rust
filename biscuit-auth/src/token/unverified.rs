@@ -37,6 +37,29 @@ impl UnverifiedBiscuit {
         Self::from_with_symbols(slice.as_ref(), default_symbol_table())
     }
 
+    /// deserializes a token from raw bytes
+    ///
+    /// This allows the deprecated 3rd party block format
+    pub fn unsafe_deprecated_deserialize<T>(slice: T) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+    {
+        let container = SerializedBiscuit::deserialize(
+            slice.as_ref(),
+            crate::format::ThirdPartyVerificationMode::UnsafeLegacy,
+        )?;
+        let mut symbols = default_symbol_table();
+
+        let (authority, blocks) = container.extract_blocks(&mut symbols)?;
+
+        Ok(UnverifiedBiscuit {
+            authority,
+            blocks,
+            symbols,
+            container,
+        })
+    }
+
     /// deserializes a token from base64
     pub fn from_base64<T>(slice: T) -> Result<Self, error::Token>
     where
@@ -95,7 +118,10 @@ impl UnverifiedBiscuit {
 
     /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
-        let container = SerializedBiscuit::deserialize(slice)?;
+        let container = SerializedBiscuit::deserialize(
+            slice,
+            crate::format::ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let (authority, blocks) = container.extract_blocks(&mut symbols)?;
 
@@ -309,6 +335,14 @@ impl UnverifiedBiscuit {
         to_verify
             .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
         to_verify.extend(&previous_key.to_bytes());
+        to_verify.extend(
+            self.container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature
+                .to_bytes(),
+        );
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
