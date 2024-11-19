@@ -6,6 +6,7 @@ use super::Signature;
 
 use p256::ecdsa::{signature::Signer, signature::Verifier, SigningKey, VerifyingKey};
 use p256::elliptic_curve::rand_core::{CryptoRng, OsRng, RngCore};
+use p256::NistP256;
 use std::hash::Hash;
 
 /// pair of cryptographic keys used to sign a token's block
@@ -31,7 +32,7 @@ impl KeyPair {
 
     /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_bytes(bytes)
+        let kp = SigningKey::from_bytes(bytes.into())
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)?;
 
@@ -39,16 +40,13 @@ impl KeyPair {
     }
 
     pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
-        Ok(Signature(
-            self.kp
-                .try_sign(&data)
-                .map_err(|s| s.to_string())
-                .map_err(error::Signature::InvalidSignatureGeneration)
-                .map_err(error::Format::Signature)?
-                .to_der()
-                .as_bytes()
-                .to_owned(),
-        ))
+        let signature: ecdsa::Signature<NistP256> = self
+            .kp
+            .try_sign(&data)
+            .map_err(|s| s.to_string())
+            .map_err(error::Signature::InvalidSignatureGeneration)
+            .map_err(error::Format::Signature)?;
+        Ok(Signature(signature.to_der().as_bytes().to_owned()))
     }
 
     pub fn private(&self) -> PrivateKey {
@@ -56,7 +54,7 @@ impl KeyPair {
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.verifying_key())
+        PublicKey(*self.kp.verifying_key())
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
@@ -102,7 +100,7 @@ impl PrivateKey {
 
     /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        SigningKey::from_bytes(bytes)
+        SigningKey::from_bytes(bytes.into())
             .map(PrivateKey)
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)
@@ -116,7 +114,7 @@ impl PrivateKey {
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey((&self.0).verifying_key())
+        PublicKey(*(&self.0).verifying_key())
     }
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
