@@ -320,19 +320,15 @@ impl UnverifiedBiscuit {
                     "deserialization error: invalid external key algorithm".to_string(),
                 )
             })?;
-        let external_key = PublicKey::from_bytes(
-            &external_signature.public_key.key,
-            match algorithm {
-                Algorithm::Ed25519 => crate::builder::Algorithm::Ed25519,
-                Algorithm::Secp256r1 => crate::builder::Algorithm::Secp256r1,
-            },
-        )
-        .map_err(|e| {
-            error::Format::BlockSignatureDeserializationError(format!(
-                "block external public key deserialization error: {:?}",
-                e
-            ))
-        })?;
+        let external_key =
+            PublicKey::from_bytes(&external_signature.public_key.key, algorithm.into()).map_err(
+                |e| {
+                    error::Format::BlockSignatureDeserializationError(format!(
+                        "block external public key deserialization error: {:?}",
+                        e
+                    ))
+                },
+            )?;
 
         let signature = Signature::from_vec(external_signature.signature);
 

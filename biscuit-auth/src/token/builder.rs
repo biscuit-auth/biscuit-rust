@@ -768,14 +768,7 @@ impl From<biscuit_parser::builder::Scope> for Scope {
             biscuit_parser::builder::Scope::Authority => Scope::Authority,
             biscuit_parser::builder::Scope::Previous => Scope::Previous,
             biscuit_parser::builder::Scope::PublicKey(pk) => Scope::PublicKey(
-                PublicKey::from_bytes(
-                    &pk.key,
-                    match pk.algorithm {
-                        biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
-                        biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
-                    },
-                )
-                .expect("invalid public key"),
+                PublicKey::from_bytes(&pk.key, pk.algorithm.into()).expect("invalid public key"),
             ),
             biscuit_parser::builder::Scope::Parameter(s) => Scope::Parameter(s),
         }
@@ -798,6 +791,42 @@ impl TryFrom<&str> for Algorithm {
                 "deserialization error: unexpected key algorithm {}",
                 value
             ))),
+        }
+    }
+}
+
+impl From<biscuit_parser::builder::Algorithm> for Algorithm {
+    fn from(value: biscuit_parser::builder::Algorithm) -> Algorithm {
+        match value {
+            biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
+            biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<Algorithm> for biscuit_parser::builder::Algorithm {
+    fn from(value: Algorithm) -> biscuit_parser::builder::Algorithm {
+        match value {
+            Algorithm::Ed25519 => biscuit_parser::builder::Algorithm::Ed25519,
+            Algorithm::Secp256r1 => biscuit_parser::builder::Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<crate::format::schema::public_key::Algorithm> for Algorithm {
+    fn from(value: crate::format::schema::public_key::Algorithm) -> Algorithm {
+        match value {
+            crate::format::schema::public_key::Algorithm::Ed25519 => Algorithm::Ed25519,
+            crate::format::schema::public_key::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<Algorithm> for crate::format::schema::public_key::Algorithm {
+    fn from(value: Algorithm) -> crate::format::schema::public_key::Algorithm {
+        match value {
+            Algorithm::Ed25519 => crate::format::schema::public_key::Algorithm::Ed25519,
+            Algorithm::Secp256r1 => crate::format::schema::public_key::Algorithm::Secp256r1,
         }
     }
 }
@@ -1649,18 +1678,8 @@ impl From<biscuit_parser::builder::Rule> for Rule {
                         (
                             k,
                             v.map(|pk| {
-                                PublicKey::from_bytes(
-                                    &pk.key,
-                                    match pk.algorithm {
-                                        biscuit_parser::builder::Algorithm::Ed25519 => {
-                                            Algorithm::Ed25519
-                                        }
-                                        biscuit_parser::builder::Algorithm::Secp256r1 => {
-                                            Algorithm::Secp256r1
-                                        }
-                                    },
-                                )
-                                .expect("invalid public key")
+                                PublicKey::from_bytes(&pk.key, pk.algorithm.into())
+                                    .expect("invalid public key")
                             }),
                         )
                     })
