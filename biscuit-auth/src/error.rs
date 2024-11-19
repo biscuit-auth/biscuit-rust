@@ -250,6 +250,10 @@ pub enum Expression {
     InvalidStack,
     #[error("Shadowed variable")]
     ShadowedVariable,
+    #[error("Undefined extern func: {0}")]
+    UndefinedExtern(String),
+    #[error("Error while evaluating extern func {0}: {1}")]
+    ExternEvalError(String, String),
 }
 
 /// runtime limits errors
