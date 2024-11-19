@@ -262,3 +262,25 @@ fn json() {
         0
     );
 }
+
+#[test]
+fn ecdsa() {
+    use biscuit_auth::PublicKey;
+
+    let pubkey = PublicKey::from_bytes(
+        &hex::decode("0245dd01132962da3812911b746b080aed714873c1812e7cefacf13e3880712da0").unwrap(),
+        biscuit_auth::builder::Algorithm::Secp256r1,
+    )
+    .unwrap();
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let r = rule!(
+        r#"rule($0, true) <- fact($0, $1, $2, {my_key}, {term_set}) trusting {pubkey}"#,
+        my_key = "my_value",
+    );
+
+    assert_eq!(
+        r.to_string(),
+        r#"rule($0, true) <- fact($0, $1, $2, "my_value", {0}) trusting secp256r1/0245dd01132962da3812911b746b080aed714873c1812e7cefacf13e3880712da0"#,
+    );
+}
