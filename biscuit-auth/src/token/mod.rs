@@ -435,14 +435,12 @@ impl Biscuit {
         crypto::verify_external_signature(
             &payload,
             &previous_key,
-            Some(
-                &self
-                    .container
-                    .blocks
-                    .last()
-                    .unwrap_or(&self.container.authority)
-                    .signature,
-            ),
+            &self
+                .container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature,
             &external_signature,
             THIRD_PARTY_SIGNATURE_VERSION,
             ThirdPartyVerificationMode::PreviousSignatureHashing,
@@ -1532,5 +1530,31 @@ mod tests {
                 "Unsupported third party block version".to_string()
             ))
         );
+    }
+
+    // tests that the authority block signature version 1 works
+    #[test]
+    fn authority_signature_v1() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(&mut rng);
+
+        let authority_block = Block {
+            symbols: default_symbol_table(),
+            facts: vec![],
+            rules: vec![],
+            checks: vec![],
+            context: None,
+            version: 0,
+            external_key: None,
+            public_keys: PublicKeys::new(),
+            scopes: vec![],
+        };
+
+        let next_keypair = KeyPair::new_with_rng(&mut rng);
+        let token =
+            SerializedBiscuit::new_inner(None, &root, &next_keypair, &authority_block, 1).unwrap();
+        let serialized = token.to_vec().unwrap();
+
+        let _ = Biscuit::from(&serialized, root.public()).unwrap();
     }
 }

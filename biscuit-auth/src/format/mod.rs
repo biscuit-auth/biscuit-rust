@@ -299,6 +299,17 @@ impl SerializedBiscuit {
         next_keypair: &KeyPair,
         authority: &Block,
     ) -> Result<Self, error::Token> {
+        Self::new_inner(root_key_id, root_keypair, next_keypair, authority, 0)
+    }
+
+    /// creates a new token
+    pub(crate) fn new_inner(
+        root_key_id: Option<u32>,
+        root_keypair: &KeyPair,
+        next_keypair: &KeyPair,
+        authority: &Block,
+        authority_signature_version: u32,
+    ) -> Result<Self, error::Token> {
         let mut v = Vec::new();
         token_block_to_proto_block(authority)
             .encode(&mut v)
@@ -306,13 +317,10 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let authority_signature_version = 0;
-        let signature = crypto::sign(
+        let signature = crypto::sign_authority_block(
             root_keypair,
             next_keypair,
             &v,
-            None,
-            None,
             authority_signature_version,
         )?;
 
@@ -352,12 +360,12 @@ impl SerializedBiscuit {
             0
         };
 
-        let signature = crypto::sign(
+        let signature = crypto::sign_block(
             &keypair,
             next_keypair,
             &v,
             external_signature.as_ref(),
-            Some(&self.last_block().signature),
+            &self.last_block().signature,
             signature_version,
         )?;
 
@@ -394,12 +402,12 @@ impl SerializedBiscuit {
             0
         };
 
-        let signature = crypto::sign(
+        let signature = crypto::sign_block(
             &keypair,
             next_keypair,
             &block,
             external_signature.as_ref(),
-            Some(&self.last_block().signature),
+            &self.last_block().signature,
             signature_version,
         )?;
 
@@ -433,16 +441,11 @@ impl SerializedBiscuit {
     ) -> Result<(), error::Format> {
         //FIXME: try batched signature verification
         let mut current_pub = root;
-        let mut previous_signature = None;
+        let mut previous_signature;
 
-        crypto::verify_block_signature(
-            &self.authority,
-            current_pub,
-            previous_signature,
-            ThirdPartyVerificationMode::PreviousSignatureHashing,
-        )?;
+        crypto::verify_authority_block_signature(&self.authority, current_pub)?;
         current_pub = &self.authority.next_key;
-        previous_signature = Some(&self.authority.signature);
+        previous_signature = &self.authority.signature;
 
         for block in &self.blocks {
             let verification_mode = match (block.version, verification_mode) {
@@ -459,7 +462,7 @@ impl SerializedBiscuit {
                 verification_mode,
             )?;
             current_pub = &block.next_key;
-            previous_signature = Some(&block.signature);
+            previous_signature = &block.signature;
         }
 
         match &self.proof {

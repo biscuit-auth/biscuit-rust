@@ -325,24 +325,6 @@ impl UnverifiedBiscuit {
             .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
         let signature = ed25519_dalek::Signature::from_bytes(&bytes);
-        let previous_key = self
-            .container
-            .blocks
-            .last()
-            .unwrap_or(&self.container.authority)
-            .next_key;
-        let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&previous_key.to_bytes());
-        to_verify.extend(
-            self.container
-                .blocks
-                .last()
-                .unwrap_or(&self.container.authority)
-                .signature
-                .to_bytes(),
-        );
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
