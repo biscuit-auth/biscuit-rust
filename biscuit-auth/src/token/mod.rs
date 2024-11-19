@@ -435,14 +435,12 @@ impl Biscuit {
         crypto::verify_external_signature(
             &payload,
             &previous_key,
-            Some(
-                &self
-                    .container
-                    .blocks
-                    .last()
-                    .unwrap_or(&self.container.authority)
-                    .signature,
-            ),
+            &self
+                .container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature,
             &external_signature,
             THIRD_PARTY_SIGNATURE_VERSION,
             ThirdPartyVerificationMode::PreviousSignatureHashing,
