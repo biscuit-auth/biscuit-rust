@@ -299,6 +299,17 @@ impl SerializedBiscuit {
         next_keypair: &KeyPair,
         authority: &Block,
     ) -> Result<Self, error::Token> {
+        Self::new_inner(root_key_id, root_keypair, next_keypair, authority, 0)
+    }
+
+    /// creates a new token
+    pub(crate) fn new_inner(
+        root_key_id: Option<u32>,
+        root_keypair: &KeyPair,
+        next_keypair: &KeyPair,
+        authority: &Block,
+        authority_signature_version: u32,
+    ) -> Result<Self, error::Token> {
         let mut v = Vec::new();
         token_block_to_proto_block(authority)
             .encode(&mut v)
@@ -306,7 +317,6 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let authority_signature_version = 0;
         let signature = crypto::sign_authority_block(
             root_keypair,
             next_keypair,
