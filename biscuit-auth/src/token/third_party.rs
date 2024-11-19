@@ -17,7 +17,7 @@ use super::THIRD_PARTY_SIGNATURE_VERSION;
 /// Third party block request
 #[derive(Debug)]
 pub struct ThirdPartyRequest {
-    pub(crate) previous_key: PublicKey,
+    pub(crate) legacy_public_key: PublicKey,
     pub(crate) previous_signature: Vec<u8>,
 }
 
@@ -43,17 +43,17 @@ impl ThirdPartyRequest {
             .to_bytes()
             .to_vec();
         Ok(ThirdPartyRequest {
-            previous_key,
+            legacy_public_key: previous_key,
             previous_signature,
         })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
-        let previous_key = self.previous_key.to_proto();
+        let previous_key = self.legacy_public_key.to_proto();
         let previous_signature = self.previous_signature.clone();
 
         let request = schema::ThirdPartyBlockRequest {
-            previous_key,
+            legacy_public_key: previous_key,
             public_keys: Vec::new(),
             previous_signature,
         };
@@ -76,7 +76,7 @@ impl ThirdPartyRequest {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let previous_key = PublicKey::from_proto(&data.previous_key)?;
+        let legacy_public_key = PublicKey::from_proto(&data.legacy_public_key)?;
 
         if !data.public_keys.is_empty() {
             return Err(error::Token::Format(error::Format::DeserializationError(
@@ -87,7 +87,7 @@ impl ThirdPartyRequest {
         let previous_signature = data.previous_signature.to_vec();
 
         Ok(ThirdPartyRequest {
-            previous_key,
+            legacy_public_key,
             previous_signature,
         })
     }
