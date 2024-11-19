@@ -261,7 +261,7 @@ impl Biscuit {
         )
     }
 
-    /// creates a new token, using a provided CSPRNG
+    /// creates a new token, using provided keypairs (the root keypair, and the keypair used to sign the next block)
     ///
     /// the public part of the root keypair must be used for verification
     pub(crate) fn new_with_key_pair(
