@@ -13,6 +13,7 @@ use super::format::SerializedBiscuit;
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
+use crate::format::{ThirdPartyVerificationMode, THIRD_PARTY_SIGNATURE_VERSION};
 use authorizer::Authorizer;
 
 pub mod authorizer;
@@ -106,6 +107,23 @@ impl Biscuit {
         KP: RootKeyProvider,
     {
         Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table())
+    }
+
+    /// deserializes a token and validates the signature using the root public key
+    ///
+    /// This allows the deprecated 3rd party block format
+    pub fn unsafe_deprecated_deserialize<T, KP>(
+        slice: T,
+        key_provider: KP,
+    ) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+        KP: RootKeyProvider,
+    {
+        let container = SerializedBiscuit::unsafe_from_slice(slice.as_ref(), key_provider)
+            .map_err(error::Token::Format)?;
+
+        Biscuit::from_serialized_container(container, default_symbol_table())
     }
 
     /// serializes the token
@@ -423,11 +441,24 @@ impl Biscuit {
             .last()
             .unwrap_or(&self.container.authority)
             .next_key;
-        let mut to_verify = payload.clone();
-        to_verify.extend(&(external_key.algorithm() as i32).to_le_bytes());
-        to_verify.extend(&previous_key.to_bytes());
 
-        external_key.verify_signature(&to_verify, &signature)?;
+        let external_signature = crypto::ExternalSignature {
+            public_key: external_key,
+            signature,
+        };
+        crypto::verify_external_signature(
+            &payload,
+            &previous_key,
+            &self
+                .container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature,
+            &external_signature,
+            THIRD_PARTY_SIGNATURE_VERSION,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
@@ -435,11 +466,6 @@ impl Biscuit {
                 e
             )))
         })?;
-
-        let external_signature = crypto::ExternalSignature {
-            public_key: external_key,
-            signature,
-        };
 
         let symbols = self.symbols.clone();
         let mut blocks = self.blocks.clone();
@@ -679,7 +705,7 @@ mod tests {
     use super::*;
     use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
-    use crate::{error::*, AuthorizerLimits};
+    use crate::{error::*, AuthorizerLimits, UnverifiedBiscuit};
     use rand::prelude::*;
     use std::time::{Duration, SystemTime};
 
@@ -1492,5 +1518,58 @@ mod tests {
                 }))
             );
         }
+    }
+
+    // check that we can still allow the verification of the old 3rd party block signature
+    #[test]
+    fn third_party_unsafe_deserialize() {
+        // this is a token generated with the old third party signature, that does not include the previous block's signature
+        let token_bytes = include_bytes!("../../tests/fixtures/unsafe_third_party.bc");
+        let _ = UnverifiedBiscuit::unsafe_deprecated_deserialize(token_bytes).unwrap();
+        assert_eq!(
+            UnverifiedBiscuit::from(token_bytes).unwrap_err(),
+            error::Token::Format(error::Format::DeserializationError(
+                "Unsupported third party block version".to_string()
+            ))
+        );
+
+        let root_key = PublicKey::from_bytes_hex(
+            "1055c750b1a1505937af1537c626ba3263995c33a64758aaafb1275b0312e284",
+            builder::Algorithm::Ed25519,
+        )
+        .unwrap();
+        let _ = Biscuit::unsafe_deprecated_deserialize(token_bytes, root_key).unwrap();
+        assert_eq!(
+            Biscuit::from(token_bytes, root_key).unwrap_err(),
+            error::Token::Format(error::Format::DeserializationError(
+                "Unsupported third party block version".to_string()
+            ))
+        );
+    }
+
+    // tests that the authority block signature version 1 works
+    #[test]
+    fn authority_signature_v1() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+
+        let authority_block = Block {
+            symbols: default_symbol_table(),
+            facts: vec![],
+            rules: vec![],
+            checks: vec![],
+            context: None,
+            version: 0,
+            external_key: None,
+            public_keys: PublicKeys::new(),
+            scopes: vec![],
+        };
+
+        let next_keypair = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+        let token =
+            SerializedBiscuit::new_inner(None, &root, &next_keypair, &authority_block, 1).unwrap();
+        let serialized = token.to_vec().unwrap();
+
+        let _ = Biscuit::from(&serialized, root.public()).unwrap();
     }
 }

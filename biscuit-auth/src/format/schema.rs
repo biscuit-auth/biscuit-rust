@@ -19,6 +19,8 @@ pub struct SignedBlock {
     pub signature: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag="4")]
     pub external_signature: ::core::option::Option<ExternalSignature>,
+    #[prost(uint32, optional, tag="5")]
+    pub version: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExternalSignature {
@@ -327,9 +329,11 @@ pub struct AuthorizerPolicies {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThirdPartyBlockRequest {
     #[prost(message, required, tag="1")]
-    pub previous_key: PublicKey,
+    pub legacy_previous_key: PublicKey,
     #[prost(message, repeated, tag="2")]
-    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    pub legacy_public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    #[prost(bytes="vec", required, tag="3")]
+    pub previous_signature: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThirdPartyBlockContents {

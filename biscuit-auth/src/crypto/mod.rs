@@ -7,7 +7,9 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::{builder::Algorithm, format::schema};
+use crate::builder::Algorithm;
+use crate::format::schema;
+use crate::format::ThirdPartyVerificationMode;
 
 use super::error;
 mod ed25519;
@@ -287,6 +289,7 @@ pub struct Block {
     pub(crate) next_key: PublicKey,
     pub signature: Signature,
     pub external_signature: Option<ExternalSignature>,
+    pub version: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -301,44 +304,255 @@ pub enum TokenNext {
     Seal(Signature),
 }
 
-pub fn sign(
+pub fn sign_authority_block(
     keypair: &KeyPair,
     next_key: &KeyPair,
     message: &[u8],
+    version: u32,
 ) -> Result<Signature, error::Token> {
-    //FIXME: replace with SHA512 hashing
-    let mut to_sign = message.to_vec();
-    to_sign.extend(&(next_key.algorithm() as i32).to_le_bytes());
-    to_sign.extend(&next_key.public().to_bytes());
+    let to_sign = match version {
+        0 => generate_authority_block_signature_payload_v0(&message, &next_key.public()),
+        1 => generate_authority_block_signature_payload_v1(&message, &next_key.public(), version),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                version
+            ))
+            .into())
+        }
+    };
 
     let signature = keypair.sign(&to_sign)?;
 
     Ok(Signature(signature.to_bytes().to_vec()))
 }
 
-pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
-    //FIXME: replace with SHA512 hashing
-    let mut to_verify = block.data.to_vec();
+pub fn sign_block(
+    keypair: &KeyPair,
+    next_key: &KeyPair,
+    message: &[u8],
+    external_signature: Option<&ExternalSignature>,
+    previous_signature: &Signature,
+    version: u32,
+) -> Result<Signature, error::Token> {
+    let to_sign = match version {
+        0 => generate_block_signature_payload_v0(&message, &next_key.public(), external_signature),
+        1 => generate_block_signature_payload_v1(
+            &message,
+            &next_key.public(),
+            external_signature,
+            previous_signature,
+            version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                version
+            ))
+            .into())
+        }
+    };
 
-    if let Some(signature) = block.external_signature.as_ref() {
-        to_verify.extend_from_slice(&signature.signature.to_bytes());
-    }
-    to_verify.extend(&(block.next_key.algorithm() as i32).to_le_bytes());
-    to_verify.extend(&block.next_key.to_bytes());
+    Ok(keypair.sign(&to_sign)?)
+}
+
+pub fn verify_authority_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+) -> Result<(), error::Format> {
+    let to_verify = match block.version {
+        0 => generate_block_signature_payload_v0(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+        ),
+        1 => generate_authority_block_signature_payload_v1(
+            &block.data,
+            &block.next_key,
+            block.version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                block.version
+            )))
+        }
+    };
+
+    public_key.verify_signature(&to_verify, &block.signature)
+}
+
+pub fn verify_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+    previous_signature: &Signature,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
+    let to_verify = match block.version {
+        0 => generate_block_signature_payload_v0(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+        ),
+        1 => generate_block_signature_payload_v1(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+            previous_signature,
+            block.version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                block.version
+            )))
+        }
+    };
 
     public_key.verify_signature(&to_verify, &block.signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
-        let mut to_verify = block.data.to_vec();
-        to_verify.extend(&(public_key.algorithm() as i32).to_le_bytes());
-        to_verify.extend(&public_key.to_bytes());
-
-        external_signature
-            .public_key
-            .verify_signature(&to_verify, &external_signature.signature)?;
+        verify_external_signature(
+            &block.data,
+            public_key,
+            previous_signature,
+            external_signature,
+            block.version,
+            verification_mode,
+        )?;
     }
 
     Ok(())
+}
+
+pub fn verify_external_signature(
+    payload: &[u8],
+    public_key: &PublicKey,
+    previous_signature: &Signature,
+    external_signature: &ExternalSignature,
+    version: u32,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
+    let to_verify = match verification_mode {
+        ThirdPartyVerificationMode::UnsafeLegacy => {
+            generate_external_signature_payload_v0(payload, public_key)
+        }
+        ThirdPartyVerificationMode::PreviousSignatureHashing => {
+            generate_external_signature_payload_v1(payload, previous_signature.to_bytes(), version)
+        }
+    };
+
+    external_signature
+        .public_key
+        .verify_signature(&to_verify, &external_signature.signature)
+}
+
+pub(crate) fn generate_authority_block_signature_payload_v0(
+    payload: &[u8],
+    next_key: &PublicKey,
+) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(next_key.to_bytes());
+    to_verify
+}
+
+pub(crate) fn generate_block_signature_payload_v0(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+
+    if let Some(signature) = external_signature.as_ref() {
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
+    }
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(next_key.to_bytes());
+    to_verify
+}
+
+pub(crate) fn generate_authority_block_signature_payload_v1(
+    payload: &[u8],
+    next_key: &PublicKey,
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0BLOCK\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0ALGORITHM\0".to_vec());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+
+    to_verify.extend(b"\0NEXTKEY\0".to_vec());
+    to_verify.extend(&next_key.to_bytes());
+
+    to_verify
+}
+
+pub(crate) fn generate_block_signature_payload_v1(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+    previous_signature: &Signature,
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0BLOCK\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0ALGORITHM\0".to_vec());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+
+    to_verify.extend(b"\0NEXTKEY\0".to_vec());
+    to_verify.extend(&next_key.to_bytes());
+
+    to_verify.extend(b"\0PREVSIG\0".to_vec());
+    to_verify.extend(previous_signature.to_bytes());
+
+    if let Some(signature) = external_signature.as_ref() {
+        to_verify.extend(b"\0EXTERNALSIG\0".to_vec());
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
+    }
+
+    to_verify
+}
+
+fn generate_external_signature_payload_v0(payload: &[u8], previous_key: &PublicKey) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+    to_verify.extend(&(previous_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(&previous_key.to_bytes());
+
+    to_verify
+}
+
+pub(crate) fn generate_external_signature_payload_v1(
+    payload: &[u8],
+    previous_signature: &[u8],
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0EXTERNAL\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0PREVSIG\0".to_vec());
+    to_verify.extend(previous_signature);
+    to_verify
+}
+
+pub(crate) fn generate_seal_signature_payload_v0(block: &Block) -> Vec<u8> {
+    let mut to_verify = block.data.to_vec();
+    to_verify.extend(&(block.next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(&block.next_key.to_bytes());
+    to_verify.extend(block.signature.to_bytes());
+    to_verify
 }
 
 impl TokenNext {

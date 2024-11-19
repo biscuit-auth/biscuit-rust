@@ -24,6 +24,7 @@ pub mod convert;
 
 use self::convert::*;
 
+pub(crate) const THIRD_PARTY_SIGNATURE_VERSION: u32 = 1;
 /// Intermediate structure for token serialization
 ///
 /// This structure contains the blocks serialized to byte arrays. Those arrays
@@ -41,7 +42,10 @@ impl SerializedBiscuit {
     where
         KP: RootKeyProvider,
     {
-        let deser = SerializedBiscuit::deserialize(slice)?;
+        let deser = SerializedBiscuit::deserialize(
+            slice,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let root = key_provider.choose(deser.root_key_id)?;
         deser.verify(&root)?;
@@ -49,7 +53,26 @@ impl SerializedBiscuit {
         Ok(deser)
     }
 
-    pub(crate) fn deserialize(slice: &[u8]) -> Result<Self, error::Format> {
+    pub(crate) fn unsafe_from_slice<KP>(
+        slice: &[u8],
+        key_provider: KP,
+    ) -> Result<Self, error::Format>
+    where
+        KP: RootKeyProvider,
+    {
+        let deser =
+            SerializedBiscuit::deserialize(slice, ThirdPartyVerificationMode::UnsafeLegacy)?;
+
+        let root = key_provider.choose(deser.root_key_id)?;
+        deser.verify_inner(&root, ThirdPartyVerificationMode::UnsafeLegacy)?;
+
+        Ok(deser)
+    }
+
+    pub(crate) fn deserialize(
+        slice: &[u8],
+        verification_mode: ThirdPartyVerificationMode,
+    ) -> Result<Self, error::Format> {
         let data = schema::Biscuit::decode(slice).map_err(|e| {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
@@ -70,6 +93,7 @@ impl SerializedBiscuit {
             next_key,
             signature,
             external_signature: None,
+            version: data.authority.version.unwrap_or_default(),
         };
 
         let mut blocks = Vec::new();
@@ -80,6 +104,14 @@ impl SerializedBiscuit {
             let signature = Signature::from_vec(block.signature);
 
             let external_signature = if let Some(ex) = block.external_signature {
+                if verification_mode == ThirdPartyVerificationMode::PreviousSignatureHashing
+                    && block.version != Some(THIRD_PARTY_SIGNATURE_VERSION)
+                {
+                    return Err(error::Format::DeserializationError(
+                        "Unsupported third party block version".to_string(),
+                    ));
+                }
+
                 let public_key = PublicKey::from_proto(&ex.public_key)?;
                 let signature = Signature::from_vec(ex.signature);
 
@@ -96,6 +128,7 @@ impl SerializedBiscuit {
                 next_key,
                 signature,
                 external_signature,
+                version: block.version.unwrap_or_default(),
             });
         }
 
@@ -190,6 +223,11 @@ impl SerializedBiscuit {
             next_key: self.authority.next_key.to_proto(),
             signature: self.authority.signature.to_bytes().to_vec(),
             external_signature: None,
+            version: if self.authority.version > 0 {
+                Some(self.authority.version)
+            } else {
+                None
+            },
         };
 
         let mut blocks = Vec::new();
@@ -204,6 +242,11 @@ impl SerializedBiscuit {
                         public_key: external_signature.public_key.to_proto(),
                     }
                 }),
+                version: if block.version > 0 {
+                    Some(block.version)
+                } else {
+                    None
+                },
             };
 
             blocks.push(b);
@@ -248,6 +291,17 @@ impl SerializedBiscuit {
         next_keypair: &KeyPair,
         authority: &Block,
     ) -> Result<Self, error::Token> {
+        Self::new_inner(root_key_id, root_keypair, next_keypair, authority, 0)
+    }
+
+    /// creates a new token
+    pub(crate) fn new_inner(
+        root_key_id: Option<u32>,
+        root_keypair: &KeyPair,
+        next_keypair: &KeyPair,
+        authority: &Block,
+        authority_signature_version: u32,
+    ) -> Result<Self, error::Token> {
         let mut v = Vec::new();
         token_block_to_proto_block(authority)
             .encode(&mut v)
@@ -255,7 +309,12 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature = crypto::sign(root_keypair, next_keypair, &v)?;
+        let signature = crypto::sign_authority_block(
+            root_keypair,
+            next_keypair,
+            &v,
+            authority_signature_version,
+        )?;
 
         Ok(SerializedBiscuit {
             root_key_id,
@@ -264,6 +323,7 @@ impl SerializedBiscuit {
                 next_key: next_keypair.public(),
                 signature,
                 external_signature: None,
+                version: authority_signature_version,
             },
             blocks: vec![],
             proof: TokenNext::Secret(next_keypair.private()),
@@ -285,11 +345,21 @@ impl SerializedBiscuit {
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
-        if let Some(signature) = &external_signature {
-            v.extend_from_slice(&signature.signature.to_bytes());
-        }
 
-        let signature = crypto::sign(&keypair, next_keypair, &v)?;
+        let signature_version = if external_signature.is_some() {
+            THIRD_PARTY_SIGNATURE_VERSION
+        } else {
+            0
+        };
+
+        let signature = crypto::sign_block(
+            &keypair,
+            next_keypair,
+            &v,
+            external_signature.as_ref(),
+            &self.last_block().signature,
+            signature_version,
+        )?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -298,6 +368,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
+            version: signature_version,
         });
 
         Ok(SerializedBiscuit {
@@ -317,12 +388,20 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
-        let mut v = block.clone();
-        if let Some(signature) = &external_signature {
-            v.extend_from_slice(&signature.signature.to_bytes());
-        }
+        let signature_version = if external_signature.is_some() {
+            THIRD_PARTY_SIGNATURE_VERSION
+        } else {
+            0
+        };
 
-        let signature = crypto::sign(&keypair, next_keypair, &v)?;
+        let signature = crypto::sign_block(
+            &keypair,
+            next_keypair,
+            &block,
+            external_signature.as_ref(),
+            &self.last_block().signature,
+            signature_version,
+        )?;
 
         // Add new block
         let mut blocks = self.blocks.clone();
@@ -331,6 +410,7 @@ impl SerializedBiscuit {
             next_key: next_keypair.public(),
             signature,
             external_signature,
+            version: signature_version,
         });
 
         Ok(SerializedBiscuit {
@@ -343,15 +423,38 @@ impl SerializedBiscuit {
 
     /// checks the signature on a deserialized token
     pub fn verify(&self, root: &PublicKey) -> Result<(), error::Format> {
+        self.verify_inner(root, ThirdPartyVerificationMode::PreviousSignatureHashing)
+    }
+
+    pub(crate) fn verify_inner(
+        &self,
+        root: &PublicKey,
+        verification_mode: ThirdPartyVerificationMode,
+    ) -> Result<(), error::Format> {
         //FIXME: try batched signature verification
         let mut current_pub = root;
+        let mut previous_signature;
 
-        crypto::verify_block_signature(&self.authority, current_pub)?;
+        crypto::verify_authority_block_signature(&self.authority, current_pub)?;
         current_pub = &self.authority.next_key;
+        previous_signature = &self.authority.signature;
 
         for block in &self.blocks {
-            crypto::verify_block_signature(block, current_pub)?;
+            let verification_mode = match (block.version, verification_mode) {
+                (0, ThirdPartyVerificationMode::UnsafeLegacy) => {
+                    ThirdPartyVerificationMode::UnsafeLegacy
+                }
+                _ => ThirdPartyVerificationMode::PreviousSignatureHashing,
+            };
+
+            crypto::verify_block_signature(
+                block,
+                current_pub,
+                previous_signature,
+                verification_mode,
+            )?;
             current_pub = &block.next_key;
+            previous_signature = &block.signature;
         }
 
         match &self.proof {
@@ -366,17 +469,13 @@ impl SerializedBiscuit {
             }
             TokenNext::Seal(signature) => {
                 //FIXME: replace with SHA512 hashing
-                let mut to_verify = Vec::new();
-
                 let block = if self.blocks.is_empty() {
                     &self.authority
                 } else {
                     &self.blocks[self.blocks.len() - 1]
                 };
-                to_verify.extend(&block.data);
-                to_verify.extend(&(current_pub.algorithm() as i32).to_le_bytes());
-                to_verify.extend(&block.next_key.to_bytes());
-                to_verify.extend(block.signature.to_bytes());
+
+                let to_verify = crypto::generate_seal_signature_payload_v0(block);
 
                 current_pub.verify_signature(&to_verify, &signature)?;
             }
@@ -389,16 +488,13 @@ impl SerializedBiscuit {
         let keypair = self.proof.keypair()?;
 
         //FIXME: replace with SHA512 hashing
-        let mut to_sign = Vec::new();
         let block = if self.blocks.is_empty() {
             &self.authority
         } else {
             &self.blocks[self.blocks.len() - 1]
         };
-        to_sign.extend(&block.data);
-        to_sign.extend(&(keypair.algorithm() as i32).to_le_bytes());
-        to_sign.extend(&block.next_key.to_bytes());
-        to_sign.extend(block.signature.to_bytes());
+
+        let to_sign = crypto::generate_seal_signature_payload_v0(block);
 
         let signature = keypair.sign(&to_sign)?;
 
@@ -409,6 +505,16 @@ impl SerializedBiscuit {
             proof: TokenNext::Seal(signature),
         })
     }
+
+    pub(crate) fn last_block(&self) -> &crypto::Block {
+        self.blocks.last().unwrap_or(&self.authority)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ThirdPartyVerificationMode {
+    UnsafeLegacy,
+    PreviousSignatureHashing,
 }
 
 #[cfg(test)]

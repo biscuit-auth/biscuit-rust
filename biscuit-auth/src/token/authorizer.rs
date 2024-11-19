@@ -1564,6 +1564,8 @@ mod tests {
             .unwrap();
         let res = req.create_block(&external.private(), builder).unwrap();
         let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
+        let serialized = biscuit2.to_vec().unwrap();
+        let biscuit2 = Biscuit::from(serialized, root.public()).unwrap();
 
         let mut authorizer = Authorizer::new();
         let external2 = KeyPair::new(Algorithm::Ed25519);

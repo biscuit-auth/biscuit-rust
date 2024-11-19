@@ -4,17 +4,20 @@ use prost::Message;
 
 use crate::{
     builder::BlockBuilder,
-    crypto::PublicKey,
+    crypto::{generate_external_signature_payload_v1, PublicKey},
     datalog::SymbolTable,
     error,
     format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
     KeyPair, PrivateKey,
 };
 
+use super::THIRD_PARTY_SIGNATURE_VERSION;
+
 /// Third party block request
 #[derive(Debug)]
 pub struct ThirdPartyRequest {
-    pub(crate) previous_key: PublicKey,
+    pub(crate) legacy_previous_key: PublicKey,
+    pub(crate) previous_signature: Vec<u8>,
 }
 
 impl ThirdPartyRequest {
@@ -25,21 +28,33 @@ impl ThirdPartyRequest {
             return Err(error::Token::AppendOnSealed);
         }
 
-        let previous_key = container
+        let legacy_previous_key = container
             .blocks
             .last()
             .unwrap_or(&container.authority)
             .next_key;
 
-        Ok(ThirdPartyRequest { previous_key })
+        let previous_signature = container
+            .blocks
+            .last()
+            .unwrap_or(&container.authority)
+            .signature
+            .to_bytes()
+            .to_vec();
+        Ok(ThirdPartyRequest {
+            legacy_previous_key,
+            previous_signature,
+        })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
-        let previous_key = self.previous_key.to_proto();
+        let legacy_previous_key = self.legacy_previous_key.to_proto();
+        let previous_signature = self.previous_signature.clone();
 
         let request = schema::ThirdPartyBlockRequest {
-            previous_key,
-            public_keys: Vec::new(),
+            legacy_previous_key,
+            legacy_public_keys: Vec::new(),
+            previous_signature,
         };
         let mut v = Vec::new();
 
@@ -60,15 +75,20 @@ impl ThirdPartyRequest {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let previous_key = PublicKey::from_proto(&data.previous_key)?;
+        let legacy_previous_key = PublicKey::from_proto(&data.legacy_previous_key)?;
 
-        if !data.public_keys.is_empty() {
+        if !data.legacy_public_keys.is_empty() {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 "public keys were provided in third-party block request".to_owned(),
             )));
         }
 
-        Ok(ThirdPartyRequest { previous_key })
+        let previous_signature = data.previous_signature.to_vec();
+
+        Ok(ThirdPartyRequest {
+            legacy_previous_key,
+            previous_signature,
+        })
     }
 
     pub fn deserialize_base64<T>(slice: T) -> Result<Self, error::Token>
@@ -89,19 +109,21 @@ impl ThirdPartyRequest {
         let mut block = block_builder.build(symbols);
         block.version = max(super::DATALOG_3_2, block.version);
 
-        let mut v = Vec::new();
+        let mut payload = Vec::new();
         token_block_to_proto_block(&block)
-            .encode(&mut v)
+            .encode(&mut payload)
             .map_err(|e| {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
-        let payload = v.clone();
 
-        v.extend(&(private_key.algorithm() as i32).to_le_bytes());
-        v.extend(self.previous_key.to_bytes());
+        let signed_payload = generate_external_signature_payload_v1(
+            &payload,
+            &self.previous_signature,
+            THIRD_PARTY_SIGNATURE_VERSION,
+        );
 
         let keypair = KeyPair::from(private_key);
-        let signature = keypair.sign(&v)?;
+        let signature = keypair.sign(&signed_payload)?;
 
         let public_key = keypair.public();
         let content = schema::ThirdPartyBlockContents {
