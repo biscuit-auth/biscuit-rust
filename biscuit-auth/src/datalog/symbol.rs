@@ -232,6 +232,7 @@ impl SymbolTable {
             }
         }
     }
+
     pub fn print_fact(&self, f: &Fact) -> String {
         self.print_predicate(&f.predicate)
     }
