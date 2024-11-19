@@ -791,6 +791,20 @@ pub enum Algorithm {
     Secp256r1,
 }
 
+impl TryFrom<&str> for Algorithm {
+    type Error = error::Format;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "ed25519" => Ok(Algorithm::Ed25519),
+            "secp256r1" => Ok(Algorithm::Secp256r1),
+            _ => Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                value
+            ))),
+        }
+    }
+}
+
 /// Builder for a Datalog predicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {

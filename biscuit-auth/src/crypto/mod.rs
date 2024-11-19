@@ -235,6 +235,13 @@ impl PublicKey {
         }
     }
 
+    pub fn algorithm_string(&self) -> &str {
+        match self {
+            PublicKey::Ed25519(_) => "ed25519",
+            PublicKey::P256(_) => "secp256r1",
+        }
+    }
+
     pub fn print(&self) -> String {
         self.to_string()
     }

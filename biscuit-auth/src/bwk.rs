@@ -28,7 +28,7 @@ struct BiscuitWebKeyRepr {
 impl From<BiscuitWebKey> for BiscuitWebKeyRepr {
     fn from(value: BiscuitWebKey) -> Self {
         BiscuitWebKeyRepr {
-            algorithm: "ed25519".to_string(),
+            algorithm: value.public_key.algorithm_string().to_string(),
             key_bytes: value.public_key.to_bytes_hex(),
             key_id: value.key_id,
             issuer: value.issuer,
@@ -41,14 +41,8 @@ impl TryFrom<BiscuitWebKeyRepr> for BiscuitWebKey {
     type Error = error::Format;
 
     fn try_from(value: BiscuitWebKeyRepr) -> Result<Self, Self::Error> {
-        if value.algorithm != "ed25519" {
-            return Err(error::Format::DeserializationError(format!(
-                "deserialization error: unexpected key algorithm {}",
-                value.algorithm
-            )));
-        }
-
-        let public_key = PublicKey::from_bytes_hex(&value.key_bytes, Algorithm::Ed25519)?;
+        let algorithm = Algorithm::try_from(value.algorithm.as_str())?;
+        let public_key = PublicKey::from_bytes_hex(&value.key_bytes, algorithm)?;
 
         Ok(BiscuitWebKey {
             public_key,
@@ -80,7 +74,7 @@ mod tests {
         let parsed: BiscuitWebKey = serde_json::from_str(&serialized).unwrap();
         assert_eq!(parsed, bwk);
 
-        let keypair = KeyPair::new(Algorithm::Ed25519);
+        let keypair = KeyPair::new(Algorithm::Secp256r1);
         let bwk = BiscuitWebKey {
             public_key: keypair.public(),
             key_id: 0,
