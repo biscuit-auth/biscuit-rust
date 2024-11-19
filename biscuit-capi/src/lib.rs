@@ -1,3 +1,4 @@
+#![allow(clippy::missing_safety_doc)]
 use rand::prelude::*;
 use std::{
     cell::RefCell,
@@ -6,10 +7,10 @@ use std::{
     os::raw::c_char,
 };
 
-use crate::datalog::SymbolTable;
+use biscuit_auth::datalog::SymbolTable;
 
 enum Error {
-    Biscuit(crate::error::Token),
+    Biscuit(biscuit_auth::error::Token),
     InvalidArgument,
 }
 
@@ -22,14 +23,14 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<crate::error::Token> for Error {
-    fn from(error: crate::error::Token) -> Self {
+impl From<biscuit_auth::error::Token> for Error {
+    fn from(error: biscuit_auth::error::Token) -> Self {
         Error::Biscuit(error)
     }
 }
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<Error>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<Error>> = const { RefCell::new(None) };
 }
 
 fn update_last_error(err: Error) {
@@ -41,7 +42,7 @@ fn update_last_error(err: Error) {
 #[no_mangle]
 pub extern "C" fn error_message() -> *const c_char {
     thread_local! {
-        static LAST: RefCell<Option<CString>> = RefCell::new(None);
+        static LAST: RefCell<Option<CString>> = const { RefCell::new(None) };
     }
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(ref err) => {
@@ -105,7 +106,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
         Some(ref err) => match err {
             Error::InvalidArgument => ErrorKind::InvalidArgument,
             Error::Biscuit(e) => {
-                use crate::error::*;
+                use biscuit_auth::error::*;
                 match e {
                     Token::InternalError => ErrorKind::InternalError,
                     Token::Format(Format::Signature(Signature::InvalidFormat)) => {
@@ -186,7 +187,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
 
 #[no_mangle]
 pub extern "C" fn error_check_count() -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -198,7 +199,7 @@ pub extern "C" fn error_check_count() -> u64 {
 
 #[no_mangle]
 pub extern "C" fn error_check_id(check_index: u64) -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -219,7 +220,7 @@ pub extern "C" fn error_check_id(check_index: u64) -> u64 {
 
 #[no_mangle]
 pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -240,9 +241,9 @@ pub extern "C" fn error_check_block_id(check_index: u64) -> u64 {
 /// the string is overwritten on each call
 #[no_mangle]
 pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     thread_local! {
-        static CAVEAT_RULE: RefCell<Option<CString>> = RefCell::new(None);
+        static CAVEAT_RULE: RefCell<Option<CString>> = const { RefCell::new(None) };
     }
 
     LAST_ERROR.with(|prev| match *prev.borrow() {
@@ -271,7 +272,7 @@ pub extern "C" fn error_check_rule(check_index: u64) -> *const c_char {
 
 #[no_mangle]
 pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
-    use crate::error::*;
+    use biscuit_auth::error::*;
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(Error::Biscuit(Token::FailedLogic(Logic::Unauthorized { ref checks, .. })))
         | Some(Error::Biscuit(Token::FailedLogic(Logic::NoMatchingPolicy { ref checks }))) => {
@@ -288,12 +289,12 @@ pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
     })
 }
 
-pub struct Biscuit(crate::token::Biscuit);
-pub struct KeyPair(crate::crypto::KeyPair);
-pub struct PublicKey(crate::crypto::PublicKey);
-pub struct BiscuitBuilder(crate::token::builder::BiscuitBuilder);
-pub struct BlockBuilder(crate::token::builder::BlockBuilder);
-pub struct Authorizer(crate::token::authorizer::Authorizer);
+pub struct Biscuit(biscuit_auth::Biscuit);
+pub struct KeyPair(biscuit_auth::KeyPair);
+pub struct PublicKey(biscuit_auth::PublicKey);
+pub struct BiscuitBuilder(biscuit_auth::builder::BiscuitBuilder);
+pub struct BlockBuilder(biscuit_auth::builder::BlockBuilder);
+pub struct Authorizer(biscuit_auth::Authorizer);
 
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
@@ -311,7 +312,7 @@ pub unsafe extern "C" fn key_pair_new<'a>(
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    Some(Box::new(KeyPair(crate::crypto::KeyPair::new_with_rng(
+    Some(Box::new(KeyPair(biscuit_auth::KeyPair::new_with_rng(
         &mut rng,
     ))))
 }
@@ -346,12 +347,12 @@ pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *m
 pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PrivateKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PrivateKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
         }
-        Some(privkey) => Some(Box::new(KeyPair(crate::crypto::KeyPair::from(&privkey)))),
+        Some(privkey) => Some(Box::new(KeyPair(biscuit_auth::KeyPair::from(&privkey)))),
     }
 }
 
@@ -381,7 +382,7 @@ pub unsafe extern "C" fn public_key_serialize(
 pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match crate::crypto::PublicKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PublicKey::from_bytes(input_slice).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -395,7 +396,7 @@ pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder() -> Option<Box<BiscuitBuilder>> {
-    Some(Box::new(BiscuitBuilder(crate::token::Biscuit::builder())))
+    Some(Box::new(BiscuitBuilder(biscuit_auth::Biscuit::builder())))
 }
 
 #[no_mangle]
@@ -569,7 +570,7 @@ pub unsafe extern "C" fn biscuit_from<'a>(
     }
     let root = root?;
 
-    crate::token::Biscuit::from(biscuit, root.0)
+    biscuit_auth::Biscuit::from(biscuit, root.0)
         .map(Biscuit)
         .map(Box::new)
         .ok()
@@ -695,184 +696,7 @@ pub unsafe extern "C" fn biscuit_block_count(biscuit: Option<&Biscuit>) -> usize
 
     let biscuit = biscuit.unwrap();
 
-    biscuit.0.blocks.len() + 1
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_fact_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.facts.len()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_rule_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.rules.len()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_check_count(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-) -> usize {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return 0;
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return 0;
-        }
-    };
-
-    block.checks.len()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_fact(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    fact_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.facts.get(fact_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(fact) => match CString::new(biscuit.0.symbols.print_fact(fact)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_rule(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    rule_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.rules.get(rule_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(rule) => match CString::new(biscuit.0.symbols.print_rule(rule)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn biscuit_block_check(
-    biscuit: Option<&Biscuit>,
-    block_index: u32,
-    check_index: u32,
-) -> *mut c_char {
-    if biscuit.is_none() {
-        update_last_error(Error::InvalidArgument);
-        return std::ptr::null_mut();
-    }
-
-    let biscuit = biscuit.unwrap();
-
-    let block = match biscuit.0.block(block_index as usize) {
-        Ok(block) => block,
-        Err(e) => {
-            update_last_error(e.into());
-            return std::ptr::null_mut();
-        }
-    };
-
-    match block.checks.get(check_index as usize) {
-        None => {
-            update_last_error(Error::InvalidArgument);
-            return std::ptr::null_mut();
-        }
-        Some(check) => match CString::new(biscuit.0.symbols.print_check(check)) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        },
-    }
+    biscuit.0.block_count()
 }
 
 #[no_mangle]
@@ -887,27 +711,24 @@ pub unsafe extern "C" fn biscuit_block_context(
 
     let biscuit = biscuit.unwrap();
 
-    let block = if block_index == 0 {
-        &biscuit.0.authority
-    } else {
-        match biscuit.0.blocks.get(block_index as usize - 1) {
-            Some(b) => b,
-            None => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
-            }
-        }
-    };
+    let context = biscuit.0.context();
 
-    match &block.context {
+    match context.get(block_index as usize) {
         None => {
-            return std::ptr::null_mut();
+            update_last_error(Error::Biscuit(biscuit_auth::error::Token::Format(
+                biscuit_auth::error::Format::InvalidBlockId(block_index as usize),
+            )));
+
+            std::ptr::null_mut()
         }
-        Some(context) => match CString::new(context.clone()) {
-            Ok(s) => s.into_raw(),
-            Err(_) => {
-                update_last_error(Error::InvalidArgument);
-                return std::ptr::null_mut();
+        Some(context) => match context {
+            None => std::ptr::null_mut(),
+            Some(context) => {
+                let c = CString::new(context.clone());
+                match c {
+                    Err(_) => std::ptr::null_mut(),
+                    Ok(context_cstring) => context_cstring.into_raw(),
+                }
             }
         },
     }
@@ -915,7 +736,7 @@ pub unsafe extern "C" fn biscuit_block_context(
 
 #[no_mangle]
 pub unsafe extern "C" fn create_block() -> Box<BlockBuilder> {
-    Box::new(BlockBuilder(crate::token::builder::BlockBuilder::new()))
+    Box::new(BlockBuilder(biscuit_auth::builder::BlockBuilder::new()))
 }
 
 #[no_mangle]
@@ -1240,6 +1061,34 @@ pub unsafe extern "C" fn biscuit_print(biscuit: Option<&Biscuit>) -> *const c_ch
         Err(_) => {
             update_last_error(Error::InvalidArgument);
             return std::ptr::null();
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn biscuit_print_block_source(
+    biscuit: Option<&Biscuit>,
+    block_index: u32,
+) -> *const c_char {
+    if biscuit.is_none() {
+        update_last_error(Error::InvalidArgument);
+        return std::ptr::null();
+    }
+    let biscuit = biscuit.unwrap();
+
+    let block_source = match biscuit.0.print_block_source(block_index as usize) {
+        Ok(s) => s,
+        Err(e) => {
+            update_last_error(Error::Biscuit(e));
+            return std::ptr::null();
+        }
+    };
+
+    match CString::new(block_source) {
+        Ok(s) => s.into_raw(),
+        Err(_) => {
+            update_last_error(Error::InvalidArgument);
+            std::ptr::null()
         }
     }
 }
