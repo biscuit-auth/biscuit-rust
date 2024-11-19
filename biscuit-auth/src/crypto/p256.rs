@@ -201,6 +201,9 @@ impl PublicKey {
         crate::format::schema::public_key::Algorithm::Ed25519
     }
 
+    pub(crate) fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "secp256r1/{}", hex::encode(&self.to_bytes()))
+    }
     pub fn print(&self) -> String {
         format!("secp256r1/{}", hex::encode(&self.to_bytes()))
     }

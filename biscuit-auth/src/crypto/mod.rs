@@ -17,6 +17,7 @@ mod p256;
 
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
+use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
 
@@ -243,11 +244,24 @@ impl PublicKey {
         }
     }
 
+    pub(crate) fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PublicKey::Ed25519(key) => key.write(f),
+            PublicKey::P256(key) => key.write(f),
+        }
+    }
+
     pub fn print(&self) -> String {
         match self {
             PublicKey::Ed25519(key) => key.print(),
             PublicKey::P256(key) => key.print(),
         }
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.write(f)
     }
 }
 

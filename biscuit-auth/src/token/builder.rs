@@ -754,10 +754,7 @@ impl fmt::Display for Scope {
         match self {
             Scope::Authority => write!(f, "authority"),
             Scope::Previous => write!(f, "previous"),
-            Scope::PublicKey(pk) => match pk {
-                PublicKey::Ed25519(key) => write!(f, "ed25519/{}", hex::encode(key.to_bytes())),
-                PublicKey::P256(key) => write!(f, "secp256r1/{}", hex::encode(key.to_bytes())),
-            },
+            Scope::PublicKey(pk) => pk.write(f),
             Scope::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
