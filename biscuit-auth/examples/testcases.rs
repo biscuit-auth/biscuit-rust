@@ -10,10 +10,15 @@ use biscuit::macros::*;
 use biscuit::Authorizer;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit::{KeyPair, PrivateKey, PublicKey};
+use biscuit_auth::builder;
 use biscuit_auth::builder::Algorithm;
+use biscuit_auth::datalog::ExternFunc;
+use biscuit_auth::datalog::RunLimits;
 use prost::Message;
 use rand::prelude::*;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
@@ -159,7 +164,10 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, array_map(&target, &root, test));
 
+    add_test_result(&mut results, ffi(&target, &root, test));
+
     add_test_result(&mut results, secp256r1(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -300,6 +308,22 @@ enum AuthorizerResult {
 }
 
 fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validation {
+    validate_token_with_limits_and_external_functions(
+        root,
+        data,
+        authorizer_code,
+        RunLimits::default(),
+        Default::default(),
+    )
+}
+
+fn validate_token_with_limits_and_external_functions(
+    root: &KeyPair,
+    data: &[u8],
+    authorizer_code: &str,
+    run_limits: RunLimits,
+    extern_funcs: HashMap<String, ExternFunc>,
+) -> Validation {
     let token = match Biscuit::from(&data[..], &root.public()) {
         Ok(t) => t,
         Err(e) => {
@@ -319,6 +343,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
     }
 
     let mut authorizer = Authorizer::new();
+    authorizer.set_extern_funcs(extern_funcs);
     authorizer.add_code(authorizer_code).unwrap();
     let authorizer_code = authorizer.dump_code();
 
@@ -334,7 +359,7 @@ fn validate_token(root: &KeyPair, data: &[u8], authorizer_code: &str) -> Validat
         }
     };
 
-    let res = authorizer.authorize();
+    let res = authorizer.authorize_with_limits(run_limits);
     //println!("authorizer world:\n{}", authorizer.print_world());
     let (_, _, _, policies) = authorizer.dump();
     let snapshot = authorizer.snapshot().unwrap();
@@ -2288,10 +2313,58 @@ fn array_map(target: &str, root: &KeyPair, test: bool) -> TestResult {
     }
 }
 
+fn ffi(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "test ffi calls (v6 blocks)".to_string();
+    let filename = "test035_ffi".to_string();
+    let token;
+
+    let biscuit =
+        biscuit!(r#"check if true.extern::test(), "a".extern::test("a") == "equal strings""#)
+            .build_with_rng(&root, SymbolTable::default(), &mut rng)
+            .unwrap();
+    token = print_blocks(&biscuit);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token_with_limits_and_external_functions(
+            root,
+            &data[..],
+            "allow if true",
+            RunLimits::default(),
+            HashMap::from([(
+                "test".to_string(),
+                ExternFunc::new(Arc::new(|left, right| match (left, right) {
+                    (t, None) => Ok(t),
+                    (builder::Term::Str(left), Some(builder::Term::Str(right)))
+                        if left == right =>
+                    {
+                        Ok(builder::Term::Str("equal strings".to_string()))
+                    }
+                    (builder::Term::Str(_), Some(builder::Term::Str(_))) => {
+                        Ok(builder::Term::Str("different strings".to_string()))
+                    }
+                    _ => Err("unsupported operands".to_string()),
+                })),
+            )]),
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
 fn secp256r1(target: &str, root: &KeyPair, test: bool) -> TestResult {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let title = "ECDSA secp256r1 signatures".to_string();
-    let filename = "test035_secp256r1".to_string();
+    let filename = "test036_secp256r1".to_string();
     let token;
 
     let keypair2 = KeyPair::new_with_rng(Algorithm::Secp256r1, &mut rng);
@@ -2342,6 +2415,7 @@ fn secp256r1(target: &str, root: &KeyPair, test: bool) -> TestResult {
         validations,
     }
 }
+
 fn print_blocks(token: &Biscuit) -> Vec<BlockContent> {
     let mut v = Vec::new();
 

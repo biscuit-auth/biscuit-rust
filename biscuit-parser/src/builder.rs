@@ -289,6 +289,7 @@ pub enum Unary {
     Parens,
     Length,
     TypeOf,
+    Ffi(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -321,6 +322,7 @@ pub enum Binary {
     All,
     Any,
     Get,
+    Ffi(String),
 }
 
 #[cfg(feature = "datalog-macro")]
@@ -344,10 +346,11 @@ impl ToTokens for Op {
 impl ToTokens for Unary {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            Unary::Negate => quote! {::biscuit_auth::datalog::Unary::Negate },
-            Unary::Parens => quote! {::biscuit_auth::datalog::Unary::Parens },
-            Unary::Length => quote! {::biscuit_auth::datalog::Unary::Length },
-            Unary::TypeOf => quote! {::biscuit_auth::datalog::Unary::TypeOf },
+            Unary::Negate => quote! {::biscuit_auth::builder::Unary::Negate },
+            Unary::Parens => quote! {::biscuit_auth::builder::Unary::Parens },
+            Unary::Length => quote! {::biscuit_auth::builder::Unary::Length },
+            Unary::TypeOf => quote! {::biscuit_auth::builder::Unary::TypeOf },
+            Unary::Ffi(name) => quote! {::biscuit_auth::builder::Unary::Ffi(#name.to_string()) },
         });
     }
 }
@@ -356,38 +359,39 @@ impl ToTokens for Unary {
 impl ToTokens for Binary {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            Binary::LessThan => quote! { ::biscuit_auth::datalog::Binary::LessThan  },
-            Binary::GreaterThan => quote! { ::biscuit_auth::datalog::Binary::GreaterThan  },
-            Binary::LessOrEqual => quote! { ::biscuit_auth::datalog::Binary::LessOrEqual  },
-            Binary::GreaterOrEqual => quote! { ::biscuit_auth::datalog::Binary::GreaterOrEqual  },
-            Binary::Equal => quote! { ::biscuit_auth::datalog::Binary::Equal  },
-            Binary::Contains => quote! { ::biscuit_auth::datalog::Binary::Contains  },
-            Binary::Prefix => quote! { ::biscuit_auth::datalog::Binary::Prefix  },
-            Binary::Suffix => quote! { ::biscuit_auth::datalog::Binary::Suffix  },
-            Binary::Regex => quote! { ::biscuit_auth::datalog::Binary::Regex  },
-            Binary::Add => quote! { ::biscuit_auth::datalog::Binary::Add  },
-            Binary::Sub => quote! { ::biscuit_auth::datalog::Binary::Sub  },
-            Binary::Mul => quote! { ::biscuit_auth::datalog::Binary::Mul  },
-            Binary::Div => quote! { ::biscuit_auth::datalog::Binary::Div  },
-            Binary::And => quote! { ::biscuit_auth::datalog::Binary::And  },
-            Binary::Or => quote! { ::biscuit_auth::datalog::Binary::Or  },
-            Binary::Intersection => quote! { ::biscuit_auth::datalog::Binary::Intersection  },
-            Binary::Union => quote! { ::biscuit_auth::datalog::Binary::Union  },
-            Binary::BitwiseAnd => quote! { ::biscuit_auth::datalog::Binary::BitwiseAnd  },
-            Binary::BitwiseOr => quote! { ::biscuit_auth::datalog::Binary::BitwiseOr  },
-            Binary::BitwiseXor => quote! { ::biscuit_auth::datalog::Binary::BitwiseXor  },
-            Binary::NotEqual => quote! { ::biscuit_auth::datalog::Binary::NotEqual },
+            Binary::LessThan => quote! { ::biscuit_auth::builder::Binary::LessThan  },
+            Binary::GreaterThan => quote! { ::biscuit_auth::builder::Binary::GreaterThan  },
+            Binary::LessOrEqual => quote! { ::biscuit_auth::builder::Binary::LessOrEqual  },
+            Binary::GreaterOrEqual => quote! { ::biscuit_auth::builder::Binary::GreaterOrEqual  },
+            Binary::Equal => quote! { ::biscuit_auth::builder::Binary::Equal  },
+            Binary::Contains => quote! { ::biscuit_auth::builder::Binary::Contains  },
+            Binary::Prefix => quote! { ::biscuit_auth::builder::Binary::Prefix  },
+            Binary::Suffix => quote! { ::biscuit_auth::builder::Binary::Suffix  },
+            Binary::Regex => quote! { ::biscuit_auth::builder::Binary::Regex  },
+            Binary::Add => quote! { ::biscuit_auth::builder::Binary::Add  },
+            Binary::Sub => quote! { ::biscuit_auth::builder::Binary::Sub  },
+            Binary::Mul => quote! { ::biscuit_auth::builder::Binary::Mul  },
+            Binary::Div => quote! { ::biscuit_auth::builder::Binary::Div  },
+            Binary::And => quote! { ::biscuit_auth::builder::Binary::And  },
+            Binary::Or => quote! { ::biscuit_auth::builder::Binary::Or  },
+            Binary::Intersection => quote! { ::biscuit_auth::builder::Binary::Intersection  },
+            Binary::Union => quote! { ::biscuit_auth::builder::Binary::Union  },
+            Binary::BitwiseAnd => quote! { ::biscuit_auth::builder::Binary::BitwiseAnd  },
+            Binary::BitwiseOr => quote! { ::biscuit_auth::builder::Binary::BitwiseOr  },
+            Binary::BitwiseXor => quote! { ::biscuit_auth::builder::Binary::BitwiseXor  },
+            Binary::NotEqual => quote! { ::biscuit_auth::builder::Binary::NotEqual },
             Binary::HeterogeneousEqual => {
-                quote! { ::biscuit_auth::datalog::Binary::HeterogeneousEqual}
+                quote! { ::biscuit_auth::builder::Binary::HeterogeneousEqual}
             }
             Binary::HeterogeneousNotEqual => {
-                quote! { ::biscuit_auth::datalog::Binary::HeterogeneousNotEqual}
+                quote! { ::biscuit_auth::builder::Binary::HeterogeneousNotEqual}
             }
-            Binary::LazyAnd => quote! { ::biscuit_auth::datalog::Binary::LazyAnd },
-            Binary::LazyOr => quote! { ::biscuit_auth::datalog::Binary::LazyOr },
-            Binary::All => quote! { ::biscuit_auth::datalog::Binary::All },
-            Binary::Any => quote! { ::biscuit_auth::datalog::Binary::Any },
-            Binary::Get => quote! { ::biscuit_auth::datalog::Binary::Get },
+            Binary::LazyAnd => quote! { ::biscuit_auth::builder::Binary::LazyAnd },
+            Binary::LazyOr => quote! { ::biscuit_auth::builder::Binary::LazyOr },
+            Binary::All => quote! { ::biscuit_auth::builder::Binary::All },
+            Binary::Any => quote! { ::biscuit_auth::builder::Binary::Any },
+            Binary::Get => quote! { ::biscuit_auth::builder::Binary::Get },
+            Binary::Ffi(name) => quote! {::biscuit_auth::builder::Binary::Ffi(#name.to_string()) },
         });
     }
 }

@@ -34,7 +34,7 @@ pub const MAX_SCHEMA_VERSION: u32 = 6;
 pub const DATALOG_3_1: u32 = 4;
 /// starting version for 3rd party blocks (datalog 3.2)
 pub const DATALOG_3_2: u32 = 5;
-/// starting version for datalog 3.3 features (reject if, closures, array/map, null, …)
+/// starting version for datalog 3.3 features (reject if, closures, array/map, null, external functions, …)
 pub const DATALOG_3_3: u32 = 6;
 
 /// some symbols are predefined and available in every implementation, to avoid

@@ -7,7 +7,7 @@ use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
 use crate::builder::{self, CheckKind, Convert};
 use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
+use crate::datalog::{self, ExternFunc, Origin, RunLimits, SymbolTable, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
@@ -395,6 +395,26 @@ impl Authorizer {
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
     pub fn set_limits(&mut self, limits: AuthorizerLimits) {
         self.limits = limits;
+    }
+
+    /// Returns the currently registered external functions
+    pub fn external_funcs(&self) -> &HashMap<String, ExternFunc> {
+        &self.world.extern_funcs
+    }
+
+    /// Replaces the registered external functions
+    pub fn set_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+        self.world.extern_funcs = extern_funcs;
+    }
+
+    /// Registers the provided external functions (possibly replacing already registered functions)
+    pub fn register_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+        self.world.extern_funcs.extend(extern_funcs);
+    }
+
+    /// Registers the provided external function (possibly replacing an already registered function)
+    pub fn register_extern_func(&mut self, name: String, func: ExternFunc) {
+        self.world.extern_funcs.insert(name, func);
     }
 
     /// run a query over the authorizer's Datalog engine to gather data

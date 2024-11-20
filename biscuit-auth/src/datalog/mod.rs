@@ -138,6 +138,7 @@ impl Rule {
         facts: IT,
         rule_origin: usize,
         symbols: &'a SymbolTable,
+        extern_funcs: &'a HashMap<String, ExternFunc>,
     ) -> impl Iterator<Item = Result<(Origin, Fact), error::Expression>> + 'a
     where
         IT: Iterator<Item = (&'a Origin, &'a Fact)> + Clone + 'a,
@@ -149,7 +150,7 @@ impl Rule {
         .map(move |(origin, variables)| {
                     let mut temporary_symbols = TemporarySymbolTable::new(symbols);
                     for e in self.expressions.iter() {
-                        match e.evaluate(&variables, &mut temporary_symbols) {
+                        match e.evaluate(&variables, &mut temporary_symbols, extern_funcs) {
                             Ok(Term::Bool(true)) => {}
                             Ok(Term::Bool(false)) => return Ok((origin, variables, false)),
                             Ok(_) => return Err(error::Expression::InvalidType),
@@ -194,9 +195,10 @@ impl Rule {
         origin: usize,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
-        let mut it = self.apply(fact_it, origin, symbols);
+        let mut it = self.apply(fact_it, origin, symbols, extern_funcs);
 
         let next = it.next();
         match next {
@@ -211,6 +213,7 @@ impl Rule {
         facts: &FactSet,
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
+        extern_funcs: &HashMap<String, ExternFunc>,
     ) -> Result<bool, Execution> {
         let fact_it = facts.iterator(scope);
         let variables = MatchedVariables::new(self.variables_set());
@@ -221,7 +224,7 @@ impl Rule {
 
             let mut temporary_symbols = TemporarySymbolTable::new(symbols);
             for e in self.expressions.iter() {
-                match e.evaluate(&variables, &mut temporary_symbols) {
+                match e.evaluate(&variables, &mut temporary_symbols, extern_funcs) {
                     Ok(Term::Bool(true)) => {}
                     Ok(Term::Bool(false)) => {
                         //println!("expr returned {:?}", res);
@@ -585,6 +588,7 @@ pub struct World {
     pub facts: FactSet,
     pub rules: RuleSet,
     pub iterations: u64,
+    pub extern_funcs: HashMap<String, ExternFunc>,
 }
 
 impl World {
@@ -619,7 +623,7 @@ impl World {
             for (scope, rules) in self.rules.inner.iter() {
                 let it = self.facts.iterator(scope);
                 for (origin, rule) in rules {
-                    for res in rule.apply(it.clone(), *origin, symbols) {
+                    for res in rule.apply(it.clone(), *origin, symbols, &self.extern_funcs) {
                         match res {
                             Ok((origin, fact)) => {
                                 new_facts.insert(&origin, fact);
@@ -694,7 +698,7 @@ impl World {
         let mut new_facts = FactSet::default();
         let it = self.facts.iterator(scope);
         //new_facts.extend(rule.apply(it, origin, symbols));
-        for res in rule.apply(it.clone(), origin, symbols) {
+        for res in rule.apply(it.clone(), origin, symbols, &self.extern_funcs) {
             match res {
                 Ok((origin, fact)) => {
                     new_facts.insert(&origin, fact);
@@ -715,7 +719,7 @@ impl World {
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
     ) -> Result<bool, Execution> {
-        rule.find_match(&self.facts, origin, scope, symbols)
+        rule.find_match(&self.facts, origin, scope, symbols, &self.extern_funcs)
     }
 
     pub fn query_match_all(
@@ -724,7 +728,7 @@ impl World {
         scope: &TrustedOrigins,
         symbols: &SymbolTable,
     ) -> Result<bool, Execution> {
-        rule.check_match_all(&self.facts, scope, symbols)
+        rule.check_match_all(&self.facts, scope, symbols, &self.extern_funcs)
     }
 }
 
@@ -981,7 +985,7 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
         expression.ops.iter().any(|op| match op {
             Op::Value(term) => contains_v3_3_term(term),
             Op::Closure(_, _) => true,
-            Op::Unary(Unary::TypeOf) => true,
+            Op::Unary(unary) => matches!(unary, Unary::TypeOf | Unary::Ffi(_)),
             Op::Binary(binary) => matches!(
                 binary,
                 Binary::HeterogeneousEqual
@@ -990,8 +994,8 @@ fn contains_v3_3_op(expressions: &[Expression]) -> bool {
                     | Binary::LazyOr
                     | Binary::All
                     | Binary::Any
+                    | Binary::Ffi(_)
             ),
-            _ => false,
         })
     })
 }
@@ -1109,7 +1113,7 @@ mod tests {
                 ),
                 0,
                 &[0].iter().collect(),
-                &syms
+                &syms,
             )
         );
         println!(
@@ -1125,7 +1129,7 @@ mod tests {
                 ),
                 0,
                 &[0].iter().collect(),
-                &syms
+                &syms,
             )
         );
         w.add_fact(&[0].iter().collect(), fact(parent, &[&c, &e]));
