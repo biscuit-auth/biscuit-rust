@@ -14,6 +14,7 @@ use crate::crypto::ExternalSignature;
 use crate::crypto::Signature;
 use crate::datalog::SymbolTable;
 use crate::token::RootKeyProvider;
+use crate::token::DATALOG_3_3;
 
 /// Structures generated from the Protobuf schema
 pub mod schema; /*{
@@ -25,6 +26,8 @@ pub mod convert;
 use self::convert::*;
 
 pub(crate) const THIRD_PARTY_SIGNATURE_VERSION: u32 = 1;
+pub(crate) const DATALOG_3_3_SIGNATURE_VERSION: u32 = 1;
+pub(crate) const NON_ED25519_SIGNATURE_VERSION: u32 = 1;
 /// Intermediate structure for token serialization
 ///
 /// This structure contains the blocks serialized to byte arrays. Those arrays
@@ -291,7 +294,20 @@ impl SerializedBiscuit {
         next_keypair: &KeyPair,
         authority: &Block,
     ) -> Result<Self, error::Token> {
-        Self::new_inner(root_key_id, root_keypair, next_keypair, authority, 0)
+        let authority_signature_version = block_signature_version(
+            root_keypair,
+            next_keypair,
+            &None,
+            &Some(authority.version),
+            std::iter::empty(),
+        );
+        Self::new_inner(
+            root_key_id,
+            root_keypair,
+            next_keypair,
+            authority,
+            authority_signature_version,
+        )
     }
 
     /// creates a new token
@@ -346,11 +362,18 @@ impl SerializedBiscuit {
                 error::Format::SerializationError(format!("serialization error: {:?}", e))
             })?;
 
-        let signature_version = if external_signature.is_some() {
-            THIRD_PARTY_SIGNATURE_VERSION
-        } else {
-            0
-        };
+        let signature_version = block_signature_version(
+            &keypair,
+            next_keypair,
+            &external_signature,
+            &Some(block.version),
+            // std::iter::once(self.authority.version)
+            //     .chain(self.blocks.iter().map(|block| block.version)),
+            self.blocks
+                .iter()
+                .chain([&self.authority])
+                .map(|block| block.version),
+        );
 
         let signature = crypto::sign_block(
             &keypair,
@@ -388,11 +411,16 @@ impl SerializedBiscuit {
     ) -> Result<Self, error::Token> {
         let keypair = self.proof.keypair()?;
 
-        let signature_version = if external_signature.is_some() {
-            THIRD_PARTY_SIGNATURE_VERSION
-        } else {
-            0
-        };
+        let signature_version = block_signature_version(
+            &keypair,
+            next_keypair,
+            &external_signature,
+            // The version block is not directly available, so we don’t take it into account here
+            // `append_serialized` is only used for third-party blocks anyway, so maybe we should make `external_signature` mandatory and not bother
+            &None,
+            std::iter::once(self.authority.version)
+                .chain(self.blocks.iter().map(|block| block.version)),
+        );
 
         let signature = crypto::sign_block(
             &keypair,
@@ -517,9 +545,48 @@ pub(crate) enum ThirdPartyVerificationMode {
     PreviousSignatureHashing,
 }
 
+fn block_signature_version<I>(
+    block_keypair: &KeyPair,
+    next_keypair: &KeyPair,
+    external_signature: &Option<ExternalSignature>,
+    block_version: &Option<u32>,
+    previous_blocks_sig_versions: I,
+) -> u32
+where
+    I: Iterator<Item = u32>,
+{
+    if external_signature.is_some() {
+        return THIRD_PARTY_SIGNATURE_VERSION;
+    }
+
+    match block_version {
+        Some(block_version) if *block_version >= DATALOG_3_3 => {
+            return DATALOG_3_3_SIGNATURE_VERSION;
+        }
+        _ => {}
+    }
+
+    match (block_keypair, next_keypair) {
+        (KeyPair::Ed25519(_), KeyPair::Ed25519(_)) => {}
+        _ => {
+            return NON_ED25519_SIGNATURE_VERSION;
+        }
+    }
+
+    previous_blocks_sig_versions.max().unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Read;
+
+    use crate::{
+        builder::Algorithm,
+        crypto::{ExternalSignature, Signature},
+        format::block_signature_version,
+        token::{DATALOG_3_1, DATALOG_3_3},
+        KeyPair,
+    };
 
     #[test]
     fn proto() {
@@ -545,5 +612,89 @@ mod tests {
             );
             panic!();
         }
+    }
+
+    #[test]
+    fn test_block_signature_version() {
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(Algorithm::Ed25519),
+                &None,
+                &Some(DATALOG_3_1),
+                std::iter::empty()
+            ),
+            0,
+            "ed25519 everywhere, authority block, no new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Secp256r1),
+                &KeyPair::new(Algorithm::Ed25519),
+                &None,
+                &Some(DATALOG_3_1),
+                std::iter::empty()
+            ),
+            1,
+            "s256r1 root key, authority block, no new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(Algorithm::Secp256r1),
+                &None,
+                &Some(DATALOG_3_1),
+                std::iter::empty()
+            ),
+            1,
+            "s256r1 next key, authority block, no new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Secp256r1),
+                &KeyPair::new(Algorithm::Secp256r1),
+                &None,
+                &Some(DATALOG_3_1),
+                std::iter::empty()
+            ),
+            1,
+            "s256r1 root & next key, authority block, no new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(Algorithm::Ed25519),
+                &Some(ExternalSignature {
+                    public_key: KeyPair::new(Algorithm::Ed25519).public(),
+                    signature: Signature::from_vec(Vec::new())
+                }),
+                &Some(DATALOG_3_1),
+                std::iter::once(0)
+            ),
+            1,
+            "ed25519 root & next key, third-party block, no new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(Algorithm::Ed25519),
+                &None,
+                &Some(DATALOG_3_3),
+                std::iter::empty()
+            ),
+            1,
+            "ed25519 root & next key, first-party block, new datalog features"
+        );
+        assert_eq!(
+            block_signature_version(
+                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(Algorithm::Ed25519),
+                &None,
+                &Some(DATALOG_3_1),
+                std::iter::once(1)
+            ),
+            1,
+            "ed25519 root & next key, first-party block, no new datalog features, previous v1 block"
+        );
     }
 }
