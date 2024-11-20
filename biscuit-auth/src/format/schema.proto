@@ -27,11 +27,11 @@ message PublicKey {
 
   enum Algorithm {
     Ed25519 = 0;
+    SECP256R1 = 1;
   }
 
   required bytes key = 2;
 }
-
 
 message Proof {
   oneof Content {

@@ -1,10 +1,12 @@
-use biscuit_auth::{builder::BlockBuilder, datalog::SymbolTable, Biscuit, KeyPair};
+use biscuit_auth::{
+    builder::Algorithm, builder::BlockBuilder, datalog::SymbolTable, Biscuit, KeyPair,
+};
 use rand::{prelude::StdRng, SeedableRng};
 
 fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-    let root = KeyPair::new_with_rng(&mut rng);
-    let external = KeyPair::new_with_rng(&mut rng);
+    let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
+    let external = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let mut builder = Biscuit::builder();
 

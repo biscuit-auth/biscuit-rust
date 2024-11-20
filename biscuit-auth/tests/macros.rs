@@ -106,6 +106,7 @@ fn biscuit_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
 
@@ -168,6 +169,7 @@ fn rule_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();
@@ -197,6 +199,7 @@ fn check_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();
@@ -217,6 +220,7 @@ fn policy_macro() {
     use biscuit_auth::PublicKey;
     let pubkey = PublicKey::from_bytes(
         &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db").unwrap(),
+        biscuit_auth::builder::Algorithm::Ed25519,
     )
     .unwrap();
     let mut term_set = BTreeSet::new();
@@ -234,7 +238,7 @@ fn policy_macro() {
 
 #[test]
 fn json() {
-    let key_pair = KeyPair::new();
+    let key_pair = KeyPair::new(biscuit_auth::builder::Algorithm::Ed25519);
     let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
 
     let value: serde_json::Value = json!(
@@ -264,5 +268,27 @@ fn json() {
             })
             .unwrap(),
         0
+    );
+}
+
+#[test]
+fn ecdsa() {
+    use biscuit_auth::PublicKey;
+
+    let pubkey = PublicKey::from_bytes(
+        &hex::decode("0245dd01132962da3812911b746b080aed714873c1812e7cefacf13e3880712da0").unwrap(),
+        biscuit_auth::builder::Algorithm::Secp256r1,
+    )
+    .unwrap();
+    let mut term_set = BTreeSet::new();
+    term_set.insert(builder::int(0i64));
+    let r = rule!(
+        r#"rule($0, true) <- fact($0, $1, $2, {my_key}, {term_set}) trusting {pubkey}"#,
+        my_key = "my_value",
+    );
+
+    assert_eq!(
+        r.to_string(),
+        r#"rule($0, true) <- fact($0, $1, $2, "my_value", {0}) trusting secp256r1/0245dd01132962da3812911b746b080aed714873c1812e7cefacf13e3880712da0"#,
     );
 }

@@ -157,10 +157,15 @@ impl ToTokens for Scope {
             Scope::Authority => quote! { ::biscuit_auth::builder::Scope::Authority},
             Scope::Previous => quote! { ::biscuit_auth::builder::Scope::Previous},
             Scope::PublicKey(pk) => {
-                let bytes = pk.iter();
-                quote! { ::biscuit_auth::builder::Scope::PublicKey(
-                  ::biscuit_auth::PublicKey::from_bytes(&[#(#bytes),*]).unwrap()
-                )}
+                let bytes = pk.key.iter();
+                match pk.algorithm {
+                    Algorithm::Ed25519 => quote! { ::biscuit_auth::builder::Scope::PublicKey(
+                        ::biscuit_auth::PublicKey::from_bytes(&[#(#bytes),*], ::biscuit_auth::builder::Algorithm::Ed25519).unwrap()
+                      )},
+                    Algorithm::Secp256r1 => quote! { ::biscuit_auth::builder::Scope::PublicKey(
+                        ::biscuit_auth::PublicKey::from_bytes(&[#(#bytes),*], ::biscuit_auth::builder::Algorithm::Secp256r1).unwrap()
+                      )},
+                }
             }
             Scope::Parameter(v) => {
                 quote! { ::biscuit_auth::builder::Scope::Parameter(#v.to_string())}
@@ -391,7 +396,17 @@ impl ToTokens for Binary {
     }
 }
 
-pub type PublicKey = Vec<u8>;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct PublicKey {
+    pub key: Vec<u8>,
+    pub algorithm: Algorithm,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum Algorithm {
+    Ed25519,
+    Secp256r1,
+}
 
 /// Builder for a Datalog rule
 #[derive(Debug, Clone, PartialEq, Eq)]

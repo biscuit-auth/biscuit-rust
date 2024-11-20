@@ -7,80 +7,124 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
+use crate::builder::Algorithm;
+use crate::format::schema;
 use crate::format::ThirdPartyVerificationMode;
-use crate::{error::Format, format::schema};
 
 use super::error;
-#[cfg(feature = "pem")]
-use ed25519_dalek::pkcs8::DecodePrivateKey;
-use ed25519_dalek::*;
+mod ed25519;
+mod p256;
 
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, str::FromStr};
-use zeroize::Zeroize;
+use std::fmt;
+use std::hash::Hash;
+use std::str::FromStr;
 
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
-pub struct KeyPair {
-    pub(crate) kp: ed25519_dalek::SigningKey,
+pub enum KeyPair {
+    Ed25519(ed25519::KeyPair),
+    P256(p256::KeyPair),
 }
 
 impl KeyPair {
-    pub fn new() -> Self {
-        Self::new_with_rng(&mut rand::rngs::OsRng)
+    pub fn new(algorithm: Algorithm) -> Self {
+        Self::new_with_rng(algorithm, &mut rand::rngs::OsRng)
     }
 
-    pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let kp = ed25519_dalek::SigningKey::generate(rng);
-
-        KeyPair { kp }
+    pub fn new_with_rng<T: RngCore + CryptoRng>(algorithm: Algorithm, rng: &mut T) -> Self {
+        match algorithm {
+            Algorithm::Ed25519 => KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng)),
+            Algorithm::Secp256r1 => KeyPair::P256(p256::KeyPair::new_with_rng(rng)),
+        }
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        KeyPair {
-            kp: ed25519_dalek::SigningKey::from_bytes(&key.0),
+        match key {
+            PrivateKey::Ed25519(key) => KeyPair::Ed25519(ed25519::KeyPair::from(key)),
+            PrivateKey::P256(key) => KeyPair::P256(p256::KeyPair::from(key)),
+        }
+    }
+
+    /// deserializes from a byte array
+    pub fn from_bytes(
+        bytes: &[u8],
+        algorithm: schema::public_key::Algorithm,
+    ) -> Result<Self, error::Format> {
+        match algorithm {
+            schema::public_key::Algorithm::Ed25519 => {
+                Ok(KeyPair::Ed25519(ed25519::KeyPair::from_bytes(bytes)?))
+            }
+            schema::public_key::Algorithm::Secp256r1 => {
+                Ok(KeyPair::P256(p256::KeyPair::from_bytes(bytes)?))
+            }
+        }
+    }
+
+    pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
+        match self {
+            KeyPair::Ed25519(key) => key.sign(data),
+            KeyPair::P256(key) => key.sign(data),
         }
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_der(bytes)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
+        ed25519::KeyPair::from_private_key_der(bytes)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_der(bytes).map(KeyPair::P256))
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_pem(str)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
+        ed25519::KeyPair::from_private_key_pem(str)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_pem(str).map(KeyPair::P256))
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = self.kp.to_bytes();
-        PrivateKey(secret)
+        match self {
+            KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
+            KeyPair::P256(key) => PrivateKey::P256(key.private()),
+        }
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.verifying_key())
+        match self {
+            KeyPair::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            KeyPair::P256(key) => PublicKey::P256(key.public()),
+        }
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            KeyPair::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            KeyPair::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
     }
 }
 
 impl std::default::Default for KeyPair {
     fn default() -> Self {
-        Self::new()
+        Self::new(Algorithm::Ed25519)
     }
 }
 
 /// the private part of a [KeyPair]
-#[derive(Debug)]
-pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
+#[derive(Debug, Clone)]
+pub enum PrivateKey {
+    Ed25519(ed25519::PrivateKey),
+    P256(p256::PrivateKey),
+}
 
 impl PrivateKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0
+    pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
+        match self {
+            PrivateKey::Ed25519(key) => zeroize::Zeroizing::new(key.to_bytes()),
+            PrivateKey::P256(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -89,45 +133,49 @@ impl PrivateKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let bytes: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-        Ok(PrivateKey(bytes))
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?)),
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&bytes, algorithm)
     }
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey(SigningKey::from_bytes(&self.0).verifying_key())
+        match self {
+            PrivateKey::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            PrivateKey::P256(key) => PublicKey::P256(key.public()),
+        }
     }
-}
 
-impl std::clone::Clone for PrivateKey {
-    fn clone(&self) -> Self {
-        PrivateKey::from_bytes(&self.to_bytes()).unwrap()
-    }
-}
-
-impl Drop for PrivateKey {
-    fn drop(&mut self) {
-        self.0.zeroize();
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            PrivateKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PrivateKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
     }
 }
 
 /// the public part of a [KeyPair]
-#[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(pub(crate) ed25519_dalek::VerifyingKey);
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+pub enum PublicKey {
+    Ed25519(ed25519::PublicKey),
+    P256(p256::PublicKey),
+}
 
 impl PublicKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            PublicKey::Ed25519(key) => key.to_bytes().into(),
+            PublicKey::P256(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -136,56 +184,101 @@ impl PublicKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let bytes: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-
-        ed25519_dalek::VerifyingKey::from_bytes(&bytes)
-            .map(PublicKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_bytes(bytes)?)),
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&bytes, algorithm)
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
-        if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
+        if key.algorithm == schema::public_key::Algorithm::Ed25519 as i32 {
+            Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
+                &key.key,
+            )?))
+        } else if key.algorithm == schema::public_key::Algorithm::Secp256r1 as i32 {
+            Ok(PublicKey::P256(p256::PublicKey::from_bytes(&key.key)?))
+        } else {
+            Err(error::Format::DeserializationError(format!(
                 "deserialization error: unexpected key algorithm {}",
                 key.algorithm
-            )));
+            )))
         }
-
-        PublicKey::from_bytes(&key.key)
     }
 
     pub fn to_proto(&self) -> schema::PublicKey {
         schema::PublicKey {
-            algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-            key: self.to_bytes().to_vec(),
+            algorithm: self.algorithm() as i32,
+            key: self.to_bytes(),
+        }
+    }
+
+    pub fn verify_signature(
+        &self,
+        data: &[u8],
+        signature: &Signature,
+    ) -> Result<(), error::Format> {
+        match self {
+            PublicKey::Ed25519(key) => key.verify_signature(data, signature),
+            PublicKey::P256(key) => key.verify_signature(data, signature),
+        }
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            PublicKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PublicKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
+    }
+
+    pub fn algorithm_string(&self) -> &str {
+        match self {
+            PublicKey::Ed25519(_) => "ed25519",
+            PublicKey::P256(_) => "secp256r1",
+        }
+    }
+
+    pub(crate) fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PublicKey::Ed25519(key) => key.write(f),
+            PublicKey::P256(key) => key.write(f),
         }
     }
 
     pub fn print(&self) -> String {
-        self.to_string()
+        match self {
+            PublicKey::Ed25519(key) => key.print(),
+            PublicKey::P256(key) => key.print(),
+        }
     }
 }
 
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.to_bytes() == other.0.to_bytes()
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.write(f)
     }
 }
 
-impl Hash for PublicKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
-        self.0.to_bytes().hash(state);
+#[derive(Clone, Debug)]
+pub struct Signature(pub(crate) Vec<u8>);
+
+impl Signature {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, error::Format> {
+        Ok(Signature(data.to_owned()))
+    }
+
+    pub(crate) fn from_vec(data: Vec<u8>) -> Self {
+        Signature(data)
+    }
+
+    pub fn to_bytes(&self) -> &[u8] {
+        &self.0[..]
     }
 }
 
@@ -193,16 +286,16 @@ impl FromStr for PublicKey {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, bytes) = biscuit_parser::parser::public_key(s)
+        let (_, public_key) = biscuit_parser::parser::public_key(s)
             .finish()
             .map_err(biscuit_parser::error::LanguageError::from)?;
-        Ok(PublicKey::from_bytes(&bytes)?)
-    }
-}
-
-impl Display for PublicKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ed25519/{}", hex::encode(self.to_bytes()))
+        Ok(PublicKey::from_bytes(
+            &public_key.key,
+            match public_key.algorithm {
+                biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
+                biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+            },
+        )?)
     }
 }
 
@@ -210,7 +303,7 @@ impl Display for PublicKey {
 pub struct Block {
     pub(crate) data: Vec<u8>,
     pub(crate) next_key: PublicKey,
-    pub signature: ed25519_dalek::Signature,
+    pub signature: Signature,
     pub external_signature: Option<ExternalSignature>,
     pub version: u32,
 }
@@ -218,13 +311,13 @@ pub struct Block {
 #[derive(Clone, Debug)]
 pub struct ExternalSignature {
     pub(crate) public_key: PublicKey,
-    pub(crate) signature: ed25519_dalek::Signature,
+    pub(crate) signature: Signature,
 }
 
 #[derive(Clone, Debug)]
 pub enum TokenNext {
     Secret(PrivateKey),
-    Seal(ed25519_dalek::Signature),
+    Seal(Signature),
 }
 
 pub fn sign_authority_block(
@@ -245,14 +338,9 @@ pub fn sign_authority_block(
         }
     };
 
-    let signature = keypair
-        .kp
-        .try_sign(&to_sign)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignatureGeneration)
-        .map_err(error::Format::Signature)?;
+    let signature = keypair.sign(&to_sign)?;
 
-    Ok(signature)
+    Ok(Signature(signature.to_bytes().to_vec()))
 }
 
 pub fn sign_block(
@@ -281,14 +369,7 @@ pub fn sign_block(
         }
     };
 
-    let signature = keypair
-        .kp
-        .try_sign(&to_sign)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignatureGeneration)
-        .map_err(error::Format::Signature)?;
-
-    Ok(signature)
+    Ok(keypair.sign(&to_sign)?)
 }
 
 pub fn verify_authority_block_signature(
@@ -314,14 +395,7 @@ pub fn verify_authority_block_signature(
         }
     };
 
-    public_key
-        .0
-        .verify_strict(&to_verify, &block.signature)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignature)
-        .map_err(error::Format::Signature)?;
-
-    Ok(())
+    public_key.verify_signature(&to_verify, &block.signature)
 }
 
 pub fn verify_block_signature(
@@ -351,12 +425,7 @@ pub fn verify_block_signature(
         }
     };
 
-    public_key
-        .0
-        .verify_strict(&to_verify, &block.signature)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignature)
-        .map_err(error::Format::Signature)?;
+    public_key.verify_signature(&to_verify, &block.signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
         verify_external_signature(
@@ -385,23 +454,13 @@ pub fn verify_external_signature(
             generate_external_signature_payload_v0(payload, public_key)
         }
         ThirdPartyVerificationMode::PreviousSignatureHashing => {
-            generate_external_signature_payload_v1(
-                payload,
-                previous_signature.to_bytes().as_slice(),
-                version,
-            )
+            generate_external_signature_payload_v1(payload, previous_signature.to_bytes(), version)
         }
     };
 
     external_signature
         .public_key
-        .0
-        .verify_strict(&to_verify, &external_signature.signature)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignature)
-        .map_err(error::Format::Signature)?;
-
-    Ok(())
+        .verify_signature(&to_verify, &external_signature.signature)
 }
 
 pub(crate) fn generate_authority_block_signature_payload_v0(
@@ -410,7 +469,7 @@ pub(crate) fn generate_authority_block_signature_payload_v0(
 ) -> Vec<u8> {
     let mut to_verify = payload.to_vec();
 
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
     to_verify.extend(next_key.to_bytes());
     to_verify
 }
@@ -425,7 +484,7 @@ pub(crate) fn generate_block_signature_payload_v0(
     if let Some(signature) = external_signature.as_ref() {
         to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
     to_verify.extend(next_key.to_bytes());
     to_verify
 }
@@ -442,7 +501,7 @@ pub(crate) fn generate_authority_block_signature_payload_v1(
     to_verify.extend(payload.to_vec());
 
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
 
     to_verify.extend(b"\0NEXTKEY\0".to_vec());
     to_verify.extend(&next_key.to_bytes());
@@ -464,13 +523,13 @@ pub(crate) fn generate_block_signature_payload_v1(
     to_verify.extend(payload.to_vec());
 
     to_verify.extend(b"\0ALGORITHM\0".to_vec());
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
 
     to_verify.extend(b"\0NEXTKEY\0".to_vec());
     to_verify.extend(&next_key.to_bytes());
 
     to_verify.extend(b"\0PREVSIG\0".to_vec());
-    to_verify.extend(previous_signature.to_bytes().as_slice());
+    to_verify.extend(previous_signature.to_bytes());
 
     if let Some(signature) = external_signature.as_ref() {
         to_verify.extend(b"\0EXTERNALSIG\0".to_vec());
@@ -482,7 +541,7 @@ pub(crate) fn generate_block_signature_payload_v1(
 
 fn generate_external_signature_payload_v0(payload: &[u8], previous_key: &PublicKey) -> Vec<u8> {
     let mut to_verify = payload.to_vec();
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(previous_key.algorithm() as i32).to_le_bytes());
     to_verify.extend(&previous_key.to_bytes());
 
     to_verify
@@ -506,9 +565,9 @@ pub(crate) fn generate_external_signature_payload_v1(
 
 pub(crate) fn generate_seal_signature_payload_v0(block: &Block) -> Vec<u8> {
     let mut to_verify = block.data.to_vec();
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
+    to_verify.extend(&(block.next_key.algorithm() as i32).to_le_bytes());
     to_verify.extend(&block.next_key.to_bytes());
-    to_verify.extend(&block.signature.to_bytes());
+    to_verify.extend(block.signature.to_bytes());
     to_verify
 }
 

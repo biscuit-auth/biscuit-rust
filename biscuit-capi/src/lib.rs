@@ -296,10 +296,17 @@ pub struct BiscuitBuilder(biscuit_auth::builder::BiscuitBuilder);
 pub struct BlockBuilder(biscuit_auth::builder::BlockBuilder);
 pub struct Authorizer(biscuit_auth::Authorizer);
 
+#[repr(C)]
+pub enum SignatureAlgorithm {
+    Ed25519,
+    Secp256r1,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn key_pair_new<'a>(
     seed_ptr: *const u8,
     seed_len: usize,
+    algorithm: SignatureAlgorithm,
 ) -> Option<Box<KeyPair>> {
     let slice = std::slice::from_raw_parts(seed_ptr, seed_len);
     if slice.len() != 32 {
@@ -311,9 +318,13 @@ pub unsafe extern "C" fn key_pair_new<'a>(
     seed.copy_from_slice(slice);
 
     let mut rng: StdRng = SeedableRng::from_seed(seed);
+    let algorithm = match algorithm {
+        SignatureAlgorithm::Ed25519 => biscuit_auth::builder::Algorithm::Ed25519,
+        SignatureAlgorithm::Secp256r1 => biscuit_auth::builder::Algorithm::Secp256r1,
+    };
 
     Some(Box::new(KeyPair(biscuit_auth::KeyPair::new_with_rng(
-        &mut rng,
+        algorithm, &mut rng,
     ))))
 }
 
@@ -344,10 +355,20 @@ pub unsafe extern "C" fn key_pair_serialize(kp: Option<&KeyPair>, buffer_ptr: *m
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn key_pair_deserialize(buffer_ptr: *mut u8) -> Option<Box<KeyPair>> {
+pub unsafe extern "C" fn key_pair_deserialize(
+    buffer_ptr: *mut u8,
+    algorithm: SignatureAlgorithm,
+) -> Option<Box<KeyPair>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
 
-    match biscuit_auth::PrivateKey::from_bytes(input_slice).ok() {
+    let algorithm = match algorithm {
+        SignatureAlgorithm::Ed25519 => biscuit_auth::format::schema::public_key::Algorithm::Ed25519,
+        SignatureAlgorithm::Secp256r1 => {
+            biscuit_auth::format::schema::public_key::Algorithm::Secp256r1
+        }
+    };
+
+    match biscuit_auth::PrivateKey::from_bytes(input_slice, algorithm.into()).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None
@@ -379,10 +400,17 @@ pub unsafe extern "C" fn public_key_serialize(
 
 /// expects a 32 byte buffer
 #[no_mangle]
-pub unsafe extern "C" fn public_key_deserialize(buffer_ptr: *mut u8) -> Option<Box<PublicKey>> {
+pub unsafe extern "C" fn public_key_deserialize(
+    buffer_ptr: *mut u8,
+    algorithm: SignatureAlgorithm,
+) -> Option<Box<PublicKey>> {
     let input_slice = std::slice::from_raw_parts_mut(buffer_ptr, 32);
+    let algorithm = match algorithm {
+        SignatureAlgorithm::Ed25519 => biscuit_auth::builder::Algorithm::Ed25519,
+        SignatureAlgorithm::Secp256r1 => biscuit_auth::builder::Algorithm::Secp256r1,
+    };
 
-    match biscuit_auth::PublicKey::from_bytes(input_slice).ok() {
+    match biscuit_auth::PublicKey::from_bytes(input_slice, algorithm).ok() {
         None => {
             update_last_error(Error::InvalidArgument);
             None

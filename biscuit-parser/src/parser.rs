@@ -1,4 +1,4 @@
-use crate::builder::{self, CheckKind};
+use crate::builder::{self, CheckKind, PublicKey};
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, tag_no_case, take_until, take_while, take_while1},
@@ -10,7 +10,7 @@ use nom::{
     error::{ErrorKind, FromExternalError, ParseError},
     multi::{many0, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
-    IResult, Offset,
+    IResult, Offset, Parser,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -383,7 +383,16 @@ fn scope(i: &str) -> IResult<&str, builder::Scope, Error> {
 }
 
 pub fn public_key(i: &str) -> IResult<&str, builder::PublicKey, Error> {
-    preceded(tag("ed25519/"), parse_hex)(i)
+    alt((
+        preceded(tag("ed25519/"), parse_hex).map(|key| PublicKey {
+            key,
+            algorithm: builder::Algorithm::Ed25519,
+        }),
+        preceded(tag("secp256r1/"), parse_hex).map(|key| PublicKey {
+            key,
+            algorithm: builder::Algorithm::Secp256r1,
+        }),
+    ))(i)
 }
 
 #[derive(Debug, PartialEq)]

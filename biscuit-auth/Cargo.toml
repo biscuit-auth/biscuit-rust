@@ -33,7 +33,7 @@ prost-types = "0.10"
 regex = { version = "1.5", default-features = false, features = ["std"] }
 nom = { version = "7", default-features = false, features = ["std"] }
 hex = "0.4"
-zeroize = { version = "1", default-features = false }
+zeroize = { version = "1.5", default-features = false }
 thiserror = "1"
 rand = { version = "0.8" }
 wasm-bindgen = { version = "0.2", optional = true }
@@ -49,6 +49,10 @@ chrono = { version = "0.4.26", optional = true, default-features = false, featur
   "serde",
 ] }
 serde_json = "1.0.117"
+ecdsa = { version = "0.16.9", features = ["signing", "verifying", "pem", "alloc", "pkcs8", "serde"] }
+p256 = "0.13.2"
+pkcs8 = "0.9.0"
+elliptic-curve = { version = "0.13.8", features = ["pkcs8"] }
 
 [dev-dependencies]
 bencher = "0.1.5"

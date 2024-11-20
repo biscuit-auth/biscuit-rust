@@ -1,6 +1,5 @@
 use std::cmp::max;
 
-use ed25519_dalek::Signer;
 use prost::Message;
 
 use crate::{
@@ -124,12 +123,7 @@ impl ThirdPartyRequest {
         );
 
         let keypair = KeyPair::from(private_key);
-        let signature = keypair
-            .kp
-            .try_sign(&signed_payload)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignatureGeneration)
-            .map_err(error::Format::Signature)?;
+        let signature = keypair.sign(&signed_payload)?;
 
         let public_key = keypair.public();
         let content = schema::ThirdPartyBlockContents {

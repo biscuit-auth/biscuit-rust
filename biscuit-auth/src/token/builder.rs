@@ -408,6 +408,16 @@ impl BiscuitBuilder {
         let authority_block = self.inner.build(symbols.clone());
         Biscuit::new_with_rng(rng, self.root_key_id, root, symbols, authority_block)
     }
+
+    pub fn build_with_key_pair(
+        self,
+        root: &KeyPair,
+        symbols: SymbolTable,
+        next: &KeyPair,
+    ) -> Result<Biscuit, error::Token> {
+        let authority_block = self.inner.build(symbols.clone());
+        Biscuit::new_with_key_pair(self.root_key_id, root, next, symbols, authority_block)
+    }
 }
 
 pub trait Convert<T>: Sized {
@@ -883,7 +893,7 @@ impl fmt::Display for Scope {
         match self {
             Scope::Authority => write!(f, "authority"),
             Scope::Previous => write!(f, "previous"),
-            Scope::PublicKey(pk) => write!(f, "ed25519/{}", hex::encode(pk.to_bytes())),
+            Scope::PublicKey(pk) => pk.write(f),
             Scope::Parameter(s) => {
                 write!(f, "{{{}}}", s)
             }
@@ -896,15 +906,71 @@ impl From<biscuit_parser::builder::Scope> for Scope {
         match scope {
             biscuit_parser::builder::Scope::Authority => Scope::Authority,
             biscuit_parser::builder::Scope::Previous => Scope::Previous,
-            biscuit_parser::builder::Scope::PublicKey(pk) => {
-                Scope::PublicKey(PublicKey::from_bytes(&pk).expect("invalid public key"))
-            }
+            biscuit_parser::builder::Scope::PublicKey(pk) => Scope::PublicKey(
+                PublicKey::from_bytes(&pk.key, pk.algorithm.into()).expect("invalid public key"),
+            ),
             biscuit_parser::builder::Scope::Parameter(s) => Scope::Parameter(s),
         }
     }
 }
 
-/// Builder for a Datalog dicate, used in facts and rules
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
+pub enum Algorithm {
+    Ed25519,
+    Secp256r1,
+}
+
+impl TryFrom<&str> for Algorithm {
+    type Error = error::Format;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "ed25519" => Ok(Algorithm::Ed25519),
+            "secp256r1" => Ok(Algorithm::Secp256r1),
+            _ => Err(error::Format::DeserializationError(format!(
+                "deserialization error: unexpected key algorithm {}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<biscuit_parser::builder::Algorithm> for Algorithm {
+    fn from(value: biscuit_parser::builder::Algorithm) -> Algorithm {
+        match value {
+            biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
+            biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<Algorithm> for biscuit_parser::builder::Algorithm {
+    fn from(value: Algorithm) -> biscuit_parser::builder::Algorithm {
+        match value {
+            Algorithm::Ed25519 => biscuit_parser::builder::Algorithm::Ed25519,
+            Algorithm::Secp256r1 => biscuit_parser::builder::Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<crate::format::schema::public_key::Algorithm> for Algorithm {
+    fn from(value: crate::format::schema::public_key::Algorithm) -> Algorithm {
+        match value {
+            crate::format::schema::public_key::Algorithm::Ed25519 => Algorithm::Ed25519,
+            crate::format::schema::public_key::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+        }
+    }
+}
+
+impl From<Algorithm> for crate::format::schema::public_key::Algorithm {
+    fn from(value: Algorithm) -> crate::format::schema::public_key::Algorithm {
+        match value {
+            Algorithm::Ed25519 => crate::format::schema::public_key::Algorithm::Ed25519,
+            Algorithm::Secp256r1 => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
+    }
+}
+
+/// Builder for a Datalog predicate, used in facts and rules
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Predicate {
     pub name: String,
@@ -1844,8 +1910,9 @@ impl From<biscuit_parser::builder::Rule> for Rule {
                     .map(|(k, v)| {
                         (
                             k,
-                            v.map(|bytes| {
-                                PublicKey::from_bytes(&bytes).expect("invalid public key")
+                            v.map(|pk| {
+                                PublicKey::from_bytes(&pk.key, pk.algorithm.into())
+                                    .expect("invalid public key")
                             }),
                         )
                     })
@@ -2843,6 +2910,7 @@ mod tests {
         let pubkey = PublicKey::from_bytes(
             &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
                 .unwrap(),
+            Algorithm::Ed25519,
         )
         .unwrap();
         let mut rule = Rule::try_from(
@@ -2869,6 +2937,7 @@ mod tests {
         let pubkey = PublicKey::from_bytes(
             &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
                 .unwrap(),
+            Algorithm::Ed25519,
         )
         .unwrap();
         let mut scope_params = HashMap::new();

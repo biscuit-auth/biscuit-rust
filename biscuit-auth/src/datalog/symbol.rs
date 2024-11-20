@@ -283,7 +283,7 @@ impl SymbolTable {
                     crate::token::Scope::Previous => "previous".to_string(),
                     crate::token::Scope::PublicKey(key_id) => {
                         match self.public_keys.get_key(*key_id) {
-                            Some(key) => format!("ed25519/{}", hex::encode(key.to_bytes())),
+                            Some(key) => key.print(),
                             None => "<unknown public key id>".to_string(),
                         }
                     }
