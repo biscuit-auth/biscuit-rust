@@ -14,7 +14,7 @@ mod capi {
             int main() {
                 char *seed = "abcdefghabcdefghabcdefghabcdefgh";
 
-                KeyPair * root_kp = key_pair_new((const uint8_t *) seed, strlen(seed));
+                KeyPair * root_kp = key_pair_new((const uint8_t *) seed, strlen(seed), 0);
                 printf("key_pair creation error? %s\n", error_message());
                 PublicKey* root = key_pair_public(root_kp);
 
@@ -34,7 +34,7 @@ mod capi {
 
                 char *seed2 = "ijklmnopijklmnopijklmnopijklmnop";
 
-                KeyPair * kp2 = key_pair_new((const uint8_t *) seed2, strlen(seed2));
+                KeyPair * kp2 = key_pair_new((const uint8_t *) seed2, strlen(seed2), 0);
 
                 Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
@@ -157,7 +157,7 @@ biscuit block 0 context: (null)
                 uint8_t * pub_buf = malloc(32);
 
 
-                KeyPair * kp = key_pair_new((const uint8_t *) seed, strlen(seed));
+                KeyPair * kp = key_pair_new((const uint8_t *) seed, strlen(seed), 0);
                 printf("key_pair creation error? %s\n", error_message());
                 PublicKey* pubkey = key_pair_public(kp);
 
