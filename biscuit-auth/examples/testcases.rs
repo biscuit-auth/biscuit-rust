@@ -1936,9 +1936,9 @@ fn integer_wraparound(target: &str, root: &KeyPair, test: bool) -> TestResult {
 
     let biscuit = biscuit!(
         r#"
-          check if 10000000000 * 10000000000 != 0;
-          check if 9223372036854775807 + 1 != 0;
-          check if -9223372036854775808 - 1 != 0;
+          check if 10000000000 * 10000000000 !== 0;
+          check if 9223372036854775807 + 1 !== 0;
+          check if -9223372036854775808 - 1 !== 0;
     "#
     )
     .build_with_rng(&root, SymbolTable::default(), &mut rng)

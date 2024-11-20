@@ -2257,9 +2257,9 @@ symbols: []
 public keys: []
 
 ```
-check if 10000000000 * 10000000000 != 0;
-check if 9223372036854775807 + 1 != 0;
-check if -9223372036854775808 - 1 != 0;
+check if 10000000000 * 10000000000 !== 0;
+check if 9223372036854775807 + 1 !== 0;
+check if -9223372036854775808 - 1 !== 0;
 ```
 
 ### validation
@@ -2270,7 +2270,7 @@ allow if true;
 ```
 
 revocation ids:
-- `846fbe9e7ad3581eada5d33475fb6362e83a526c5d3c7c1c6c063e8dc512485f1ec9f876d9e83d6d335e79b35e7be38b728c1b3583a6d56dd85b104c2e4f4404`
+- `fb5e7ac2bb892f5cf2fb59677cfad1f96deabbc8e158e3fd1b5ee7c4b6949c999e2169187cbee53b943eebdadaaf68832747baa8cffa2ff9f78025a1f55f440c`
 
 authorizer world:
 ```
@@ -2283,9 +2283,9 @@ World {
             0,
         ),
         checks: [
-            "check if -9223372036854775808 - 1 != 0",
-            "check if 10000000000 * 10000000000 != 0",
-            "check if 9223372036854775807 + 1 != 0",
+            "check if -9223372036854775808 - 1 !== 0",
+            "check if 10000000000 * 10000000000 !== 0",
+            "check if 9223372036854775807 + 1 !== 0",
         ],
     },
 ]
