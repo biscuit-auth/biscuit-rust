@@ -248,6 +248,11 @@ impl UnverifiedBiscuit {
         })
     }
 
+    /// gets the datalog version for a given block
+    pub fn block_version(&self, index: usize) -> Result<u32, error::Token> {
+        self.block(index).map(|block| block.version)
+    }
+
     pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
         let mut block = if index == 0 {
             proto_block_to_token_block(

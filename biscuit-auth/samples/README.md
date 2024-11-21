@@ -13,6 +13,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -23,6 +25,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -96,6 +100,8 @@ symbols: ["file1"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 ```
@@ -104,6 +110,8 @@ right("file1", "read");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -124,6 +132,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -134,6 +144,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -154,6 +166,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -164,6 +178,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -184,6 +200,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -194,6 +212,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -214,6 +234,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -225,6 +247,8 @@ symbols: ["0"]
 
 public keys: []
 
+block version: 3
+
 ```
 check if resource($0), operation("read"), right($0, "read");
 ```
@@ -233,6 +257,8 @@ check if resource($0), operation("read"), right($0, "read");
 symbols: []
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource("file1");
@@ -253,6 +279,8 @@ symbols: ["user_id", "alice", "file1"]
 
 public keys: []
 
+block version: 3
+
 ```
 user_id("alice");
 owner("alice", "file1");
@@ -263,6 +291,8 @@ symbols: ["0", "1"]
 
 public keys: []
 
+block version: 3
+
 ```
 right($0, "read") <- resource($0), user_id($1), owner($1, $0);
 check if resource($0), operation("read"), right($0, "read");
@@ -272,6 +302,8 @@ check if resource($0), operation("read"), right($0, "read");
 symbols: ["file2"]
 
 public keys: []
+
+block version: 3
 
 ```
 owner("alice", "file2");
@@ -366,6 +398,8 @@ symbols: ["file1"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 ```
@@ -375,6 +409,8 @@ symbols: ["0"]
 
 public keys: []
 
+block version: 3
+
 ```
 check if resource($0), operation("read"), right($0, "read");
 ```
@@ -383,6 +419,8 @@ check if resource($0), operation("read"), right($0, "read");
 symbols: ["file2"]
 
 public keys: []
+
+block version: 3
 
 ```
 right("file2", "read");
@@ -467,6 +505,8 @@ symbols: []
 
 public keys: []
 
+block version: 3
+
 ```
 ```
 
@@ -474,6 +514,8 @@ public keys: []
 symbols: ["file1"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource("file1");
@@ -541,6 +583,8 @@ symbols: ["file1"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 ```
@@ -549,6 +593,8 @@ right("file1", "read");
 symbols: ["file2"]
 
 public keys: []
+
+block version: 3
 
 ```
 right("file2", "read");
@@ -634,6 +680,8 @@ symbols: ["file1"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 ```
@@ -706,6 +754,8 @@ authority:
 symbols: ["file1"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource("file1");
@@ -813,6 +863,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -822,6 +874,8 @@ right("file2", "read");
 symbols: ["valid_date", "0", "1"]
 
 public keys: []
+
+block version: 3
 
 ```
 valid_date("file1") <- time($0), resource("file1"), $0 <= 2030-12-31T12:59:59Z;
@@ -986,6 +1040,8 @@ symbols: ["0", "file[0-9]+.txt"]
 
 public keys: []
 
+block version: 3
+
 ```
 check if resource($0), $0.matches("file[0-9]+.txt");
 ```
@@ -1088,6 +1144,8 @@ symbols: ["must_be_present", "hello"]
 
 public keys: []
 
+block version: 3
+
 ```
 must_be_present("hello");
 ```
@@ -1149,6 +1207,8 @@ symbols: ["hello"]
 
 public keys: []
 
+block version: 3
+
 ```
 check if resource("hello");
 ```
@@ -1157,6 +1217,8 @@ check if resource("hello");
 symbols: ["test"]
 
 public keys: []
+
+block version: 3
 
 ```
 query("test");
@@ -1217,6 +1279,8 @@ authority:
 symbols: ["hello world", "hello", "world", "aaabde", "a*c?.e", "abd", "aaa", "b", "de", "abcD12", "é", "abc", "def"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if true;
@@ -1340,6 +1404,8 @@ symbols: []
 
 public keys: []
 
+block version: 3
+
 ```
 check if operation("read");
 ```
@@ -1348,6 +1414,8 @@ check if operation("read");
 symbols: ["unbound", "any1", "any2"]
 
 public keys: []
+
+block version: 3
 
 ```
 operation($unbound, "read") <- operation($any1, $any2);
@@ -1368,6 +1436,8 @@ symbols: []
 
 public keys: []
 
+block version: 3
+
 ```
 check if operation("read");
 ```
@@ -1376,6 +1446,8 @@ check if operation("read");
 symbols: ["any"]
 
 public keys: []
+
+block version: 3
 
 ```
 operation("read") <- operation($any);
@@ -1457,6 +1529,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -1467,6 +1541,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");
@@ -1542,6 +1618,8 @@ symbols: ["ns::fact_123", "hello é\t😁"]
 
 public keys: []
 
+block version: 3
+
 ```
 ns::fact_123("hello é	😁");
 ```
@@ -1602,6 +1680,8 @@ authority:
 symbols: []
 
 public keys: []
+
+block version: 3
 
 ```
 read(0);
@@ -1718,6 +1798,8 @@ symbols: ["authority_fact"]
 
 public keys: []
 
+block version: 3
+
 ```
 authority_fact(1);
 ```
@@ -1727,6 +1809,8 @@ symbols: ["block1_fact"]
 
 public keys: []
 
+block version: 3
+
 ```
 block1_fact(1);
 ```
@@ -1735,6 +1819,8 @@ block1_fact(1);
 symbols: ["var"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if authority_fact($var);
@@ -1809,6 +1895,8 @@ symbols: []
 
 public keys: ["ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
+block version: 4
+
 ```
 right("read");
 check if group("admin") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;
@@ -1820,6 +1908,8 @@ symbols: []
 public keys: []
 
 external signature by: "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
+
+block version: 5
 
 ```
 group("admin");
@@ -1899,6 +1989,8 @@ authority:
 symbols: ["allowed_operations", "A", "B", "op", "allowed"]
 
 public keys: []
+
+block version: 4
 
 ```
 allowed_operations({"A", "B"});
@@ -2027,6 +2119,8 @@ symbols: []
 
 public keys: ["ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
+block version: 4
+
 ```
 query(0);
 check if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;
@@ -2038,6 +2132,8 @@ symbols: []
 public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"]
 
 external signature by: "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
+
+block version: 5
 
 ```
 query(1);
@@ -2053,6 +2149,8 @@ public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7
 
 external signature by: "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
 
+block version: 5
+
 ```
 query(2);
 check if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;
@@ -2066,6 +2164,8 @@ public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7
 
 external signature by: "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463"
 
+block version: 5
+
 ```
 query(3);
 check if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;
@@ -2076,6 +2176,8 @@ check if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5
 symbols: []
 
 public keys: ["ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463", "ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136"]
+
+block version: 4
 
 ```
 query(4);
@@ -2256,6 +2358,8 @@ symbols: []
 
 public keys: []
 
+block version: 4
+
 ```
 check if 10000000000 * 10000000000 !== 0;
 check if 9223372036854775807 + 1 !== 0;
@@ -2307,6 +2411,8 @@ authority:
 symbols: ["abcD12x", "abcD12"]
 
 public keys: []
+
+block version: 4
 
 ```
 check if 1 !== 3;
@@ -2365,6 +2471,8 @@ authority:
 symbols: ["test"]
 
 public keys: []
+
+block version: 6
 
 ```
 reject if test($test), $test;
@@ -2467,6 +2575,8 @@ authority:
 symbols: ["fact", "value"]
 
 public keys: []
+
+block version: 6
 
 ```
 check if fact(null, $value), $value == null;
@@ -2661,6 +2771,8 @@ symbols: ["abcD12", "abcD12x", "fact", "value", "fact2"]
 
 public keys: []
 
+block version: 6
+
 ```
 check if true == true;
 check if false == false;
@@ -2837,6 +2949,8 @@ symbols: ["x", "p", "q"]
 
 public keys: []
 
+block version: 6
+
 ```
 check if !false && true;
 check if false || true;
@@ -2944,6 +3058,8 @@ symbols: ["integer", "string", "test", "date", "bytes", "bool", "set", "null", "
 
 public keys: []
 
+block version: 6
+
 ```
 integer(1);
 string("test");
@@ -3050,6 +3166,8 @@ symbols: ["a", "b", "c", "p", "d", "A", "kv", "id", "roles"]
 
 public keys: []
 
+block version: 6
+
 ```
 check if [1, 2, 1].length() == 3;
 check if ["a", "b"] != true;
@@ -3150,6 +3268,8 @@ symbols: ["test", "a", "equal strings"]
 
 public keys: []
 
+block version: 6
+
 ```
 check if true.extern::test(), "a".extern::test("a") == "equal strings";
 ```
@@ -3198,6 +3318,8 @@ symbols: ["file1", "file2"]
 
 public keys: []
 
+block version: 3
+
 ```
 right("file1", "read");
 right("file2", "read");
@@ -3208,6 +3330,8 @@ right("file1", "write");
 symbols: ["0"]
 
 public keys: []
+
+block version: 3
 
 ```
 check if resource($0), operation("read"), right($0, "read");

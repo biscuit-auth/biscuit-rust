@@ -242,6 +242,11 @@ impl Biscuit {
         })
     }
 
+    /// gets the datalog version for a given block
+    pub fn block_version(&self, index: usize) -> Result<u32, error::Token> {
+        self.block(index).map(|block| block.version)
+    }
+
     /// creates a new token, using a provided CSPRNG
     ///
     /// the public part of the root keypair must be used for verification
@@ -1571,5 +1576,31 @@ mod tests {
         let serialized = token.to_vec().unwrap();
 
         let _ = Biscuit::from(&serialized, root.public()).unwrap();
+    }
+
+    #[test]
+    fn verified_unverified_consistency() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+        let mut builder = Biscuit::builder();
+
+        builder.add_fact("right(\"file1\", \"read\")").unwrap();
+        builder.add_fact("right(\"file2\", \"read\")").unwrap();
+        builder.add_fact("right(\"file1\", \"write\")").unwrap();
+
+        let biscuit1 = builder
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
+            .unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1);
+
+        let serialized = biscuit1.to_vec().unwrap();
+
+        let parsed = UnverifiedBiscuit::from(serialized).unwrap();
+
+        for i in 0..parsed.block_count() {
+            assert_eq!(parsed.print_block_source(i), biscuit1.print_block_source(i));
+            assert_eq!(parsed.block_version(i), biscuit1.block_version(i));
+        }
     }
 }
