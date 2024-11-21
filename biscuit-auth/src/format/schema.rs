@@ -334,8 +334,8 @@ pub struct AuthorizerPolicies {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThirdPartyBlockRequest {
-    #[prost(message, required, tag="1")]
-    pub legacy_previous_key: PublicKey,
+    #[prost(message, optional, tag="1")]
+    pub legacy_previous_key: ::core::option::Option<PublicKey>,
     #[prost(message, repeated, tag="2")]
     pub legacy_public_keys: ::prost::alloc::vec::Vec<PublicKey>,
     #[prost(bytes="vec", required, tag="3")]
