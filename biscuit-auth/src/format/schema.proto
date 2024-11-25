@@ -217,7 +217,7 @@ message AuthorizerPolicies {
 }
 
 message ThirdPartyBlockRequest {
-  required PublicKey legacyPreviousKey = 1;
+  optional PublicKey legacyPreviousKey = 1;
   repeated PublicKey legacyPublicKeys = 2;
   required bytes previousSignature = 3;
 

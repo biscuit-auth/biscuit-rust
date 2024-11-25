@@ -13,7 +13,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -21,7 +22,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -98,7 +100,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\n"
+          "code": "right(\"file1\", \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -106,7 +109,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -137,7 +141,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -145,7 +150,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -174,7 +180,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -182,7 +189,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -213,7 +221,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -221,7 +230,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -252,7 +262,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -260,13 +271,15 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource(\"file1\");\n"
+          "code": "check if resource(\"file1\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -298,7 +311,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "user_id(\"alice\");\nowner(\"alice\", \"file1\");\n"
+          "code": "user_id(\"alice\");\nowner(\"alice\", \"file1\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -307,7 +321,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0);\ncheck if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "right($0, \"read\") <- resource($0), user_id($1), owner($1, $0);\ncheck if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -315,7 +330,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "owner(\"alice\", \"file2\");\n"
+          "code": "owner(\"alice\", \"file2\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -408,7 +424,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\n"
+          "code": "right(\"file1\", \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -416,7 +433,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -424,7 +442,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file2\", \"read\");\n"
+          "code": "right(\"file2\", \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -507,7 +526,8 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": ""
+          "code": "",
+          "version": 3
         },
         {
           "symbols": [
@@ -515,7 +535,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource(\"file1\");\ncheck if time($time), $time <= 2018-12-20T00:00:00Z;\n"
+          "code": "check if resource(\"file1\");\ncheck if time($time), $time <= 2018-12-20T00:00:00Z;\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -585,7 +606,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\n"
+          "code": "right(\"file1\", \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -593,7 +615,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file2\", \"read\");\n"
+          "code": "right(\"file2\", \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -676,7 +699,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\n"
+          "code": "right(\"file1\", \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -750,7 +774,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource(\"file1\");\n"
+          "code": "check if resource(\"file1\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -852,7 +877,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -862,7 +888,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z;\nvalid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{\"file1\"}.contains($1);\ncheck if valid_date($0), resource($0);\n"
+          "code": "valid_date(\"file1\") <- time($0), resource(\"file1\"), $0 <= 2030-12-31T12:59:59Z;\nvalid_date($1) <- time($0), resource($1), $0 <= 1999-12-31T12:59:59Z, !{\"file1\"}.contains($1);\ncheck if valid_date($0), resource($0);\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1009,7 +1036,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), $0.matches(\"file[0-9]+.txt\");\n"
+          "code": "check if resource($0), $0.matches(\"file[0-9]+.txt\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1109,7 +1137,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "must_be_present(\"hello\");\n"
+          "code": "must_be_present(\"hello\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1158,7 +1187,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource(\"hello\");\n"
+          "code": "check if resource(\"hello\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1166,7 +1196,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "query(\"test\");\n"
+          "code": "query(\"test\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1245,7 +1276,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if true;\ncheck if !false;\ncheck if true === true;\ncheck if false === false;\ncheck if 1 < 2;\ncheck if 2 > 1;\ncheck if 1 <= 2;\ncheck if 1 <= 1;\ncheck if 2 >= 1;\ncheck if 2 >= 2;\ncheck if 3 === 3;\ncheck if 1 + 2 * 3 - 4 / 2 === 5;\ncheck if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\");\ncheck if \"aaabde\".matches(\"a*c?.e\");\ncheck if \"aaabde\".contains(\"abd\");\ncheck if \"aaabde\" === \"aaa\" + \"b\" + \"de\";\ncheck if \"abcD12\" === \"abcD12\";\ncheck if \"abcD12\".length() === 6;\ncheck if \"é\".length() === 2;\ncheck if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;\ncheck if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;\ncheck if hex:12ab === hex:12ab;\ncheck if {1, 2}.contains(2);\ncheck if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);\ncheck if {false, true}.contains(true);\ncheck if {\"abc\", \"def\"}.contains(\"abc\");\ncheck if {hex:12ab, hex:34de}.contains(hex:34de);\ncheck if {1, 2}.contains({2});\ncheck if {1, 2} === {1, 2};\ncheck if {1, 2}.intersection({2, 3}) === {2};\ncheck if {1, 2}.union({2, 3}) === {1, 2, 3};\ncheck if {1, 2, 3}.intersection({1, 2}).contains(1);\ncheck if {1, 2, 3}.intersection({1, 2}).length() === 2;\n"
+          "code": "check if true;\ncheck if !false;\ncheck if true === true;\ncheck if false === false;\ncheck if 1 < 2;\ncheck if 2 > 1;\ncheck if 1 <= 2;\ncheck if 1 <= 1;\ncheck if 2 >= 1;\ncheck if 2 >= 2;\ncheck if 3 === 3;\ncheck if 1 + 2 * 3 - 4 / 2 === 5;\ncheck if \"hello world\".starts_with(\"hello\"), \"hello world\".ends_with(\"world\");\ncheck if \"aaabde\".matches(\"a*c?.e\");\ncheck if \"aaabde\".contains(\"abd\");\ncheck if \"aaabde\" === \"aaa\" + \"b\" + \"de\";\ncheck if \"abcD12\" === \"abcD12\";\ncheck if \"abcD12\".length() === 6;\ncheck if \"é\".length() === 2;\ncheck if 2019-12-04T09:46:41Z < 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z > 2019-12-04T09:46:41Z;\ncheck if 2019-12-04T09:46:41Z <= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2019-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z >= 2020-12-04T09:46:41Z;\ncheck if 2020-12-04T09:46:41Z === 2020-12-04T09:46:41Z;\ncheck if hex:12ab === hex:12ab;\ncheck if {1, 2}.contains(2);\ncheck if {2019-12-04T09:46:41Z, 2020-12-04T09:46:41Z}.contains(2020-12-04T09:46:41Z);\ncheck if {false, true}.contains(true);\ncheck if {\"abc\", \"def\"}.contains(\"abc\");\ncheck if {hex:12ab, hex:34de}.contains(hex:34de);\ncheck if {1, 2}.contains({2});\ncheck if {1, 2} === {1, 2};\ncheck if {1, 2}.intersection({2, 3}) === {2};\ncheck if {1, 2}.union({2, 3}) === {1, 2, 3};\ncheck if {1, 2, 3}.intersection({1, 2}).contains(1);\ncheck if {1, 2, 3}.intersection({1, 2}).length() === 2;\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1320,7 +1352,8 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "check if operation(\"read\");\n"
+          "code": "check if operation(\"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1330,7 +1363,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "operation($unbound, \"read\") <- operation($any1, $any2);\n"
+          "code": "operation($unbound, \"read\") <- operation($any1, $any2);\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1362,7 +1396,8 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "check if operation(\"read\");\n"
+          "code": "check if operation(\"read\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1370,7 +1405,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "operation(\"read\") <- operation($any);\n"
+          "code": "operation(\"read\") <- operation($any);\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1454,7 +1490,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1462,7 +1499,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1524,7 +1562,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "ns::fact_123(\"hello é\t😁\");\n"
+          "code": "ns::fact_123(\"hello é\t😁\");\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1571,7 +1610,8 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "read(0);\nwrite(1);\nresource(2);\noperation(3);\nright(4);\ntime(5);\nrole(6);\nowner(7);\ntenant(8);\nnamespace(9);\nuser(10);\nteam(11);\nservice(12);\nadmin(13);\nemail(14);\ngroup(15);\nmember(16);\nip_address(17);\nclient(18);\nclient_ip(19);\ndomain(20);\npath(21);\nversion(22);\ncluster(23);\nnode(24);\nhostname(25);\nnonce(26);\nquery(27);\n"
+          "code": "read(0);\nwrite(1);\nresource(2);\noperation(3);\nright(4);\ntime(5);\nrole(6);\nowner(7);\ntenant(8);\nnamespace(9);\nuser(10);\nteam(11);\nservice(12);\nadmin(13);\nemail(14);\ngroup(15);\nmember(16);\nip_address(17);\nclient(18);\nclient_ip(19);\ndomain(20);\npath(21);\nversion(22);\ncluster(23);\nnode(24);\nhostname(25);\nnonce(26);\nquery(27);\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1647,7 +1687,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "authority_fact(1);\n"
+          "code": "authority_fact(1);\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1655,7 +1696,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "block1_fact(1);\n"
+          "code": "block1_fact(1);\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -1663,7 +1705,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if authority_fact($var);\ncheck if block1_fact($var);\n"
+          "code": "check if authority_fact($var);\ncheck if block1_fact($var);\n",
+          "version": 3
         }
       ],
       "validations": {
@@ -1740,13 +1783,15 @@
             "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
           ],
           "external_key": null,
-          "code": "right(\"read\");\ncheck if group(\"admin\") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+          "code": "right(\"read\");\ncheck if group(\"admin\") trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n",
+          "version": 4
         },
         {
           "symbols": [],
           "public_keys": [],
           "external_key": "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
-          "code": "group(\"admin\");\ncheck if right(\"read\");\n"
+          "code": "group(\"admin\");\ncheck if right(\"read\");\n",
+          "version": 5
         }
       ],
       "validations": {
@@ -1814,7 +1859,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "allowed_operations({\"A\", \"B\"});\ncheck all operation($op), allowed_operations($allowed), $allowed.contains($op);\n"
+          "code": "allowed_operations({\"A\", \"B\"});\ncheck all operation($op), allowed_operations($allowed), $allowed.contains($op);\n",
+          "version": 4
         }
       ],
       "validations": {
@@ -1931,7 +1977,8 @@
             "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
           ],
           "external_key": null,
-          "code": "query(0);\ncheck if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+          "code": "query(0);\ncheck if true trusting previous, ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n",
+          "version": 4
         },
         {
           "symbols": [],
@@ -1940,7 +1987,8 @@
             "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
           ],
           "external_key": "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189",
-          "code": "query(1);\nquery(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+          "code": "query(1);\nquery(1, 2) <- query(1), query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n",
+          "version": 5
         },
         {
           "symbols": [],
@@ -1949,7 +1997,8 @@
             "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
           ],
           "external_key": "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
-          "code": "query(2);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+          "code": "query(2);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n",
+          "version": 5
         },
         {
           "symbols": [],
@@ -1958,7 +2007,8 @@
             "ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189"
           ],
           "external_key": "ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463",
-          "code": "query(3);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n"
+          "code": "query(3);\ncheck if query(2), query(3) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(1) trusting ed25519/acdd6d5b53bfee478bf689f8e012fe7988bf755e3d7c5152947abc149bc20189;\n",
+          "version": 5
         },
         {
           "symbols": [],
@@ -1967,7 +2017,8 @@
             "ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136"
           ],
           "external_key": null,
-          "code": "query(4);\ncheck if query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(4) trusting ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136;\n"
+          "code": "query(4);\ncheck if query(2) trusting ed25519/a060270db7e9c9f06e8f9cc33a64e99f6596af12cb01c4b638df8afc7b642463;\ncheck if query(4) trusting ed25519/f98da8c1cf907856431bfc3dc87531e0eaadba90f919edc232405b85877ef136;\n",
+          "version": 4
         }
       ],
       "validations": {
@@ -2103,7 +2154,8 @@
           "symbols": [],
           "public_keys": [],
           "external_key": null,
-          "code": "check if 10000000000 * 10000000000 !== 0;\ncheck if 9223372036854775807 + 1 !== 0;\ncheck if -9223372036854775808 - 1 !== 0;\n"
+          "code": "check if 10000000000 * 10000000000 !== 0;\ncheck if 9223372036854775807 + 1 !== 0;\ncheck if -9223372036854775808 - 1 !== 0;\n",
+          "version": 4
         }
       ],
       "validations": {
@@ -2148,7 +2200,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if 1 !== 3;\ncheck if 1 | 2 ^ 3 === 0;\ncheck if \"abcD12x\" !== \"abcD12\";\ncheck if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;\ncheck if hex:12abcd !== hex:12ab;\ncheck if {1, 4} !== {1, 2};\n"
+          "code": "check if 1 !== 3;\ncheck if 1 | 2 ^ 3 === 0;\ncheck if \"abcD12x\" !== \"abcD12\";\ncheck if 2022-12-04T09:46:41Z !== 2020-12-04T09:46:41Z;\ncheck if hex:12abcd !== hex:12ab;\ncheck if {1, 4} !== {1, 2};\n",
+          "version": 4
         }
       ],
       "validations": {
@@ -2193,7 +2246,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "reject if test($test), $test;\n"
+          "code": "reject if test($test), $test;\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2293,7 +2347,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if fact(null, $value), $value == null;\nreject if fact(null, $value), $value != null;\n"
+          "code": "check if fact(null, $value), $value == null;\nreject if fact(null, $value), $value != null;\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2521,7 +2576,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if true == true;\ncheck if false == false;\ncheck if false != true;\ncheck if 1 != true;\ncheck if 1 == 1;\ncheck if 1 != 3;\ncheck if 1 != true;\ncheck if \"abcD12\" == \"abcD12\";\ncheck if \"abcD12x\" != \"abcD12\";\ncheck if \"abcD12x\" != true;\ncheck if 2022-12-04T09:46:41Z == 2022-12-04T09:46:41Z;\ncheck if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;\ncheck if 2022-12-04T09:46:41Z != true;\ncheck if hex:12abcd == hex:12abcd;\ncheck if hex:12abcd != hex:12ab;\ncheck if hex:12abcd != true;\ncheck if {1, 2} == {1, 2};\ncheck if {1, 4} != {1, 2};\ncheck if {1, 4} != true;\ncheck if fact(1, $value), 1 == $value;\ncheck if fact2(1, $value), 1 != $value;\n"
+          "code": "check if true == true;\ncheck if false == false;\ncheck if false != true;\ncheck if 1 != true;\ncheck if 1 == 1;\ncheck if 1 != 3;\ncheck if 1 != true;\ncheck if \"abcD12\" == \"abcD12\";\ncheck if \"abcD12x\" != \"abcD12\";\ncheck if \"abcD12x\" != true;\ncheck if 2022-12-04T09:46:41Z == 2022-12-04T09:46:41Z;\ncheck if 2022-12-04T09:46:41Z != 2020-12-04T09:46:41Z;\ncheck if 2022-12-04T09:46:41Z != true;\ncheck if hex:12abcd == hex:12abcd;\ncheck if hex:12abcd != hex:12ab;\ncheck if hex:12abcd != true;\ncheck if {1, 2} == {1, 2};\ncheck if {1, 4} != {1, 2};\ncheck if {1, 4} != true;\ncheck if fact(1, $value), 1 == $value;\ncheck if fact2(1, $value), 1 != $value;\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2683,7 +2739,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if !(false && \"x\".intersection(\"x\"));\ncheck if true || \"x\".intersection(\"x\");\ncheck if {1, 2, 3}.all($p -> $p > 0);\ncheck if !{1, 2, 3}.all($p -> $p == 2);\ncheck if {1, 2, 3}.any($p -> $p > 2);\ncheck if !{1, 2, 3}.any($p -> $p > 3);\ncheck if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q));\n"
+          "code": "check if !false && true;\ncheck if false || true;\ncheck if (true || false) && true;\ncheck if !(false && \"x\".intersection(\"x\"));\ncheck if true || \"x\".intersection(\"x\");\ncheck if {1, 2, 3}.all($p -> $p > 0);\ncheck if !{1, 2, 3}.all($p -> $p == 2);\ncheck if {1, 2, 3}.any($p -> $p > 2);\ncheck if !{1, 2, 3}.any($p -> $p > 3);\ncheck if {1, 2, 3}.any($p -> $p > 1 && {3, 4, 5}.any($q -> $p == $q));\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2778,7 +2835,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "integer(1);\nstring(\"test\");\ndate(2023-12-28T00:00:00Z);\nbytes(hex:aa);\nbool(true);\nset({false, true});\nnull(null);\narray([1, 2, 3]);\nmap({\"a\": true});\ncheck if 1.type() == \"integer\";\ncheck if integer($t), $t.type() == \"integer\";\ncheck if \"test\".type() == \"string\";\ncheck if string($t), $t.type() == \"string\";\ncheck if (2023-12-28T00:00:00Z).type() == \"date\";\ncheck if date($t), $t.type() == \"date\";\ncheck if hex:aa.type() == \"bytes\";\ncheck if bytes($t), $t.type() == \"bytes\";\ncheck if true.type() == \"bool\";\ncheck if bool($t), $t.type() == \"bool\";\ncheck if {false, true}.type() == \"set\";\ncheck if set($t), $t.type() == \"set\";\ncheck if null.type() == \"null\";\ncheck if null($t), $t.type() == \"null\";\ncheck if array($t), $t.type() == \"array\";\ncheck if map($t), $t.type() == \"map\";\n"
+          "code": "integer(1);\nstring(\"test\");\ndate(2023-12-28T00:00:00Z);\nbytes(hex:aa);\nbool(true);\nset({false, true});\nnull(null);\narray([1, 2, 3]);\nmap({\"a\": true});\ncheck if 1.type() == \"integer\";\ncheck if integer($t), $t.type() == \"integer\";\ncheck if \"test\".type() == \"string\";\ncheck if string($t), $t.type() == \"string\";\ncheck if (2023-12-28T00:00:00Z).type() == \"date\";\ncheck if date($t), $t.type() == \"date\";\ncheck if hex:aa.type() == \"bytes\";\ncheck if bytes($t), $t.type() == \"bytes\";\ncheck if true.type() == \"bool\";\ncheck if bool($t), $t.type() == \"bool\";\ncheck if {false, true}.type() == \"set\";\ncheck if set($t), $t.type() == \"set\";\ncheck if null.type() == \"null\";\ncheck if null($t), $t.type() == \"null\";\ncheck if array($t), $t.type() == \"array\";\ncheck if map($t), $t.type() == \"map\";\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2858,7 +2916,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != true;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\"] === [\"a\", \"b\"];\ncheck if [\"a\", \"b\"] !== [\"a\", \"c\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != true;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {1: \"a\", 2: \"b\"} !== {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} === {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\";\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null;\ncheck if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3);\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\");\ncheck if {\"user\": {\"id\": 1, \"roles\": [\"admin\"]}}.get(\"user\").get(\"roles\").contains(\"admin\");\n"
+          "code": "check if [1, 2, 1].length() == 3;\ncheck if [\"a\", \"b\"] != true;\ncheck if [\"a\", \"b\"] != [1, 2, 3];\ncheck if [\"a\", \"b\"] == [\"a\", \"b\"];\ncheck if [\"a\", \"b\"] === [\"a\", \"b\"];\ncheck if [\"a\", \"b\"] !== [\"a\", \"c\"];\ncheck if [\"a\", \"b\", \"c\"].contains(\"c\");\ncheck if [1, 2, 3].starts_with([1, 2]);\ncheck if [4, 5, 6].ends_with([6]);\ncheck if [1, 2, \"a\"].get(2) == \"a\";\ncheck if [1, 2].get(3) == null;\ncheck if [1, 2, 3].all($p -> $p > 0);\ncheck if [1, 2, 3].any($p -> $p > 2);\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.length() == 4;\ncheck if {1: \"a\", 2: \"b\"} != true;\ncheck if {1: \"a\", 2: \"b\"} != {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} == {1: \"a\", 2: \"b\"};\ncheck if {1: \"a\", 2: \"b\"} !== {\"a\": 1, \"b\": 2};\ncheck if {1: \"a\", 2: \"b\"} === {1: \"a\", 2: \"b\"};\ncheck if {\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}.contains(\"d\");\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"a\") == 1;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(1) == \"A\";\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(\"c\") == null;\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.get(2) == null;\ncheck if {\"a\": 1, \"b\": 2}.all($kv -> $kv.get(0) != \"c\" && $kv.get(1) < 3);\ncheck if {1: \"A\", \"a\": 1, \"b\": 2}.any($kv -> $kv.get(0) == 1 && $kv.get(1) == \"A\");\ncheck if {\"user\": {\"id\": 1, \"roles\": [\"admin\"]}}.get(\"user\").get(\"roles\").contains(\"admin\");\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2926,7 +2985,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if true.extern::test(), \"a\".extern::test(\"a\") == \"equal strings\";\n"
+          "code": "check if true.extern::test(), \"a\".extern::test(\"a\") == \"equal strings\";\n",
+          "version": 6
         }
       ],
       "validations": {
@@ -2967,7 +3027,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n"
+          "code": "right(\"file1\", \"read\");\nright(\"file2\", \"read\");\nright(\"file1\", \"write\");\n",
+          "version": 3
         },
         {
           "symbols": [
@@ -2975,7 +3036,8 @@
           ],
           "public_keys": [],
           "external_key": null,
-          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n"
+          "code": "check if resource($0), operation(\"read\"), right($0, \"read\");\n",
+          "version": 3
         }
       ],
       "validations": {

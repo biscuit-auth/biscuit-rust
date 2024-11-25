@@ -4,7 +4,7 @@ use prost::Message;
 
 use crate::{
     builder::BlockBuilder,
-    crypto::{generate_external_signature_payload_v1, PublicKey},
+    crypto::generate_external_signature_payload_v1,
     datalog::SymbolTable,
     error,
     format::{convert::token_block_to_proto_block, schema, SerializedBiscuit},
@@ -14,9 +14,8 @@ use crate::{
 use super::THIRD_PARTY_SIGNATURE_VERSION;
 
 /// Third party block request
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub struct ThirdPartyRequest {
-    pub(crate) legacy_previous_key: PublicKey,
     pub(crate) previous_signature: Vec<u8>,
 }
 
@@ -28,12 +27,6 @@ impl ThirdPartyRequest {
             return Err(error::Token::AppendOnSealed);
         }
 
-        let legacy_previous_key = container
-            .blocks
-            .last()
-            .unwrap_or(&container.authority)
-            .next_key;
-
         let previous_signature = container
             .blocks
             .last()
@@ -41,18 +34,14 @@ impl ThirdPartyRequest {
             .signature
             .to_bytes()
             .to_vec();
-        Ok(ThirdPartyRequest {
-            legacy_previous_key,
-            previous_signature,
-        })
+        Ok(ThirdPartyRequest { previous_signature })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, error::Token> {
-        let legacy_previous_key = self.legacy_previous_key.to_proto();
         let previous_signature = self.previous_signature.clone();
 
         let request = schema::ThirdPartyBlockRequest {
-            legacy_previous_key,
+            legacy_previous_key: None,
             legacy_public_keys: Vec::new(),
             previous_signature,
         };
@@ -75,20 +64,21 @@ impl ThirdPartyRequest {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        let legacy_previous_key = PublicKey::from_proto(&data.legacy_previous_key)?;
-
         if !data.legacy_public_keys.is_empty() {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 "public keys were provided in third-party block request".to_owned(),
             )));
         }
 
+        if data.legacy_previous_key.is_some() {
+            return Err(error::Token::Format(error::Format::DeserializationError(
+                "previous public key was provided in third-party block request".to_owned(),
+            )));
+        }
+
         let previous_signature = data.previous_signature.to_vec();
 
-        Ok(ThirdPartyRequest {
-            legacy_previous_key,
-            previous_signature,
-        })
+        Ok(ThirdPartyRequest { previous_signature })
     }
 
     pub fn deserialize_base64<T>(slice: T) -> Result<Self, error::Token>
@@ -158,5 +148,30 @@ impl ThirdPartyBlock {
 
     pub fn serialize_base64(&self) -> Result<String, error::Token> {
         Ok(base64::encode_config(self.serialize()?, base64::URL_SAFE))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn third_party_request_roundtrip() {
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(crate::builder::Algorithm::Ed25519, &mut rng);
+        let mut builder = crate::Biscuit::builder();
+
+        builder.add_fact("right(\"file1\", \"read\")").unwrap();
+        builder.add_fact("right(\"file2\", \"read\")").unwrap();
+        builder.add_fact("right(\"file1\", \"write\")").unwrap();
+
+        let biscuit1 = builder
+            .build_with_rng(&root, crate::token::default_symbol_table(), &mut rng)
+            .unwrap();
+        let req = biscuit1.third_party_request().unwrap();
+        let serialized_req = req.serialize().unwrap();
+        let parsed_req = ThirdPartyRequest::deserialize(&serialized_req).unwrap();
+
+        assert_eq!(req, parsed_req);
     }
 }
