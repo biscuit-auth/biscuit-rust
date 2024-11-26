@@ -1378,6 +1378,8 @@ impl AuthorizerExt for Authorizer {
 mod tests {
     use std::time::Duration;
 
+    use token::{public_keys::PublicKeys, DATALOG_3_1};
+
     use crate::{
         builder::{Algorithm, BiscuitBuilder, BlockBuilder},
         KeyPair,
@@ -1814,5 +1816,57 @@ allow if true;
     fn empty_authorizer_display() {
         let authorizer = Authorizer::new();
         assert_eq!("", authorizer.to_string())
+    }
+
+    #[test]
+    fn rule_validate_variables() {
+        let mut authorizer = Authorizer::new();
+        let mut syms = SymbolTable::new();
+        let rule_name = syms.insert("test");
+        let pred_name = syms.insert("pred");
+        let rule = datalog::rule(
+            rule_name,
+            &[datalog::var(&mut syms, "unbound")],
+            &[datalog::pred(pred_name, &[datalog::var(&mut syms, "any")])],
+        );
+        let mut block = Block {
+            symbols: syms.clone(),
+            facts: vec![],
+            rules: vec![rule],
+            checks: vec![],
+            context: None,
+            version: DATALOG_3_1,
+            external_key: None,
+            public_keys: PublicKeys::new(),
+            scopes: vec![],
+        };
+
+        assert_eq!(
+            authorizer
+                .load_and_translate_block(&mut block, 0, &syms)
+                .unwrap_err(),
+            error::Token::FailedLogic(error::Logic::InvalidBlockRule(
+                0,
+                "test($unbound) <- pred($any)".to_string()
+            ))
+        );
+
+        // broken rules directly added to the authorizer currently don’t trigger any error, but silently fail to generate facts when they match
+        authorizer
+            .add_rule(builder::rule(
+                "test",
+                &[var("unbound")],
+                &[builder::pred("pred", &[builder::var("any")])],
+            ))
+            .unwrap();
+        let res: Vec<(String,)> = authorizer
+            .query(builder::rule(
+                "output",
+                &[builder::string("x")],
+                &[builder::pred("test", &[builder::var("any")])],
+            ))
+            .unwrap();
+
+        assert_eq!(res, vec![]);
     }
 }
