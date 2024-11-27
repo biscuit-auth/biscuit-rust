@@ -3,8 +3,10 @@ extern crate biscuit_auth as biscuit;
 use std::time::Duration;
 
 use biscuit::{
-    builder::*, builder_ext::BuilderExt, datalog::SymbolTable, AuthorizerLimits, Biscuit, KeyPair,
-    UnverifiedBiscuit,
+    builder::*,
+    builder_ext::{AuthorizerExt, BuilderExt},
+    datalog::SymbolTable,
+    AuthorizerLimits, Biscuit, KeyPair, UnverifiedBiscuit,
 };
 use codspeed_bencher_compat::{benchmark_group, benchmark_main, Bencher};
 use rand::rngs::OsRng;
@@ -244,7 +246,7 @@ fn verify_block_2(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -257,7 +259,7 @@ fn verify_block_2(b: &mut Bencher) {
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
-        verifier.allow();
+        verifier.add_allow_all();
         verifier
             .authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -322,7 +324,7 @@ fn verify_block_5(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -336,7 +338,7 @@ fn verify_block_5(b: &mut Bencher) {
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
-        verifier.allow();
+        verifier.add_allow_all();
         verifier
             .authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -374,7 +376,7 @@ fn check_signature_2(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -442,7 +444,7 @@ fn check_signature_5(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -484,7 +486,7 @@ fn checks_block_2(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -498,7 +500,7 @@ fn checks_block_2(b: &mut Bencher) {
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
-        verifier.allow();
+        verifier.add_allow_all();
         verifier
             .authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -536,7 +538,7 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -579,7 +581,7 @@ fn checks_block_verify_only2(b: &mut Bencher) {
     let mut verifier = token.authorizer().unwrap();
     verifier.add_fact("resource(\"file1\")");
     verifier.add_fact("operation(\"read\")");
-    verifier.allow();
+    verifier.add_allow_all();
     verifier
         .authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -592,7 +594,7 @@ fn checks_block_verify_only2(b: &mut Bencher) {
         let mut verifier = token.authorizer().unwrap();
         verifier.add_fact("resource(\"file1\")");
         verifier.add_fact("operation(\"read\")");
-        verifier.allow();
+        verifier.add_allow_all();
         verifier
             .authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),

@@ -1,7 +1,7 @@
 //! Authorizer structure and associated functions
 use super::builder::{
-    constrained_rule, date, fact, pred, rule, string, var, Binary, BlockBuilder, Check, Expression,
-    Fact, Op, Policy, PolicyKind, Rule, Scope, Term,
+    constrained_rule, date, fact, pred, rule, string, var, AuthorizerBuilder, Binary, BlockBuilder,
+    Check, Expression, Fact, Op, Policy, PolicyKind, Rule, Scope, Term,
 };
 use super::builder_ext::{AuthorizerExt, BuilderExt};
 use super::{Biscuit, Block};
@@ -43,10 +43,10 @@ pub struct Authorizer {
 
 impl Authorizer {
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
-        let mut v = Authorizer::new();
-        v.add_token(token)?;
+        let mut b = AuthorizerBuilder::new();
+        b.add_token(token);
 
-        Ok(v)
+        b.build()
     }
 
     /// creates a new empty authorizer
@@ -58,7 +58,7 @@ impl Authorizer {
     /// In the latter case, we can create an empty authorizer, load it
     /// with the facts, rules and checks, and each time a token must be checked,
     /// clone the authorizer and load the token with [`Authorizer::add_token`]
-    pub fn new() -> Self {
+    fn new() -> Self {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
         let authorizer_block_builder = BlockBuilder::new();
@@ -213,21 +213,21 @@ impl Authorizer {
         self.authorizer_block_builder.merge(other)
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
         self.authorizer_block_builder.add_fact(fact)
     }
 
-    pub fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
+    fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
         self.authorizer_block_builder.add_rule(rule)
     }
 
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
@@ -252,11 +252,11 @@ impl Authorizer {
     ///   allow if true;
     /// "#).expect("should parse correctly");
     /// ```
-    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+    fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
         self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
-    pub fn add_code_with_params<T: AsRef<str>>(
+    fn add_code_with_params<T: AsRef<str>>(
         &mut self,
         source: T,
         params: HashMap<String, Term>,
@@ -379,7 +379,7 @@ impl Authorizer {
         Ok(())
     }
 
-    pub fn add_scope(&mut self, scope: Scope) {
+    fn add_scope(&mut self, scope: Scope) {
         self.authorizer_block_builder.add_scope(scope);
     }
 
@@ -393,7 +393,7 @@ impl Authorizer {
     /// Sets the runtime limits of the authorizer
     ///
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
-    pub fn set_limits(&mut self, limits: AuthorizerLimits) {
+    fn set_limits(&mut self, limits: AuthorizerLimits) {
         self.limits = limits;
     }
 
@@ -403,17 +403,17 @@ impl Authorizer {
     }
 
     /// Replaces the registered external functions
-    pub fn set_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+    fn set_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
         self.world.extern_funcs = extern_funcs;
     }
 
     /// Registers the provided external functions (possibly replacing already registered functions)
-    pub fn register_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+    fn register_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
         self.world.extern_funcs.extend(extern_funcs);
     }
 
     /// Registers the provided external function (possibly replacing an already registered function)
-    pub fn register_extern_func(&mut self, name: String, func: ExternFunc) {
+    fn register_extern_func(&mut self, name: String, func: ExternFunc) {
         self.world.extern_funcs.insert(name, func);
     }
 
@@ -1578,14 +1578,14 @@ mod tests {
         let serialized = biscuit2.to_vec().unwrap();
         let biscuit2 = Biscuit::from(serialized, root.public()).unwrap();
 
-        let mut authorizer = Authorizer::new();
+        let mut builder = AuthorizerBuilder::new();
         let external2 = KeyPair::new(Algorithm::Ed25519);
 
         let mut scope_params = HashMap::new();
         scope_params.insert("external".to_string(), external.public());
         scope_params.insert("external2".to_string(), external2.public());
 
-        authorizer
+        builder
             .add_code_with_params(
                 r#"
             // this rule trusts both the third-party block and the authority, and can access facts
@@ -1607,7 +1607,8 @@ mod tests {
             )
             .unwrap();
 
-        authorizer.add_token(&biscuit2).unwrap();
+        builder.add_token(&biscuit2);
+        let mut authorizer = builder.build().unwrap();
 
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());

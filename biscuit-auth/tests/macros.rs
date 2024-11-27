@@ -249,7 +249,7 @@ fn json() {
     );
     let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
 
-    let mut authorizer = authorizer!(
+    let mut builder = authorizer!(
         r#"
         user_roles({json_value});
         allow if
@@ -259,7 +259,8 @@ fn json() {
           $value.get("roles").contains("admin");"#
     );
 
-    authorizer.add_token(&biscuit).unwrap();
+    builder.add_token(&biscuit);
+    let mut authorizer = builder.build().unwrap();
     assert_eq!(
         authorizer
             .authorize_with_limits(RunLimits {

@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     convert::TryInto,
+    fmt::Write,
     time::{Instant, SystemTime},
 };
 
@@ -13,7 +14,7 @@ use crate::{
     Authorizer, AuthorizerLimits, Biscuit, PublicKey,
 };
 
-use super::{BlockBuilder, Check, Fact, Policy, Rule, Scope, Term};
+use super::{date, fact, BlockBuilder, Check, Fact, Policy, Rule, Scope, Term};
 
 #[derive(Clone, Debug, Default)]
 pub struct AuthorizerBuilder<'a> {
@@ -81,6 +82,12 @@ impl<'a> AuthorizerBuilder<'a> {
         Ok(())
     }
 
+    /// adds a fact with the current time
+    pub fn set_time(&mut self) {
+        let fact = fact("time", &[date(&SystemTime::now())]);
+        self.authorizer_block_builder.add_fact(fact).unwrap();
+    }
+
     /// Sets the runtime limits of the authorizer
     ///
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
@@ -105,6 +112,35 @@ impl<'a> AuthorizerBuilder<'a> {
 
     pub fn add_token(&mut self, token: &'a Biscuit) {
         self.token = Some(token);
+    }
+
+    pub fn dump_code(&self) -> String {
+        let mut f = String::new();
+        for fact in &self.authorizer_block_builder.facts {
+            let _ = writeln!(f, "{fact};");
+        }
+        if !self.authorizer_block_builder.facts.is_empty() {
+            let _ = writeln!(f);
+        }
+
+        for rule in &self.authorizer_block_builder.rules {
+            let _ = writeln!(f, "{rule};");
+        }
+        if !self.authorizer_block_builder.rules.is_empty() {
+            let _ = writeln!(f);
+        }
+
+        for check in &self.authorizer_block_builder.checks {
+            let _ = writeln!(f, "{check};");
+        }
+        if !self.authorizer_block_builder.checks.is_empty() {
+            let _ = writeln!(f);
+        }
+
+        for policy in &self.policies {
+            let _ = writeln!(f, "{policy};");
+        }
+        f
     }
 
     pub fn build(self) -> Result<Authorizer, error::Token> {

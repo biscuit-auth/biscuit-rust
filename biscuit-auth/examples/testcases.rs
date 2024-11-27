@@ -7,7 +7,6 @@ use biscuit::datalog::SymbolTable;
 use biscuit::error;
 use biscuit::format::convert::v2 as convert;
 use biscuit::macros::*;
-use biscuit::Authorizer;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit::{KeyPair, PrivateKey, PublicKey};
 use biscuit_auth::builder;
@@ -344,12 +343,13 @@ fn validate_token_with_limits_and_external_functions(
         revocation_ids.push(hex::encode(&bytes));
     }
 
-    let mut authorizer = Authorizer::new();
-    authorizer.set_extern_funcs(extern_funcs);
-    authorizer.add_code(authorizer_code).unwrap();
-    let authorizer_code = authorizer.dump_code();
+    let mut builder = AuthorizerBuilder::new();
+    builder.set_extern_funcs(extern_funcs);
+    builder.add_code(authorizer_code).unwrap();
+    let authorizer_code = builder.dump_code();
+    builder.add_token(&token);
 
-    match authorizer.add_token(&token) {
+    let mut authorizer = match builder.build() {
         Ok(v) => v,
         Err(e) => {
             return Validation {
