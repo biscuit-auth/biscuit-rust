@@ -884,10 +884,9 @@ mod tests {
             for fact in facts.drain(..) {
                 builder.add_fact(fact).unwrap();
             }
+            builder.add_allow_all();
 
             let mut authorizer = builder.build().unwrap();
-
-            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
