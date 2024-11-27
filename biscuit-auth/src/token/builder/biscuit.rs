@@ -25,65 +25,77 @@ impl BiscuitBuilder {
         }
     }
 
-    pub fn merge(&mut self, other: BlockBuilder) {
-        self.inner.merge(other)
+    pub fn merge(mut self, other: BlockBuilder) -> Self {
+        self.inner = self.inner.merge(other);
+        self
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    pub fn add_fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.inner.add_fact(fact)
+        self.inner = self.inner.add_fact(fact)?;
+        Ok(self)
     }
 
-    pub fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
+    pub fn add_rule<Ru: TryInto<Rule>>(mut self, rule: Ru) -> Result<Self, error::Token>
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
-        self.inner.add_rule(rule)
+        self.inner = self.inner.add_rule(rule)?;
+        Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    pub fn add_check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.inner.add_check(check)
+        self.inner = self.inner.add_check(check)?;
+        Ok(self)
     }
 
-    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.inner
-            .add_code_with_params(source, HashMap::new(), HashMap::new())
+    pub fn add_code<T: AsRef<str>>(mut self, source: T) -> Result<Self, error::Token> {
+        self.inner = self
+            .inner
+            .add_code_with_params(source, HashMap::new(), HashMap::new())?;
+        Ok(self)
     }
 
     pub fn add_code_with_params<T: AsRef<str>>(
-        &mut self,
+        mut self,
         source: T,
         params: HashMap<String, Term>,
         scope_params: HashMap<String, PublicKey>,
-    ) -> Result<(), error::Token> {
-        self.inner
-            .add_code_with_params(source, params, scope_params)
+    ) -> Result<Self, error::Token> {
+        self.inner = self
+            .inner
+            .add_code_with_params(source, params, scope_params)?;
+        Ok(self)
     }
 
-    pub fn add_scope(&mut self, scope: Scope) {
-        self.inner.add_scope(scope);
+    pub fn add_scope(mut self, scope: Scope) -> Self {
+        self.inner = self.inner.add_scope(scope);
+        self
     }
 
     #[cfg(test)]
-    pub(crate) fn add_right(&mut self, resource: &str, right: &str) {
+    pub(crate) fn add_right(self, resource: &str, right: &str) -> Self {
         use crate::builder::fact;
 
         use super::string;
 
-        let _ = self.add_fact(fact("right", &[string(resource), string(right)]));
+        self.add_fact(fact("right", &[string(resource), string(right)]))
+            .unwrap()
     }
 
-    pub fn set_context(&mut self, context: String) {
-        self.inner.set_context(context);
+    pub fn set_context(mut self, context: String) -> Self {
+        self.inner = self.inner.set_context(context);
+        self
     }
 
-    pub fn set_root_key_id(&mut self, root_key_id: u32) {
+    pub fn set_root_key_id(mut self, root_key_id: u32) -> Self {
         self.root_key_id = Some(root_key_id);
+        self
     }
 
     /// returns all of the datalog loaded in the biscuit builder
@@ -154,25 +166,32 @@ impl fmt::Display for BiscuitBuilder {
 }
 
 impl BuilderExt for BiscuitBuilder {
-    fn add_resource(&mut self, name: &str) {
-        self.inner.add_resource(name);
+    fn add_resource(mut self, name: &str) -> Self {
+        self.inner = self.inner.add_resource(name);
+        self
     }
-    fn check_resource(&mut self, name: &str) {
-        self.inner.check_resource(name);
+    fn check_resource(mut self, name: &str) -> Self {
+        self.inner = self.inner.check_resource(name);
+        self
     }
-    fn check_resource_prefix(&mut self, prefix: &str) {
-        self.inner.check_resource_prefix(prefix);
+    fn check_resource_prefix(mut self, prefix: &str) -> Self {
+        self.inner = self.inner.check_resource_prefix(prefix);
+        self
     }
-    fn check_resource_suffix(&mut self, suffix: &str) {
-        self.inner.check_resource_suffix(suffix);
+    fn check_resource_suffix(mut self, suffix: &str) -> Self {
+        self.inner = self.inner.check_resource_suffix(suffix);
+        self
     }
-    fn add_operation(&mut self, name: &str) {
-        self.inner.add_operation(name);
+    fn add_operation(mut self, name: &str) -> Self {
+        self.inner = self.inner.add_operation(name);
+        self
     }
-    fn check_operation(&mut self, name: &str) {
-        self.inner.check_operation(name);
+    fn check_operation(mut self, name: &str) -> Self {
+        self.inner = self.inner.check_operation(name);
+        self
     }
-    fn check_expiration_date(&mut self, date: SystemTime) {
-        self.inner.check_expiration_date(date);
+    fn check_expiration_date(mut self, date: SystemTime) -> Self {
+        self.inner = self.inner.check_expiration_date(date);
+        self
     }
 }

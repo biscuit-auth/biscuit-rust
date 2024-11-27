@@ -882,24 +882,21 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("/folder1/file1", "read");
-        builder.add_right("/folder1/file1", "write");
-        builder.add_right("/folder1/file2", "read");
-        builder.add_right("/folder1/file2", "write");
-        builder.add_right("/folder2/file3", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_right("/folder1/file1", "read")
+            .add_right("/folder1/file1", "write")
+            .add_right("/folder1/file2", "read")
+            .add_right("/folder1/file2", "write")
+            .add_right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-
-        block2.check_resource_prefix("/folder1/");
-        block2.check_right("read");
+        let block2 = BlockBuilder::new()
+            .check_resource_prefix("/folder1/")
+            .check_right("read")
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();

@@ -209,22 +209,25 @@ impl Authorizer {
     }
 
     /// Add the rules, facts, and checks of another `BlockBuilder`.
-    pub fn merge_block(&mut self, other: BlockBuilder) {
-        self.authorizer_block_builder.merge(other)
+    pub fn merge_block(&mut self, other: BlockBuilder) -> Result<(), error::Token> {
+        self.authorizer_block_builder = self.authorizer_block_builder.merge(other);
+        Ok(())
     }
 
     pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.authorizer_block_builder.add_fact(fact)
+        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact)?;
+        Ok(())
     }
 
     pub fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
-        self.authorizer_block_builder.add_rule(rule)
+        self.authorizer_block_builder = self.authorizer_block_builder.add_rule(rule)?;
+        Ok(())
     }
 
     pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
@@ -608,7 +611,7 @@ impl Authorizer {
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
         let fact = fact("time", &[date(&SystemTime::now())]);
-        self.authorizer_block_builder.add_fact(fact).unwrap();
+        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact).unwrap();
     }
 
     /// add a policy to the authorizer
@@ -1213,15 +1216,18 @@ impl TryFrom<AuthorizerPolicies> for Authorizer {
         let mut authorizer = Self::new();
 
         for fact in facts.into_iter() {
-            authorizer.authorizer_block_builder.add_fact(fact)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_fact(fact)?;
         }
 
         for rule in rules.into_iter() {
-            authorizer.authorizer_block_builder.add_rule(rule)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_rule(rule)?;
         }
 
         for check in checks.into_iter() {
-            authorizer.authorizer_block_builder.add_check(check)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_check(check)?;
         }
 
         for policy in policies {
@@ -1271,11 +1277,12 @@ impl AuthorizerPolicies {
 pub type AuthorizerLimits = RunLimits;
 
 impl BuilderExt for Authorizer {
-    fn add_resource(&mut self, name: &str) {
+    fn add_resource(mut self, name: &str) -> Self {
         let f = fact("resource", &[string(name)]);
         self.add_fact(f).unwrap();
+        self
     }
-    fn check_resource(&mut self, name: &str) {
+    fn check_resource(mut self, name: &str) -> Self {
         self.add_check(Check {
             queries: vec![rule(
                 "resource_check",
@@ -1285,12 +1292,14 @@ impl BuilderExt for Authorizer {
             kind: CheckKind::One,
         })
         .unwrap();
+        self
     }
-    fn add_operation(&mut self, name: &str) {
+    fn add_operation(mut self, name: &str) -> Self {
         let f = fact("operation", &[string(name)]);
         self.add_fact(f).unwrap();
+        self
     }
-    fn check_operation(&mut self, name: &str) {
+    fn check_operation(mut self, name: &str) -> Self {
         self.add_check(Check {
             queries: vec![rule(
                 "operation_check",
@@ -1300,8 +1309,9 @@ impl BuilderExt for Authorizer {
             kind: CheckKind::One,
         })
         .unwrap();
+        self
     }
-    fn check_resource_prefix(&mut self, prefix: &str) {
+    fn check_resource_prefix(mut self, prefix: &str) -> Self {
         let check = constrained_rule(
             "prefix",
             &[var("resource")],
@@ -1320,9 +1330,10 @@ impl BuilderExt for Authorizer {
             kind: CheckKind::One,
         })
         .unwrap();
+        self
     }
 
-    fn check_resource_suffix(&mut self, suffix: &str) {
+    fn check_resource_suffix(mut self, suffix: &str) -> Self {
         let check = constrained_rule(
             "suffix",
             &[var("resource")],
@@ -1341,9 +1352,10 @@ impl BuilderExt for Authorizer {
             kind: CheckKind::One,
         })
         .unwrap();
+        self
     }
 
-    fn check_expiration_date(&mut self, exp: SystemTime) {
+    fn check_expiration_date(mut self, exp: SystemTime) -> Self {
         let check = constrained_rule(
             "expiration",
             &[var("time")],
@@ -1362,6 +1374,7 @@ impl BuilderExt for Authorizer {
             kind: CheckKind::One,
         })
         .unwrap();
+        self
     }
 }
 
@@ -1522,10 +1535,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\", 42)").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .add_fact("user(\"John Doe\", 42)")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -1542,10 +1556,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\")").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .add_fact("user(\"John Doe\")")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
@@ -1559,25 +1574,24 @@ mod tests {
         let root = KeyPair::new(Algorithm::Ed25519);
         let external = KeyPair::new(Algorithm::Ed25519);
 
-        let mut builder = Biscuit::builder();
         let mut scope_params = HashMap::new();
         scope_params.insert("external_pub".to_string(), external.public());
-        builder
+
+        let biscuit1 = Biscuit::builder()
             .add_code_with_params(
                 r#"right("read");
-               check if group("admin") trusting {external_pub};
-            "#,
+           check if group("admin") trusting {external_pub};
+        "#,
                 HashMap::new(),
                 scope_params,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-
-        let biscuit1 = builder.build(&root).unwrap();
 
         let req = biscuit1.third_party_request().unwrap();
 
-        let mut builder = BlockBuilder::new();
-        builder
+        let builder = BlockBuilder::new()
             .add_code(
                 r#"group("admin");
              check if right("read");
@@ -1741,8 +1755,7 @@ mod tests {
     fn authorizer_display_before_and_after_authorization() {
         let root = KeyPair::new(Algorithm::Ed25519);
 
-        let mut token_builder = BiscuitBuilder::new();
-        token_builder
+        let token = BiscuitBuilder::new()
             .add_code(
                 r#"
             authority_fact(true);
@@ -1750,8 +1763,9 @@ mod tests {
             check if authority_fact(true), authority_rule(true);
         "#,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-        let token = token_builder.build(&root).unwrap();
 
         let mut authorizer = token.authorizer().unwrap();
         authorizer

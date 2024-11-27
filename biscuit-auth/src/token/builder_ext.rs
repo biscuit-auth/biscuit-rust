@@ -1,13 +1,13 @@
 use std::time::SystemTime;
 
 pub trait BuilderExt {
-    fn add_resource(&mut self, name: &str);
-    fn check_resource(&mut self, name: &str);
-    fn check_resource_prefix(&mut self, prefix: &str);
-    fn check_resource_suffix(&mut self, suffix: &str);
-    fn add_operation(&mut self, name: &str);
-    fn check_operation(&mut self, name: &str);
-    fn check_expiration_date(&mut self, date: SystemTime);
+    fn add_resource(self, name: &str) -> Self;
+    fn check_resource(self, name: &str) -> Self;
+    fn check_resource_prefix(self, prefix: &str) -> Self;
+    fn check_resource_suffix(self, suffix: &str) -> Self;
+    fn add_operation(self, name: &str) -> Self;
+    fn check_operation(self, name: &str) -> Self;
+    fn check_expiration_date(self, date: SystemTime) -> Self;
 }
 
 pub trait AuthorizerExt {
