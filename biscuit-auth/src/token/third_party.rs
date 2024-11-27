@@ -159,13 +159,13 @@ mod tests {
     fn third_party_request_roundtrip() {
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(crate::builder::Algorithm::Ed25519, &mut rng);
-        let mut builder = crate::Biscuit::builder();
-
-        builder.add_fact("right(\"file1\", \"read\")").unwrap();
-        builder.add_fact("right(\"file2\", \"read\")").unwrap();
-        builder.add_fact("right(\"file1\", \"write\")").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = crate::Biscuit::builder()
+            .add_fact("right(\"file1\", \"read\")")
+            .unwrap()
+            .add_fact("right(\"file2\", \"read\")")
+            .unwrap()
+            .add_fact("right(\"file1\", \"write\")")
+            .unwrap()
             .build_with_rng(&root, crate::token::default_symbol_table(), &mut rng)
             .unwrap();
         let req = biscuit1.third_party_request().unwrap();
