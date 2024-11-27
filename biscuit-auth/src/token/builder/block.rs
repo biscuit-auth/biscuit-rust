@@ -4,11 +4,7 @@ use crate::datalog::{get_schema_version, SymbolTable};
 use crate::error;
 use biscuit_parser::parser::parse_block_source;
 
-use std::{
-    collections::HashMap,
-    convert::TryInto,
-    fmt::{self},
-};
+use std::{collections::HashMap, convert::TryInto, fmt};
 
 /// creates a Block content to append to an existing token
 #[derive(Clone, Debug, Default)]
