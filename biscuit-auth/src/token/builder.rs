@@ -16,6 +16,7 @@ pub use crate::datalog::{
 use crate::error;
 
 mod algorithm;
+mod authorizer;
 mod biscuit;
 mod block;
 mod check;
@@ -28,6 +29,7 @@ mod scope;
 mod term;
 
 pub use algorithm::*;
+pub use authorizer::*;
 pub use biscuit::*;
 pub use block::*;
 pub use check::*;

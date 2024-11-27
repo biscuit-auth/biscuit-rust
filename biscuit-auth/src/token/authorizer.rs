@@ -622,17 +622,6 @@ impl Authorizer {
         Ok(())
     }
 
-    /// todo remove, it's covered in BuilderExt
-    /// adds a `allow if true` policy
-    pub fn allow(&mut self) -> Result<(), error::Token> {
-        self.add_policy("allow if true")
-    }
-
-    /// adds a `deny if true` policy
-    pub fn deny(&mut self) -> Result<(), error::Token> {
-        self.add_policy("deny if true")
-    }
-
     /// returns the elapsed execution time
     pub fn execution_time(&self) -> Duration {
         self.execution_time
