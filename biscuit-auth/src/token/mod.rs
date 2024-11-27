@@ -1,5 +1,6 @@
 //! main structures to interact with Biscuit tokens
 use std::fmt::Display;
+use std::iter::once;
 
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
@@ -575,6 +576,32 @@ impl Biscuit {
 
         Ok(block)
     }
+
+    pub(crate) fn blocks(&self) -> impl Iterator<Item = Result<Block, error::Token>> + use<'_> {
+        once(
+            proto_block_to_token_block(
+                &self.authority,
+                self.container
+                    .authority
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format),
+        )
+        .chain(self.blocks.iter().zip(self.container.blocks.iter()).map(
+            |(block, container)| {
+                proto_block_to_token_block(
+                    block,
+                    container
+                        .external_signature
+                        .as_ref()
+                        .map(|ex| ex.public_key),
+                )
+                .map_err(error::Token::Format)
+            },
+        ))
+    }
 }
 
 impl Display for Biscuit {
@@ -711,6 +738,7 @@ mod tests {
     use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
     use crate::{error::*, AuthorizerLimits, UnverifiedBiscuit};
+    use builder_ext::AuthorizerExt;
     use rand::prelude::*;
     use std::time::{Duration, SystemTime};
 
@@ -840,7 +868,7 @@ mod tests {
             }
 
             //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -859,7 +887,7 @@ mod tests {
                 authorizer.add_fact(fact).unwrap();
             }
 
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -908,7 +936,7 @@ mod tests {
             let mut authorizer = biscuit2.authorizer().unwrap();
             authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -923,7 +951,7 @@ mod tests {
             let mut authorizer = biscuit2.authorizer().unwrap();
             authorizer.add_fact("resource(\"/folder2/file3\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -990,7 +1018,7 @@ mod tests {
             authorizer.add_fact("resource(\"file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1006,7 +1034,7 @@ mod tests {
             authorizer.add_fact("resource(\"file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
             authorizer.set_time();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1052,7 +1080,7 @@ mod tests {
             let mut authorizer = biscuit2.authorizer().unwrap();
             authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1074,7 +1102,7 @@ mod tests {
             let mut authorizer = biscuit3.authorizer().unwrap();
             authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
             authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -1348,7 +1376,7 @@ mod tests {
         authorizer
             .add_check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
-        authorizer.allow().unwrap();
+        authorizer.add_allow_all();
 
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -1444,7 +1472,7 @@ mod tests {
         authorizer
             .add_policy("allow if resource($file), operation($op), right($file, $op)")
             .unwrap();
-        authorizer.deny().unwrap();
+        authorizer.add_deny_all();
 
         let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
             max_time: Duration::from_secs(1),
@@ -1487,7 +1515,7 @@ mod tests {
             authorizer.add_fact("fact(1)").unwrap();
 
             //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1503,7 +1531,7 @@ mod tests {
             authorizer.add_fact("fact(1)").unwrap();
 
             //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+            authorizer.add_allow_all();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),

@@ -30,15 +30,15 @@ mod snapshot;
 /// can be created from [Biscuit::authorizer] or [Authorizer::new]
 #[derive(Clone)]
 pub struct Authorizer {
-    authorizer_block_builder: BlockBuilder,
-    world: datalog::World,
+    pub(crate) authorizer_block_builder: BlockBuilder,
+    pub(crate) world: datalog::World,
     pub(crate) symbols: datalog::SymbolTable,
-    token_origins: TrustedOrigins,
-    policies: Vec<Policy>,
-    blocks: Option<Vec<Block>>,
-    public_key_to_block_id: HashMap<usize, Vec<usize>>,
-    limits: AuthorizerLimits,
-    execution_time: Duration,
+    pub(crate) token_origins: TrustedOrigins,
+    pub(crate) policies: Vec<Policy>,
+    pub(crate) blocks: Option<Vec<Block>>,
+    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
+    pub(crate) limits: AuthorizerLimits,
+    pub(crate) execution_time: Duration,
 }
 
 impl Authorizer {
