@@ -11,22 +11,22 @@ fn main() {
     let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
     let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-    let mut builder = Biscuit::builder();
-
-    builder.add_fact(fact(
-        "right",
-        &[string("authority"), string("file1"), string("read")],
-    ));
-    builder.add_fact(fact(
-        "right",
-        &[string("authority"), string("file2"), string("read")],
-    ));
-    builder.add_fact(fact(
-        "right",
-        &[string("authority"), string("file1"), string("write")],
-    ));
-
-    let biscuit1 = builder
+    let biscuit1 = Biscuit::builder()
+        .add_fact(fact(
+            "right",
+            &[string("authority"), string("file1"), string("read")],
+        ))
+        .unwrap()
+        .add_fact(fact(
+            "right",
+            &[string("authority"), string("file2"), string("read")],
+        ))
+        .unwrap()
+        .add_fact(fact(
+            "right",
+            &[string("authority"), string("file1"), string("write")],
+        ))
+        .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
     println!("{}", biscuit1);

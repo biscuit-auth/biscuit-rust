@@ -349,7 +349,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_fact(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.add_fact(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -361,7 +361,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_rule(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.add_rule(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -374,7 +374,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_check(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder =__biscuit_auth_builder.add_check(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -387,7 +387,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_policy(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.add_policy(__biscuit_auth_item).unwrap();
             },
         }
     }

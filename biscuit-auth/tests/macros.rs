@@ -23,7 +23,7 @@ fn block_macro() {
     );
 
     let is_true = true;
-    block_merge!(&mut b, r#"appended({is_true});"#);
+    b = block_merge!(b, r#"appended({is_true});"#);
 
     assert_eq!(
         b.to_string(),
@@ -123,8 +123,8 @@ fn biscuit_macro() {
     b.set_root_key_id(2);
 
     let is_true = true;
-    biscuit_merge!(
-        &mut b,
+    b = biscuit_merge!(
+        b,
         r#"appended({is_true});
         check if true;
       "#

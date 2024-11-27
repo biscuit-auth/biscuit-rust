@@ -858,7 +858,7 @@ pub unsafe extern "C" fn block_builder_add_fact(
         return false;
     }
 
-    builder
+    builder.0 = builder
         .0
         .add_fact(s.unwrap())
         .map_err(|e| {

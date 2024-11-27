@@ -878,9 +878,9 @@ fn scoped_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
         )
         .unwrap();
 
-    let mut block3 = BlockBuilder::new();
-
-    block3.add_fact(r#"owner("alice", "file2")"#).unwrap();
+    let block3 = BlockBuilder::new()
+        .add_fact(r#"owner("alice", "file2")"#)
+        .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -973,14 +973,13 @@ fn expired_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let mut block2 = block!(r#"check if resource("file1");"#);
-
-    // January 1 2019
-    block2.check_expiration_date(
-        UNIX_EPOCH
-            .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
-            .unwrap(),
-    );
+    let block2 = block!(r#"check if resource("file1");"#)
+        // January 1 2019
+        .check_expiration_date(
+            UNIX_EPOCH
+                .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
+                .unwrap(),
+        );
 
     let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1410,10 +1409,8 @@ fn unbound_variables_in_rule(target: &str, root: &KeyPair, test: bool) -> TestRe
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let mut block2 = BlockBuilder::new();
-
-    // this one does not go through the parser because it checks for unused variables
-    block2
+    let block2 = BlockBuilder::new()
+        // this one does not go through the parser because it checks for unused variables
         .add_rule(rule(
             "operation",
             &[var("unbound"), string("read")],

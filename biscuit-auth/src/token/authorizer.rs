@@ -203,14 +203,15 @@ impl Authorizer {
 
     /// Add the rules, facts, checks, and policies of another `Authorizer`.
     /// If a token has already been added to `other`, it is not merged into `self`.
-    pub fn merge(&mut self, mut other: Authorizer) {
-        self.merge_block(other.authorizer_block_builder);
+    pub fn merge(&mut self, mut other: Authorizer) -> Result<(), error::Token> {
+        self.merge_block(other.authorizer_block_builder)?;
         self.policies.append(&mut other.policies);
+        Ok(())
     }
 
     /// Add the rules, facts, and checks of another `BlockBuilder`.
     pub fn merge_block(&mut self, other: BlockBuilder) -> Result<(), error::Token> {
-        self.authorizer_block_builder = self.authorizer_block_builder.merge(other);
+        self.authorizer_block_builder = self.authorizer_block_builder.clone().merge(other);
         Ok(())
     }
 
@@ -218,7 +219,7 @@ impl Authorizer {
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.clone().add_fact(fact)?;
         Ok(())
     }
 
@@ -226,7 +227,7 @@ impl Authorizer {
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_rule(rule)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.clone().add_rule(rule)?;
         Ok(())
     }
 
@@ -234,7 +235,8 @@ impl Authorizer {
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.authorizer_block_builder.add_check(check)
+        self.authorizer_block_builder = self.authorizer_block_builder.clone().add_check(check)?;
+        Ok(())
     }
 
     /// adds some datalog code to the authorizer
@@ -383,7 +385,7 @@ impl Authorizer {
     }
 
     pub fn add_scope(&mut self, scope: Scope) {
-        self.authorizer_block_builder.add_scope(scope);
+        self.authorizer_block_builder = self.authorizer_block_builder.clone().add_scope(scope);
     }
 
     /// Returns the runtime limits of the authorizer
@@ -611,7 +613,11 @@ impl Authorizer {
     /// adds a fact with the current time
     pub fn set_time(&mut self) {
         let fact = fact("time", &[date(&SystemTime::now())]);
-        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact).unwrap();
+        self.authorizer_block_builder = self
+            .authorizer_block_builder
+            .clone()
+            .add_fact(fact)
+            .unwrap();
     }
 
     /// add a policy to the authorizer
