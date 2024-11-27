@@ -380,7 +380,7 @@ impl<'a> AuthorizerBuilder<'a> {
 }
 
 /// we need to modify the block loaded from the token, because the authorizer's and the token's symbol table can differ
-fn load_and_translate_block(
+pub(crate) fn load_and_translate_block(
     block: &mut Block,
     i: usize,
     token_symbols: &SymbolTable,

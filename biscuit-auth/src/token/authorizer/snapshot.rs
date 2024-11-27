@@ -2,7 +2,7 @@ use prost::Message;
 use std::{collections::HashMap, time::Duration};
 
 use crate::{
-    builder::{BlockBuilder, Convert, Policy},
+    builder::{load_and_translate_block, BlockBuilder, Convert, Policy},
     datalog::{Origin, RunLimits, TrustedOrigins},
     error,
     format::{
@@ -91,7 +91,14 @@ impl super::Authorizer {
                     .push(i);
             }
 
-            authorizer.load_and_translate_block(&mut block, i, &token_symbols)?;
+            load_and_translate_block(
+                &mut block,
+                i,
+                &token_symbols,
+                &mut authorizer.symbols,
+                &mut public_key_to_block_id,
+                &mut authorizer.world,
+            )?;
             blocks.push(block);
         }
 

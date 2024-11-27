@@ -940,6 +940,8 @@ pub type AuthorizerLimits = RunLimits;
 mod tests {
     use std::time::Duration;
 
+    use builder::load_and_translate_block;
+    use datalog::World;
     use token::{public_keys::PublicKeys, DATALOG_3_1};
 
     use crate::{
@@ -1409,10 +1411,19 @@ allow if true;
             scopes: vec![],
         };
 
+        // FIXME
         assert_eq!(
-            authorizer
-                .load_and_translate_block(&mut block, 0, &syms)
-                .unwrap_err(),
+            /*builder
+            .load_and_translate_block(&mut block, 0, &syms)*/
+            load_and_translate_block(
+                &mut block,
+                0,
+                &syms,
+                &mut SymbolTable::new(),
+                &mut HashMap::new(),
+                &mut World::new(),
+            )
+            .unwrap_err(),
             error::Token::FailedLogic(error::Logic::InvalidBlockRule(
                 0,
                 "test($unbound) <- pred($any)".to_string()

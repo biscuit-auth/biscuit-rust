@@ -1,5 +1,5 @@
 use biscuit_auth::{
-    builder::{Algorithm, BlockBuilder},
+    builder::{Algorithm, AuthorizerBuilder, BlockBuilder},
     builder_ext::AuthorizerExt,
     datalog::SymbolTable,
     Biscuit, KeyPair,
@@ -38,13 +38,19 @@ fn main() {
 
     println!("biscuit2: {}", biscuit2);
 
-    let mut authorizer = biscuit1.authorizer().unwrap();
-    authorizer.add_allow_all();
+    let mut builder = AuthorizerBuilder::new();
+    builder.add_token(&biscuit1);
+    builder.add_allow_all();
+    let mut authorizer = builder.build().unwrap();
+
     println!("authorize biscuit1:\n{:?}", authorizer.authorize());
     println!("world:\n{}", authorizer.print_world());
 
-    let mut authorizer = biscuit2.authorizer().unwrap();
-    authorizer.add_allow_all();
+    let mut builder = AuthorizerBuilder::new();
+    builder.add_token(&biscuit2);
+    builder.add_allow_all();
+    let mut authorizer = builder.build().unwrap();
+
     println!("authorize biscuit2:\n{:?}", authorizer.authorize());
     println!("world:\n{}", authorizer.print_world());
 }
