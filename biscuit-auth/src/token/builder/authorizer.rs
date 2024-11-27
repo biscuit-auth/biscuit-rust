@@ -32,25 +32,28 @@ impl<'a> AuthorizerBuilder<'a> {
         AuthorizerBuilder::default()
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    pub fn add_fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.authorizer_block_builder.add_fact(fact)
+        self.authorizer_block_builder.add_fact(fact)?;
+        Ok(self)
     }
 
-    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token>
+    pub fn add_rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.authorizer_block_builder.add_rule(rule)
+        self.authorizer_block_builder.add_rule(rule)?;
+        Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    pub fn add_check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.authorizer_block_builder.add_check(check)
+        self.authorizer_block_builder.add_check(check)?;
+        Ok(self)
     }
 
     /// adds some datalog code to the authorizer
@@ -71,18 +74,18 @@ impl<'a> AuthorizerBuilder<'a> {
     ///   allow if true;
     /// "#).expect("should parse correctly");
     /// ```
-    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
+    pub fn add_code<T: AsRef<str>>(mut self, source: T) -> Result<Self, error::Token> {
         self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
     /// Unknown parameters are ignored
     pub fn add_code_with_params<T: AsRef<str>>(
-        &mut self,
+        mut self,
         source: T,
         params: HashMap<String, Term>,
         scope_params: HashMap<String, PublicKey>,
-    ) -> Result<(), error::Token> {
+    ) -> Result<Self, error::Token> {
         let source = source.as_ref();
 
         let source_result = parse_source(source).map_err(|e| {
@@ -197,54 +200,61 @@ impl<'a> AuthorizerBuilder<'a> {
             self.policies.push(policy);
         }
 
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_scope(&mut self, scope: Scope) {
+    pub fn add_scope(mut self, scope: Scope) -> Self {
         self.authorizer_block_builder.add_scope(scope);
+        self
     }
 
     /// add a policy to the authorizer
-    pub fn add_policy<P: TryInto<Policy>>(&mut self, policy: P) -> Result<(), error::Token>
+    pub fn add_policy<P: TryInto<Policy>>(mut self, policy: P) -> Result<Self, error::Token>
     where
         error::Token: From<<P as TryInto<Policy>>::Error>,
     {
         let policy = policy.try_into()?;
         policy.validate_parameters()?;
         self.policies.push(policy);
-        Ok(())
+        Ok(self)
     }
 
     /// adds a fact with the current time
-    pub fn set_time(&mut self) {
+    pub fn set_time(mut self) -> Self {
         let fact = fact("time", &[date(&SystemTime::now())]);
         self.authorizer_block_builder.add_fact(fact).unwrap();
+        self
     }
 
     /// Sets the runtime limits of the authorizer
     ///
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
-    pub fn set_limits(&mut self, limits: AuthorizerLimits) {
+    pub fn set_limits(mut self, limits: AuthorizerLimits) -> Self {
         self.limits = limits;
+        self
     }
 
     /// Replaces the registered external functions
-    pub fn set_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+    pub fn set_extern_funcs(mut self, extern_funcs: HashMap<String, ExternFunc>) -> Self {
         self.extern_funcs = extern_funcs;
+        self
     }
 
     /// Registers the provided external functions (possibly replacing already registered functions)
-    pub fn register_extern_funcs(&mut self, extern_funcs: HashMap<String, ExternFunc>) {
+    pub fn register_extern_funcs(mut self, extern_funcs: HashMap<String, ExternFunc>) -> Self {
         self.extern_funcs.extend(extern_funcs);
+        self
     }
 
     /// Registers the provided external function (possibly replacing an already registered function)
-    pub fn register_extern_func(&mut self, name: String, func: ExternFunc) {
+    pub fn register_extern_func(mut self, name: String, func: ExternFunc) -> Self {
         self.extern_funcs.insert(name, func);
+        self
     }
 
-    pub fn add_token(&mut self, token: &'a Biscuit) {
+    pub fn add_token(mut self, token: &'a Biscuit) -> Self {
         self.token = Some(token);
+        self
     }
 
     pub fn dump_code(&self) -> String {
