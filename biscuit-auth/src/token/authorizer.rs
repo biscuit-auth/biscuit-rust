@@ -1,17 +1,11 @@
 //! Authorizer structure and associated functions
-use super::builder::{
-    constrained_rule, date, fact, pred, rule, string, var, AuthorizerBuilder, Binary, BlockBuilder,
-    Check, Expression, Fact, Op, Policy, PolicyKind, Rule, Scope, Term,
-};
-use super::builder_ext::{AuthorizerExt, BuilderExt};
+use super::builder::{AuthorizerBuilder, BlockBuilder, Check, Fact, Policy, PolicyKind, Rule};
 use super::{Biscuit, Block};
-use crate::builder::{self, CheckKind, Convert};
-use crate::crypto::PublicKey;
-use crate::datalog::{self, ExternFunc, Origin, RunLimits, SymbolTable, TrustedOrigins};
+use crate::builder::{CheckKind, Convert};
+use crate::datalog::{self, ExternFunc, Origin, RunLimits, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
-use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
@@ -20,7 +14,6 @@ use std::{
     convert::{TryFrom, TryInto},
     default::Default,
     fmt::Write,
-    time::SystemTime,
 };
 
 mod snapshot;
@@ -940,10 +933,11 @@ pub type AuthorizerLimits = RunLimits;
 mod tests {
     use std::time::Duration;
 
-    use builder::load_and_translate_block;
-    use datalog::World;
+    use datalog::{SymbolTable, World};
+    use token::builder::{self, load_and_translate_block, var};
     use token::{public_keys::PublicKeys, DATALOG_3_1};
 
+    use crate::PublicKey;
     use crate::{
         builder::{Algorithm, BiscuitBuilder, BlockBuilder},
         KeyPair,
