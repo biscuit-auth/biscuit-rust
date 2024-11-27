@@ -129,7 +129,7 @@ pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         parameters,
     } = syn::parse_macro_input!(input as ParsedCreateNew);
 
-    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let ty = syn::parse_quote!(::biscuit_auth::builder::AuthorizerBuilder);
     let builder = Builder::source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
@@ -148,7 +148,7 @@ pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         parameters,
     } = syn::parse_macro_input!(input as ParsedMerge);
 
-    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let ty = syn::parse_quote!(::biscuit_auth::builder::AuthorizerBuilder);
     let builder = Builder::source(ty, Some(target), datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 

@@ -5,6 +5,8 @@ use std::{
     time::{Instant, SystemTime},
 };
 
+use biscuit_parser::parser::parse_source;
+
 use crate::{
     builder::Convert,
     builder_ext::{AuthorizerExt, BuilderExt},
@@ -63,8 +65,121 @@ impl<'a> AuthorizerBuilder<'a> {
         params: HashMap<String, Term>,
         scope_params: HashMap<String, PublicKey>,
     ) -> Result<(), error::Token> {
-        self.authorizer_block_builder
-            .add_code_with_params(source, params, scope_params)
+        let source = source.as_ref();
+
+        let source_result = parse_source(source).map_err(|e| {
+            let e2: biscuit_parser::error::LanguageError = e.into();
+            e2
+        })?;
+
+        for (_, fact) in source_result.facts.into_iter() {
+            let mut fact: Fact = fact.into();
+            for (name, value) in &params {
+                let res = match fact.set(name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            fact.validate()?;
+            self.authorizer_block_builder.facts.push(fact);
+        }
+
+        for (_, rule) in source_result.rules.into_iter() {
+            let mut rule: Rule = rule.into();
+            for (name, value) in &params {
+                let res = match rule.set(name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            for (name, value) in &scope_params {
+                let res = match rule.set_scope(name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            rule.validate_parameters()?;
+            self.authorizer_block_builder.rules.push(rule);
+        }
+
+        for (_, check) in source_result.checks.into_iter() {
+            let mut check: Check = check.into();
+            for (name, value) in &params {
+                let res = match check.set(name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            for (name, value) in &scope_params {
+                let res = match check.set_scope(name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            check.validate_parameters()?;
+            self.authorizer_block_builder.checks.push(check);
+        }
+        for (_, policy) in source_result.policies.into_iter() {
+            let mut policy: Policy = policy.into();
+            for (name, value) in &params {
+                let res = match policy.set(name, value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            for (name, value) in &scope_params {
+                let res = match policy.set_scope(name, *value) {
+                    Ok(_) => Ok(()),
+                    Err(error::Token::Language(
+                        biscuit_parser::error::LanguageError::Parameters {
+                            missing_parameters, ..
+                        },
+                    )) if missing_parameters.is_empty() => Ok(()),
+                    Err(e) => Err(e),
+                };
+                res?;
+            }
+            policy.validate_parameters()?;
+            self.policies.push(policy);
+        }
+
+        Ok(())
     }
 
     pub fn add_scope(&mut self, scope: Scope) {

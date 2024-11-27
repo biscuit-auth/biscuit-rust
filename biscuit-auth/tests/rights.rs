@@ -31,12 +31,9 @@ fn main() {
         .unwrap();
     println!("{}", biscuit1);
 
-    let mut v = biscuit1.authorizer().expect("omg verifier");
-    //v.add_resource("file2");
-    //v.add_operation("read");
-    //v.add_operation("write");
-
-    v.add_check(rule(
+    let mut builder = AuthorizerBuilder::new();
+    builder.add_token(&biscuit1);
+    builder.add_check(rule(
         "right",
         &[string("right")],
         &[pred(
@@ -44,6 +41,10 @@ fn main() {
             &[string("authority"), string("file2"), string("write")],
         )],
     ));
+    let mut v = builder.build().expect("omg verifier");
+    //v.add_resource("file2");
+    //v.add_operation("read");
+    //v.add_operation("write");
 
     let res = v.authorize();
     println!("{:#?}", res);

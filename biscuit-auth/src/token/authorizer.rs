@@ -987,7 +987,7 @@ impl Authorizer {
             .map(|f| Fact::convert_from(f.1, &self.symbols))
             .collect::<Result<Vec<_>, error::Format>>()
             .unwrap();
-        facts.extend(self.authorizer_block_builder.facts.clone());
+        //facts.extend(self.authorizer_block_builder.facts.clone());
 
         let mut rules = self
             .world
@@ -996,7 +996,7 @@ impl Authorizer {
             .map(|r| Rule::convert_from(r.1, &self.symbols))
             .collect::<Result<Vec<_>, error::Format>>()
             .unwrap();
-        rules.extend(self.authorizer_block_builder.rules.clone());
+        //rules.extend(self.authorizer_block_builder.rules.clone());
 
         (facts, rules, checks, self.policies.clone())
     }

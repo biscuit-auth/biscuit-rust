@@ -75,9 +75,11 @@ fn authorizer_macro() {
       "#
     );
 
+    let authorizer = b.build().unwrap();
     assert_eq!(
-        b.dump_code(),
+        authorizer.dump_code(),
         r#"fact("test", hex:aabbcc, [true], "my_value");
+rule("test", true);
 appended(true);
 
 rule($0, true) <- fact($0, $1, $2, "my_value");
@@ -92,7 +94,9 @@ allow if true;
 
 #[test]
 fn authorizer_macro_trailing_comma() {
-    let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",);
+    let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",)
+        .build()
+        .unwrap();
     assert_eq!(
         a.dump_code(),
         r#"fact("test", "my_value");
