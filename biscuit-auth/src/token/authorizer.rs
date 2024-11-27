@@ -179,7 +179,6 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        self.world.run_with_limits(&self.symbols, limits)?;
         let res = self
             .world
             .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
@@ -263,8 +262,6 @@ impl Authorizer {
         rule: datalog::Rule,
         limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
-        self.world.run_with_limits(&self.symbols, limits)?;
-
         let rule_trusted_origins = if rule.scopes.is_empty() {
             self.token_origins.clone()
         } else {
@@ -351,45 +348,6 @@ impl Authorizer {
 
         let mut authorizer_origin = Origin::default();
         authorizer_origin.insert(usize::MAX);
-
-        let authorizer_scopes: Vec<token::Scope> = self
-            .authorizer_block_builder
-            .scopes
-            .clone()
-            .iter()
-            .map(|s| s.convert(&mut self.symbols))
-            .collect();
-
-        let authorizer_trusted_origins = TrustedOrigins::from_scopes(
-            &authorizer_scopes,
-            &TrustedOrigins::default(),
-            usize::MAX,
-            &self.public_key_to_block_id,
-        );
-
-        for fact in &self.authorizer_block_builder.facts {
-            self.world
-                .facts
-                .insert(&authorizer_origin, fact.convert(&mut self.symbols));
-        }
-
-        for rule in &self.authorizer_block_builder.rules {
-            let rule = rule.convert(&mut self.symbols);
-
-            let rule_trusted_origins = TrustedOrigins::from_scopes(
-                &rule.scopes,
-                &authorizer_trusted_origins,
-                usize::MAX,
-                &self.public_key_to_block_id,
-            );
-
-            self.world
-                .rules
-                .insert(usize::MAX, &rule_trusted_origins, rule);
-        }
-
-        limits.max_time = time_limit - Instant::now();
-        self.world.run_with_limits(&self.symbols, limits.clone())?;
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -557,12 +515,6 @@ impl Authorizer {
                     i + 1,
                     &self.public_key_to_block_id,
                 );
-
-                limits.max_time = time_limit - Instant::now();
-                limits.max_iterations -= self.world.iterations - current_iterations;
-                current_iterations = self.world.iterations;
-
-                self.world.run_with_limits(&self.symbols, limits.clone())?;
 
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
