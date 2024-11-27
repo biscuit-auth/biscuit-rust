@@ -476,7 +476,7 @@ impl ToTokens for Builder {
         let builder_type = &self.builder_type;
         let builder_quote = if let Some(target) = &self.target {
             quote! {
-                let __biscuit_auth_builder: &mut #builder_type = #target;
+                let mut __biscuit_auth_builder: #builder_type = #target;
             }
         } else {
             quote! {
