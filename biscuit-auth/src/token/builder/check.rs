@@ -1,4 +1,6 @@
-use std::{convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt, str::FromStr};
+
+use nom::Finish;
 
 use crate::{
     datalog::{self, SymbolTable},
@@ -203,5 +205,27 @@ impl From<biscuit_parser::builder::Check> for Check {
                 biscuit_parser::builder::CheckKind::Reject => CheckKind::Reject,
             },
         }
+    }
+}
+
+impl TryFrom<&str> for Check {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::check(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
+    }
+}
+
+impl FromStr for Check {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::check(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }

@@ -1,4 +1,6 @@
-use std::fmt;
+use std::{convert::TryFrom, fmt, str::FromStr};
+
+use nom::Finish;
 
 use crate::{error, PublicKey};
 
@@ -143,5 +145,27 @@ impl From<biscuit_parser::builder::Policy> for Policy {
                 biscuit_parser::builder::PolicyKind::Deny => PolicyKind::Deny,
             },
         }
+    }
+}
+
+impl TryFrom<&str> for Policy {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::policy(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
+    }
+}
+
+impl FromStr for Policy {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::policy(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }

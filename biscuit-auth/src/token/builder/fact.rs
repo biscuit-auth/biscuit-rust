@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, convert::TryFrom, fmt, str::FromStr};
+
+use nom::Finish;
 
 use crate::{
     datalog::{self, SymbolTable},
@@ -170,5 +172,27 @@ impl From<biscuit_parser::builder::Fact> for Fact {
                     .collect()
             }),
         }
+    }
+}
+
+impl TryFrom<&str> for Fact {
+    type Error = error::Token;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(biscuit_parser::parser::fact(value)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
+    }
+}
+
+impl FromStr for Fact {
+    type Err = error::Token;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(biscuit_parser::parser::fact(s)
+            .finish()
+            .map(|(_, o)| o.into())
+            .map_err(biscuit_parser::error::LanguageError::from)?)
     }
 }

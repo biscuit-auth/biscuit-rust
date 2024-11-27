@@ -1,9 +1,14 @@
-use super::{Block, Check, Convert, Fact, Rule, Scope, Term};
+use super::{
+    constrained_rule, date, fact, pred, rule, string, var, Binary, Block, Check, CheckKind,
+    Convert, Expression, Fact, Op, Rule, Scope, Term,
+};
+use crate::builder_ext::BuilderExt;
 use crate::crypto::PublicKey;
 use crate::datalog::{get_schema_version, SymbolTable};
 use crate::error;
 use biscuit_parser::parser::parse_block_source;
 
+use std::time::SystemTime;
 use std::{collections::HashMap, convert::TryInto, fmt};
 
 /// creates a Block content to append to an existing token
@@ -277,5 +282,93 @@ impl fmt::Display for BlockBuilder {
             writeln!(f, "{};", &check)?;
         }
         Ok(())
+    }
+}
+
+impl BuilderExt for BlockBuilder {
+    fn add_resource(&mut self, name: &str) {
+        self.facts.push(fact("resource", &[string(name)]));
+    }
+    fn check_resource(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "resource_check",
+                &[string("resource_check")],
+                &[pred("resource", &[string(name)])],
+            )],
+            kind: CheckKind::One,
+        });
+    }
+    fn add_operation(&mut self, name: &str) {
+        self.facts.push(fact("operation", &[string(name)]));
+    }
+    fn check_operation(&mut self, name: &str) {
+        self.checks.push(Check {
+            queries: vec![rule(
+                "operation_check",
+                &[string("operation_check")],
+                &[pred("operation", &[string(name)])],
+            )],
+            kind: CheckKind::One,
+        });
+    }
+    fn check_resource_prefix(&mut self, prefix: &str) {
+        let check = constrained_rule(
+            "prefix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(prefix)),
+                    Op::Binary(Binary::Prefix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+            kind: CheckKind::One,
+        });
+    }
+
+    fn check_resource_suffix(&mut self, suffix: &str) {
+        let check = constrained_rule(
+            "suffix",
+            &[var("resource")],
+            &[pred("resource", &[var("resource")])],
+            &[Expression {
+                ops: vec![
+                    Op::Value(var("resource")),
+                    Op::Value(string(suffix)),
+                    Op::Binary(Binary::Suffix),
+                ],
+            }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+            kind: CheckKind::One,
+        });
+    }
+
+    fn check_expiration_date(&mut self, exp: SystemTime) {
+        let empty: Vec<Term> = Vec::new();
+        let ops = vec![
+            Op::Value(var("time")),
+            Op::Value(date(&exp)),
+            Op::Binary(Binary::LessOrEqual),
+        ];
+        let check = constrained_rule(
+            "query",
+            &empty,
+            &[pred("time", &[var("time")])],
+            &[Expression { ops }],
+        );
+
+        self.checks.push(Check {
+            queries: vec![check],
+            kind: CheckKind::One,
+        });
     }
 }

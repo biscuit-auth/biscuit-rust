@@ -1,6 +1,8 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
+    convert::{TryFrom, TryInto},
     fmt,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -8,7 +10,9 @@ use crate::{
     error,
 };
 
-use super::Convert;
+#[cfg(feature = "datalog-macro")]
+use super::AnyParam;
+use super::{set, Convert, Fact, ToAnyParam};
 
 /// Builder for a Datalog value
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -380,3 +384,279 @@ impl fmt::Display for Term {
         }
     }
 }
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Term {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.clone())
+    }
+}
+
+impl From<i64> for Term {
+    fn from(i: i64) -> Self {
+        Term::Integer(i)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for i64 {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self).into())
+    }
+}
+
+impl TryFrom<Term> for i64 {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Integer(i) => Ok(i),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected integer, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<bool> for Term {
+    fn from(b: bool) -> Self {
+        Term::Bool(b)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for bool {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self).into())
+    }
+}
+
+impl TryFrom<Term> for bool {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Bool(b) => Ok(b),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected boolean, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<String> for Term {
+    fn from(s: String) -> Self {
+        Term::Str(s)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for String {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
+impl From<&str> for Term {
+    fn from(s: &str) -> Self {
+        Term::Str(s.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for &str {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.to_string().into())
+    }
+}
+
+impl TryFrom<Term> for String {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Str(s) => Ok(s),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected string or symbol, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<Vec<u8>> for Term {
+    fn from(v: Vec<u8>) -> Self {
+        Term::Bytes(v)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for Vec<u8> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
+impl TryFrom<Term> for Vec<u8> {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Bytes(b) => Ok(b),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected byte array, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<&[u8]> for Term {
+    fn from(v: &[u8]) -> Self {
+        Term::Bytes(v.into())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for [u8] {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(self.into())
+    }
+}
+
+#[cfg(feature = "uuid")]
+impl ToAnyParam for uuid::Uuid {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term(Term::Bytes(self.as_bytes().to_vec()))
+    }
+}
+
+impl From<SystemTime> for Term {
+    fn from(t: SystemTime) -> Self {
+        let dur = t.duration_since(UNIX_EPOCH).unwrap();
+        Term::Date(dur.as_secs())
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for SystemTime {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((*self).into())
+    }
+}
+
+impl TryFrom<Term> for SystemTime {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Date(d) => Ok(UNIX_EPOCH + Duration::from_secs(d)),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected date, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<BTreeSet<Term>> for Term {
+    fn from(value: BTreeSet<Term>) -> Term {
+        set(value)
+    }
+}
+
+#[cfg(feature = "datalog-macro")]
+impl ToAnyParam for BTreeSet<Term> {
+    fn to_any_param(&self) -> AnyParam {
+        AnyParam::Term((self.clone()).into())
+    }
+}
+
+impl<T: Ord + TryFrom<Term, Error = error::Token>> TryFrom<Term> for BTreeSet<T> {
+    type Error = error::Token;
+    fn try_from(value: Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::Set(d) => d.iter().cloned().map(TryFrom::try_from).collect(),
+            _ => Err(error::Token::ConversionError(format!(
+                "expected set, got {:?}",
+                value
+            ))),
+        }
+    }
+}
+
+// TODO: From and ToAnyParam for arrays and maps
+impl TryFrom<serde_json::Value> for Term {
+    type Error = &'static str;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        match value {
+            serde_json::Value::Null => Ok(Term::Null),
+            serde_json::Value::Bool(b) => Ok(Term::Bool(b)),
+            serde_json::Value::Number(i) => match i.as_i64() {
+                Some(i) => Ok(Term::Integer(i)),
+                None => Err("Biscuit values do not support floating point numbers"),
+            },
+            serde_json::Value::String(s) => Ok(Term::Str(s)),
+            serde_json::Value::Array(array) => Ok(Term::Array(
+                array
+                    .into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<Result<_, _>>()?,
+            )),
+            serde_json::Value::Object(o) => Ok(Term::Map(
+                o.into_iter()
+                    .map(|(key, value)| {
+                        let value: Term = value.try_into()?;
+                        Ok::<_, &'static str>((MapKey::Str(key), value))
+                    })
+                    .collect::<Result<_, _>>()?,
+            )),
+        }
+    }
+}
+
+macro_rules! tuple_try_from(
+    ($ty1:ident, $ty2:ident, $($ty:ident),*) => (
+        tuple_try_from!(__impl $ty1, $ty2; $($ty),*);
+        );
+    (__impl $($ty: ident),+; $ty1:ident, $($ty2:ident),*) => (
+        tuple_try_from_impl!($($ty),+);
+        tuple_try_from!(__impl $($ty),+ , $ty1; $($ty2),*);
+        );
+    (__impl $($ty: ident),+; $ty1:ident) => (
+        tuple_try_from_impl!($($ty),+);
+        tuple_try_from_impl!($($ty),+, $ty1);
+        );
+    );
+
+impl<A: TryFrom<Term, Error = error::Token>> TryFrom<Fact> for (A,) {
+    type Error = error::Token;
+    fn try_from(fact: Fact) -> Result<Self, Self::Error> {
+        let mut terms = fact.predicate.terms;
+        let mut it = terms.drain(..);
+
+        Ok((it
+            .next()
+            .ok_or_else(|| error::Token::ConversionError("not enough terms in fact".to_string()))
+            .and_then(A::try_from)?,))
+    }
+}
+
+macro_rules! tuple_try_from_impl(
+    ($($ty: ident),+) => (
+        impl<$($ty: TryFrom<Term, Error = error::Token>),+> TryFrom<Fact> for ($($ty),+) {
+            type Error = error::Token;
+            fn try_from(fact: Fact) -> Result<Self, Self::Error> {
+                let mut terms = fact.predicate.terms;
+                let mut it = terms.drain(..);
+
+                Ok((
+                        $(
+                            it.next().ok_or(error::Token::ConversionError("not enough terms in fact".to_string())).and_then($ty::try_from)?
+                         ),+
+                   ))
+
+            }
+        }
+        );
+    );
+
+tuple_try_from!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
