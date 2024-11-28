@@ -165,7 +165,7 @@ impl Authorizer {
     fn query_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: datalog::Rule,
-        limits: AuthorizerLimits,
+        _limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule_trusted_origins = TrustedOrigins::from_scopes(
             &rule.scopes,
@@ -259,7 +259,7 @@ impl Authorizer {
     fn query_all_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: datalog::Rule,
-        limits: AuthorizerLimits,
+        _limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule_trusted_origins = if rule.scopes.is_empty() {
             self.token_origins.clone()
@@ -336,10 +336,9 @@ impl Authorizer {
         result
     }
 
-    fn authorize_inner(&mut self, mut limits: AuthorizerLimits) -> Result<usize, error::Token> {
+    fn authorize_inner(&mut self, limits: AuthorizerLimits) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
-        let mut current_iterations = self.world.iterations;
 
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
