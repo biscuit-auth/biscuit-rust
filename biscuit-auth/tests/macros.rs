@@ -68,8 +68,8 @@ fn authorizer_macro() {
     );
 
     let is_true = true;
-    authorizer_merge!(
-        &mut b,
+    b = authorizer_merge!(
+        b,
         r#"appended({is_true});
         allow if true;
       "#
@@ -123,8 +123,7 @@ fn biscuit_macro() {
         check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
         "#,
         my_key_bytes = s.into_bytes(),
-    );
-    b.set_root_key_id(2);
+    ).set_root_key_id(2);
 
     let is_true = true;
     b = biscuit_merge!(
@@ -253,7 +252,7 @@ fn json() {
     );
     let json_value: biscuit_auth::builder::Term = value.try_into().unwrap();
 
-    let mut builder = authorizer!(
+    let mut authorizer = authorizer!(
         r#"
         user_roles({json_value});
         allow if
@@ -261,10 +260,10 @@ fn json() {
           user_roles($value),
           $value.get("id") == $id,
           $value.get("roles").contains("admin");"#
-    );
-
-    builder.add_token(&biscuit);
-    let mut authorizer = builder.build().unwrap();
+    )
+    .add_token(&biscuit)
+    .build()
+    .unwrap();
     assert_eq!(
         authorizer
             .authorize_with_limits(RunLimits {

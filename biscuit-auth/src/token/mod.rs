@@ -846,8 +846,7 @@ mod tests {
         let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&final_token);
+            let mut builder = AuthorizerBuilder::new().add_token(&final_token);
 
             let mut facts = vec![
                 fact("resource", &[string("file1")]),
@@ -855,13 +854,12 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                builder.add_fact(fact).unwrap();
+                builder = builder.add_fact(fact).unwrap();
             }
 
             //println!("final token: {:#?}", final_token);
-            builder.add_allow_all();
 
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = builder.add_allow_all().build().unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -869,8 +867,7 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&final_token);
+            let mut builder = AuthorizerBuilder::new().add_token(&final_token);
 
             let mut facts = vec![
                 fact("resource", &[string("file2")]),
@@ -878,9 +875,9 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                builder.add_fact(fact).unwrap();
+                builder = builder.add_fact(fact).unwrap();
             }
-            builder.add_allow_all();
+            builder = builder.add_allow_all();
 
             let mut authorizer = builder.build().unwrap();
 
@@ -925,13 +922,15 @@ mod tests {
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"/folder1/file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -943,13 +942,15 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"/folder2/file3\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"/folder2/file3\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -972,12 +973,14 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"/folder2/file1\")").unwrap();
-            builder.add_fact("operation(\"write\")").unwrap();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"/folder2/file1\")")
+                .unwrap()
+                .add_fact("operation(\"write\")")
+                .unwrap()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize();
             println!("res3: {:?}", res);
@@ -1012,14 +1015,16 @@ mod tests {
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.set_time();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .set_time()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1031,14 +1036,16 @@ mod tests {
 
         {
             println!("biscuit2: {}", biscuit2);
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.set_time();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .set_time()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1078,13 +1085,15 @@ mod tests {
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"/folder1/file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1103,13 +1112,15 @@ mod tests {
         let biscuit3 = Biscuit::from(sealed, root.public()).unwrap();
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit3);
-            builder.add_fact("resource(\"/folder1/file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit3)
+                .add_fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -1135,17 +1146,16 @@ mod tests {
             .unwrap();
         println!("{}", biscuit1);
 
-        let mut builder = AuthorizerBuilder::new();
-        builder.add_token(&biscuit1);
-
-        builder
+        let mut authorizer = AuthorizerBuilder::new()
+            .add_token(&biscuit1)
             .add_check(rule(
                 "right",
                 &[string("right")],
                 &[pred("right", &[string("file2"), string("write")])],
             ))
+            .unwrap()
+            .build()
             .unwrap();
-        let mut authorizer = builder.build().unwrap();
 
         //assert!(v.verify().is_err());
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1197,12 +1207,15 @@ mod tests {
         {
             println!("biscuit3: {}", biscuit3);
 
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit3);
-            builder.add_fact("resource(\"file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.set_time();
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit3)
+                .add_fact("resource(\"file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .set_time()
+                .build()
+                .unwrap();
 
             // test that cloning correctly embeds the first block's facts
             let mut other_authorizer = authorizer.clone();
@@ -1280,12 +1293,15 @@ mod tests {
 
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("resource(\"file1\")").unwrap();
-            builder.add_fact("operation(\"read\")").unwrap();
-            builder.set_time();
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("resource(\"file1\")")
+                .unwrap()
+                .add_fact("operation(\"read\")")
+                .unwrap()
+                .set_time()
+                .build()
+                .unwrap();
 
             println!("world:\n{}", authorizer.print_world());
             println!("symbols: {:?}", authorizer.symbols);
@@ -1373,13 +1389,13 @@ mod tests {
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut builder = AuthorizerBuilder::new();
-        builder.add_token(&biscuit2);
-        builder
+        let mut authorizer = AuthorizerBuilder::new()
+            .add_token(&biscuit2)
             .add_check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
+            .unwrap()
+            .add_allow_all()
+            .build()
             .unwrap();
-        builder.add_allow_all();
-        let mut authorizer = builder.build().unwrap();
 
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -1462,15 +1478,17 @@ mod tests {
         let final_token = Biscuit::from(&serialized2, root.public()).unwrap();
         println!("final token:\n{}", final_token);
 
-        let mut builder = AuthorizerBuilder::new();
-        builder.add_token(&final_token);
-        builder.add_fact("resource(\"/folder2/file1\")").unwrap();
-        builder.add_fact("operation(\"write\")").unwrap();
-        builder
+        let mut authorizer = AuthorizerBuilder::new()
+            .add_token(&final_token)
+            .add_fact("resource(\"/folder2/file1\")")
+            .unwrap()
+            .add_fact("operation(\"write\")")
+            .unwrap()
             .add_policy("allow if resource($file), operation($op), right($file, $op)")
+            .unwrap()
+            .add_deny_all()
+            .build()
             .unwrap();
-        builder.add_deny_all();
-        let mut authorizer = builder.build().unwrap();
 
         let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
             max_time: Duration::from_secs(1),
@@ -1504,15 +1522,16 @@ mod tests {
         println!("biscuit2 (authority): {}", biscuit2);
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit1);
-            builder.add_fact("fact(0)").unwrap();
-            builder.add_fact("fact(1)").unwrap();
-
-            //println!("final token: {:#?}", final_token);
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit1)
+                .add_fact("fact(0)")
+                .unwrap()
+                .add_fact("fact(1)")
+                .unwrap()
+                //println!("final token: {:#?}", final_token);
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1523,15 +1542,16 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new();
-            builder.add_token(&biscuit2);
-            builder.add_fact("fact(0)").unwrap();
-            builder.add_fact("fact(1)").unwrap();
-
-            //println!("final token: {:#?}", final_token);
-            builder.add_allow_all();
-
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .add_token(&biscuit2)
+                .add_fact("fact(0)")
+                .unwrap()
+                .add_fact("fact(1)")
+                .unwrap()
+                //println!("final token: {:#?}", final_token);
+                .add_allow_all()
+                .build()
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),

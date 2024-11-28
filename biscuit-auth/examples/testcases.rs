@@ -343,13 +343,13 @@ fn validate_token_with_limits_and_external_functions(
         revocation_ids.push(hex::encode(&bytes));
     }
 
-    let mut builder = AuthorizerBuilder::new();
-    builder.set_extern_funcs(extern_funcs);
-    builder.add_code(authorizer_code).unwrap();
+    let builder = AuthorizerBuilder::new()
+        .set_extern_funcs(extern_funcs)
+        .add_code(authorizer_code)
+        .unwrap();
     let authorizer_code = builder.dump_code();
-    builder.add_token(&token);
 
-    let mut authorizer = match builder.build() {
+    let mut authorizer = match builder.add_token(&token).build() {
         Ok(v) => v,
         Err(e) => {
             return Validation {

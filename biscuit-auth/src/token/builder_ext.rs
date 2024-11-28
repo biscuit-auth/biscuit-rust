@@ -11,6 +11,6 @@ pub trait BuilderExt {
 }
 
 pub trait AuthorizerExt {
-    fn add_allow_all(&mut self);
-    fn add_deny_all(&mut self);
+    fn add_allow_all(self) -> Self;
+    fn add_deny_all(self) -> Self;
 }

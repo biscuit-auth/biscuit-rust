@@ -31,17 +31,19 @@ fn main() {
         .unwrap();
     println!("{}", biscuit1);
 
-    let mut builder = AuthorizerBuilder::new();
-    builder.add_token(&biscuit1);
-    builder.add_check(rule(
-        "right",
-        &[string("right")],
-        &[pred(
+    let mut v = AuthorizerBuilder::new()
+        .add_token(&biscuit1)
+        .add_check(rule(
             "right",
-            &[string("authority"), string("file2"), string("write")],
-        )],
-    ));
-    let mut v = builder.build().expect("omg verifier");
+            &[string("right")],
+            &[pred(
+                "right",
+                &[string("authority"), string("file2"), string("write")],
+            )],
+        ))
+        .unwrap()
+        .build()
+        .unwrap();
     //v.add_resource("file2");
     //v.add_operation("read");
     //v.add_operation("write");

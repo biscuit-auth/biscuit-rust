@@ -36,10 +36,7 @@ pub struct Authorizer {
 
 impl Authorizer {
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
-        let mut b = AuthorizerBuilder::new();
-        b.add_token(token);
-
-        b.build()
+        AuthorizerBuilder::new().add_token(token).build()
     }
 
     /// creates a new empty authorizer
@@ -902,9 +899,11 @@ mod tests {
 
     #[test]
     fn empty_authorizer() {
-        let mut builder = AuthorizerBuilder::new();
-        builder.add_policy("allow if true").unwrap();
-        let mut authorizer = builder.build().unwrap();
+        let mut authorizer = AuthorizerBuilder::new()
+            .add_policy("allow if true")
+            .unwrap()
+            .build()
+            .unwrap();
         assert_eq!(
             authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -916,7 +915,6 @@ mod tests {
 
     #[test]
     fn parameter_substitution() {
-        let mut builder = AuthorizerBuilder::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "value".into());
         params.insert("p2".to_string(), 0i64.into());
@@ -931,7 +929,7 @@ mod tests {
             )
             .unwrap(),
         );
-        builder
+        let _authorizer = AuthorizerBuilder::new()
             .add_code_with_params(
                 r#"
                   fact({p1}, "value");
@@ -942,71 +940,64 @@ mod tests {
                 params,
                 scope_params,
             )
+            .unwrap()
+            .build()
             .unwrap();
-        let _authorizer = builder.build().unwrap();
     }
 
     #[test]
     fn forbid_unbound_parameters() {
-        let mut builder = AuthorizerBuilder::new();
+        let builder = AuthorizerBuilder::new();
 
         let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
         fact.set("p1", "hello").unwrap();
-        let res = builder.add_fact(fact);
+        let res = builder.clone().add_fact(fact);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-        let res = builder.add_rule(rule);
+        let res = builder.clone().add_rule(rule);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
-        let res = builder.add_check(check);
+        let res = builder.clone().add_check(check);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
         policy.set("p3", true).unwrap();
 
-        let res = builder.add_policy(policy);
+        let res = builder.clone().add_policy(policy);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
     }
 
     #[test]
     fn forbid_unbound_parameters_in_add_code() {
-        let mut builder = AuthorizerBuilder::new();
+        let builder = AuthorizerBuilder::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "hello".into());
         params.insert("p2".to_string(), 1i64.into());
@@ -1022,13 +1013,11 @@ mod tests {
         );
 
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p3".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p3".to_string()],
+                unused_parameters: vec![],
+            })
         )
     }
 
@@ -1105,14 +1094,14 @@ mod tests {
         let serialized = biscuit2.to_vec().unwrap();
         let biscuit2 = Biscuit::from(serialized, root.public()).unwrap();
 
-        let mut builder = AuthorizerBuilder::new();
+        let builder = AuthorizerBuilder::new();
         let external2 = KeyPair::new(Algorithm::Ed25519);
 
         let mut scope_params = HashMap::new();
         scope_params.insert("external".to_string(), external.public());
         scope_params.insert("external2".to_string(), external2.public());
 
-        builder
+        let mut authorizer = builder
             .add_code_with_params(
                 r#"
             // this rule trusts both the third-party block and the authority, and can access facts
@@ -1132,15 +1121,14 @@ mod tests {
                 HashMap::new(),
                 scope_params,
             )
+            .unwrap()
+            .add_token(&biscuit2)
+            .set_limits(AuthorizerLimits {
+                max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+                ..Default::default()
+            })
+            .build()
             .unwrap();
-
-        builder.add_token(&biscuit2);
-        builder.set_limits(AuthorizerLimits {
-            max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
-            ..Default::default()
-        });
-
-        let mut authorizer = builder.build().unwrap();
 
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
@@ -1270,10 +1258,8 @@ mod tests {
             .build(&root)
             .unwrap();
 
-        let mut builder = AuthorizerBuilder::new();
-        builder.add_token(&token);
-
-        builder
+        let mut authorizer = AuthorizerBuilder::new()
+            .add_token(&token)
             .add_code(
                 r#"
           authorizer_fact(true);
@@ -1282,8 +1268,9 @@ mod tests {
           allow if true;
         "#,
             )
+            .unwrap()
+            .build()
             .unwrap();
-        let mut authorizer = builder.build().unwrap();
         let output_before_authorization = authorizer.to_string();
 
         assert!(
@@ -1340,7 +1327,7 @@ allow if true;
 
     #[test]
     fn rule_validate_variables() {
-        let mut builder = AuthorizerBuilder::new();
+        let builder = AuthorizerBuilder::new();
         let mut syms = SymbolTable::new();
         let rule_name = syms.insert("test");
         let pred_name = syms.insert("pred");
@@ -1381,14 +1368,15 @@ allow if true;
         );
 
         // broken rules directly added to the authorizer currently don’t trigger any error, but silently fail to generate facts when they match
-        builder
+        let mut authorizer = builder
             .add_rule(builder::rule(
                 "test",
                 &[var("unbound")],
                 &[builder::pred("pred", &[builder::var("any")])],
             ))
+            .unwrap()
+            .build()
             .unwrap();
-        let mut authorizer = builder.build().unwrap();
         let res: Vec<(String,)> = authorizer
             .query(builder::rule(
                 "output",

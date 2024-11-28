@@ -34,18 +34,20 @@ fn main() {
 
     println!("biscuit2: {}", biscuit2);
 
-    let mut builder = AuthorizerBuilder::new();
-    builder.add_token(&biscuit1);
-    builder.add_allow_all();
-    let mut authorizer = builder.build().unwrap();
+    let mut authorizer = AuthorizerBuilder::new()
+        .add_token(&biscuit1)
+        .add_allow_all()
+        .build()
+        .unwrap();
 
     println!("authorize biscuit1:\n{:?}", authorizer.authorize());
     println!("world:\n{}", authorizer.print_world());
 
-    let mut builder = AuthorizerBuilder::new();
-    builder.add_token(&biscuit2);
-    builder.add_allow_all();
-    let mut authorizer = builder.build().unwrap();
+    let mut authorizer = AuthorizerBuilder::new()
+        .add_token(&biscuit2)
+        .add_allow_all()
+        .build()
+        .unwrap();
 
     println!("authorize biscuit2:\n{:?}", authorizer.authorize());
     println!("world:\n{}", authorizer.print_world());

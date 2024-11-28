@@ -36,7 +36,7 @@ impl<'a> AuthorizerBuilder<'a> {
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.authorizer_block_builder.add_fact(fact)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact)?;
         Ok(self)
     }
 
@@ -44,7 +44,7 @@ impl<'a> AuthorizerBuilder<'a> {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.authorizer_block_builder.add_rule(rule)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.add_rule(rule)?;
         Ok(self)
     }
 
@@ -52,7 +52,7 @@ impl<'a> AuthorizerBuilder<'a> {
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.authorizer_block_builder.add_check(check)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.add_check(check)?;
         Ok(self)
     }
 
@@ -74,7 +74,7 @@ impl<'a> AuthorizerBuilder<'a> {
     ///   allow if true;
     /// "#).expect("should parse correctly");
     /// ```
-    pub fn add_code<T: AsRef<str>>(mut self, source: T) -> Result<Self, error::Token> {
+    pub fn add_code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
         self.add_code_with_params(source, HashMap::new(), HashMap::new())
     }
 
@@ -204,7 +204,7 @@ impl<'a> AuthorizerBuilder<'a> {
     }
 
     pub fn add_scope(mut self, scope: Scope) -> Self {
-        self.authorizer_block_builder.add_scope(scope);
+        self.authorizer_block_builder = self.authorizer_block_builder.add_scope(scope);
         self
     }
 
@@ -222,7 +222,7 @@ impl<'a> AuthorizerBuilder<'a> {
     /// adds a fact with the current time
     pub fn set_time(mut self) -> Self {
         let fact = fact("time", &[date(&SystemTime::now())]);
-        self.authorizer_block_builder.add_fact(fact).unwrap();
+        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact).unwrap();
         self
     }
 
@@ -450,36 +450,43 @@ pub(crate) fn load_and_translate_block(
 }
 
 impl<'a> BuilderExt for AuthorizerBuilder<'a> {
-    fn add_resource(&mut self, name: &str) {
-        self.authorizer_block_builder.add_resource(name);
+    fn add_resource(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.add_resource(name);
+        self
     }
-    fn check_resource(&mut self, name: &str) {
-        self.authorizer_block_builder.check_resource(name);
+    fn check_resource(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.check_resource(name);
+        self
     }
-    fn add_operation(&mut self, name: &str) {
-        self.authorizer_block_builder.add_operation(name);
+    fn add_operation(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.add_operation(name);
+        self
     }
-    fn check_operation(&mut self, name: &str) {
-        self.authorizer_block_builder.check_operation(name);
+    fn check_operation(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.check_operation(name);
+        self
     }
-    fn check_resource_prefix(&mut self, prefix: &str) {
-        self.authorizer_block_builder.check_resource_prefix(prefix);
+    fn check_resource_prefix(mut self, prefix: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.check_resource_prefix(prefix);
+        self
     }
 
-    fn check_resource_suffix(&mut self, suffix: &str) {
-        self.authorizer_block_builder.check_resource_suffix(suffix);
+    fn check_resource_suffix(mut self, suffix: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.check_resource_suffix(suffix);
+        self
     }
 
-    fn check_expiration_date(&mut self, exp: SystemTime) {
-        self.authorizer_block_builder.check_expiration_date(exp);
+    fn check_expiration_date(mut self, exp: SystemTime) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.check_expiration_date(exp);
+        self
     }
 }
 
 impl<'a> AuthorizerExt for AuthorizerBuilder<'a> {
-    fn add_allow_all(&mut self) {
-        self.add_policy("allow if true").unwrap();
+    fn add_allow_all(self) -> Self {
+        self.add_policy("allow if true").unwrap()
     }
-    fn add_deny_all(&mut self) {
-        self.add_policy("deny if true").unwrap();
+    fn add_deny_all(self) -> Self {
+        self.add_policy("deny if true").unwrap()
     }
 }
