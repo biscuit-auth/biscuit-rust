@@ -824,15 +824,18 @@ impl TryFrom<AuthorizerPolicies> for Authorizer {
         let mut authorizer = Self::new();
 
         for fact in facts.into_iter() {
-            authorizer.authorizer_block_builder.add_fact(fact)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_fact(fact)?;
         }
 
         for rule in rules.into_iter() {
-            authorizer.authorizer_block_builder.add_rule(rule)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_rule(rule)?;
         }
 
         for check in checks.into_iter() {
-            authorizer.authorizer_block_builder.add_check(check)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.add_check(check)?;
         }
 
         for policy in policies {
@@ -1034,10 +1037,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\", 42)").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .add_fact("user(\"John Doe\", 42)")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -1054,10 +1058,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\")").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .add_fact("user(\"John Doe\")")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
@@ -1071,25 +1076,24 @@ mod tests {
         let root = KeyPair::new(Algorithm::Ed25519);
         let external = KeyPair::new(Algorithm::Ed25519);
 
-        let mut builder = Biscuit::builder();
         let mut scope_params = HashMap::new();
         scope_params.insert("external_pub".to_string(), external.public());
-        builder
+
+        let biscuit1 = Biscuit::builder()
             .add_code_with_params(
                 r#"right("read");
-               check if group("admin") trusting {external_pub};
-            "#,
+           check if group("admin") trusting {external_pub};
+        "#,
                 HashMap::new(),
                 scope_params,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-
-        let biscuit1 = builder.build(&root).unwrap();
 
         let req = biscuit1.third_party_request().unwrap();
 
-        let mut builder = BlockBuilder::new();
-        builder
+        let builder = BlockBuilder::new()
             .add_code(
                 r#"group("admin");
              check if right("read");
@@ -1254,8 +1258,7 @@ mod tests {
     fn authorizer_display_before_and_after_authorization() {
         let root = KeyPair::new(Algorithm::Ed25519);
 
-        let mut token_builder = BiscuitBuilder::new();
-        token_builder
+        let token = BiscuitBuilder::new()
             .add_code(
                 r#"
             authority_fact(true);
@@ -1263,8 +1266,9 @@ mod tests {
             check if authority_fact(true), authority_rule(true);
         "#,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-        let token = token_builder.build(&root).unwrap();
 
         let mut builder = AuthorizerBuilder::new();
         builder.add_token(&token);

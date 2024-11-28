@@ -292,8 +292,8 @@ pub extern "C" fn error_check_is_authorizer(check_index: u64) -> bool {
 pub struct Biscuit(biscuit_auth::Biscuit);
 pub struct KeyPair(biscuit_auth::KeyPair);
 pub struct PublicKey(biscuit_auth::PublicKey);
-pub struct BiscuitBuilder(biscuit_auth::builder::BiscuitBuilder);
-pub struct BlockBuilder(biscuit_auth::builder::BlockBuilder);
+pub struct BiscuitBuilder(Option<biscuit_auth::builder::BiscuitBuilder>);
+pub struct BlockBuilder(Option<biscuit_auth::builder::BlockBuilder>);
 pub struct Authorizer(biscuit_auth::Authorizer);
 
 #[repr(C)]
@@ -422,9 +422,45 @@ pub unsafe extern "C" fn public_key_deserialize(
 #[no_mangle]
 pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 
+impl BiscuitBuilder {
+    fn set_context(&mut self, context: &str) {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.set_context(context.to_string());
+        self.0 = Some(inner);
+    }
+
+    fn set_root_key_id(&mut self, root_key_id: u32) {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.set_root_key_id(root_key_id);
+        self.0 = Some(inner);
+    }
+
+    fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_fact(fact)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_rule(rule)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_check(check)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+}
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder() -> Option<Box<BiscuitBuilder>> {
-    Some(Box::new(BiscuitBuilder(biscuit_auth::Biscuit::builder())))
+    Some(Box::new(BiscuitBuilder(Some(
+        biscuit_auth::Biscuit::builder(),
+    ))))
 }
 
 #[no_mangle]
@@ -446,7 +482,7 @@ pub unsafe extern "C" fn biscuit_builder_set_context(
             false
         }
         Ok(context) => {
-            builder.0.set_context(context.to_string());
+            builder.set_context(context);
             true
         }
     }
@@ -463,7 +499,7 @@ pub unsafe extern "C" fn biscuit_builder_set_root_key_id(
     }
     let builder = builder.unwrap();
 
-    builder.0.set_root_key_id(root_key_id);
+    builder.set_root_key_id(root_key_id);
     true
 }
 
@@ -486,7 +522,6 @@ pub unsafe extern "C" fn biscuit_builder_add_fact(
     }
 
     builder
-        .0
         .add_fact(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -513,7 +548,6 @@ pub unsafe extern "C" fn biscuit_builder_add_rule(
     }
 
     builder
-        .0
         .add_rule(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -540,7 +574,6 @@ pub unsafe extern "C" fn biscuit_builder_add_check(
     }
 
     builder
-        .0
         .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -577,6 +610,7 @@ pub unsafe extern "C" fn biscuit_builder_build(
     (*builder)
         .0
         .clone()
+        .expect("builder is none")
         .build_with_rng(&key_pair.0, SymbolTable::default(), &mut rng)
         .map(Biscuit)
         .map(Box::new)
@@ -762,9 +796,40 @@ pub unsafe extern "C" fn biscuit_block_context(
     }
 }
 
+impl BlockBuilder {
+    fn set_context(&mut self, context: &str) {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.set_context(context.to_string());
+        self.0 = Some(inner);
+    }
+
+    fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_fact(fact)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_rule(rule)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_check(check)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn create_block() -> Box<BlockBuilder> {
-    Box::new(BlockBuilder(biscuit_auth::builder::BlockBuilder::new()))
+    Box::new(BlockBuilder(Some(
+        biscuit_auth::builder::BlockBuilder::new(),
+    )))
 }
 
 #[no_mangle]
@@ -790,7 +855,7 @@ pub unsafe extern "C" fn biscuit_append_block(
 
     match biscuit
         .0
-        .append_with_keypair(&key_pair.0, builder.0.clone())
+        .append_with_keypair(&key_pair.0, builder.0.clone().expect("builder is none"))
     {
         Ok(token) => Some(Box::new(Biscuit(token))),
         Err(e) => {
@@ -834,7 +899,7 @@ pub unsafe extern "C" fn block_builder_set_context(
             false
         }
         Ok(context) => {
-            builder.0.set_context(context.to_string());
+            builder.set_context(context);
             true
         }
     }
@@ -859,7 +924,6 @@ pub unsafe extern "C" fn block_builder_add_fact(
     }
 
     builder
-        .0
         .add_fact(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -886,7 +950,6 @@ pub unsafe extern "C" fn block_builder_add_rule(
     }
 
     builder
-        .0
         .add_rule(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -913,7 +976,6 @@ pub unsafe extern "C" fn block_builder_add_check(
     }
 
     builder
-        .0
         .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));

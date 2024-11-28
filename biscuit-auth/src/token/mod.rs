@@ -742,13 +742,13 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
-            let mut builder = Biscuit::builder();
-
-            builder.add_fact("right(\"file1\", \"read\")").unwrap();
-            builder.add_fact("right(\"file2\", \"read\")").unwrap();
-            builder.add_fact("right(\"file1\", \"write\")").unwrap();
-
-            let biscuit1 = builder
+            let biscuit1 = Biscuit::builder()
+                .add_fact("right(\"file1\", \"read\")")
+                .unwrap()
+                .add_fact("right(\"file2\", \"read\")")
+                .unwrap()
+                .add_fact("right(\"file1\", \"write\")")
+                .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
@@ -794,9 +794,7 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = BlockBuilder::new();
-
-            block2
+            let block2 = BlockBuilder::new()
                 .add_check(rule(
                     "check1",
                     &[var("resource")],
@@ -825,9 +823,7 @@ mod tests {
             let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
 
             // new check: can only access file1
-            let mut block3 = BlockBuilder::new();
-
-            block3
+            let block3 = BlockBuilder::new()
                 .add_check(rule(
                     "check2",
                     &[string("file1")],
@@ -909,24 +905,21 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("/folder1/file1", "read");
-        builder.add_right("/folder1/file1", "write");
-        builder.add_right("/folder1/file2", "read");
-        builder.add_right("/folder1/file2", "write");
-        builder.add_right("/folder2/file3", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_right("/folder1/file1", "read")
+            .add_right("/folder1/file1", "write")
+            .add_right("/folder1/file2", "read")
+            .add_right("/folder1/file2", "write")
+            .add_right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-
-        block2.check_resource_prefix("/folder1/");
-        block2.check_right("read");
+        let block2 = BlockBuilder::new()
+            .check_resource_prefix("/folder1/")
+            .check_right("read")
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1002,21 +995,18 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("file1", "read");
-        builder.add_right("file2", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_right("file1", "read")
+            .add_right("file2", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-
-        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.add_fact("key(1234)").unwrap();
+        let block2 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
+            .add_fact("key(1234)")
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1066,24 +1056,21 @@ mod tests {
     fn sealed_token() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("/folder1/file1", "read");
-        builder.add_right("/folder1/file1", "write");
-        builder.add_right("/folder1/file2", "read");
-        builder.add_right("/folder1/file2", "write");
-        builder.add_right("/folder2/file3", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_right("/folder1/file1", "read")
+            .add_right("/folder1/file1", "write")
+            .add_right("/folder1/file2", "read")
+            .add_right("/folder1/file2", "write")
+            .add_right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-
-        block2.check_resource_prefix("/folder1/");
-        block2.check_right("read");
+        let block2 = BlockBuilder::new()
+            .check_resource_prefix("/folder1/")
+            .check_right("read")
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1137,19 +1124,13 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder
+        let biscuit1 = Biscuit::builder()
             .add_fact(fact("right", &[string("file1"), string("read")]))
-            .unwrap();
-        builder
+            .unwrap()
             .add_fact(fact("right", &[string("file2"), string("read")]))
-            .unwrap();
-        builder
+            .unwrap()
             .add_fact(fact("right", &[string("file1"), string("write")]))
-            .unwrap();
-
-        let biscuit1 = builder
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
         println!("{}", biscuit1);
@@ -1188,30 +1169,28 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("file1", "read");
-        builder.add_right("file2", "read");
-        builder.add_fact("key(0000)").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_right("file1", "read")
+            .add_right("file2", "read")
+            .add_fact("key(0000)")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-
-        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.add_fact("key(1234)").unwrap();
+        let block2 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
+            .add_fact("key(1234)")
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut block3 = BlockBuilder::new();
-
-        block3.check_expiration_date(SystemTime::now() + Duration::from_secs(10));
-        block3.add_fact("key(5678)").unwrap();
+        let block3 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(10))
+            .add_fact("key(5678)")
+            .unwrap();
 
         let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -1278,24 +1257,21 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder
+        let biscuit1 = Biscuit::builder()
             .add_check(check(
                 &[pred("resource", &[string("hello")])],
                 CheckKind::One,
             ))
-            .unwrap();
-
-        let biscuit1 = builder
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
         // new check: can only have read access1
-        let mut block2 = BlockBuilder::new();
-        block2.add_fact(fact("check1", &[string("test")])).unwrap();
+        let block2 = BlockBuilder::new()
+            .add_fact(fact("check1", &[string("test")]))
+            .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1383,16 +1359,15 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-        builder.add_fact("bytes(hex:0102AB)").unwrap();
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_fact("bytes(hex:0102AB)")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-        block2
+        let block2 = BlockBuilder::new()
             .add_rule("has_bytes($0) <- bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1432,20 +1407,15 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
-            let mut builder = Biscuit::builder();
-
-            builder
+            let biscuit1 = Biscuit::builder()
                 .add_fact("right(\"/folder1/file1\", \"read\")")
-                .unwrap();
-            builder
+                .unwrap()
                 .add_fact("right(\"/folder1/file1\", \"write\")")
-                .unwrap();
-            builder
+                .unwrap()
                 .add_fact("right(\"/folder2/file1\", \"read\")")
-                .unwrap();
-            builder.add_check("check if operation(\"read\")").unwrap();
-
-            let biscuit1 = builder
+                .unwrap()
+                .add_check("check if operation(\"read\")")
+                .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
@@ -1462,20 +1432,18 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, |_| Ok(root.public())).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = BlockBuilder::new();
+            let  block2 = BlockBuilder::new()
 
             // Bypass `check if operation("read")` from authority block
-            block2
                 .add_rule("operation(\"read\") <- operation($any)")
-                .unwrap();
+                .unwrap()
 
             // Bypass `check if resource($file), $file.starts_with("/folder1/")` from block #1
-            block2
                 .add_rule("resource(\"/folder1/\") <- resource($any)")
-                .unwrap();
+                .unwrap()
 
             // Add missing rights
-            block2.add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
+          .add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
                 .unwrap();
 
             let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1519,21 +1487,17 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_check("check if fact($v), $v < 1").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_check("check if fact($v), $v < 1")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_check("check all fact($v), $v < 1").unwrap();
-
-        let biscuit2 = builder
+        let biscuit2 = Biscuit::builder()
+            .add_check("check all fact($v), $v < 1")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
@@ -1646,13 +1610,13 @@ mod tests {
     fn verified_unverified_consistency() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
-        let mut builder = Biscuit::builder();
-
-        builder.add_fact("right(\"file1\", \"read\")").unwrap();
-        builder.add_fact("right(\"file2\", \"read\")").unwrap();
-        builder.add_fact("right(\"file1\", \"write\")").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .add_fact("right(\"file1\", \"read\")")
+            .unwrap()
+            .add_fact("right(\"file2\", \"read\")")
+            .unwrap()
+            .add_fact("right(\"file1\", \"write\")")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
