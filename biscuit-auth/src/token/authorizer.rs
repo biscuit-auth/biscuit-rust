@@ -320,7 +320,6 @@ impl Authorizer {
         self.authorize_with_limits(limits)
     }
 
-    /// TODO: consume the input to prevent further direct use
     /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
@@ -670,24 +669,6 @@ impl std::fmt::Display for Authorizer {
             all_facts.insert(origin, facts);
         }
 
-        let builder_facts = self
-            .authorizer_block_builder
-            .facts
-            .iter()
-            .map(|f| f.to_string())
-            .collect::<HashSet<_>>();
-        has_facts = has_facts || !builder_facts.is_empty();
-        let mut authorizer_origin = Origin::default();
-        authorizer_origin.insert(usize::MAX);
-        match all_facts.get_mut(&authorizer_origin) {
-            Some(e) => {
-                e.extend(builder_facts);
-            }
-            None => {
-                all_facts.insert(&authorizer_origin, builder_facts);
-            }
-        }
-
         if has_facts {
             writeln!(f, "// Facts:")?;
         }
@@ -720,19 +701,6 @@ impl std::fmt::Display for Authorizer {
                     .insert(self.symbols.print_rule(rule));
             }
         }
-
-        let builder_rules = self
-            .authorizer_block_builder
-            .rules
-            .iter()
-            .map(|rule| rule.to_string())
-            .collect::<HashSet<_>>();
-        has_rules = has_rules || !builder_rules.is_empty();
-
-        rules_map
-            .entry(usize::MAX)
-            .or_default()
-            .extend(builder_rules);
 
         if has_rules {
             writeln!(f, "// Rules:")?;
