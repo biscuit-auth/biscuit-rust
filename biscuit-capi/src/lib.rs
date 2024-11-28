@@ -295,7 +295,7 @@ pub struct PublicKey(biscuit_auth::PublicKey);
 pub struct BiscuitBuilder(Option<biscuit_auth::builder::BiscuitBuilder>);
 pub struct BlockBuilder(Option<biscuit_auth::builder::BlockBuilder>);
 pub struct Authorizer(biscuit_auth::Authorizer);
-pub struct AuthorizerBuilder<'a>(Option<biscuit_auth::builder::AuthorizerBuilder<'a>>);
+pub struct AuthorizerBuilder(Option<biscuit_auth::builder::AuthorizerBuilder>);
 
 #[repr(C)]
 pub enum SignatureAlgorithm {
@@ -989,7 +989,7 @@ pub unsafe extern "C" fn block_builder_add_check(
 #[no_mangle]
 pub unsafe extern "C" fn block_builder_free(_builder: Option<Box<BlockBuilder>>) {}
 
-impl<'a> AuthorizerBuilder<'a> {
+impl AuthorizerBuilder {
     fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
         inner = inner.fact(fact)?;
@@ -1018,6 +1018,14 @@ impl<'a> AuthorizerBuilder<'a> {
         Ok(())
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn authorizer_builder() -> Option<Box<AuthorizerBuilder>> {
+    Some(Box::new(AuthorizerBuilder(Some(
+        biscuit_auth::builder::AuthorizerBuilder::new(),
+    ))))
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn authorizer_builder_add_fact(
     builder: Option<&mut AuthorizerBuilder>,
@@ -1128,6 +1136,7 @@ pub unsafe extern "C" fn authorizer_builder_add_policy(
 #[no_mangle]
 pub unsafe extern "C" fn authorizer_builder_build(
     builder: Option<Box<AuthorizerBuilder>>,
+    token: &Biscuit,
 ) -> Option<Box<Authorizer>> {
     if builder.is_none() {
         update_last_error(Error::InvalidArgument);
@@ -1138,7 +1147,29 @@ pub unsafe extern "C" fn authorizer_builder_build(
         .clone()
         .take()
         .unwrap()
-        .build()
+        .build(&token.0)
+        .map(Authorizer)
+        .map(Box::new)
+        .ok()
+}
+
+/// Build an authorizer without a token
+///
+/// The builder will be freed automatically when the authorizer is returned
+#[no_mangle]
+pub unsafe extern "C" fn authorizer_builder_build_unauthenticated(
+    builder: Option<Box<AuthorizerBuilder>>,
+) -> Option<Box<Authorizer>> {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let builder = builder.unwrap();
+    builder
+        .0
+        .clone()
+        .take()
+        .unwrap()
+        .build_unauthenticated()
         .map(Authorizer)
         .map(Box::new)
         .ok()

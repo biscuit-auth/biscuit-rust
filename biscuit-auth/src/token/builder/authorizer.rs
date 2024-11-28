@@ -27,16 +27,15 @@ use crate::{
 use super::{date, fact, BlockBuilder, Check, Fact, Policy, Rule, Scope, Term};
 
 #[derive(Clone, Debug, Default)]
-pub struct AuthorizerBuilder<'a> {
+pub struct AuthorizerBuilder {
     authorizer_block_builder: BlockBuilder,
     policies: Vec<Policy>,
     extern_funcs: HashMap<String, ExternFunc>,
     limits: AuthorizerLimits,
-    token: Option<&'a Biscuit>,
 }
 
-impl<'a> AuthorizerBuilder<'a> {
-    pub fn new() -> AuthorizerBuilder<'a> {
+impl AuthorizerBuilder {
+    pub fn new() -> AuthorizerBuilder {
         AuthorizerBuilder::default()
     }
 
@@ -261,11 +260,6 @@ impl<'a> AuthorizerBuilder<'a> {
         self
     }
 
-    pub fn token(mut self, token: &'a Biscuit) -> Self {
-        self.token = Some(token);
-        self
-    }
-
     pub fn dump_code(&self) -> String {
         let mut f = String::new();
         for fact in &self.authorizer_block_builder.facts {
@@ -295,7 +289,17 @@ impl<'a> AuthorizerBuilder<'a> {
         f
     }
 
-    pub fn build(self) -> Result<Authorizer, error::Token> {
+    /// builds the authorizer from a token
+    pub fn build(self, token: &Biscuit) -> Result<Authorizer, error::Token> {
+        self.build_inner(Some(token))
+    }
+
+    /// builds the authorizer without a token
+    pub fn build_unauthenticated(self) -> Result<Authorizer, error::Token> {
+        self.build_inner(None)
+    }
+
+    fn build_inner(self, token: Option<&Biscuit>) -> Result<Authorizer, error::Token> {
         let mut world = World::new();
         world.extern_funcs = self.extern_funcs;
 
@@ -305,7 +309,7 @@ impl<'a> AuthorizerBuilder<'a> {
         let mut blocks: Option<Vec<Block>> = None;
 
         // load the token if present
-        if let Some(token) = self.token {
+        if let Some(token) = token {
             for (i, block) in token.container.blocks.iter().enumerate() {
                 if let Some(sig) = block.external_signature.as_ref() {
                     let new_key_id = symbols.public_keys.insert(&sig.public_key);
@@ -458,7 +462,7 @@ pub(crate) fn load_and_translate_block(
     Ok(())
 }
 
-impl<'a> BuilderExt for AuthorizerBuilder<'a> {
+impl BuilderExt for AuthorizerBuilder {
     fn resource(mut self, name: &str) -> Self {
         self.authorizer_block_builder = self.authorizer_block_builder.resource(name);
         self
@@ -491,7 +495,7 @@ impl<'a> BuilderExt for AuthorizerBuilder<'a> {
     }
 }
 
-impl<'a> AuthorizerExt for AuthorizerBuilder<'a> {
+impl AuthorizerExt for AuthorizerBuilder {
     fn allow_all(self) -> Self {
         self.policy("allow if true").unwrap()
     }
@@ -500,7 +504,7 @@ impl<'a> AuthorizerExt for AuthorizerBuilder<'a> {
     }
 }
 
-impl<'a> AuthorizerBuilder<'a> {
+impl AuthorizerBuilder {
     pub fn from_snapshot(input: schema::AuthorizerSnapshot) -> Result<Self, error::Token> {
         let schema::AuthorizerSnapshot {
             limits,
@@ -573,7 +577,7 @@ impl<'a> AuthorizerBuilder<'a> {
             .map(|policy| proto_policy_to_policy(policy, &symbols, version))
             .collect::<Result<Vec<Policy>, error::Format>>()?;
 
-        let mut authorizer: AuthorizerBuilder<'_> = AuthorizerBuilder::new();
+        let mut authorizer = AuthorizerBuilder::new();
         authorizer.authorizer_block_builder = authorizer_block_builder;
         authorizer.policies = policies;
         authorizer.limits = limits;

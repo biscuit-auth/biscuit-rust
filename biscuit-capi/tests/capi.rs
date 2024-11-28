@@ -39,13 +39,17 @@ mod capi {
                 Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
 
-                Authorizer * authorizer = biscuit_authorizer(b2);
-                printf("authorizer creation error? %s\n", error_message());
-                authorizer_add_check(authorizer, "check if right(\"efgh\")");
+                AuthorizerBuilder * ab = authorizer_builder();
+                printf("authorizer builder creation error? %s\n", error_message());
+
+                authorizer_builder_add_check(authorizer, "check if right(\"efgh\")");
                 printf("authorizer add check error? %s\n", error_message());
 
-                authorizer_add_policy(authorizer, "allow if true");
+                authorizer_builder_add_policy(authorizer, "allow if true");
                 printf("authorizer add policy error? %s\n", error_message());
+
+                Authorizer * authorizer = authorizer_builder_build(b2);
+                printf("authorizer creation error? %s\n", error_message());
 
                 if(!authorizer_authorize(authorizer)) {
                     printf("authorizer error(code = %d): %s\n", error_kind(), error_message());

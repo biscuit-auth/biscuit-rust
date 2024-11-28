@@ -263,13 +263,12 @@ fn verify_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -281,13 +280,12 @@ fn verify_block_2(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = AuthorizerBuilder::new()
-            .token(&token)
             .fact("resource(\"file1\")")
             .unwrap()
             .fact("operation(\"read\")")
             .unwrap()
             .allow_all()
-            .build()
+            .build(&token)
             .unwrap();
         verifier
             .authorize_with_limits(AuthorizerLimits {
@@ -352,13 +350,12 @@ fn verify_block_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -371,13 +368,12 @@ fn verify_block_5(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = AuthorizerBuilder::new()
-            .token(&token)
             .fact("resource(\"file1\")")
             .unwrap()
             .fact("operation(\"read\")")
             .unwrap()
             .allow_all()
-            .build()
+            .build(&token)
             .unwrap();
         verifier
             .authorize_with_limits(AuthorizerLimits {
@@ -415,13 +411,12 @@ fn check_signature_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -489,13 +484,12 @@ fn check_signature_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -537,13 +531,12 @@ fn checks_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -556,13 +549,12 @@ fn checks_block_2(b: &mut Bencher) {
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut verifier = AuthorizerBuilder::new()
-            .token(&token)
             .fact("resource(\"file1\")")
             .unwrap()
             .fact("operation(\"read\")")
             .unwrap()
             .allow_all()
-            .build()
+            .build(&token)
             .unwrap();
         verifier
             .authorize_with_limits(AuthorizerLimits {
@@ -600,13 +592,12 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -649,13 +640,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .token(&token)
         .fact("resource(\"file1\")")
         .unwrap()
         .fact("operation(\"read\")")
         .unwrap()
         .allow_all()
-        .build()
+        .build(&token)
         .unwrap();
     verifier
         .authorize_with_limits(AuthorizerLimits {
@@ -667,13 +657,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
     let token = Biscuit::from(&data, &root.public()).unwrap();
     b.iter(|| {
         let mut verifier = AuthorizerBuilder::new()
-            .token(&token)
             .fact("resource(\"file1\")")
             .unwrap()
             .fact("operation(\"read\")")
             .unwrap()
             .allow_all()
-            .build()
+            .build(&token)
             .unwrap();
         verifier
             .authorize_with_limits(AuthorizerLimits {

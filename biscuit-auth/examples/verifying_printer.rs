@@ -25,11 +25,7 @@ fn main() {
     }
     println!("token:\n{}", token);
 
-    let mut authorizer = AuthorizerBuilder::new()
-        .token(&token)
-        .allow_all()
-        .build()
-        .unwrap();
+    let mut authorizer = AuthorizerBuilder::new().allow_all().build(&token).unwrap();
 
     println!("authorizer result: {:?}", authorizer.authorize());
     println!("authorizer world:\n{}", authorizer.print_world());

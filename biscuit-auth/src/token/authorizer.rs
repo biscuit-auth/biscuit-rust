@@ -36,7 +36,7 @@ pub struct Authorizer {
 
 impl Authorizer {
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
-        AuthorizerBuilder::new().token(token).build()
+        AuthorizerBuilder::new().build(token)
     }
 
     /// creates a new empty authorizer
@@ -872,7 +872,7 @@ mod tests {
         let mut authorizer = AuthorizerBuilder::new()
             .policy("allow if true")
             .unwrap()
-            .build()
+            .build_unauthenticated()
             .unwrap();
         assert_eq!(
             authorizer.authorize_with_limits(AuthorizerLimits {
@@ -911,7 +911,7 @@ mod tests {
                 scope_params,
             )
             .unwrap()
-            .build()
+            .build_unauthenticated()
             .unwrap();
     }
 
@@ -1092,12 +1092,11 @@ mod tests {
                 scope_params,
             )
             .unwrap()
-            .token(&biscuit2)
             .limits(AuthorizerLimits {
                 max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
                 ..Default::default()
             })
-            .build()
+            .build(&biscuit2)
             .unwrap();
 
         println!("token:\n{}", biscuit2);
@@ -1229,7 +1228,6 @@ mod tests {
             .unwrap();
 
         let mut authorizer = AuthorizerBuilder::new()
-            .token(&token)
             .code(
                 r#"
           authorizer_fact(true);
@@ -1239,7 +1237,7 @@ mod tests {
         "#,
             )
             .unwrap()
-            .build()
+            .build(&token)
             .unwrap();
         let output_before_authorization = authorizer.to_string();
 
@@ -1345,7 +1343,7 @@ allow if true;
                 &[builder::pred("pred", &[builder::var("any")])],
             ))
             .unwrap()
-            .build()
+            .build_unauthenticated()
             .unwrap();
         let res: Vec<(String,)> = authorizer
             .query(builder::rule(

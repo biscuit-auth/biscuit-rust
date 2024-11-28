@@ -75,7 +75,7 @@ fn authorizer_macro() {
       "#
     );
 
-    let authorizer = b.build().unwrap();
+    let authorizer = b.build_unauthenticated().unwrap();
     assert_eq!(
         authorizer.dump_code(),
         r#"appended(true);
@@ -95,7 +95,7 @@ allow if true;
 #[test]
 fn authorizer_macro_trailing_comma() {
     let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",)
-        .build()
+        .build_unauthenticated()
         .unwrap();
     assert_eq!(
         a.dump_code(),
@@ -261,8 +261,7 @@ fn json() {
           $value.get("id") == $id,
           $value.get("roles").contains("admin");"#
     )
-    .token(&biscuit)
-    .build()
+    .build(&biscuit)
     .unwrap();
     assert_eq!(
         authorizer

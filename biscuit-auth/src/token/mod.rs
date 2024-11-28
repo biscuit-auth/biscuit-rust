@@ -847,7 +847,7 @@ mod tests {
         let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
-            let mut builder = AuthorizerBuilder::new().token(&final_token);
+            let mut builder = AuthorizerBuilder::new();
 
             let mut facts = vec![
                 fact("resource", &[string("file1")]),
@@ -860,7 +860,7 @@ mod tests {
 
             //println!("final token: {:#?}", final_token);
 
-            let mut authorizer = builder.allow_all().build().unwrap();
+            let mut authorizer = builder.allow_all().build(&final_token).unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -868,7 +868,7 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new().token(&final_token);
+            let mut builder = AuthorizerBuilder::new();
 
             let mut facts = vec![
                 fact("resource", &[string("file2")]),
@@ -880,7 +880,7 @@ mod tests {
             }
             builder = builder.allow_all();
 
-            let mut authorizer = builder.build().unwrap();
+            let mut authorizer = builder.build(&final_token).unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -924,13 +924,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"/folder1/file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -944,13 +943,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"/folder2/file3\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -975,12 +973,11 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"/folder2/file1\")")
                 .unwrap()
                 .fact("operation(\"write\")")
                 .unwrap()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize();
@@ -1017,14 +1014,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .time()
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1038,14 +1034,13 @@ mod tests {
         {
             println!("biscuit2: {}", biscuit2);
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .time()
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1087,13 +1082,12 @@ mod tests {
         //panic!();
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"/folder1/file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1114,13 +1108,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit3)
                 .fact("resource(\"/folder1/file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .allow_all()
-                .build()
+                .build(&biscuit3)
                 .unwrap();
 
             let res = authorizer.authorize();
@@ -1148,14 +1141,13 @@ mod tests {
         println!("{}", biscuit1);
 
         let mut authorizer = AuthorizerBuilder::new()
-            .token(&biscuit1)
             .check(rule(
                 "right",
                 &[string("right")],
                 &[pred("right", &[string("file2"), string("write")])],
             ))
             .unwrap()
-            .build()
+            .build(&biscuit1)
             .unwrap();
 
         //assert!(v.verify().is_err());
@@ -1209,13 +1201,12 @@ mod tests {
             println!("biscuit3: {}", biscuit3);
 
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit3)
                 .fact("resource(\"file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .time()
-                .build()
+                .build(&biscuit3)
                 .unwrap();
 
             // test that cloning correctly embeds the first block's facts
@@ -1295,13 +1286,12 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("resource(\"file1\")")
                 .unwrap()
                 .fact("operation(\"read\")")
                 .unwrap()
                 .time()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             println!("world:\n{}", authorizer.print_world());
@@ -1391,11 +1381,10 @@ mod tests {
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut authorizer = AuthorizerBuilder::new()
-            .token(&biscuit2)
             .check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap()
             .allow_all()
-            .build()
+            .build(&biscuit2)
             .unwrap();
 
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1480,7 +1469,6 @@ mod tests {
         println!("final token:\n{}", final_token);
 
         let mut authorizer = AuthorizerBuilder::new()
-            .token(&final_token)
             .fact("resource(\"/folder2/file1\")")
             .unwrap()
             .fact("operation(\"write\")")
@@ -1488,7 +1476,7 @@ mod tests {
             .policy("allow if resource($file), operation($op), right($file, $op)")
             .unwrap()
             .deny_all()
-            .build()
+            .build(&final_token)
             .unwrap();
 
         let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
@@ -1524,14 +1512,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit1)
                 .fact("fact(0)")
                 .unwrap()
                 .fact("fact(1)")
                 .unwrap()
                 //println!("final token: {:#?}", final_token);
                 .allow_all()
-                .build()
+                .build(&biscuit1)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
@@ -1544,14 +1531,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .token(&biscuit2)
                 .fact("fact(0)")
                 .unwrap()
                 .fact("fact(1)")
                 .unwrap()
                 //println!("final token: {:#?}", final_token);
                 .allow_all()
-                .build()
+                .build(&biscuit2)
                 .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {

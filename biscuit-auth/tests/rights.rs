@@ -32,7 +32,6 @@ fn main() {
     println!("{}", biscuit1);
 
     let mut v = AuthorizerBuilder::new()
-        .token(&biscuit1)
         .check(rule(
             "right",
             &[string("right")],
@@ -42,7 +41,7 @@ fn main() {
             )],
         ))
         .unwrap()
-        .build()
+        .build(&biscuit1)
         .unwrap();
     //v.add_resource("file2");
     //v.add_operation("read");

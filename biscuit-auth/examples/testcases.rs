@@ -349,7 +349,7 @@ fn validate_token_with_limits_and_external_functions(
         .unwrap();
     let authorizer_code = builder.dump_code();
 
-    let mut authorizer = match builder.token(&token).build() {
+    let mut authorizer = match builder.build(&token) {
         Ok(v) => v,
         Err(e) => {
             return Validation {
