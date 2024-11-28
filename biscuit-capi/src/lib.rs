@@ -295,6 +295,7 @@ pub struct PublicKey(biscuit_auth::PublicKey);
 pub struct BiscuitBuilder(Option<biscuit_auth::builder::BiscuitBuilder>);
 pub struct BlockBuilder(Option<biscuit_auth::builder::BlockBuilder>);
 pub struct Authorizer(biscuit_auth::Authorizer);
+pub struct AuthorizerBuilder<'a>(Option<biscuit_auth::builder::AuthorizerBuilder<'a>>);
 
 #[repr(C)]
 pub enum SignatureAlgorithm {
@@ -986,16 +987,45 @@ pub unsafe extern "C" fn block_builder_add_check(
 #[no_mangle]
 pub unsafe extern "C" fn block_builder_free(_builder: Option<Box<BlockBuilder>>) {}
 
+impl<'a> AuthorizerBuilder<'a> {
+    fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_fact(fact)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_rule(rule)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_check(check)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+
+    fn add_policy(&mut self, policy: &str) -> Result<(), biscuit_auth::error::Token> {
+        let mut inner = self.0.take().unwrap();
+        inner = inner.add_policy(policy)?;
+        self.0 = Some(inner);
+        Ok(())
+    }
+}
 #[no_mangle]
-pub unsafe extern "C" fn authorizer_add_fact(
-    authorizer: Option<&mut Authorizer>,
+pub unsafe extern "C" fn authorizer_builder_add_fact(
+    builder: Option<&mut AuthorizerBuilder>,
     fact: *const c_char,
 ) -> bool {
-    if authorizer.is_none() {
+    if builder.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let authorizer = authorizer.unwrap();
+    let builder = builder.unwrap();
 
     let fact = CStr::from_ptr(fact);
     let s = fact.to_str();
@@ -1004,8 +1034,7 @@ pub unsafe extern "C" fn authorizer_add_fact(
         return false;
     }
 
-    authorizer
-        .0
+    builder
         .add_fact(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -1014,15 +1043,15 @@ pub unsafe extern "C" fn authorizer_add_fact(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn authorizer_add_rule(
-    authorizer: Option<&mut Authorizer>,
+pub unsafe extern "C" fn authorizer_builder_add_rule(
+    builder: Option<&mut AuthorizerBuilder>,
     rule: *const c_char,
 ) -> bool {
-    if authorizer.is_none() {
+    if builder.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let authorizer = authorizer.unwrap();
+    let builder = builder.unwrap();
 
     let rule = CStr::from_ptr(rule);
     let s = rule.to_str();
@@ -1031,8 +1060,7 @@ pub unsafe extern "C" fn authorizer_add_rule(
         return false;
     }
 
-    authorizer
-        .0
+    builder
         .add_rule(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -1041,15 +1069,15 @@ pub unsafe extern "C" fn authorizer_add_rule(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn authorizer_add_check(
-    authorizer: Option<&mut Authorizer>,
+pub unsafe extern "C" fn authorizer_builder_add_check(
+    builder: Option<&mut AuthorizerBuilder>,
     check: *const c_char,
 ) -> bool {
-    if authorizer.is_none() {
+    if builder.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let authorizer = authorizer.unwrap();
+    let builder = builder.unwrap();
 
     let check = CStr::from_ptr(check);
     let s = check.to_str();
@@ -1058,8 +1086,7 @@ pub unsafe extern "C" fn authorizer_add_check(
         return false;
     }
 
-    authorizer
-        .0
+    builder
         .add_check(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
@@ -1068,15 +1095,15 @@ pub unsafe extern "C" fn authorizer_add_check(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn authorizer_add_policy(
-    authorizer: Option<&mut Authorizer>,
+pub unsafe extern "C" fn authorizer_builder_add_policy(
+    builder: Option<&mut AuthorizerBuilder>,
     policy: *const c_char,
 ) -> bool {
-    if authorizer.is_none() {
+    if builder.is_none() {
         update_last_error(Error::InvalidArgument);
         return false;
     }
-    let authorizer = authorizer.unwrap();
+    let builder = builder.unwrap();
 
     let policy = CStr::from_ptr(policy);
     let s = policy.to_str();
@@ -1085,14 +1112,35 @@ pub unsafe extern "C" fn authorizer_add_policy(
         return false;
     }
 
-    authorizer
-        .0
+    builder
         .add_policy(s.unwrap())
         .map_err(|e| {
             update_last_error(Error::Biscuit(e));
         })
         .is_ok()
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn authorizer_builder_build(
+    builder: Option<AuthorizerBuilder>,
+) -> Option<Box<Authorizer>> {
+    if builder.is_none() {
+        update_last_error(Error::InvalidArgument);
+    }
+    let builder = builder.unwrap();
+    builder
+        .0
+        .clone()
+        .take()
+        .unwrap()
+        .build()
+        .map(Authorizer)
+        .map(Box::new)
+        .ok()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn authorizer_builder_free(_builder: Option<Box<AuthorizerBuilder>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn authorizer_authorize(authorizer: Option<&mut Authorizer>) -> bool {
