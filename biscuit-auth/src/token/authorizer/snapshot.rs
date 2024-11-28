@@ -231,7 +231,7 @@ impl super::Authorizer {
     }
 }
 
-fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
+pub(crate) fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
     origin
         .inner
         .iter()
@@ -249,7 +249,9 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
         .collect()
 }
 
-fn proto_origin_to_authorizer_origin(origins: &[schema::Origin]) -> Result<Origin, error::Format> {
+pub(crate) fn proto_origin_to_authorizer_origin(
+    origins: &[schema::Origin],
+) -> Result<Origin, error::Format> {
     let mut new_origin = Origin::default();
 
     for origin in origins {

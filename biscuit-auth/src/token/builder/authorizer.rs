@@ -2,17 +2,25 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Write,
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use biscuit_parser::parser::parse_source;
+use prost::Message;
 
 use crate::{
     builder::Convert,
     builder_ext::{AuthorizerExt, BuilderExt},
-    datalog::{ExternFunc, Origin, SymbolTable, TrustedOrigins, World},
+    datalog::{ExternFunc, Origin, RunLimits, SymbolTable, TrustedOrigins, World},
     error,
-    token::{self, Block},
+    format::{
+        convert::{
+            proto_snapshot_block_to_token_block, token_block_to_proto_snapshot_block,
+            v2::{policy_to_proto_policy, proto_policy_to_policy},
+        },
+        schema,
+    },
+    token::{self, default_symbol_table, Block, MAX_SCHEMA_VERSION, MIN_SCHEMA_VERSION},
     Authorizer, AuthorizerLimits, Biscuit, PublicKey,
 };
 
@@ -489,5 +497,159 @@ impl<'a> AuthorizerExt for AuthorizerBuilder<'a> {
     }
     fn deny_all(self) -> Self {
         self.policy("deny if true").unwrap()
+    }
+}
+
+impl<'a> AuthorizerBuilder<'a> {
+    pub fn from_snapshot(input: schema::AuthorizerSnapshot) -> Result<Self, error::Token> {
+        let schema::AuthorizerSnapshot {
+            limits,
+            execution_time,
+            world,
+        } = input;
+
+        let limits = RunLimits {
+            max_facts: limits.max_facts,
+            max_iterations: limits.max_iterations,
+            max_time: Duration::from_nanos(limits.max_time),
+        };
+
+        let version = world.version.unwrap_or(0);
+        if !(MIN_SCHEMA_VERSION..=MAX_SCHEMA_VERSION).contains(&version) {
+            return Err(error::Format::Version {
+                minimum: crate::token::MIN_SCHEMA_VERSION,
+                maximum: crate::token::MAX_SCHEMA_VERSION,
+                actual: version,
+            }
+            .into());
+        }
+
+        if !world.blocks.is_empty() {
+            return Err(error::Format::DeserializationError(
+                "cannot deserialize an AuthorizerBuilder fro a snapshot with blocks".to_string(),
+            )
+            .into());
+        }
+
+        if !world.generated_facts.is_empty() {
+            return Err(error::Format::DeserializationError(
+                "cannot deserialize an AuthorizerBuilder from a snapshot with generated facts"
+                    .to_string(),
+            )
+            .into());
+        }
+
+        if world.iterations != 0 {
+            return Err(error::Format::DeserializationError(
+                "cannot deserialize an AuthorizerBuilder from a snapshot with non-zero iterations"
+                    .to_string(),
+            )
+            .into());
+        }
+
+        if execution_time != 0 {
+            return Err(error::Format::DeserializationError(
+                "cannot deserialize an AuthorizerBuilder from a snapshot with non-zero execution time".to_string(),
+            )
+            .into());
+        }
+
+        let mut symbols = default_symbol_table();
+        for symbol in world.symbols {
+            symbols.insert(&symbol);
+        }
+        for public_key in world.public_keys {
+            symbols
+                .public_keys
+                .insert(&PublicKey::from_proto(&public_key)?);
+        }
+
+        let authorizer_block = proto_snapshot_block_to_token_block(&world.authorizer_block)?;
+
+        let authorizer_block_builder = BlockBuilder::convert_from(&authorizer_block, &symbols)?;
+        let policies = world
+            .authorizer_policies
+            .iter()
+            .map(|policy| proto_policy_to_policy(policy, &symbols, version))
+            .collect::<Result<Vec<Policy>, error::Format>>()?;
+
+        let mut authorizer: AuthorizerBuilder<'_> = AuthorizerBuilder::new();
+        authorizer.authorizer_block_builder = authorizer_block_builder;
+        authorizer.policies = policies;
+        authorizer.limits = limits;
+
+        Ok(authorizer)
+    }
+
+    pub fn from_raw_snapshot(input: &[u8]) -> Result<Self, error::Token> {
+        let snapshot = schema::AuthorizerSnapshot::decode(input).map_err(|e| {
+            error::Format::DeserializationError(format!("deserialization error: {:?}", e))
+        })?;
+        Self::from_snapshot(snapshot)
+    }
+
+    pub fn from_base64_snapshot(input: &str) -> Result<Self, error::Token> {
+        let bytes = base64::decode_config(input, base64::URL_SAFE)?;
+        Self::from_raw_snapshot(&bytes)
+    }
+
+    pub fn snapshot(&self) -> Result<schema::AuthorizerSnapshot, error::Format> {
+        let mut symbols = default_symbol_table();
+
+        let authorizer_policies = self
+            .policies
+            .iter()
+            .map(|policy| policy_to_proto_policy(policy, &mut symbols))
+            .collect();
+
+        let authorizer_block = self.authorizer_block_builder.clone().build(symbols.clone());
+        symbols.extend(&authorizer_block.symbols)?;
+        symbols.public_keys.extend(&authorizer_block.public_keys)?;
+
+        let authorizer_block = token_block_to_proto_snapshot_block(&authorizer_block);
+
+        let blocks = vec![];
+
+        let generated_facts = vec![];
+
+        let world = schema::AuthorizerWorld {
+            version: Some(MAX_SCHEMA_VERSION),
+            symbols: symbols.strings(),
+            public_keys: symbols
+                .public_keys
+                .into_inner()
+                .into_iter()
+                .map(|key| key.to_proto())
+                .collect(),
+            blocks,
+            authorizer_block,
+            authorizer_policies,
+            generated_facts,
+            iterations: 0,
+        };
+
+        Ok(schema::AuthorizerSnapshot {
+            world,
+            execution_time: 0u64,
+            limits: schema::RunLimits {
+                max_facts: self.limits.max_facts,
+                max_iterations: self.limits.max_iterations,
+                max_time: self.limits.max_time.as_nanos() as u64,
+            },
+        })
+    }
+
+    pub fn to_raw_snapshot(&self) -> Result<Vec<u8>, error::Format> {
+        let snapshot = self.snapshot()?;
+        let mut bytes = Vec::new();
+        snapshot.encode(&mut bytes).map_err(|e| {
+            error::Format::SerializationError(format!("serialization error: {:?}", e))
+        })?;
+        Ok(bytes)
+    }
+
+    pub fn to_base64_snapshot(&self) -> Result<String, error::Format> {
+        let snapshot_bytes = self.to_raw_snapshot()?;
+        Ok(base64::encode_config(snapshot_bytes, base64::URL_SAFE))
     }
 }
