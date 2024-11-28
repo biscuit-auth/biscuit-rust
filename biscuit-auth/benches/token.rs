@@ -16,11 +16,11 @@ fn create_block_1(b: &mut Bencher) {
     let root = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let token = Biscuit::builder()
-        .add_fact(fact("right", &[string("file1"), string("read")]))
+        .fact(fact("right", &[string("file1"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file2"), string("read")]))
+        .fact(fact("right", &[string("file2"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file1"), string("write")]))
+        .fact(fact("right", &[string("file1"), string("write")]))
         .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -30,11 +30,11 @@ fn create_block_1(b: &mut Bencher) {
     assert_eq!(b.bytes, 206);
     b.iter(|| {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -48,11 +48,11 @@ fn append_block_2(b: &mut Bencher) {
     let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let token = Biscuit::builder()
-        .add_fact(fact("right", &[string("file1"), string("read")]))
+        .fact(fact("right", &[string("file1"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file2"), string("read")]))
+        .fact(fact("right", &[string("file2"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file1"), string("write")]))
+        .fact(fact("right", &[string("file1"), string("write")]))
         .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -87,11 +87,11 @@ fn append_block_5(b: &mut Bencher) {
     let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let token = Biscuit::builder()
-        .add_fact(fact("right", &[string("file1"), string("read")]))
+        .fact(fact("right", &[string("file1"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file2"), string("read")]))
+        .fact(fact("right", &[string("file2"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file1"), string("write")]))
+        .fact(fact("right", &[string("file1"), string("write")]))
         .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -145,11 +145,11 @@ fn unverified_append_block_2(b: &mut Bencher) {
     let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let token = Biscuit::builder()
-        .add_fact(fact("right", &[string("file1"), string("read")]))
+        .fact(fact("right", &[string("file1"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file2"), string("read")]))
+        .fact(fact("right", &[string("file2"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file1"), string("write")]))
+        .fact(fact("right", &[string("file1"), string("write")]))
         .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -184,11 +184,11 @@ fn unverified_append_block_5(b: &mut Bencher) {
     let keypair5 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
 
     let token = Biscuit::builder()
-        .add_fact(fact("right", &[string("file1"), string("read")]))
+        .fact(fact("right", &[string("file1"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file2"), string("read")]))
+        .fact(fact("right", &[string("file2"), string("read")]))
         .unwrap()
-        .add_fact(fact("right", &[string("file1"), string("write")]))
+        .fact(fact("right", &[string("file1"), string("write")]))
         .unwrap()
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
@@ -243,11 +243,11 @@ fn verify_block_2(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -263,12 +263,12 @@ fn verify_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -281,12 +281,12 @@ fn verify_block_2(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = AuthorizerBuilder::new()
-            .add_token(&token)
-            .add_fact("resource(\"file1\")")
+            .token(&token)
+            .fact("resource(\"file1\")")
             .unwrap()
-            .add_fact("operation(\"read\")")
+            .fact("operation(\"read\")")
             .unwrap()
-            .add_allow_all()
+            .allow_all()
             .build()
             .unwrap();
         verifier
@@ -308,11 +308,11 @@ fn verify_block_5(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -352,12 +352,12 @@ fn verify_block_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -371,12 +371,12 @@ fn verify_block_5(b: &mut Bencher) {
     b.iter(|| {
         let token = Biscuit::from(&data, &root.public()).unwrap();
         let mut verifier = AuthorizerBuilder::new()
-            .add_token(&token)
-            .add_fact("resource(\"file1\")")
+            .token(&token)
+            .fact("resource(\"file1\")")
             .unwrap()
-            .add_fact("operation(\"read\")")
+            .fact("operation(\"read\")")
             .unwrap()
-            .add_allow_all()
+            .allow_all()
             .build()
             .unwrap();
         verifier
@@ -395,11 +395,11 @@ fn check_signature_2(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -415,12 +415,12 @@ fn check_signature_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -446,11 +446,11 @@ fn check_signature_5(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -489,12 +489,12 @@ fn check_signature_5(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -517,11 +517,11 @@ fn checks_block_2(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -537,12 +537,12 @@ fn checks_block_2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -556,12 +556,12 @@ fn checks_block_2(b: &mut Bencher) {
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut verifier = AuthorizerBuilder::new()
-            .add_token(&token)
-            .add_fact("resource(\"file1\")")
+            .token(&token)
+            .fact("resource(\"file1\")")
             .unwrap()
-            .add_fact("operation(\"read\")")
+            .fact("operation(\"read\")")
             .unwrap()
-            .add_allow_all()
+            .allow_all()
             .build()
             .unwrap();
         verifier
@@ -580,11 +580,11 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -600,12 +600,12 @@ fn checks_block_create_verifier2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -629,11 +629,11 @@ fn checks_block_verify_only2(b: &mut Bencher) {
 
     let data = {
         let token = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, SymbolTable::default(), &mut rng)
             .unwrap();
@@ -649,12 +649,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
 
     let token = Biscuit::from(&data, &root.public()).unwrap();
     let mut verifier = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_fact("resource(\"file1\")")
+        .token(&token)
+        .fact("resource(\"file1\")")
         .unwrap()
-        .add_fact("operation(\"read\")")
+        .fact("operation(\"read\")")
         .unwrap()
-        .add_allow_all()
+        .allow_all()
         .build()
         .unwrap();
     verifier
@@ -667,12 +667,12 @@ fn checks_block_verify_only2(b: &mut Bencher) {
     let token = Biscuit::from(&data, &root.public()).unwrap();
     b.iter(|| {
         let mut verifier = AuthorizerBuilder::new()
-            .add_token(&token)
-            .add_fact("resource(\"file1\")")
+            .token(&token)
+            .fact("resource(\"file1\")")
             .unwrap()
-            .add_fact("operation(\"read\")")
+            .fact("operation(\"read\")")
             .unwrap()
-            .add_allow_all()
+            .allow_all()
             .build()
             .unwrap();
         verifier

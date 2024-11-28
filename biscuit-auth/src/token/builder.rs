@@ -252,7 +252,7 @@ mod tests {
         let mut scope_params = HashMap::new();
         scope_params.insert("pk".to_string(), pubkey);
         builder = builder
-            .add_code_with_params(
+            .code_with_params(
                 r#"fact({p1}, "value");
              rule($head_var) <- f1($head_var), {p2} > 0 trusting {pk};
              check if {p3} trusting {pk};
@@ -276,7 +276,7 @@ check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc
 
         let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
         fact.set("p1", "hello").unwrap();
-        let res = builder.clone().add_fact(fact);
+        let res = builder.clone().fact(fact);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -289,7 +289,7 @@ check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-        let res = builder.clone().add_rule(rule);
+        let res = builder.clone().rule(rule);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -299,7 +299,7 @@ check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
-        let res = builder.clone().add_check(check);
+        let res = builder.clone().check(check);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -316,7 +316,7 @@ check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc
         params.insert("p1".to_string(), "hello".into());
         params.insert("p2".to_string(), 1i64.into());
         params.insert("p4".to_string(), "this will be ignored".into());
-        let res = builder.add_code_with_params(
+        let res = builder.code_with_params(
             r#"fact({p1}, "value");
              rule($head_var) <- f1($head_var), {p2} > 0;
              check if {p3};

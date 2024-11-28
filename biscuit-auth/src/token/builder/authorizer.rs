@@ -32,27 +32,27 @@ impl<'a> AuthorizerBuilder<'a> {
         AuthorizerBuilder::default()
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
+    pub fn fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.fact(fact)?;
         Ok(self)
     }
 
-    pub fn add_rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
+    pub fn rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_rule(rule)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.rule(rule)?;
         Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
+    pub fn check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_check(check)?;
+        self.authorizer_block_builder = self.authorizer_block_builder.check(check)?;
         Ok(self)
     }
 
@@ -64,7 +64,7 @@ impl<'a> AuthorizerBuilder<'a> {
     /// use biscuit::builder::AuthorizerBuilder;
     ///
     /// let mut authorizer = AuthorizerBuilder::new()
-    ///     .add_code(r#"
+    ///     .code(r#"
     ///       resource("/file1.txt");
     ///
     ///       check if user(1234);
@@ -75,13 +75,13 @@ impl<'a> AuthorizerBuilder<'a> {
     ///     .expect("should parse correctly")
     ///     .build();
     /// ```
-    pub fn add_code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
-        self.add_code_with_params(source, HashMap::new(), HashMap::new())
+    pub fn code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
+        self.code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
     /// Unknown parameters are ignored
-    pub fn add_code_with_params<T: AsRef<str>>(
+    pub fn code_with_params<T: AsRef<str>>(
         mut self,
         source: T,
         params: HashMap<String, Term>,
@@ -204,13 +204,13 @@ impl<'a> AuthorizerBuilder<'a> {
         Ok(self)
     }
 
-    pub fn add_scope(mut self, scope: Scope) -> Self {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_scope(scope);
+    pub fn scope(mut self, scope: Scope) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.scope(scope);
         self
     }
 
     /// add a policy to the authorizer
-    pub fn add_policy<P: TryInto<Policy>>(mut self, policy: P) -> Result<Self, error::Token>
+    pub fn policy<P: TryInto<Policy>>(mut self, policy: P) -> Result<Self, error::Token>
     where
         error::Token: From<<P as TryInto<Policy>>::Error>,
     {
@@ -221,16 +221,16 @@ impl<'a> AuthorizerBuilder<'a> {
     }
 
     /// adds a fact with the current time
-    pub fn set_time(mut self) -> Self {
+    pub fn time(mut self) -> Self {
         let fact = fact("time", &[date(&SystemTime::now())]);
-        self.authorizer_block_builder = self.authorizer_block_builder.add_fact(fact).unwrap();
+        self.authorizer_block_builder = self.authorizer_block_builder.fact(fact).unwrap();
         self
     }
 
     /// Sets the runtime limits of the authorizer
     ///
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
-    pub fn set_limits(mut self, limits: AuthorizerLimits) -> Self {
+    pub fn limits(mut self, limits: AuthorizerLimits) -> Self {
         self.limits = limits;
         self
     }
@@ -253,7 +253,7 @@ impl<'a> AuthorizerBuilder<'a> {
         self
     }
 
-    pub fn add_token(mut self, token: &'a Biscuit) -> Self {
+    pub fn token(mut self, token: &'a Biscuit) -> Self {
         self.token = Some(token);
         self
     }
@@ -451,16 +451,16 @@ pub(crate) fn load_and_translate_block(
 }
 
 impl<'a> BuilderExt for AuthorizerBuilder<'a> {
-    fn add_resource(mut self, name: &str) -> Self {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_resource(name);
+    fn resource(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.resource(name);
         self
     }
     fn check_resource(mut self, name: &str) -> Self {
         self.authorizer_block_builder = self.authorizer_block_builder.check_resource(name);
         self
     }
-    fn add_operation(mut self, name: &str) -> Self {
-        self.authorizer_block_builder = self.authorizer_block_builder.add_operation(name);
+    fn operation(mut self, name: &str) -> Self {
+        self.authorizer_block_builder = self.authorizer_block_builder.operation(name);
         self
     }
     fn check_operation(mut self, name: &str) -> Self {
@@ -484,10 +484,10 @@ impl<'a> BuilderExt for AuthorizerBuilder<'a> {
 }
 
 impl<'a> AuthorizerExt for AuthorizerBuilder<'a> {
-    fn add_allow_all(self) -> Self {
-        self.add_policy("allow if true").unwrap()
+    fn allow_all(self) -> Self {
+        self.policy("allow if true").unwrap()
     }
-    fn add_deny_all(self) -> Self {
-        self.add_policy("deny if true").unwrap()
+    fn deny_all(self) -> Self {
+        self.policy("deny if true").unwrap()
     }
 }

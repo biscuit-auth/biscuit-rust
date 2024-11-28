@@ -102,7 +102,7 @@
 //!      // matches, a default deny applies
 //!      deny if true;
 //!   "#)
-//!   .add_token(&biscuit2)
+//!   .token(&biscuit2)
 //!   .build()?;
 //!
 //!   let mut v2 = authorizer!(r#"
@@ -110,7 +110,7 @@
 //!      operation("write");
 //!      allow if right("/a/file1.txt", "write");
 //!   "#)
-//!   .add_token(&biscuit2)
+//!   .token(&biscuit2)
 //!   .build()?;
 //!
 //!   let mut v3 = authorizer!(r#"
@@ -118,7 +118,7 @@
 //!      operation("read");
 //!      allow if right("/a/file2.txt", "read");
 //!   "#)
-//!   .add_token(&biscuit2)
+//!   .token(&biscuit2)
 //!   .build()?;
 //!
 //!   // the token restricts to read operations:

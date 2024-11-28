@@ -61,10 +61,10 @@ pub fn default_symbol_table() -> SymbolTable {
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
 ///   let token1 = Biscuit::builder()
-///       .add_fact(fact("right", &[string("/a/file1.txt"), string("read")]))?
+///       .fact(fact("right", &[string("/a/file1.txt"), string("read")]))?
 ///
 ///       // facts and rules can also be parsed from a string
-///       .add_fact("right(\"/a/file1.txt\", \"read\")")?
+///       .fact("right(\"/a/file1.txt\", \"read\")")?
 ///       .build(&root)?;
 ///
 ///   // we can create a new block builder from that token
@@ -744,11 +744,11 @@ mod tests {
 
         let serialized1 = {
             let biscuit1 = Biscuit::builder()
-                .add_fact("right(\"file1\", \"read\")")
+                .fact("right(\"file1\", \"read\")")
                 .unwrap()
-                .add_fact("right(\"file2\", \"read\")")
+                .fact("right(\"file2\", \"read\")")
                 .unwrap()
-                .add_fact("right(\"file1\", \"write\")")
+                .fact("right(\"file1\", \"write\")")
                 .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
@@ -796,7 +796,7 @@ mod tests {
 
             // new check: can only have read access1
             let block2 = BlockBuilder::new()
-                .add_check(rule(
+                .check(rule(
                     "check1",
                     &[var("resource")],
                     &[
@@ -825,7 +825,7 @@ mod tests {
 
             // new check: can only access file1
             let block3 = BlockBuilder::new()
-                .add_check(rule(
+                .check(rule(
                     "check2",
                     &[string("file1")],
                     &[pred("resource", &[string("file1")])],
@@ -847,7 +847,7 @@ mod tests {
         let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
-            let mut builder = AuthorizerBuilder::new().add_token(&final_token);
+            let mut builder = AuthorizerBuilder::new().token(&final_token);
 
             let mut facts = vec![
                 fact("resource", &[string("file1")]),
@@ -855,12 +855,12 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                builder = builder.add_fact(fact).unwrap();
+                builder = builder.fact(fact).unwrap();
             }
 
             //println!("final token: {:#?}", final_token);
 
-            let mut authorizer = builder.add_allow_all().build().unwrap();
+            let mut authorizer = builder.allow_all().build().unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -868,7 +868,7 @@ mod tests {
         }
 
         {
-            let mut builder = AuthorizerBuilder::new().add_token(&final_token);
+            let mut builder = AuthorizerBuilder::new().token(&final_token);
 
             let mut facts = vec![
                 fact("resource", &[string("file2")]),
@@ -876,9 +876,9 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                builder = builder.add_fact(fact).unwrap();
+                builder = builder.fact(fact).unwrap();
             }
-            builder = builder.add_allow_all();
+            builder = builder.allow_all();
 
             let mut authorizer = builder.build().unwrap();
 
@@ -904,11 +904,11 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_right("/folder1/file1", "read")
-            .add_right("/folder1/file1", "write")
-            .add_right("/folder1/file2", "read")
-            .add_right("/folder1/file2", "write")
-            .add_right("/folder2/file3", "read")
+            .right("/folder1/file1", "read")
+            .right("/folder1/file1", "write")
+            .right("/folder1/file2", "read")
+            .right("/folder1/file2", "write")
+            .right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
@@ -924,12 +924,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"/folder1/file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"/folder1/file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -944,12 +944,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"/folder2/file3\")")
+                .token(&biscuit2)
+                .fact("resource(\"/folder2/file3\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -975,10 +975,10 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"/folder2/file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"/folder2/file1\")")
                 .unwrap()
-                .add_fact("operation(\"write\")")
+                .fact("operation(\"write\")")
                 .unwrap()
                 .build()
                 .unwrap();
@@ -1000,8 +1000,8 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_right("file1", "read")
-            .add_right("file2", "read")
+            .right("file1", "read")
+            .right("file2", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
@@ -1009,7 +1009,7 @@ mod tests {
 
         let block2 = BlockBuilder::new()
             .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
-            .add_fact("key(1234)")
+            .fact("key(1234)")
             .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1017,13 +1017,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .set_time()
-                .add_allow_all()
+                .time()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1038,13 +1038,13 @@ mod tests {
         {
             println!("biscuit2: {}", biscuit2);
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .set_time()
-                .add_allow_all()
+                .time()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1065,11 +1065,11 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit1 = Biscuit::builder()
-            .add_right("/folder1/file1", "read")
-            .add_right("/folder1/file1", "write")
-            .add_right("/folder1/file2", "read")
-            .add_right("/folder1/file2", "write")
-            .add_right("/folder2/file3", "read")
+            .right("/folder1/file1", "read")
+            .right("/folder1/file1", "write")
+            .right("/folder1/file2", "read")
+            .right("/folder1/file2", "write")
+            .right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
@@ -1087,12 +1087,12 @@ mod tests {
         //panic!();
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"/folder1/file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"/folder1/file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1114,12 +1114,12 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit3)
-                .add_fact("resource(\"/folder1/file1\")")
+                .token(&biscuit3)
+                .fact("resource(\"/folder1/file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1137,19 +1137,19 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_fact(fact("right", &[string("file1"), string("read")]))
+            .fact(fact("right", &[string("file1"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file2"), string("read")]))
+            .fact(fact("right", &[string("file2"), string("read")]))
             .unwrap()
-            .add_fact(fact("right", &[string("file1"), string("write")]))
+            .fact(fact("right", &[string("file1"), string("write")]))
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
         println!("{}", biscuit1);
 
         let mut authorizer = AuthorizerBuilder::new()
-            .add_token(&biscuit1)
-            .add_check(rule(
+            .token(&biscuit1)
+            .check(rule(
                 "right",
                 &[string("right")],
                 &[pred("right", &[string("file2"), string("write")])],
@@ -1181,9 +1181,9 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_right("file1", "read")
-            .add_right("file2", "read")
-            .add_fact("key(0000)")
+            .right("file1", "read")
+            .right("file2", "read")
+            .fact("key(0000)")
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
@@ -1192,7 +1192,7 @@ mod tests {
 
         let block2 = BlockBuilder::new()
             .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
-            .add_fact("key(1234)")
+            .fact("key(1234)")
             .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1200,7 +1200,7 @@ mod tests {
 
         let block3 = BlockBuilder::new()
             .check_expiration_date(SystemTime::now() + Duration::from_secs(10))
-            .add_fact("key(5678)")
+            .fact("key(5678)")
             .unwrap();
 
         let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1209,12 +1209,12 @@ mod tests {
             println!("biscuit3: {}", biscuit3);
 
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit3)
-                .add_fact("resource(\"file1\")")
+                .token(&biscuit3)
+                .fact("resource(\"file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .set_time()
+                .time()
                 .build()
                 .unwrap();
 
@@ -1272,7 +1272,7 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_check(check(
+            .check(check(
                 &[pred("resource", &[string("hello")])],
                 CheckKind::One,
             ))
@@ -1284,7 +1284,7 @@ mod tests {
 
         // new check: can only have read access1
         let block2 = BlockBuilder::new()
-            .add_fact(fact("check1", &[string("test")]))
+            .fact(fact("check1", &[string("test")]))
             .unwrap();
 
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1295,12 +1295,12 @@ mod tests {
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("resource(\"file1\")")
+                .token(&biscuit2)
+                .fact("resource(\"file1\")")
                 .unwrap()
-                .add_fact("operation(\"read\")")
+                .fact("operation(\"read\")")
                 .unwrap()
-                .set_time()
+                .time()
                 .build()
                 .unwrap();
 
@@ -1377,7 +1377,7 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_fact("bytes(hex:0102AB)")
+            .fact("bytes(hex:0102AB)")
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
@@ -1385,16 +1385,16 @@ mod tests {
         println!("biscuit1 (authority): {}", biscuit1);
 
         let block2 = BlockBuilder::new()
-            .add_rule("has_bytes($0) <- bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
+            .rule("has_bytes($0) <- bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
         let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         let mut authorizer = AuthorizerBuilder::new()
-            .add_token(&biscuit2)
-            .add_check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
+            .token(&biscuit2)
+            .check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap()
-            .add_allow_all()
+            .allow_all()
             .build()
             .unwrap();
 
@@ -1425,13 +1425,13 @@ mod tests {
 
         let serialized1 = {
             let biscuit1 = Biscuit::builder()
-                .add_fact("right(\"/folder1/file1\", \"read\")")
+                .fact("right(\"/folder1/file1\", \"read\")")
                 .unwrap()
-                .add_fact("right(\"/folder1/file1\", \"write\")")
+                .fact("right(\"/folder1/file1\", \"write\")")
                 .unwrap()
-                .add_fact("right(\"/folder2/file1\", \"read\")")
+                .fact("right(\"/folder2/file1\", \"read\")")
                 .unwrap()
-                .add_check("check if operation(\"read\")")
+                .check("check if operation(\"read\")")
                 .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
@@ -1452,15 +1452,15 @@ mod tests {
             let  block2 = BlockBuilder::new()
 
             // Bypass `check if operation("read")` from authority block
-                .add_rule("operation(\"read\") <- operation($any)")
+                .rule("operation(\"read\") <- operation($any)")
                 .unwrap()
 
             // Bypass `check if resource($file), $file.starts_with("/folder1/")` from block #1
-                .add_rule("resource(\"/folder1/\") <- resource($any)")
+                .rule("resource(\"/folder1/\") <- resource($any)")
                 .unwrap()
 
             // Add missing rights
-          .add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
+          .rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
                 .unwrap();
 
             let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
@@ -1480,14 +1480,14 @@ mod tests {
         println!("final token:\n{}", final_token);
 
         let mut authorizer = AuthorizerBuilder::new()
-            .add_token(&final_token)
-            .add_fact("resource(\"/folder2/file1\")")
+            .token(&final_token)
+            .fact("resource(\"/folder2/file1\")")
             .unwrap()
-            .add_fact("operation(\"write\")")
+            .fact("operation(\"write\")")
             .unwrap()
-            .add_policy("allow if resource($file), operation($op), right($file, $op)")
+            .policy("allow if resource($file), operation($op), right($file, $op)")
             .unwrap()
-            .add_deny_all()
+            .deny_all()
             .build()
             .unwrap();
 
@@ -1507,7 +1507,7 @@ mod tests {
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let biscuit1 = Biscuit::builder()
-            .add_check("check if fact($v), $v < 1")
+            .check("check if fact($v), $v < 1")
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
@@ -1515,7 +1515,7 @@ mod tests {
         println!("biscuit1 (authority): {}", biscuit1);
 
         let biscuit2 = Biscuit::builder()
-            .add_check("check all fact($v), $v < 1")
+            .check("check all fact($v), $v < 1")
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
@@ -1524,13 +1524,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit1)
-                .add_fact("fact(0)")
+                .token(&biscuit1)
+                .fact("fact(0)")
                 .unwrap()
-                .add_fact("fact(1)")
+                .fact("fact(1)")
                 .unwrap()
                 //println!("final token: {:#?}", final_token);
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1544,13 +1544,13 @@ mod tests {
 
         {
             let mut authorizer = AuthorizerBuilder::new()
-                .add_token(&biscuit2)
-                .add_fact("fact(0)")
+                .token(&biscuit2)
+                .fact("fact(0)")
                 .unwrap()
-                .add_fact("fact(1)")
+                .fact("fact(1)")
                 .unwrap()
                 //println!("final token: {:#?}", final_token);
-                .add_allow_all()
+                .allow_all()
                 .build()
                 .unwrap();
 
@@ -1632,11 +1632,11 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit1 = Biscuit::builder()
-            .add_fact("right(\"file1\", \"read\")")
+            .fact("right(\"file1\", \"read\")")
             .unwrap()
-            .add_fact("right(\"file2\", \"read\")")
+            .fact("right(\"file2\", \"read\")")
             .unwrap()
-            .add_fact("right(\"file1\", \"write\")")
+            .fact("right(\"file1\", \"write\")")
             .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();

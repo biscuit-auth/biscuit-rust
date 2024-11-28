@@ -30,70 +30,68 @@ impl BiscuitBuilder {
         self
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
+    pub fn fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
-        self.inner = self.inner.add_fact(fact)?;
+        self.inner = self.inner.fact(fact)?;
         Ok(self)
     }
 
-    pub fn add_rule<Ru: TryInto<Rule>>(mut self, rule: Ru) -> Result<Self, error::Token>
+    pub fn rule<Ru: TryInto<Rule>>(mut self, rule: Ru) -> Result<Self, error::Token>
     where
         error::Token: From<<Ru as TryInto<Rule>>::Error>,
     {
-        self.inner = self.inner.add_rule(rule)?;
+        self.inner = self.inner.rule(rule)?;
         Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
+    pub fn check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
-        self.inner = self.inner.add_check(check)?;
+        self.inner = self.inner.check(check)?;
         Ok(self)
     }
 
-    pub fn add_code<T: AsRef<str>>(mut self, source: T) -> Result<Self, error::Token> {
+    pub fn code<T: AsRef<str>>(mut self, source: T) -> Result<Self, error::Token> {
         self.inner = self
             .inner
-            .add_code_with_params(source, HashMap::new(), HashMap::new())?;
+            .code_with_params(source, HashMap::new(), HashMap::new())?;
         Ok(self)
     }
 
-    pub fn add_code_with_params<T: AsRef<str>>(
+    pub fn code_with_params<T: AsRef<str>>(
         mut self,
         source: T,
         params: HashMap<String, Term>,
         scope_params: HashMap<String, PublicKey>,
     ) -> Result<Self, error::Token> {
-        self.inner = self
-            .inner
-            .add_code_with_params(source, params, scope_params)?;
+        self.inner = self.inner.code_with_params(source, params, scope_params)?;
         Ok(self)
     }
 
-    pub fn add_scope(mut self, scope: Scope) -> Self {
-        self.inner = self.inner.add_scope(scope);
+    pub fn scope(mut self, scope: Scope) -> Self {
+        self.inner = self.inner.scope(scope);
         self
     }
 
     #[cfg(test)]
-    pub(crate) fn add_right(self, resource: &str, right: &str) -> Self {
+    pub(crate) fn right(self, resource: &str, right: &str) -> Self {
         use crate::builder::fact;
 
         use super::string;
 
-        self.add_fact(fact("right", &[string(resource), string(right)]))
+        self.fact(fact("right", &[string(resource), string(right)]))
             .unwrap()
     }
 
-    pub fn set_context(mut self, context: String) -> Self {
-        self.inner = self.inner.set_context(context);
+    pub fn context(mut self, context: String) -> Self {
+        self.inner = self.inner.context(context);
         self
     }
 
-    pub fn set_root_key_id(mut self, root_key_id: u32) -> Self {
+    pub fn root_key_id(mut self, root_key_id: u32) -> Self {
         self.root_key_id = Some(root_key_id);
         self
     }
@@ -166,8 +164,8 @@ impl fmt::Display for BiscuitBuilder {
 }
 
 impl BuilderExt for BiscuitBuilder {
-    fn add_resource(mut self, name: &str) -> Self {
-        self.inner = self.inner.add_resource(name);
+    fn resource(mut self, name: &str) -> Self {
+        self.inner = self.inner.resource(name);
         self
     }
     fn check_resource(mut self, name: &str) -> Self {
@@ -182,8 +180,8 @@ impl BuilderExt for BiscuitBuilder {
         self.inner = self.inner.check_resource_suffix(suffix);
         self
     }
-    fn add_operation(mut self, name: &str) -> Self {
-        self.inner = self.inner.add_operation(name);
+    fn operation(mut self, name: &str) -> Self {
+        self.inner = self.inner.operation(name);
         self
     }
     fn check_operation(mut self, name: &str) -> Self {

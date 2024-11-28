@@ -345,11 +345,11 @@ fn validate_token_with_limits_and_external_functions(
 
     let builder = AuthorizerBuilder::new()
         .set_extern_funcs(extern_funcs)
-        .add_code(authorizer_code)
+        .code(authorizer_code)
         .unwrap();
     let authorizer_code = builder.dump_code();
 
-    let mut authorizer = match builder.add_token(&token).build() {
+    let mut authorizer = match builder.token(&token).build() {
         Ok(v) => v,
         Err(e) => {
             return Validation {
@@ -879,7 +879,7 @@ fn scoped_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
         .unwrap();
 
     let block3 = BlockBuilder::new()
-        .add_fact(r#"owner("alice", "file2")"#)
+        .fact(r#"owner("alice", "file2")"#)
         .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
@@ -1411,7 +1411,7 @@ fn unbound_variables_in_rule(target: &str, root: &KeyPair, test: bool) -> TestRe
 
     let block2 = BlockBuilder::new()
         // this one does not go through the parser because it checks for unused variables
-        .add_rule(rule(
+        .rule(rule(
             "operation",
             &[var("unbound"), string("read")],
             &[pred("operation", &[var("any1"), var("any2")])],

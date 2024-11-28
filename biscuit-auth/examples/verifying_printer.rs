@@ -26,8 +26,8 @@ fn main() {
     println!("token:\n{}", token);
 
     let mut authorizer = AuthorizerBuilder::new()
-        .add_token(&token)
-        .add_allow_all()
+        .token(&token)
+        .allow_all()
         .build()
         .unwrap();
 

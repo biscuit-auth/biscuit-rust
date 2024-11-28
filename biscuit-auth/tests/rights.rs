@@ -12,17 +12,17 @@ fn main() {
     let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
     let biscuit1 = Biscuit::builder()
-        .add_fact(fact(
+        .fact(fact(
             "right",
             &[string("authority"), string("file1"), string("read")],
         ))
         .unwrap()
-        .add_fact(fact(
+        .fact(fact(
             "right",
             &[string("authority"), string("file2"), string("read")],
         ))
         .unwrap()
-        .add_fact(fact(
+        .fact(fact(
             "right",
             &[string("authority"), string("file1"), string("write")],
         ))
@@ -32,8 +32,8 @@ fn main() {
     println!("{}", biscuit1);
 
     let mut v = AuthorizerBuilder::new()
-        .add_token(&biscuit1)
-        .add_check(rule(
+        .token(&biscuit1)
+        .check(rule(
             "right",
             &[string("right")],
             &[pred(

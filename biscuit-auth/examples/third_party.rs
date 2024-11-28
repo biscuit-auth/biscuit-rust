@@ -13,7 +13,7 @@ fn main() {
     let external_pub = hex::encode(external.public().to_bytes());
 
     let biscuit1 = Biscuit::builder()
-        .add_check(
+        .check(
             format!("check if external_fact(\"hello\") trusting ed25519/{external_pub}").as_str(),
         )
         .unwrap()
@@ -26,7 +26,7 @@ fn main() {
 
     let req = biscuit_auth::ThirdPartyRequest::deserialize(&serialized_req).unwrap();
     let builder = BlockBuilder::new()
-        .add_fact("external_fact(\"hello\")")
+        .fact("external_fact(\"hello\")")
         .unwrap();
     let res = req.create_block(&external.private(), builder).unwrap();
 
@@ -35,8 +35,8 @@ fn main() {
     println!("biscuit2: {}", biscuit2);
 
     let mut authorizer = AuthorizerBuilder::new()
-        .add_token(&biscuit1)
-        .add_allow_all()
+        .token(&biscuit1)
+        .allow_all()
         .build()
         .unwrap();
 
@@ -44,8 +44,8 @@ fn main() {
     println!("world:\n{}", authorizer.print_world());
 
     let mut authorizer = AuthorizerBuilder::new()
-        .add_token(&biscuit2)
-        .add_allow_all()
+        .token(&biscuit2)
+        .allow_all()
         .build()
         .unwrap();
 

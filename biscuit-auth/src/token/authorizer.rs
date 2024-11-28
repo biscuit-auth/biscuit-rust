@@ -36,7 +36,7 @@ pub struct Authorizer {
 
 impl Authorizer {
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
-        AuthorizerBuilder::new().add_token(token).build()
+        AuthorizerBuilder::new().token(token).build()
     }
 
     /// creates a new empty authorizer
@@ -111,7 +111,7 @@ impl Authorizer {
     /// # use biscuit_auth::builder::Algorithm;
     /// let keypair = KeyPair::new(Algorithm::Ed25519);
     /// let biscuit = Biscuit::builder()
-    ///     .add_fact("user(\"John Doe\", 42)")
+    ///     .fact("user(\"John Doe\", 42)")
     ///     .expect("parse error")
     ///     .build(&keypair)
     ///     .unwrap();
@@ -202,7 +202,7 @@ impl Authorizer {
     /// # use biscuit_auth::builder::Algorithm;
     /// let keypair = KeyPair::new(Algorithm::Ed25519,);
     /// let biscuit = Biscuit::builder()
-    ///     .add_fact("user(\"John Doe\", 42)")
+    ///     .fact("user(\"John Doe\", 42)")
     ///     .expect("parse error")
     ///     .build(&keypair)
     ///     .unwrap();
@@ -794,18 +794,16 @@ impl TryFrom<AuthorizerPolicies> for Authorizer {
         let mut authorizer = Self::new();
 
         for fact in facts.into_iter() {
-            authorizer.authorizer_block_builder =
-                authorizer.authorizer_block_builder.add_fact(fact)?;
+            authorizer.authorizer_block_builder = authorizer.authorizer_block_builder.fact(fact)?;
         }
 
         for rule in rules.into_iter() {
-            authorizer.authorizer_block_builder =
-                authorizer.authorizer_block_builder.add_rule(rule)?;
+            authorizer.authorizer_block_builder = authorizer.authorizer_block_builder.rule(rule)?;
         }
 
         for check in checks.into_iter() {
             authorizer.authorizer_block_builder =
-                authorizer.authorizer_block_builder.add_check(check)?;
+                authorizer.authorizer_block_builder.check(check)?;
         }
 
         for policy in policies {
@@ -873,7 +871,7 @@ mod tests {
     #[test]
     fn empty_authorizer() {
         let mut authorizer = AuthorizerBuilder::new()
-            .add_policy("allow if true")
+            .policy("allow if true")
             .unwrap()
             .build()
             .unwrap();
@@ -903,7 +901,7 @@ mod tests {
             .unwrap(),
         );
         let _authorizer = AuthorizerBuilder::new()
-            .add_code_with_params(
+            .code_with_params(
                 r#"
                   fact({p1}, "value");
                   rule($var, {p2}) <- fact($var, {p2});
@@ -924,7 +922,7 @@ mod tests {
 
         let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
         fact.set("p1", "hello").unwrap();
-        let res = builder.clone().add_fact(fact);
+        let res = builder.clone().fact(fact);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -937,7 +935,7 @@ mod tests {
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-        let res = builder.clone().add_rule(rule);
+        let res = builder.clone().rule(rule);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -947,7 +945,7 @@ mod tests {
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
-        let res = builder.clone().add_check(check);
+        let res = builder.clone().check(check);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -958,7 +956,7 @@ mod tests {
         let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
         policy.set("p3", true).unwrap();
 
-        let res = builder.clone().add_policy(policy);
+        let res = builder.clone().policy(policy);
         assert_eq!(
             res.unwrap_err(),
             error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
@@ -975,7 +973,7 @@ mod tests {
         params.insert("p1".to_string(), "hello".into());
         params.insert("p2".to_string(), 1i64.into());
         params.insert("p4".to_string(), "this will be ignored".into());
-        let res = builder.add_code_with_params(
+        let res = builder.code_with_params(
             r#"fact({p1}, "value");
              rule($head_var) <- f1($head_var), {p2} > 0;
              check if {p3};
@@ -1000,7 +998,7 @@ mod tests {
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
         let biscuit = Biscuit::builder()
-            .add_fact("user(\"John Doe\", 42)")
+            .fact("user(\"John Doe\", 42)")
             .unwrap()
             .build(&keypair)
             .unwrap();
@@ -1021,7 +1019,7 @@ mod tests {
         use crate::KeyPair;
         let keypair = KeyPair::new(Algorithm::Ed25519);
         let biscuit = Biscuit::builder()
-            .add_fact("user(\"John Doe\")")
+            .fact("user(\"John Doe\")")
             .unwrap()
             .build(&keypair)
             .unwrap();
@@ -1042,7 +1040,7 @@ mod tests {
         scope_params.insert("external_pub".to_string(), external.public());
 
         let biscuit1 = Biscuit::builder()
-            .add_code_with_params(
+            .code_with_params(
                 r#"right("read");
            check if group("admin") trusting {external_pub};
         "#,
@@ -1056,7 +1054,7 @@ mod tests {
         let req = biscuit1.third_party_request().unwrap();
 
         let builder = BlockBuilder::new()
-            .add_code(
+            .code(
                 r#"group("admin");
              check if right("read");
             "#,
@@ -1075,7 +1073,7 @@ mod tests {
         scope_params.insert("external2".to_string(), external2.public());
 
         let mut authorizer = builder
-            .add_code_with_params(
+            .code_with_params(
                 r#"
             // this rule trusts both the third-party block and the authority, and can access facts
             // from both
@@ -1095,8 +1093,8 @@ mod tests {
                 scope_params,
             )
             .unwrap()
-            .add_token(&biscuit2)
-            .set_limits(AuthorizerLimits {
+            .token(&biscuit2)
+            .limits(AuthorizerLimits {
                 max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
                 ..Default::default()
             })
@@ -1220,7 +1218,7 @@ mod tests {
         let root = KeyPair::new(Algorithm::Ed25519);
 
         let token = BiscuitBuilder::new()
-            .add_code(
+            .code(
                 r#"
             authority_fact(true);
             authority_rule($v) <- authority_fact($v);
@@ -1232,8 +1230,8 @@ mod tests {
             .unwrap();
 
         let mut authorizer = AuthorizerBuilder::new()
-            .add_token(&token)
-            .add_code(
+            .token(&token)
+            .code(
                 r#"
           authorizer_fact(true);
           authorizer_rule($v) <- authorizer_fact($v);
@@ -1342,7 +1340,7 @@ allow if true;
 
         // broken rules directly added to the authorizer currently don’t trigger any error, but silently fail to generate facts when they match
         let mut authorizer = builder
-            .add_rule(builder::rule(
+            .rule(builder::rule(
                 "test",
                 &[var("unbound")],
                 &[builder::pred("pred", &[builder::var("any")])],

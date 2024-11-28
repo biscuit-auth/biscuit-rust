@@ -37,7 +37,7 @@ impl BlockBuilder {
         self
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
+    pub fn fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
@@ -48,7 +48,7 @@ impl BlockBuilder {
         Ok(self)
     }
 
-    pub fn add_rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
+    pub fn rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
@@ -58,7 +58,7 @@ impl BlockBuilder {
         Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
+    pub fn check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
@@ -68,13 +68,13 @@ impl BlockBuilder {
         Ok(self)
     }
 
-    pub fn add_code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
-        self.add_code_with_params(source, HashMap::new(), HashMap::new())
+    pub fn code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
+        self.code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
     /// Unknown parameters are ignored
-    pub fn add_code_with_params<T: AsRef<str>>(
+    pub fn code_with_params<T: AsRef<str>>(
         mut self,
         source: T,
         params: HashMap<String, Term>,
@@ -168,12 +168,12 @@ impl BlockBuilder {
         Ok(self)
     }
 
-    pub fn add_scope(mut self, scope: Scope) -> Self {
+    pub fn scope(mut self, scope: Scope) -> Self {
         self.scopes.push(scope);
         self
     }
 
-    pub fn set_context(mut self, context: String) -> Self {
+    pub fn context(mut self, context: String) -> Self {
         self.context = Some(context);
         self
     }
@@ -266,7 +266,7 @@ impl BlockBuilder {
             ],
         );
 
-        self.add_check(check)
+        self.check(check)
     }
 }
 
@@ -289,7 +289,7 @@ impl fmt::Display for BlockBuilder {
 }
 
 impl BuilderExt for BlockBuilder {
-    fn add_resource(mut self, name: &str) -> Self {
+    fn resource(mut self, name: &str) -> Self {
         self.facts.push(fact("resource", &[string(name)]));
         self
     }
@@ -304,7 +304,7 @@ impl BuilderExt for BlockBuilder {
         });
         self
     }
-    fn add_operation(mut self, name: &str) -> Self {
+    fn operation(mut self, name: &str) -> Self {
         self.facts.push(fact("operation", &[string(name)]));
         self
     }

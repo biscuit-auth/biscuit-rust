@@ -426,33 +426,33 @@ pub unsafe extern "C" fn public_key_free(_kp: Option<Box<PublicKey>>) {}
 impl BiscuitBuilder {
     fn set_context(&mut self, context: &str) {
         let mut inner = self.0.take().unwrap();
-        inner = inner.set_context(context.to_string());
+        inner = inner.context(context.to_string());
         self.0 = Some(inner);
     }
 
     fn set_root_key_id(&mut self, root_key_id: u32) {
         let mut inner = self.0.take().unwrap();
-        inner = inner.set_root_key_id(root_key_id);
+        inner = inner.root_key_id(root_key_id);
         self.0 = Some(inner);
     }
 
     fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_fact(fact)?;
+        inner = inner.fact(fact)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_rule(rule)?;
+        inner = inner.rule(rule)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_check(check)?;
+        inner = inner.check(check)?;
         self.0 = Some(inner);
         Ok(())
     }
@@ -802,27 +802,27 @@ pub unsafe extern "C" fn biscuit_block_context(
 impl BlockBuilder {
     fn set_context(&mut self, context: &str) {
         let mut inner = self.0.take().unwrap();
-        inner = inner.set_context(context.to_string());
+        inner = inner.context(context.to_string());
         self.0 = Some(inner);
     }
 
     fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_fact(fact)?;
+        inner = inner.fact(fact)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_rule(rule)?;
+        inner = inner.rule(rule)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_check(check)?;
+        inner = inner.check(check)?;
         self.0 = Some(inner);
         Ok(())
     }
@@ -992,28 +992,28 @@ pub unsafe extern "C" fn block_builder_free(_builder: Option<Box<BlockBuilder>>)
 impl<'a> AuthorizerBuilder<'a> {
     fn add_fact(&mut self, fact: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_fact(fact)?;
+        inner = inner.fact(fact)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_rule(&mut self, rule: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_rule(rule)?;
+        inner = inner.rule(rule)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_check(&mut self, check: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_check(check)?;
+        inner = inner.check(check)?;
         self.0 = Some(inner);
         Ok(())
     }
 
     fn add_policy(&mut self, policy: &str) -> Result<(), biscuit_auth::error::Token> {
         let mut inner = self.0.take().unwrap();
-        inner = inner.add_policy(policy)?;
+        inner = inner.policy(policy)?;
         self.0 = Some(inner);
         Ok(())
     }

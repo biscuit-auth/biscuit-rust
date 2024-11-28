@@ -123,7 +123,7 @@ fn biscuit_macro() {
         check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
         "#,
         my_key_bytes = s.into_bytes(),
-    ).set_root_key_id(2);
+    ).root_key_id(2);
 
     let is_true = true;
     b = biscuit_merge!(
@@ -261,7 +261,7 @@ fn json() {
           $value.get("id") == $id,
           $value.get("roles").contains("admin");"#
     )
-    .add_token(&biscuit)
+    .token(&biscuit)
     .build()
     .unwrap();
     assert_eq!(

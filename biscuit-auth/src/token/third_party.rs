@@ -160,11 +160,11 @@ mod tests {
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(crate::builder::Algorithm::Ed25519, &mut rng);
         let biscuit1 = crate::Biscuit::builder()
-            .add_fact("right(\"file1\", \"read\")")
+            .fact("right(\"file1\", \"read\")")
             .unwrap()
-            .add_fact("right(\"file2\", \"read\")")
+            .fact("right(\"file2\", \"read\")")
             .unwrap()
-            .add_fact("right(\"file1\", \"write\")")
+            .fact("right(\"file1\", \"write\")")
             .unwrap()
             .build_with_rng(&root, crate::token::default_symbol_table(), &mut rng)
             .unwrap();
