@@ -430,7 +430,7 @@ pub(crate) fn load_and_translate_block(
         &block.scopes,
         &TrustedOrigins::default(),
         i,
-        &public_key_to_block_id,
+        public_key_to_block_id,
     );
 
     for fact in block.facts.iter_mut() {
@@ -448,7 +448,7 @@ pub(crate) fn load_and_translate_block(
             &rule.scopes,
             &block_trusted_origins,
             i,
-            &public_key_to_block_id,
+            public_key_to_block_id,
         );
 
         world.rules.insert(i, &rule_trusted_origins, rule.clone());
