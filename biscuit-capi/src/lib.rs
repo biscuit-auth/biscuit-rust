@@ -581,7 +581,9 @@ pub unsafe extern "C" fn biscuit_builder_add_check(
         })
         .is_ok()
 }
-
+/// Build a biscuit token from a builder
+///
+/// The builder will be freed automatically when the biscuit is returned
 #[no_mangle]
 pub unsafe extern "C" fn biscuit_builder_build(
     builder: Option<&BiscuitBuilder>,
@@ -1120,9 +1122,12 @@ pub unsafe extern "C" fn authorizer_builder_add_policy(
         .is_ok()
 }
 
+/// Build an authorizer
+///
+/// The builder will be freed automatically when the authorizer is returned
 #[no_mangle]
 pub unsafe extern "C" fn authorizer_builder_build(
-    builder: Option<AuthorizerBuilder>,
+    builder: Option<Box<AuthorizerBuilder>>,
 ) -> Option<Box<Authorizer>> {
     if builder.is_none() {
         update_last_error(Error::InvalidArgument);
