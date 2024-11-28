@@ -61,18 +61,19 @@ impl<'a> AuthorizerBuilder<'a> {
     /// ```rust
     /// extern crate biscuit_auth as biscuit;
     ///
-    /// use biscuit::Authorizer;
+    /// use biscuit::builder::AuthorizerBuilder;
     ///
-    /// let mut authorizer = Authorizer::new();
+    /// let mut authorizer = AuthorizerBuilder::new()
+    ///     .add_code(r#"
+    ///       resource("/file1.txt");
     ///
-    /// authorizer.add_code(r#"
-    ///   resource("/file1.txt");
+    ///       check if user(1234);
     ///
-    ///   check if user(1234);
-    ///
-    ///   // default allow
-    ///   allow if true;
-    /// "#).expect("should parse correctly");
+    ///       // default allow
+    ///       allow if true;
+    ///     "#)
+    ///     .expect("should parse correctly")
+    ///     .build();
     /// ```
     pub fn add_code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
         self.add_code_with_params(source, HashMap::new(), HashMap::new())

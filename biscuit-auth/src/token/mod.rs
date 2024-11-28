@@ -54,25 +54,26 @@ pub fn default_symbol_table() -> SymbolTable {
 ///
 /// use biscuit::{KeyPair, Biscuit, builder::*, builder_ext::*};
 ///
-/// fn main() {
+/// fn main() -> Result<(), biscuit::error::Token> {
 ///   let root = KeyPair::new(Algorithm::Ed25519);
 ///
 ///   // first we define the authority block for global data,
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
-///   let mut builder = Biscuit::builder();
-///   builder.add_fact(fact("right", &[string("/a/file1.txt"), string("read")]));
+///   let token1 = Biscuit::builder()
+///       .add_fact(fact("right", &[string("/a/file1.txt"), string("read")]))?
 ///
-///   // facts and rules can also be parsed from a string
-///   builder.add_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
-///
-///   let token1 = builder.build(&root).unwrap();
+///       // facts and rules can also be parsed from a string
+///       .add_fact("right(\"/a/file1.txt\", \"read\")")?
+///       .build(&root)?;
 ///
 ///   // we can create a new block builder from that token
-///   let mut builder2 = BlockBuilder::new();
-///   builder2.check_operation("read");
+///   let builder2 = BlockBuilder::new()
+///       .check_operation("read");
 ///
-///   let token2 = token1.append(builder2).unwrap();
+///   let token2 = token1.append(builder2)?;
+///
+///   Ok(())
 /// }
 /// ```
 #[derive(Clone, Debug)]

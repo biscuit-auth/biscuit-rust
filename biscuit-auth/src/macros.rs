@@ -26,7 +26,7 @@
 //!   expiration = SystemTime::now() + Duration::from_secs(86_400),
 //! )).expect("Failed to append block");
 //!
-//! new_biscuit.authorize(&authorizer!(
+//! authorizer!(
 //!   r#"
 //!      time({now});
 //!      operation({operation});
@@ -42,7 +42,12 @@
 //!   operation = "read",
 //!   resource = "file1",
 //!   user_id = "1234",
-//! )).expect("Failed to authorize biscuit");
+//! )
+//!   .add_token(&new_biscuit)
+//!   .build()
+//!   .expect("failed to build the authorizer")
+//!   .authorize()
+//!   .expect("Failed to authorize biscuit");
 //! ```
 
 /// Create an `Authorizer` from a datalog string and optional parameters.
@@ -78,8 +83,8 @@ pub use biscuit_quote::authorizer;
 ///   now = SystemTime::now()
 /// );
 ///
-/// authorizer_merge!(
-///   &mut b,
+/// b = authorizer_merge!(
+///   b,
 ///   r#"
 ///     allow if true;
 ///   "#
@@ -128,8 +133,8 @@ pub use biscuit_quote::biscuit;
 ///   user_id = "1234"
 /// );
 ///
-/// biscuit_merge!(
-///   &mut b,
+/// b = biscuit_merge!(
+///   b,
 ///   r#"
 ///     check if time($time), $time < {expiration}
 ///   "#,
@@ -173,8 +178,8 @@ pub use biscuit_quote::block;
 ///   user_id = "1234"
 /// );
 ///
-/// block_merge!(
-///   &mut b,
+/// b = block_merge!(
+///   b,
 ///   r#"
 ///     check if user($id);
 ///   "#

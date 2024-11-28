@@ -110,10 +110,11 @@ impl Authorizer {
     /// # use biscuit_auth::Biscuit;
     /// # use biscuit_auth::builder::Algorithm;
     /// let keypair = KeyPair::new(Algorithm::Ed25519);
-    /// let mut builder = Biscuit::builder();
-    /// builder.add_fact("user(\"John Doe\", 42)");
-    ///
-    /// let biscuit = builder.build(&keypair).unwrap();
+    /// let biscuit = Biscuit::builder()
+    ///     .add_fact("user(\"John Doe\", 42)")
+    ///     .expect("parse error")
+    ///     .build(&keypair)
+    ///     .unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
@@ -200,10 +201,11 @@ impl Authorizer {
     /// # use biscuit_auth::Biscuit;
     /// # use biscuit_auth::builder::Algorithm;
     /// let keypair = KeyPair::new(Algorithm::Ed25519,);
-    /// let mut builder = Biscuit::builder();
-    /// builder.add_fact("user(\"John Doe\", 42)");
-    ///
-    /// let biscuit = builder.build(&keypair).unwrap();
+    /// let biscuit = Biscuit::builder()
+    ///     .add_fact("user(\"John Doe\", 42)")
+    ///     .expect("parse error")
+    ///     .build(&keypair)
+    ///     .unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query_all("data($name, $id) <- user($name, $id)").unwrap();
