@@ -78,9 +78,9 @@ fn authorizer_macro() {
     let authorizer = b.build().unwrap();
     assert_eq!(
         authorizer.dump_code(),
-        r#"fact("test", hex:aabbcc, [true], "my_value");
+        r#"appended(true);
+fact("test", hex:aabbcc, [true], "my_value");
 rule("test", true);
-appended(true);
 
 rule($0, true) <- fact($0, $1, $2, "my_value");
 

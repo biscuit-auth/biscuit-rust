@@ -623,6 +623,9 @@ impl Authorizer {
     pub fn dump_code(&self) -> String {
         let (facts, rules, checks, policies) = self.dump();
         let mut f = String::new();
+
+        let mut facts = facts.into_iter().map(|f| f.to_string()).collect::<Vec<_>>();
+        facts.sort();
         for fact in &facts {
             let _ = writeln!(f, "{fact};");
         }
