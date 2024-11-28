@@ -102,24 +102,21 @@
 //!      // matches, a default deny applies
 //!      deny if true;
 //!   "#)
-//!   .token(&biscuit2)
-//!   .build()?;
+//!   .build(&biscuit2)?;
 //!
 //!   let mut v2 = authorizer!(r#"
 //!      resource("/a/file1.txt");
 //!      operation("write");
 //!      allow if right("/a/file1.txt", "write");
 //!   "#)
-//!   .token(&biscuit2)
-//!   .build()?;
+//!   .build(&biscuit2)?;
 //!
 //!   let mut v3 = authorizer!(r#"
 //!      resource("/a/file2.txt");
 //!      operation("read");
 //!      allow if right("/a/file2.txt", "read");
 //!   "#)
-//!   .token(&biscuit2)
-//!   .build()?;
+//!   .build(&biscuit2)?;
 //!
 //!   // the token restricts to read operations:
 //!   assert!(v1.authorize().is_ok());

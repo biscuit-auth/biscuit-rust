@@ -43,8 +43,7 @@
 //!   resource = "file1",
 //!   user_id = "1234",
 //! )
-//!   .token(&new_biscuit)
-//!   .build()
+//!   .build(&new_biscuit)
 //!   .expect("failed to build the authorizer")
 //!   .authorize()
 //!   .expect("Failed to authorize biscuit");

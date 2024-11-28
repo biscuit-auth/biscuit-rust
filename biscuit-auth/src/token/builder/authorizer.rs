@@ -80,7 +80,7 @@ impl AuthorizerBuilder {
     ///       allow if true;
     ///     "#)
     ///     .expect("should parse correctly")
-    ///     .build();
+    ///     .build_unauthenticated();
     /// ```
     pub fn code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
         self.code_with_params(source, HashMap::new(), HashMap::new())
