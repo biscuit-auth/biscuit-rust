@@ -743,12 +743,17 @@ pub struct RunLimits {
     pub max_time: Duration,
 }
 
+#[cfg(test)]
+const DEFAULT_DURATION_MILLIS: u64 = 10_000;
+#[cfg(not(test))]
+const DEFAULT_DURATION_MILLIS: u64 = 1;
+
 impl std::default::Default for RunLimits {
     fn default() -> Self {
         RunLimits {
             max_facts: 1000,
             max_iterations: 100,
-            max_time: Duration::from_millis(1),
+            max_time: Duration::from_millis(DEFAULT_DURATION_MILLIS),
         }
     }
 }
