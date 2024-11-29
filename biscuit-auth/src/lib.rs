@@ -88,7 +88,7 @@
 //!   // - one for /a/file1.txt and a write operation
 //!   // - one for /a/file2.txt and a read operation
 //!
-//!   let v1 = authorizer!(r#"
+//!   let mut v1 = authorizer!(r#"
 //!      resource("/a/file1.txt");
 //!      operation("read");
 //!      
@@ -101,26 +101,29 @@
 //!      // explicit catch-all deny. here it is not necessary: if no policy
 //!      // matches, a default deny applies
 //!      deny if true;
-//!   "#);
+//!   "#)
+//!   .build(&biscuit2)?;
 //!
 //!   let mut v2 = authorizer!(r#"
 //!      resource("/a/file1.txt");
 //!      operation("write");
 //!      allow if right("/a/file1.txt", "write");
-//!   "#);
-//!   
+//!   "#)
+//!   .build(&biscuit2)?;
+//!
 //!   let mut v3 = authorizer!(r#"
 //!      resource("/a/file2.txt");
 //!      operation("read");
 //!      allow if right("/a/file2.txt", "read");
-//!   "#);
+//!   "#)
+//!   .build(&biscuit2)?;
 //!
 //!   // the token restricts to read operations:
-//!   assert!(biscuit2.authorize(&v1).is_ok());
+//!   assert!(v1.authorize().is_ok());
 //!   // the second verifier requested a read operation
-//!   assert!(biscuit2.authorize(&v2).is_err());
+//!   assert!(v2.authorize().is_err());
 //!   // the third verifier requests /a/file2.txt
-//!   assert!(biscuit2.authorize(&v3).is_err());
+//!   assert!(v3.authorize().is_err());
 //!
 //!   Ok(())
 //! }

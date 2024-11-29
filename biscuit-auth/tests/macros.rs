@@ -23,7 +23,7 @@ fn block_macro() {
     );
 
     let is_true = true;
-    block_merge!(&mut b, r#"appended({is_true});"#);
+    b = block_merge!(b, r#"appended({is_true});"#);
 
     assert_eq!(
         b.to_string(),
@@ -68,17 +68,19 @@ fn authorizer_macro() {
     );
 
     let is_true = true;
-    authorizer_merge!(
-        &mut b,
+    b = authorizer_merge!(
+        b,
         r#"appended({is_true});
         allow if true;
       "#
     );
 
+    let authorizer = b.build_unauthenticated().unwrap();
     assert_eq!(
-        b.dump_code(),
-        r#"fact("test", hex:aabbcc, [true], "my_value");
-appended(true);
+        authorizer.dump_code(),
+        r#"appended(true);
+fact("test", hex:aabbcc, [true], "my_value");
+rule("test", true);
 
 rule($0, true) <- fact($0, $1, $2, "my_value");
 
@@ -92,7 +94,9 @@ allow if true;
 
 #[test]
 fn authorizer_macro_trailing_comma() {
-    let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",);
+    let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",)
+        .build_unauthenticated()
+        .unwrap();
     assert_eq!(
         a.dump_code(),
         r#"fact("test", "my_value");
@@ -119,12 +123,11 @@ fn biscuit_macro() {
         check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db;
         "#,
         my_key_bytes = s.into_bytes(),
-    );
-    b.set_root_key_id(2);
+    ).root_key_id(2);
 
     let is_true = true;
-    biscuit_merge!(
-        &mut b,
+    b = biscuit_merge!(
+        b,
         r#"appended({is_true});
         check if true;
       "#
@@ -257,9 +260,9 @@ fn json() {
           user_roles($value),
           $value.get("id") == $id,
           $value.get("roles").contains("admin");"#
-    );
-
-    authorizer.add_token(&biscuit).unwrap();
+    )
+    .build(&biscuit)
+    .unwrap();
     assert_eq!(
         authorizer
             .authorize_with_limits(RunLimits {

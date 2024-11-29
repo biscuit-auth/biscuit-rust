@@ -374,9 +374,9 @@ impl fmt::Display for Term {
                 let terms = m
                     .iter()
                     .map(|(key, term)| match key {
-                        MapKey::Integer(i) => format!("{i}: {}", term.to_string()),
-                        MapKey::Str(s) => format!("\"{s}\": {}", term.to_string()),
-                        MapKey::Parameter(s) => format!("{{{s}}}: {}", term.to_string()),
+                        MapKey::Integer(i) => format!("{i}: {}", term),
+                        MapKey::Str(s) => format!("\"{s}\": {}", term),
+                        MapKey::Parameter(s) => format!("{{{s}}}: {}", term),
                     })
                     .collect::<Vec<_>>();
                 write!(f, "{{{}}}", terms.join(", "))

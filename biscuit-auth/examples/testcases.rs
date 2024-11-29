@@ -7,7 +7,6 @@ use biscuit::datalog::SymbolTable;
 use biscuit::error;
 use biscuit::format::convert::v2 as convert;
 use biscuit::macros::*;
-use biscuit::Authorizer;
 use biscuit::{builder::*, builder_ext::*, Biscuit};
 use biscuit::{KeyPair, PrivateKey, PublicKey};
 use biscuit_auth::builder;
@@ -344,12 +343,13 @@ fn validate_token_with_limits_and_external_functions(
         revocation_ids.push(hex::encode(&bytes));
     }
 
-    let mut authorizer = Authorizer::new();
-    authorizer.set_extern_funcs(extern_funcs);
-    authorizer.add_code(authorizer_code).unwrap();
-    let authorizer_code = authorizer.dump_code();
+    let builder = AuthorizerBuilder::new()
+        .set_extern_funcs(extern_funcs)
+        .code(authorizer_code)
+        .unwrap();
+    let authorizer_code = builder.dump_code();
 
-    match authorizer.add_token(&token) {
+    let mut authorizer = match builder.build(&token) {
         Ok(v) => v,
         Err(e) => {
             return Validation {
@@ -878,9 +878,9 @@ fn scoped_rules(target: &str, root: &KeyPair, test: bool) -> TestResult {
         )
         .unwrap();
 
-    let mut block3 = BlockBuilder::new();
-
-    block3.add_fact(r#"owner("alice", "file2")"#).unwrap();
+    let block3 = BlockBuilder::new()
+        .fact(r#"owner("alice", "file2")"#)
+        .unwrap();
 
     let keypair3 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
     let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
@@ -973,14 +973,13 @@ fn expired_token(target: &str, root: &KeyPair, test: bool) -> TestResult {
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let mut block2 = block!(r#"check if resource("file1");"#);
-
-    // January 1 2019
-    block2.check_expiration_date(
-        UNIX_EPOCH
-            .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
-            .unwrap(),
-    );
+    let block2 = block!(r#"check if resource("file1");"#)
+        // January 1 2019
+        .check_expiration_date(
+            UNIX_EPOCH
+                .checked_add(Duration::from_secs(49 * 365 * 24 * 3600))
+                .unwrap(),
+        );
 
     let keypair2 = KeyPair::new_with_rng(Algorithm::Ed25519, &mut rng);
     let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
@@ -1410,11 +1409,9 @@ fn unbound_variables_in_rule(target: &str, root: &KeyPair, test: bool) -> TestRe
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();
 
-    let mut block2 = BlockBuilder::new();
-
-    // this one does not go through the parser because it checks for unused variables
-    block2
-        .add_rule(rule(
+    let block2 = BlockBuilder::new()
+        // this one does not go through the parser because it checks for unused variables
+        .rule(rule(
             "operation",
             &[var("unbound"), string("read")],
             &[pred("operation", &[var("any1"), var("any2")])],

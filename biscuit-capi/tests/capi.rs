@@ -39,13 +39,17 @@ mod capi {
                 Biscuit* b2 = biscuit_append_block(biscuit, bb, kp2);
                 printf("biscuit append error? %s\n", error_message());
 
-                Authorizer * authorizer = biscuit_authorizer(b2);
-                printf("authorizer creation error? %s\n", error_message());
-                authorizer_add_check(authorizer, "check if right(\"efgh\")");
-                printf("authorizer add check error? %s\n", error_message());
+                AuthorizerBuilder * ab = authorizer_builder();
+                printf("authorizer builder creation error? %s\n", error_message());
 
-                authorizer_add_policy(authorizer, "allow if true");
-                printf("authorizer add policy error? %s\n", error_message());
+                authorizer_builder_add_check(ab, "check if right(\"efgh\")");
+                printf("authorizer builder add check error? %s\n", error_message());
+
+                authorizer_builder_add_policy(ab, "allow if true");
+                printf("authorizer builder add policy error? %s\n", error_message());
+
+                Authorizer * authorizer = authorizer_builder_build(ab, b2);
+                printf("authorizer creation error? %s\n", error_message());
 
                 if(!authorizer_authorize(authorizer)) {
                     printf("authorizer error(code = %d): %s\n", error_kind(), error_message());
@@ -111,9 +115,10 @@ builder add authority error? (null)
 biscuit creation error? (null)
 builder add check error? (null)
 biscuit append error? (null)
+authorizer builder creation error? (null)
+authorizer builder add check error? (null)
+authorizer builder add policy error? (null)
 authorizer creation error? (null)
-authorizer add check error? (null)
-authorizer add policy error? (null)
 authorizer error(code = 21): authorization failed: an allow policy matched (policy index: 0), and the following checks failed: Check n°0 in authorizer: check if right("efgh"), Check n°0 in block n°1: check if operation("read")
 failed checks (2):
   Authorizer check 0: check if right("efgh")

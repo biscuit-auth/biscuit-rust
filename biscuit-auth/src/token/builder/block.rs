@@ -26,17 +26,18 @@ impl BlockBuilder {
         BlockBuilder::default()
     }
 
-    pub fn merge(&mut self, mut other: BlockBuilder) {
+    pub fn merge(mut self, mut other: BlockBuilder) -> Self {
         self.facts.append(&mut other.facts);
         self.rules.append(&mut other.rules);
         self.checks.append(&mut other.checks);
 
         if let Some(c) = other.context {
-            self.set_context(c);
+            self.context = Some(c);
         }
+        self
     }
 
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
+    pub fn fact<F: TryInto<Fact>>(mut self, fact: F) -> Result<Self, error::Token>
     where
         error::Token: From<<F as TryInto<Fact>>::Error>,
     {
@@ -44,41 +45,41 @@ impl BlockBuilder {
         fact.validate()?;
 
         self.facts.push(fact);
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_rule<R: TryInto<Rule>>(&mut self, rule: R) -> Result<(), error::Token>
+    pub fn rule<R: TryInto<Rule>>(mut self, rule: R) -> Result<Self, error::Token>
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
         let rule = rule.try_into()?;
         rule.validate_parameters()?;
         self.rules.push(rule);
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
+    pub fn check<C: TryInto<Check>>(mut self, check: C) -> Result<Self, error::Token>
     where
         error::Token: From<<C as TryInto<Check>>::Error>,
     {
         let check = check.try_into()?;
         check.validate_parameters()?;
         self.checks.push(check);
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new(), HashMap::new())
+    pub fn code<T: AsRef<str>>(self, source: T) -> Result<Self, error::Token> {
+        self.code_with_params(source, HashMap::new(), HashMap::new())
     }
 
     /// Add datalog code to the builder, performing parameter subsitution as required
     /// Unknown parameters are ignored
-    pub fn add_code_with_params<T: AsRef<str>>(
-        &mut self,
+    pub fn code_with_params<T: AsRef<str>>(
+        mut self,
         source: T,
         params: HashMap<String, Term>,
         scope_params: HashMap<String, PublicKey>,
-    ) -> Result<(), error::Token> {
+    ) -> Result<Self, error::Token> {
         let input = source.as_ref();
 
         let source_result = parse_block_source(input).map_err(|e| {
@@ -164,15 +165,17 @@ impl BlockBuilder {
             self.checks.push(check);
         }
 
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_scope(&mut self, scope: Scope) {
+    pub fn scope(mut self, scope: Scope) -> Self {
         self.scopes.push(scope);
+        self
     }
 
-    pub fn set_context(&mut self, context: String) {
+    pub fn context(mut self, context: String) -> Self {
         self.context = Some(context);
+        self
     }
 
     pub(crate) fn build(self, mut symbols: SymbolTable) -> Block {
@@ -247,7 +250,7 @@ impl BlockBuilder {
 
     // still used in tests but does not make sense for the public API
     #[cfg(test)]
-    pub(crate) fn check_right(&mut self, right: &str) {
+    pub(crate) fn check_right(self, right: &str) -> Result<Self, error::Token> {
         use crate::builder::{pred, string, var};
 
         use super::rule;
@@ -263,7 +266,7 @@ impl BlockBuilder {
             ],
         );
 
-        let _ = self.add_check(check);
+        self.check(check)
     }
 }
 
@@ -286,10 +289,11 @@ impl fmt::Display for BlockBuilder {
 }
 
 impl BuilderExt for BlockBuilder {
-    fn add_resource(&mut self, name: &str) {
+    fn resource(mut self, name: &str) -> Self {
         self.facts.push(fact("resource", &[string(name)]));
+        self
     }
-    fn check_resource(&mut self, name: &str) {
+    fn check_resource(mut self, name: &str) -> Self {
         self.checks.push(Check {
             queries: vec![rule(
                 "resource_check",
@@ -298,11 +302,13 @@ impl BuilderExt for BlockBuilder {
             )],
             kind: CheckKind::One,
         });
+        self
     }
-    fn add_operation(&mut self, name: &str) {
+    fn operation(mut self, name: &str) -> Self {
         self.facts.push(fact("operation", &[string(name)]));
+        self
     }
-    fn check_operation(&mut self, name: &str) {
+    fn check_operation(mut self, name: &str) -> Self {
         self.checks.push(Check {
             queries: vec![rule(
                 "operation_check",
@@ -311,8 +317,9 @@ impl BuilderExt for BlockBuilder {
             )],
             kind: CheckKind::One,
         });
+        self
     }
-    fn check_resource_prefix(&mut self, prefix: &str) {
+    fn check_resource_prefix(mut self, prefix: &str) -> Self {
         let check = constrained_rule(
             "prefix",
             &[var("resource")],
@@ -330,9 +337,10 @@ impl BuilderExt for BlockBuilder {
             queries: vec![check],
             kind: CheckKind::One,
         });
+        self
     }
 
-    fn check_resource_suffix(&mut self, suffix: &str) {
+    fn check_resource_suffix(mut self, suffix: &str) -> Self {
         let check = constrained_rule(
             "suffix",
             &[var("resource")],
@@ -350,9 +358,10 @@ impl BuilderExt for BlockBuilder {
             queries: vec![check],
             kind: CheckKind::One,
         });
+        self
     }
 
-    fn check_expiration_date(&mut self, exp: SystemTime) {
+    fn check_expiration_date(mut self, exp: SystemTime) -> Self {
         let empty: Vec<Term> = Vec::new();
         let ops = vec![
             Op::Value(var("time")),
@@ -370,5 +379,6 @@ impl BuilderExt for BlockBuilder {
             queries: vec![check],
             kind: CheckKind::One,
         });
+        self
     }
 }

@@ -1,4 +1,4 @@
-use biscuit_auth::PublicKey;
+use biscuit_auth::{builder::AuthorizerBuilder, builder_ext::AuthorizerExt, PublicKey};
 
 fn main() {
     let mut args = std::env::args();
@@ -25,8 +25,7 @@ fn main() {
     }
     println!("token:\n{}", token);
 
-    let mut authorizer = token.authorizer().unwrap();
-    authorizer.allow().unwrap();
+    let mut authorizer = AuthorizerBuilder::new().allow_all().build(&token).unwrap();
 
     println!("authorizer result: {:?}", authorizer.authorize());
     println!("authorizer world:\n{}", authorizer.print_world());

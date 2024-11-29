@@ -783,7 +783,7 @@ impl FactSet {
     pub fn iterator<'a>(
         &'a self,
         block_ids: &'a TrustedOrigins,
-    ) -> impl Iterator<Item = (&Origin, &Fact)> + Clone {
+    ) -> impl Iterator<Item = (&'a Origin, &'a Fact)> + Clone {
         self.inner
             .iter()
             .filter_map(move |(ids, facts)| {
