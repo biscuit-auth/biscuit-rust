@@ -1378,6 +1378,9 @@ fn expressions(target: &str, root: &KeyPair, test: bool) -> TestResult {
         check if {1, 2, 3}.intersection({1, 2}).contains(1);
         // chained method calls with unary method
         check if {1, 2, 3}.intersection({1, 2}).length() === 2;
+
+        // empty set literal
+        check if {,}.length() === 0;
     "#)
         .build_with_rng(&root, SymbolTable::default(), &mut rng)
         .unwrap();

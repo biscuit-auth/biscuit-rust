@@ -864,8 +864,16 @@ fn null(i: &str) -> IResult<&str, builder::Term, Error> {
 }
 
 fn set(i: &str) -> IResult<&str, builder::Term, Error> {
+    alt((empty_set, non_empty_set))(i)
+}
+
+fn empty_set(i: &str) -> IResult<&str, builder::Term, Error> {
+    tag("{,}")(i).map(|(i, _)| (i, builder::set(BTreeSet::new())))
+}
+
+fn non_empty_set(i: &str) -> IResult<&str, builder::Term, Error> {
     let (i, _) = preceded(space0, char('{'))(i)?;
-    let (i, mut list) = cut(separated_list0(preceded(space0, char(',')), term_in_set))(i)?;
+    let (i, mut list) = cut(separated_list1(preceded(space0, char(',')), term_in_set))(i)?;
 
     let mut set = BTreeSet::new();
 
@@ -960,7 +968,7 @@ fn term(i: &str) -> IResult<&str, builder::Term, Error> {
     preceded(
         space0,
         alt((
-            parameter, string, date, variable, integer, bytes, boolean, null, set, array, parse_map,
+            parameter, string, date, variable, integer, bytes, boolean, null, array, parse_map, set,
         )),
     )(i)
 }
@@ -2657,6 +2665,20 @@ mod tests {
                     Op::Binary(Binary::Ffi("toto".to_string())),
                 ],
             ))
+        );
+    }
+
+    #[test]
+    fn empty_set_map() {
+        use builder::{map, set};
+
+        assert_eq!(
+            super::expr("{,}").map(|(i, o)| (i, o.opcodes())),
+            Ok(("", vec![Op::Value(set(Default::default()))],))
+        );
+        assert_eq!(
+            super::expr("{}").map(|(i, o)| (i, o.opcodes())),
+            Ok(("", vec![Op::Value(map(Default::default()))],))
         );
     }
 }

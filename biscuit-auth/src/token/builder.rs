@@ -333,4 +333,8 @@ check if true trusting ed25519/6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc
             })
         );
     }
+    #[test]
+    fn empty_set_display() {
+        assert_eq!(Term::Set(BTreeSet::new()).to_string(), "{,}");
+    }
 }

@@ -198,11 +198,15 @@ impl SymbolTable {
                 }
             }
             Term::Set(s) => {
-                let terms = s
-                    .iter()
-                    .map(|term| self.print_term(term))
-                    .collect::<Vec<_>>();
-                format!("{{{}}}", terms.join(", "))
+                if s.is_empty() {
+                    "{,}".to_string()
+                } else {
+                    let terms = s
+                        .iter()
+                        .map(|term| self.print_term(term))
+                        .collect::<Vec<_>>();
+                    format!("{{{}}}", terms.join(", "))
+                }
             }
             Term::Null => "null".to_string(),
             Term::Array(a) => {
