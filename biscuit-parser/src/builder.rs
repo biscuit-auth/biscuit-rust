@@ -622,30 +622,26 @@ pub fn pred<I: AsRef<Term>>(name: &str, terms: &[I]) -> Predicate {
 }
 
 /// creates a rule
-pub fn rule<T: AsRef<Term>, P: AsRef<Predicate>>(
-    head_name: &str,
-    head_terms: &[T],
-    predicates: &[P],
-) -> Rule {
+pub fn rule<T: AsRef<Term>>(head_name: &str, head_terms: &[T], predicates: &[Predicate]) -> Rule {
     Rule::new(
         pred(head_name, head_terms),
-        predicates.iter().map(|p| p.as_ref().clone()).collect(),
+        predicates.to_vec(),
         Vec::new(),
         vec![],
     )
 }
 
 /// creates a rule with constraints
-pub fn constrained_rule<T: AsRef<Term>, P: AsRef<Predicate>, E: AsRef<Expression>>(
+pub fn constrained_rule<T: AsRef<Term>>(
     head_name: &str,
     head_terms: &[T],
-    predicates: &[P],
-    expressions: &[E],
+    predicates: &[Predicate],
+    expressions: &[Expression],
 ) -> Rule {
     Rule::new(
         pred(head_name, head_terms),
-        predicates.iter().map(|p| p.as_ref().clone()).collect(),
-        expressions.iter().map(|c| c.as_ref().clone()).collect(),
+        predicates.to_vec(),
+        expressions.to_vec(),
         vec![],
     )
 }
