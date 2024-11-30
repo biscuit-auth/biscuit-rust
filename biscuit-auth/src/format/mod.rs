@@ -618,8 +618,8 @@ mod tests {
     fn test_block_signature_version() {
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Ed25519),
-                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(),
+                &KeyPair::new(),
                 &None,
                 &Some(DATALOG_3_1),
                 std::iter::empty()
@@ -629,8 +629,8 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Secp256r1),
-                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new_with_algorithm(Algorithm::Secp256r1),
+                &KeyPair::new_with_algorithm(Algorithm::Ed25519),
                 &None,
                 &Some(DATALOG_3_1),
                 std::iter::empty()
@@ -640,8 +640,8 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Ed25519),
-                &KeyPair::new(Algorithm::Secp256r1),
+                &KeyPair::new_with_algorithm(Algorithm::Ed25519),
+                &KeyPair::new_with_algorithm(Algorithm::Secp256r1),
                 &None,
                 &Some(DATALOG_3_1),
                 std::iter::empty()
@@ -651,8 +651,8 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Secp256r1),
-                &KeyPair::new(Algorithm::Secp256r1),
+                &KeyPair::new_with_algorithm(Algorithm::Secp256r1),
+                &KeyPair::new_with_algorithm(Algorithm::Secp256r1),
                 &None,
                 &Some(DATALOG_3_1),
                 std::iter::empty()
@@ -662,10 +662,10 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Ed25519),
-                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(),
+                &KeyPair::new(),
                 &Some(ExternalSignature {
-                    public_key: KeyPair::new(Algorithm::Ed25519).public(),
+                    public_key: KeyPair::new().public(),
                     signature: Signature::from_vec(Vec::new())
                 }),
                 &Some(DATALOG_3_1),
@@ -676,8 +676,8 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Ed25519),
-                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(),
+                &KeyPair::new(),
                 &None,
                 &Some(DATALOG_3_3),
                 std::iter::empty()
@@ -687,8 +687,8 @@ mod tests {
         );
         assert_eq!(
             block_signature_version(
-                &KeyPair::new(Algorithm::Ed25519),
-                &KeyPair::new(Algorithm::Ed25519),
+                &KeyPair::new(),
+                &KeyPair::new(),
                 &None,
                 &Some(DATALOG_3_1),
                 std::iter::once(1)

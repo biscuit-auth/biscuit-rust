@@ -29,7 +29,13 @@ pub enum KeyPair {
 }
 
 impl KeyPair {
-    pub fn new(algorithm: Algorithm) -> Self {
+    /// Create a new ed25519 keypair with the default OS RNG
+    pub fn new() -> Self {
+        Self::new_with_rng(Algorithm::Ed25519, &mut rand::rngs::OsRng)
+    }
+
+    /// Create a new keypair with a chosen algorithm and the default OS RNG
+    pub fn new_with_algorithm(algorithm: Algorithm) -> Self {
         Self::new_with_rng(algorithm, &mut rand::rngs::OsRng)
     }
 
@@ -107,7 +113,7 @@ impl KeyPair {
 
 impl std::default::Default for KeyPair {
     fn default() -> Self {
-        Self::new(Algorithm::Ed25519)
+        Self::new()
     }
 }
 

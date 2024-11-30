@@ -108,8 +108,7 @@ impl Authorizer {
     /// ```rust
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
-    /// # use biscuit_auth::builder::Algorithm;
-    /// let keypair = KeyPair::new(Algorithm::Ed25519);
+    /// let keypair = KeyPair::new();
     /// let biscuit = Biscuit::builder()
     ///     .fact("user(\"John Doe\", 42)")
     ///     .expect("parse error")
@@ -199,8 +198,7 @@ impl Authorizer {
     /// ```rust
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
-    /// # use biscuit_auth::builder::Algorithm;
-    /// let keypair = KeyPair::new(Algorithm::Ed25519,);
+    /// let keypair = KeyPair::new();
     /// let biscuit = Biscuit::builder()
     ///     .fact("user(\"John Doe\", 42)")
     ///     .expect("parse error")
@@ -861,7 +859,7 @@ mod tests {
 
     use crate::PublicKey;
     use crate::{
-        builder::{Algorithm, BiscuitBuilder, BlockBuilder},
+        builder::{BiscuitBuilder, BlockBuilder},
         KeyPair,
     };
 
@@ -995,7 +993,7 @@ mod tests {
     fn query_authorizer_from_token_tuple() {
         use crate::Biscuit;
         use crate::KeyPair;
-        let keypair = KeyPair::new(Algorithm::Ed25519);
+        let keypair = KeyPair::new();
         let biscuit = Biscuit::builder()
             .fact("user(\"John Doe\", 42)")
             .unwrap()
@@ -1016,7 +1014,7 @@ mod tests {
     fn query_authorizer_from_token_string() {
         use crate::Biscuit;
         use crate::KeyPair;
-        let keypair = KeyPair::new(Algorithm::Ed25519);
+        let keypair = KeyPair::new();
         let biscuit = Biscuit::builder()
             .fact("user(\"John Doe\")")
             .unwrap()
@@ -1032,8 +1030,8 @@ mod tests {
 
     #[test]
     fn authorizer_with_scopes() {
-        let root = KeyPair::new(Algorithm::Ed25519);
-        let external = KeyPair::new(Algorithm::Ed25519);
+        let root = KeyPair::new();
+        let external = KeyPair::new();
 
         let mut scope_params = HashMap::new();
         scope_params.insert("external_pub".to_string(), external.public());
@@ -1065,7 +1063,7 @@ mod tests {
         let biscuit2 = Biscuit::from(serialized, root.public()).unwrap();
 
         let builder = AuthorizerBuilder::new();
-        let external2 = KeyPair::new(Algorithm::Ed25519);
+        let external2 = KeyPair::new();
 
         let mut scope_params = HashMap::new();
         scope_params.insert("external".to_string(), external.public());
@@ -1213,7 +1211,7 @@ mod tests {
 
     #[test]
     fn authorizer_display_before_and_after_authorization() {
-        let root = KeyPair::new(Algorithm::Ed25519);
+        let root = KeyPair::new();
 
         let token = BiscuitBuilder::new()
             .code(
