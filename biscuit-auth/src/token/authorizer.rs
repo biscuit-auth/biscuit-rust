@@ -1093,7 +1093,7 @@ mod tests {
             )
             .unwrap()
             .limits(AuthorizerLimits {
-                max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+                max_time: Duration::from_secs(10), //Set 10 seconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
                 ..Default::default()
             })
             .build(&biscuit2)

@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use biscuit_auth::{
     builder::{Algorithm, AuthorizerBuilder, BlockBuilder},
     builder_ext::AuthorizerExt,
-    datalog::SymbolTable,
+    datalog::{RunLimits, SymbolTable},
     Biscuit, KeyPair,
 };
 use rand::{prelude::StdRng, SeedableRng};
@@ -36,6 +38,10 @@ fn main() {
 
     let mut authorizer = AuthorizerBuilder::new()
         .allow_all()
+        .limits(RunLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
         .build(&biscuit1)
         .unwrap();
 
@@ -44,6 +50,10 @@ fn main() {
 
     let mut authorizer = AuthorizerBuilder::new()
         .allow_all()
+        .limits(RunLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
         .build(&biscuit2)
         .unwrap();
 

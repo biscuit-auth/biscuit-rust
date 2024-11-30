@@ -1384,6 +1384,10 @@ mod tests {
             .check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap()
             .allow_all()
+            .limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            })
             .build(&biscuit2)
             .unwrap();
 

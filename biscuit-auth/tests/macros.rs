@@ -75,7 +75,13 @@ fn authorizer_macro() {
       "#
     );
 
-    let authorizer = b.build_unauthenticated().unwrap();
+    let authorizer = b
+        .limits(RunLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
+        .build_unauthenticated()
+        .unwrap();
     assert_eq!(
         authorizer.dump_code(),
         r#"appended(true);
@@ -95,6 +101,10 @@ allow if true;
 #[test]
 fn authorizer_macro_trailing_comma() {
     let a = authorizer!(r#"fact("test", {my_key});"#, my_key = "my_value",)
+        .limits(RunLimits {
+            max_time: Duration::from_secs(10),
+            ..Default::default()
+        })
         .build_unauthenticated()
         .unwrap();
     assert_eq!(
@@ -261,6 +271,10 @@ fn json() {
           $value.get("id") == $id,
           $value.get("roles").contains("admin");"#
     )
+    .limits(RunLimits {
+        max_time: Duration::from_secs(10),
+        ..Default::default()
+    })
     .build(&biscuit)
     .unwrap();
     assert_eq!(
