@@ -55,7 +55,7 @@ pub fn default_symbol_table() -> SymbolTable {
 /// use biscuit::{KeyPair, Biscuit, builder::*, builder_ext::*};
 ///
 /// fn main() -> Result<(), biscuit::error::Token> {
-///   let root = KeyPair::new(Algorithm::Ed25519);
+///   let root = KeyPair::new();
 ///
 ///   // first we define the authority block for global data,
 ///   // like access rights

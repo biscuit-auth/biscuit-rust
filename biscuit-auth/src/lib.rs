@@ -32,7 +32,7 @@
 //! fn main() -> Result<(), error::Token> {
 //!   // let's generate the root key pair. The root public key will be necessary
 //!   // to verify the token
-//!   let root = KeyPair::new(Algorithm::Ed25519);
+//!   let root = KeyPair::new();
 //!   let public_key = root.public();
 //!
 //!   // creating a first token
@@ -232,6 +232,7 @@ mod token;
 pub use crypto::{KeyPair, PrivateKey, PublicKey};
 pub use token::authorizer::{Authorizer, AuthorizerLimits};
 pub use token::builder;
+pub use token::builder::{Algorithm, AuthorizerBuilder, BiscuitBuilder, BlockBuilder};
 pub use token::builder_ext;
 pub use token::unverified::UnverifiedBiscuit;
 pub use token::Biscuit;

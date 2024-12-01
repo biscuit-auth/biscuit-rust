@@ -251,7 +251,7 @@ fn policy_macro() {
 
 #[test]
 fn json() {
-    let key_pair = KeyPair::new(biscuit_auth::builder::Algorithm::Ed25519);
+    let key_pair = KeyPair::new();
     let biscuit = biscuit!(r#"user(123)"#).build(&key_pair).unwrap();
 
     let value: serde_json::Value = json!(
