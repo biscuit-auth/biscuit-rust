@@ -21,7 +21,7 @@ mod snapshot;
 /// used to check authorization policies on a token
 ///
 /// can be created from [Biscuit::authorizer] or [Authorizer::new]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Authorizer {
     pub(crate) authorizer_block_builder: BlockBuilder,
     pub(crate) world: datalog::World,
