@@ -69,7 +69,8 @@ impl super::Authorizer {
         authorizer.authorizer_block_builder = authorizer_block_builder;
         authorizer.policies = policies;
         authorizer.limits = limits;
-        authorizer.execution_time = execution_time;
+        authorizer.execution_time =
+            Some(execution_time).filter(|_| execution_time > Duration::default());
 
         let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut blocks = Vec::new();
@@ -207,7 +208,7 @@ impl super::Authorizer {
 
         Ok(schema::AuthorizerSnapshot {
             world,
-            execution_time: self.execution_time.as_nanos() as u64,
+            execution_time: self.execution_time.unwrap_or_default().as_nanos() as u64,
             limits: schema::RunLimits {
                 max_facts: self.limits.max_facts,
                 max_iterations: self.limits.max_iterations,

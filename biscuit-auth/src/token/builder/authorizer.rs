@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Write,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 use biscuit_parser::parser::parse_source;
@@ -384,9 +384,11 @@ impl AuthorizerBuilder {
             world.rules.insert(usize::MAX, &rule_trusted_origins, rule);
         }
 
+        /*
         let start = Instant::now();
         world.run_with_limits(&symbols, self.limits.clone())?;
         let execution_time = start.elapsed();
+        */
 
         Ok(Authorizer {
             authorizer_block_builder: self.authorizer_block_builder,
@@ -397,7 +399,7 @@ impl AuthorizerBuilder {
             blocks,
             public_key_to_block_id,
             limits: self.limits,
-            execution_time,
+            execution_time: None,
         })
     }
 }

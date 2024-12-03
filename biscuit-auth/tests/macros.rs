@@ -75,13 +75,14 @@ fn authorizer_macro() {
       "#
     );
 
-    let authorizer = b
+    let mut authorizer = b
         .limits(RunLimits {
             max_time: Duration::from_secs(10),
             ..Default::default()
         })
         .build_unauthenticated()
         .unwrap();
+    authorizer.run().unwrap();
     assert_eq!(
         authorizer.dump_code(),
         r#"appended(true);

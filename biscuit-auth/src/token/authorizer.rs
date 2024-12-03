@@ -31,10 +31,24 @@ pub struct Authorizer {
     pub(crate) blocks: Option<Vec<Block>>,
     pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
     pub(crate) limits: AuthorizerLimits,
-    pub(crate) execution_time: Duration,
+    pub(crate) execution_time: Option<Duration>,
 }
 
 impl Authorizer {
+    pub fn run(&mut self) -> Result<Duration, error::Token> {
+        match self.execution_time {
+            Some(execution_time) => Ok(execution_time),
+            None => {
+                let start = Instant::now();
+                self.world
+                    .run_with_limits(&self.symbols, self.limits.clone())?;
+                let execution_time = start.elapsed();
+                self.execution_time = Some(execution_time);
+                Ok(execution_time)
+            }
+        }
+    }
+
     pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
         AuthorizerBuilder::new().build(token)
     }
@@ -62,7 +76,7 @@ impl Authorizer {
             blocks: None,
             public_key_to_block_id: HashMap::new(),
             limits: AuthorizerLimits::default(),
-            execution_time: Duration::default(),
+            execution_time: None,
         }
     }
 
@@ -129,12 +143,13 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.query_with_limits(rule, limits)
     }
@@ -152,11 +167,12 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
         let start = Instant::now();
         let result = self.query_inner(rule, limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(start.elapsed() + execution_time);
 
         result
     }
@@ -218,12 +234,13 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.query_all_with_limits(rule, limits)
     }
@@ -245,11 +262,12 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
         let start = Instant::now();
         let result = self.query_all_inner(rule, limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(execution_time + start.elapsed());
 
         result
     }
@@ -289,7 +307,7 @@ impl Authorizer {
     }
 
     /// returns the elapsed execution time
-    pub fn execution_time(&self) -> Duration {
+    pub fn execution_time(&self) -> Option<Duration> {
         self.execution_time
     }
 
@@ -308,12 +326,13 @@ impl Authorizer {
     /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.authorize_with_limits(limits)
     }
@@ -327,9 +346,10 @@ impl Authorizer {
         &mut self,
         limits: AuthorizerLimits,
     ) -> Result<usize, error::Token> {
+        let execution_time = self.run()?;
         let start = Instant::now();
         let result = self.authorize_inner(limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(execution_time + start.elapsed());
 
         result
     }
