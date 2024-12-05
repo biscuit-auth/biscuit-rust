@@ -271,3 +271,171 @@ pub(crate) fn proto_origin_to_authorizer_origin(
 
     Ok(new_origin)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    use crate::{datalog::RunLimits, Algorithm, AuthorizerBuilder};
+    use crate::{Authorizer, BiscuitBuilder, KeyPair};
+
+    #[test]
+    fn roundtrip_builder() {
+        let secp_pubkey = KeyPair::new_with_algorithm(Algorithm::Secp256r1).public();
+        let ed_pubkey = KeyPair::new_with_algorithm(Algorithm::Ed25519).public();
+        let builder = AuthorizerBuilder::new()
+            .limits(RunLimits {
+                max_facts: 42,
+                max_iterations: 42,
+                max_time: Duration::from_secs(1),
+            })
+            .code_with_params(
+                r#"
+                fact(true);
+                head($a) <- fact($a);
+                check if head(true) trusting authority, {ed_pubkey}, {secp_pubkey};
+                allow if head(true);
+                deny if head(false);
+        "#,
+                HashMap::default(),
+                HashMap::from([
+                    ("ed_pubkey".to_string(), ed_pubkey),
+                    ("secp_pubkey".to_string(), secp_pubkey),
+                ]),
+            )
+            .unwrap();
+        let snapshot = builder.snapshot().unwrap();
+
+        let parsed = AuthorizerBuilder::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), builder.dump_code());
+        assert_eq!(parsed.limits, builder.limits);
+    }
+
+    #[test]
+    fn roundtrip_with_token() {
+        let secp_pubkey = KeyPair::new_with_algorithm(Algorithm::Secp256r1).public();
+        let ed_pubkey = KeyPair::new_with_algorithm(Algorithm::Ed25519).public();
+        let builder = AuthorizerBuilder::new()
+            .limits(RunLimits {
+                max_facts: 42,
+                max_iterations: 42,
+                max_time: Duration::from_secs(1),
+            })
+            .code_with_params(
+                r#"
+                fact(true);
+                head($a) <- fact($a);
+                check if head(true) trusting authority, {ed_pubkey}, {secp_pubkey};
+                allow if head(true);
+                deny if head(false);
+        "#,
+                HashMap::default(),
+                HashMap::from([
+                    ("ed_pubkey".to_string(), ed_pubkey),
+                    ("secp_pubkey".to_string(), secp_pubkey),
+                ]),
+            )
+            .unwrap();
+        let biscuit = BiscuitBuilder::new()
+            .code_with_params(
+                r#"
+                bfact(true);
+                bhead($a) <- fact($a);
+                check if bhead(true) trusting authority, {ed_pubkey}, {secp_pubkey};
+                "#,
+                HashMap::default(),
+                HashMap::from([
+                    ("ed_pubkey".to_string(), ed_pubkey),
+                    ("secp_pubkey".to_string(), secp_pubkey),
+                ]),
+            )
+            .unwrap()
+            .build(&KeyPair::new())
+            .unwrap();
+
+        let authorizer_pre_run = builder.build(&biscuit).unwrap();
+
+        let snapshot = authorizer_pre_run.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer_pre_run.dump_code());
+        assert_eq!(parsed.limits(), authorizer_pre_run.limits());
+
+        let mut authorizer_post_run = authorizer_pre_run.clone();
+        let _ = authorizer_post_run.run();
+
+        let snapshot = authorizer_post_run.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer_post_run.dump_code());
+        assert_eq!(parsed.limits(), authorizer_post_run.limits());
+    }
+
+    #[test]
+    fn roundtrip_without_token() {
+        let builder = AuthorizerBuilder::new()
+            .limits(RunLimits {
+                max_facts: 42,
+                max_iterations: 42,
+                max_time: Duration::from_secs(1),
+            })
+            .code(
+                r#"
+                fact(true);
+                head($a) <- fact($a);
+                check if head(true);
+                allow if head(true);
+                deny if head(false);
+        "#,
+            )
+            .unwrap();
+        let authorizer = builder.build_unauthenticated().unwrap();
+        let snapshot = authorizer.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer.dump_code());
+        assert_eq!(parsed.limits(), authorizer.limits());
+
+        let mut authorizer_post_run = authorizer.clone();
+        let _ = authorizer_post_run.run();
+        let snapshot = authorizer_post_run.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer_post_run.dump_code());
+        assert_eq!(parsed.limits(), authorizer_post_run.limits());
+    }
+
+    #[test]
+    fn roundtrip_with_eval_error() {
+        let builder = AuthorizerBuilder::new()
+            .limits(RunLimits {
+                max_facts: 42,
+                max_iterations: 42,
+                max_time: Duration::from_secs(1),
+            })
+            .code(
+                r#"
+                fact(true);
+                head($a) <- fact($a), $a.length();
+                allow if head(true);
+                deny if head(false);
+        "#,
+            )
+            .unwrap();
+        let authorizer = builder.build_unauthenticated().unwrap();
+        let snapshot = authorizer.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer.dump_code());
+        assert_eq!(parsed.limits(), authorizer.limits());
+
+        let mut authorizer_post_run = authorizer.clone();
+        let _ = authorizer_post_run.run();
+        let snapshot = authorizer_post_run.snapshot().unwrap();
+
+        let parsed = Authorizer::from_snapshot(snapshot).unwrap();
+        assert_eq!(parsed.dump_code(), authorizer_post_run.dump_code());
+        assert_eq!(parsed.limits(), authorizer_post_run.limits());
+    }
+}

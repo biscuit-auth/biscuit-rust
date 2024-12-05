@@ -31,7 +31,7 @@ pub struct AuthorizerBuilder {
     authorizer_block_builder: BlockBuilder,
     policies: Vec<Policy>,
     extern_funcs: HashMap<String, ExternFunc>,
-    limits: AuthorizerLimits,
+    pub(crate) limits: AuthorizerLimits,
 }
 
 impl AuthorizerBuilder {
