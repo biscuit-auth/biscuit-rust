@@ -1,17 +1,19 @@
-use std::convert::TryInto;
+use prost::Message;
 
 use super::{default_symbol_table, Biscuit, Block};
 use crate::{
     builder::BlockBuilder,
-    crypto,
-    crypto::PublicKey,
+    crypto::{self, PublicKey, Signature},
     datalog::SymbolTable,
     error,
-    format::{convert::proto_block_to_token_block, schema, SerializedBiscuit},
+    format::{
+        convert::proto_block_to_token_block,
+        schema::{self, public_key::Algorithm},
+        SerializedBiscuit,
+    },
     token::{ThirdPartyBlockContents, ThirdPartyRequest},
     KeyPair, RootKeyProvider,
 };
-use prost::Message;
 
 /// A token that was parsed without cryptographic signature verification
 ///
@@ -35,6 +37,29 @@ impl UnverifiedBiscuit {
         T: AsRef<[u8]>,
     {
         Self::from_with_symbols(slice.as_ref(), default_symbol_table())
+    }
+
+    /// deserializes a token from raw bytes
+    ///
+    /// This allows the deprecated 3rd party block format
+    pub fn unsafe_deprecated_deserialize<T>(slice: T) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+    {
+        let container = SerializedBiscuit::deserialize(
+            slice.as_ref(),
+            crate::format::ThirdPartyVerificationMode::UnsafeLegacy,
+        )?;
+        let mut symbols = default_symbol_table();
+
+        let (authority, blocks) = container.extract_blocks(&mut symbols)?;
+
+        Ok(UnverifiedBiscuit {
+            authority,
+            blocks,
+            symbols,
+            container,
+        })
     }
 
     /// deserializes a token from base64
@@ -76,7 +101,8 @@ impl UnverifiedBiscuit {
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
     pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
-        let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let keypair =
+            KeyPair::new_with_rng(super::builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
         self.append_with_keypair(&keypair, block_builder)
     }
 
@@ -95,7 +121,10 @@ impl UnverifiedBiscuit {
 
     /// deserializes from raw bytes with a custom symbol table
     pub fn from_with_symbols(slice: &[u8], mut symbols: SymbolTable) -> Result<Self, error::Token> {
-        let container = SerializedBiscuit::deserialize(slice)?;
+        let container = SerializedBiscuit::deserialize(
+            slice,
+            crate::format::ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let (authority, blocks) = container.extract_blocks(&mut symbols)?;
 
@@ -219,6 +248,11 @@ impl UnverifiedBiscuit {
         })
     }
 
+    /// gets the datalog version for a given block
+    pub fn block_version(&self, index: usize) -> Result<u32, error::Token> {
+        self.block(index).map(|block| block.version)
+    }
+
     pub(crate) fn block(&self, index: usize) -> Result<Block, error::Token> {
         let mut block = if index == 0 {
             proto_block_to_token_block(
@@ -268,8 +302,16 @@ impl UnverifiedBiscuit {
     }
 
     pub fn append_third_party(&self, slice: &[u8]) -> Result<Self, error::Token> {
-        let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let next_keypair =
+            KeyPair::new_with_rng(super::builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
+        self.append_third_party_with_keypair(slice, next_keypair)
+    }
 
+    pub fn append_third_party_with_keypair(
+        &self,
+        slice: &[u8],
+        next_keypair: KeyPair,
+    ) -> Result<Self, error::Token> {
         let ThirdPartyBlockContents {
             payload,
             external_signature,
@@ -277,38 +319,23 @@ impl UnverifiedBiscuit {
             error::Format::DeserializationError(format!("deserialization error: {:?}", e))
         })?;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
-            return Err(error::Token::Format(error::Format::DeserializationError(
-                format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
-                ),
-            )));
-        }
-        let external_key =
-            PublicKey::from_bytes(&external_signature.public_key.key).map_err(|e| {
-                error::Format::BlockSignatureDeserializationError(format!(
-                    "block external public key deserialization error: {:?}",
-                    e
-                ))
+        let algorithm =
+            Algorithm::from_i32(external_signature.public_key.algorithm).ok_or_else(|| {
+                error::Format::DeserializationError(
+                    "deserialization error: invalid external key algorithm".to_string(),
+                )
             })?;
+        let external_key =
+            PublicKey::from_bytes(&external_signature.public_key.key, algorithm.into()).map_err(
+                |e| {
+                    error::Format::BlockSignatureDeserializationError(format!(
+                        "block external public key deserialization error: {:?}",
+                        e
+                    ))
+                },
+            )?;
 
-        let bytes: [u8; 64] = (&external_signature.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
-
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
-        let previous_key = self
-            .container
-            .blocks
-            .last()
-            .unwrap_or(&self.container.authority)
-            .next_key;
-        let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&previous_key.to_bytes());
+        let signature = Signature::from_vec(external_signature.signature);
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(

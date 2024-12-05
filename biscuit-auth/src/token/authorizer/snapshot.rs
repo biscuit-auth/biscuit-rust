@@ -2,7 +2,7 @@ use prost::Message;
 use std::{collections::HashMap, time::Duration};
 
 use crate::{
-    builder::{BlockBuilder, Convert, Policy},
+    builder::{load_and_translate_block, BlockBuilder, Convert, Policy},
     datalog::{Origin, RunLimits, TrustedOrigins},
     error,
     format::{
@@ -69,7 +69,8 @@ impl super::Authorizer {
         authorizer.authorizer_block_builder = authorizer_block_builder;
         authorizer.policies = policies;
         authorizer.limits = limits;
-        authorizer.execution_time = execution_time;
+        authorizer.execution_time =
+            Some(execution_time).filter(|_| execution_time > Duration::default());
 
         let mut public_key_to_block_id: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut blocks = Vec::new();
@@ -91,7 +92,14 @@ impl super::Authorizer {
                     .push(i);
             }
 
-            authorizer.load_and_translate_block(&mut block, i, &token_symbols)?;
+            load_and_translate_block(
+                &mut block,
+                i,
+                &token_symbols,
+                &mut authorizer.symbols,
+                &mut public_key_to_block_id,
+                &mut authorizer.world,
+            )?;
             blocks.push(block);
         }
 
@@ -200,7 +208,7 @@ impl super::Authorizer {
 
         Ok(schema::AuthorizerSnapshot {
             world,
-            execution_time: self.execution_time.as_nanos() as u64,
+            execution_time: self.execution_time.unwrap_or_default().as_nanos() as u64,
             limits: schema::RunLimits {
                 max_facts: self.limits.max_facts,
                 max_iterations: self.limits.max_iterations,
@@ -224,7 +232,7 @@ impl super::Authorizer {
     }
 }
 
-fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
+pub(crate) fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
     origin
         .inner
         .iter()
@@ -242,7 +250,9 @@ fn authorizer_origin_to_proto_origin(origin: &Origin) -> Vec<schema::Origin> {
         .collect()
 }
 
-fn proto_origin_to_authorizer_origin(origins: &[schema::Origin]) -> Result<Origin, error::Format> {
+pub(crate) fn proto_origin_to_authorizer_origin(
+    origins: &[schema::Origin],
+) -> Result<Origin, error::Format> {
     let mut new_origin = Origin::default();
 
     for origin in origins {
