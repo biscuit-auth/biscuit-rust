@@ -115,6 +115,46 @@ impl super::Authorizer {
             authorizer.blocks = Some(blocks);
         }
 
+        let mut authorizer_origin = Origin::default();
+        authorizer_origin.insert(usize::MAX);
+
+        let authorizer_scopes: Vec<crate::token::Scope> = authorizer
+            .authorizer_block_builder
+            .scopes
+            .clone()
+            .iter()
+            .map(|s| s.convert(&mut authorizer.symbols))
+            .collect();
+
+        let authorizer_trusted_origins = TrustedOrigins::from_scopes(
+            &authorizer_scopes,
+            &TrustedOrigins::default(),
+            usize::MAX,
+            &authorizer.public_key_to_block_id,
+        );
+        for fact in &authorizer.authorizer_block_builder.facts {
+            authorizer
+                .world
+                .facts
+                .insert(&authorizer_origin, fact.convert(&mut authorizer.symbols));
+        }
+
+        for rule in &authorizer.authorizer_block_builder.rules {
+            let rule = rule.convert(&mut authorizer.symbols);
+
+            let rule_trusted_origins = TrustedOrigins::from_scopes(
+                &rule.scopes,
+                &authorizer_trusted_origins,
+                usize::MAX,
+                &authorizer.public_key_to_block_id,
+            );
+
+            authorizer
+                .world
+                .rules
+                .insert(usize::MAX, &rule_trusted_origins, rule);
+        }
+
         for GeneratedFacts { origins, facts } in world.generated_facts {
             let origin = proto_origin_to_authorizer_origin(&origins)?;
 
