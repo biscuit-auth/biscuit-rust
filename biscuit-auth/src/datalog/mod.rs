@@ -733,7 +733,7 @@ impl World {
 }
 
 /// runtime limits for the Datalog engine
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunLimits {
     /// maximum number of Datalog facts (memory usage)
     pub max_facts: u64,
