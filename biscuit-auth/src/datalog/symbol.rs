@@ -198,11 +198,41 @@ impl SymbolTable {
                 }
             }
             Term::Set(s) => {
-                let terms = s
+                if s.is_empty() {
+                    "{,}".to_string()
+                } else {
+                    let terms = s
+                        .iter()
+                        .map(|term| self.print_term(term))
+                        .collect::<Vec<_>>();
+                    format!("{{{}}}", terms.join(", "))
+                }
+            }
+            Term::Null => "null".to_string(),
+            Term::Array(a) => {
+                let terms = a
                     .iter()
                     .map(|term| self.print_term(term))
                     .collect::<Vec<_>>();
                 format!("[{}]", terms.join(", "))
+            }
+            Term::Map(m) => {
+                let terms = m
+                    .iter()
+                    .map(|(key, term)| match key {
+                        crate::datalog::MapKey::Integer(i) => {
+                            format!("{}: {}", i, self.print_term(term))
+                        }
+                        crate::datalog::MapKey::Str(s) => {
+                            format!(
+                                "\"{}\": {}",
+                                self.print_symbol_default(*s as u64),
+                                self.print_term(term)
+                            )
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                format!("{{{}}}", terms.join(", "))
             }
         }
     }
@@ -257,7 +287,7 @@ impl SymbolTable {
                     crate::token::Scope::Previous => "previous".to_string(),
                     crate::token::Scope::PublicKey(key_id) => {
                         match self.public_keys.get_key(*key_id) {
-                            Some(key) => format!("ed25519/{}", hex::encode(key.to_bytes())),
+                            Some(key) => key.print(),
                             None => "<unknown public key id>".to_string(),
                         }
                     }
@@ -283,10 +313,11 @@ impl SymbolTable {
             .collect::<Vec<_>>();
 
         format!(
-            "check {} {}",
+            "{} {}",
             match c.kind {
-                crate::builder::CheckKind::One => "if",
-                crate::builder::CheckKind::All => "all",
+                crate::builder::CheckKind::One => "check if",
+                crate::builder::CheckKind::All => "check all",
+                crate::builder::CheckKind::Reject => "reject if",
             },
             queries.join(" or ")
         )

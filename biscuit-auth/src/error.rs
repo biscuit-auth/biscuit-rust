@@ -1,7 +1,10 @@
 //! error types
 //!
 
-use std::convert::{From, Infallible};
+use std::{
+    convert::{From, Infallible},
+    fmt::Display,
+};
 use thiserror::Error;
 
 /// the global error type for Biscuit
@@ -16,7 +19,7 @@ pub enum Token {
     AppendOnSealed,
     #[error("tried to seal an already sealed token")]
     AlreadySealed,
-    #[error("authorization failed")]
+    #[error("authorization failed: {0}")]
     FailedLogic(Logic),
     #[error("error generating Datalog: {0}")]
     Language(biscuit_parser::error::LanguageError),
@@ -168,9 +171,9 @@ pub enum Signature {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum Logic {
-    #[error("a rule provided by a block is generating facts with the authority or ambient tag, or has head variables not used in its body")]
+    #[error("a rule provided by a block is producing a fact with unbound variables")]
     InvalidBlockRule(u32, String),
-    #[error("authorization failed")]
+    #[error("{policy}, and the following checks failed: {}", display_failed_checks(.checks))]
     Unauthorized {
         /// the policy that matched
         policy: MatchedPolicy,
@@ -179,7 +182,7 @@ pub enum Logic {
     },
     #[error("the authorizer already contains a token")]
     AuthorizerNotEmpty,
-    #[error("no matching policy was found")]
+    #[error("no matching policy was found, and the following checks failed: {}", display_failed_checks(.checks))]
     NoMatchingPolicy {
         /// list of checks that failed validation
         checks: Vec<FailedCheck>,
@@ -189,9 +192,9 @@ pub enum Logic {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum MatchedPolicy {
-    #[error("an allow policy matched")]
+    #[error("an allow policy matched (policy index: {0})")]
     Allow(usize),
-    #[error("a deny policy matched")]
+    #[error("a deny policy matched (policy index: {0})")]
     Deny(usize),
 }
 
@@ -199,10 +202,17 @@ pub enum MatchedPolicy {
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub enum FailedCheck {
-    #[error("a check failed in a block")]
+    #[error("{0}")]
     Block(FailedBlockCheck),
-    #[error("a check provided by the authorizer failed")]
+    #[error("{0}")]
     Authorizer(FailedAuthorizerCheck),
+}
+
+fn display_failed_checks(c: &[FailedCheck]) -> String {
+    c.iter()
+        .map(|c| c.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -214,12 +224,28 @@ pub struct FailedBlockCheck {
     pub rule: String,
 }
 
+impl Display for FailedBlockCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Check n°{} in block n°{}: {}",
+            self.check_id, self.block_id, self.rule
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde-error", derive(serde::Serialize, serde::Deserialize))]
 pub struct FailedAuthorizerCheck {
     pub check_id: u32,
     /// pretty print of the rule that failed
     pub rule: String,
+}
+
+impl Display for FailedAuthorizerCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Check n°{} in authorizer: {}", self.check_id, self.rule)
+    }
 }
 
 /// Datalog execution errors
@@ -248,6 +274,12 @@ pub enum Expression {
     DivideByZero,
     #[error("Wrong number of elements on stack")]
     InvalidStack,
+    #[error("Shadowed variable")]
+    ShadowedVariable,
+    #[error("Undefined extern func: {0}")]
+    UndefinedExtern(String),
+    #[error("Error while evaluating extern func {0}: {1}")]
+    ExternEvalError(String, String),
 }
 
 /// runtime limits errors
@@ -276,6 +308,28 @@ mod tests {
         assert_eq!(
             format!("{}", Token::Base64(Base64Error::InvalidLength)),
             "Cannot decode base64 token: Encoded text cannot have a 6-bit remainder."
+        );
+
+        assert_eq!(
+            format!(
+                "{}",
+                Token::FailedLogic(Logic::Unauthorized {
+                    policy: MatchedPolicy::Allow(0),
+                    checks: vec![
+                        FailedCheck::Authorizer(FailedAuthorizerCheck {
+                            check_id: 0,
+                            rule: "check if false".to_string()
+                        }),
+                        FailedCheck::Block(FailedBlockCheck {
+                            block_id: 0,
+                            check_id: 0,
+                            rule: "check if false".to_string()
+                        })
+                    ]
+                })
+            )
+            .to_string(),
+            "authorization failed: an allow policy matched (policy index: 0), and the following checks failed: Check n°0 in authorizer: check if false, Check n°0 in block n°0: check if false"
         );
     }
 }

@@ -19,6 +19,8 @@ pub struct SignedBlock {
     pub signature: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag="4")]
     pub external_signature: ::core::option::Option<ExternalSignature>,
+    #[prost(uint32, optional, tag="5")]
+    pub version: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExternalSignature {
@@ -40,6 +42,7 @@ pub mod public_key {
     #[repr(i32)]
     pub enum Algorithm {
         Ed25519 = 0,
+        Secp256r1 = 1,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -127,6 +130,7 @@ pub mod check_v2 {
     pub enum Kind {
         One = 0,
         All = 1,
+        Reject = 2,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -138,7 +142,7 @@ pub struct PredicateV2 {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TermV2 {
-    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof="term_v2::Content", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
     pub content: ::core::option::Option<term_v2::Content>,
 }
 /// Nested message and enum types in `TermV2`.
@@ -159,6 +163,12 @@ pub mod term_v2 {
         Bool(bool),
         #[prost(message, tag="7")]
         Set(super::TermSet),
+        #[prost(message, tag="8")]
+        Null(super::Empty),
+        #[prost(message, tag="9")]
+        Array(super::Array),
+        #[prost(message, tag="10")]
+        Map(super::Map),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -167,13 +177,45 @@ pub struct TermSet {
     pub set: ::prost::alloc::vec::Vec<TermV2>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Array {
+    #[prost(message, repeated, tag="1")]
+    pub array: ::prost::alloc::vec::Vec<TermV2>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Map {
+    #[prost(message, repeated, tag="1")]
+    pub entries: ::prost::alloc::vec::Vec<MapEntry>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MapEntry {
+    #[prost(message, required, tag="1")]
+    pub key: MapKey,
+    #[prost(message, required, tag="2")]
+    pub value: TermV2,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MapKey {
+    #[prost(oneof="map_key::Content", tags="1, 2")]
+    pub content: ::core::option::Option<map_key::Content>,
+}
+/// Nested message and enum types in `MapKey`.
+pub mod map_key {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Content {
+        #[prost(int64, tag="1")]
+        Integer(i64),
+        #[prost(uint64, tag="2")]
+        String(u64),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExpressionV2 {
     #[prost(message, repeated, tag="1")]
     pub ops: ::prost::alloc::vec::Vec<Op>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Op {
-    #[prost(oneof="op::Content", tags="1, 2, 3")]
+    #[prost(oneof="op::Content", tags="1, 2, 3, 4")]
     pub content: ::core::option::Option<op::Content>,
 }
 /// Nested message and enum types in `Op`.
@@ -186,12 +228,16 @@ pub mod op {
         Unary(super::OpUnary),
         #[prost(message, tag="3")]
         Binary(super::OpBinary),
+        #[prost(message, tag="4")]
+        Closure(super::OpClosure),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpUnary {
     #[prost(enumeration="op_unary::Kind", required, tag="1")]
     pub kind: i32,
+    #[prost(uint64, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<u64>,
 }
 /// Nested message and enum types in `OpUnary`.
 pub mod op_unary {
@@ -201,12 +247,16 @@ pub mod op_unary {
         Negate = 0,
         Parens = 1,
         Length = 2,
+        TypeOf = 3,
+        Ffi = 4,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpBinary {
     #[prost(enumeration="op_binary::Kind", required, tag="1")]
     pub kind: i32,
+    #[prost(uint64, optional, tag="2")]
+    pub ffi_name: ::core::option::Option<u64>,
 }
 /// Nested message and enum types in `OpBinary`.
 pub mod op_binary {
@@ -234,7 +284,22 @@ pub mod op_binary {
         BitwiseOr = 18,
         BitwiseXor = 19,
         NotEqual = 20,
+        HeterogeneousEqual = 21,
+        HeterogeneousNotEqual = 22,
+        LazyAnd = 23,
+        LazyOr = 24,
+        All = 25,
+        Any = 26,
+        Get = 27,
+        Ffi = 28,
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpClosure {
+    #[prost(uint32, repeated, packed="false", tag="1")]
+    pub params: ::prost::alloc::vec::Vec<u32>,
+    #[prost(message, repeated, tag="2")]
+    pub ops: ::prost::alloc::vec::Vec<Op>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Policy {
@@ -269,10 +334,12 @@ pub struct AuthorizerPolicies {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThirdPartyBlockRequest {
-    #[prost(message, required, tag="1")]
-    pub previous_key: PublicKey,
+    #[prost(message, optional, tag="1")]
+    pub legacy_previous_key: ::core::option::Option<PublicKey>,
     #[prost(message, repeated, tag="2")]
-    pub public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    pub legacy_public_keys: ::prost::alloc::vec::Vec<PublicKey>,
+    #[prost(bytes="vec", required, tag="3")]
+    pub previous_signature: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ThirdPartyBlockContents {

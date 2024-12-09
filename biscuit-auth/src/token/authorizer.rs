@@ -1,17 +1,11 @@
 //! Authorizer structure and associated functions
-use super::builder::{
-    constrained_rule, date, fact, pred, rule, string, var, Binary, BlockBuilder, Check, Expression,
-    Fact, Op, Policy, PolicyKind, Rule, Scope, Term,
-};
-use super::builder_ext::{AuthorizerExt, BuilderExt};
+use super::builder::{AuthorizerBuilder, BlockBuilder, Check, Fact, Policy, PolicyKind, Rule};
 use super::{Biscuit, Block};
-use crate::builder::{self, CheckKind, Convert};
-use crate::crypto::PublicKey;
-use crate::datalog::{self, Origin, RunLimits, SymbolTable, TrustedOrigins};
+use crate::builder::{CheckKind, Convert};
+use crate::datalog::{self, ExternFunc, Origin, RunLimits, TrustedOrigins};
 use crate::error;
 use crate::time::Instant;
 use crate::token;
-use biscuit_parser::parser::parse_source;
 use prost::Message;
 use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
@@ -20,7 +14,6 @@ use std::{
     convert::{TryFrom, TryInto},
     default::Default,
     fmt::Write,
-    time::SystemTime,
 };
 
 mod snapshot;
@@ -28,25 +21,36 @@ mod snapshot;
 /// used to check authorization policies on a token
 ///
 /// can be created from [Biscuit::authorizer] or [Authorizer::new]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Authorizer {
-    authorizer_block_builder: BlockBuilder,
-    world: datalog::World,
+    pub(crate) authorizer_block_builder: BlockBuilder,
+    pub(crate) world: datalog::World,
     pub(crate) symbols: datalog::SymbolTable,
-    token_origins: TrustedOrigins,
-    policies: Vec<Policy>,
-    blocks: Option<Vec<Block>>,
-    public_key_to_block_id: HashMap<usize, Vec<usize>>,
-    limits: AuthorizerLimits,
-    execution_time: Duration,
+    pub(crate) token_origins: TrustedOrigins,
+    pub(crate) policies: Vec<Policy>,
+    pub(crate) blocks: Option<Vec<Block>>,
+    pub(crate) public_key_to_block_id: HashMap<usize, Vec<usize>>,
+    pub(crate) limits: AuthorizerLimits,
+    pub(crate) execution_time: Option<Duration>,
 }
 
 impl Authorizer {
-    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
-        let mut v = Authorizer::new();
-        v.add_token(token)?;
+    pub fn run(&mut self) -> Result<Duration, error::Token> {
+        match self.execution_time {
+            Some(execution_time) => Ok(execution_time),
+            None => {
+                let start = Instant::now();
+                self.world
+                    .run_with_limits(&self.symbols, self.limits.clone())?;
+                let execution_time = start.elapsed();
+                self.execution_time = Some(execution_time);
+                Ok(execution_time)
+            }
+        }
+    }
 
-        Ok(v)
+    pub(crate) fn from_token(token: &Biscuit) -> Result<Self, error::Token> {
+        AuthorizerBuilder::new().build(token)
     }
 
     /// creates a new empty authorizer
@@ -58,7 +62,7 @@ impl Authorizer {
     /// In the latter case, we can create an empty authorizer, load it
     /// with the facts, rules and checks, and each time a token must be checked,
     /// clone the authorizer and load the token with [`Authorizer::add_token`]
-    pub fn new() -> Self {
+    fn new() -> Self {
         let world = datalog::World::new();
         let symbols = super::default_symbol_table();
         let authorizer_block_builder = BlockBuilder::new();
@@ -72,113 +76,13 @@ impl Authorizer {
             blocks: None,
             public_key_to_block_id: HashMap::new(),
             limits: AuthorizerLimits::default(),
-            execution_time: Duration::default(),
+            execution_time: None,
         }
     }
 
     /// creates an `Authorizer` from a serialized [crate::format::schema::AuthorizerPolicies]
     pub fn from(data: &[u8]) -> Result<Self, error::Token> {
         AuthorizerPolicies::deserialize(data)?.try_into()
-    }
-
-    /// add a token to an empty authorizer
-    pub fn add_token(&mut self, token: &Biscuit) -> Result<(), error::Token> {
-        if self.blocks.is_some() {
-            return Err(error::Logic::AuthorizerNotEmpty.into());
-        }
-
-        for (i, block) in token.container.blocks.iter().enumerate() {
-            if let Some(sig) = block.external_signature.as_ref() {
-                let new_key_id = self.symbols.public_keys.insert(&sig.public_key);
-
-                self.public_key_to_block_id
-                    .entry(new_key_id as usize)
-                    .or_default()
-                    .push(i + 1);
-            }
-        }
-
-        let mut blocks = Vec::new();
-
-        for i in 0..token.block_count() {
-            let mut block = token.block(i)?;
-
-            self.load_and_translate_block(&mut block, i, &token.symbols)?;
-
-            blocks.push(block);
-        }
-
-        self.blocks = Some(blocks);
-        self.token_origins = TrustedOrigins::from_scopes(
-            &[token::Scope::Previous],
-            &TrustedOrigins::default(),
-            token.block_count(),
-            &self.public_key_to_block_id,
-        );
-
-        Ok(())
-    }
-
-    /// we need to modify the block loaded from the token, because the authorizer's and the token's symbol table can differ
-    fn load_and_translate_block(
-        &mut self,
-        block: &mut Block,
-        i: usize,
-        token_symbols: &SymbolTable,
-    ) -> Result<(), error::Token> {
-        // if it is a 3rd party block, it should not affect the main symbol table
-        let block_symbols = if i == 0 || block.external_key.is_none() {
-            token_symbols.clone()
-        } else {
-            block.symbols.clone()
-        };
-
-        let mut block_origin = Origin::default();
-        block_origin.insert(i);
-
-        for scope in block.scopes.iter_mut() {
-            *scope = builder::Scope::convert_from(scope, &block_symbols)
-                .map(|s| s.convert(&mut self.symbols))?;
-        }
-
-        let block_trusted_origins = TrustedOrigins::from_scopes(
-            &block.scopes,
-            &TrustedOrigins::default(),
-            i,
-            &self.public_key_to_block_id,
-        );
-
-        for fact in block.facts.iter_mut() {
-            *fact = Fact::convert_from(fact, &block_symbols)?.convert(&mut self.symbols);
-            self.world.facts.insert(&block_origin, fact.clone());
-        }
-
-        for rule in block.rules.iter_mut() {
-            if let Err(_message) = rule.validate_variables(&block_symbols) {
-                return Err(
-                    error::Logic::InvalidBlockRule(0, block_symbols.print_rule(rule)).into(),
-                );
-            }
-            *rule = rule.translate(&block_symbols, &mut self.symbols)?;
-
-            let rule_trusted_origins = TrustedOrigins::from_scopes(
-                &rule.scopes,
-                &block_trusted_origins,
-                i,
-                &self.public_key_to_block_id,
-            );
-
-            self.world
-                .rules
-                .insert(i, &rule_trusted_origins, rule.clone());
-        }
-
-        for check in block.checks.iter_mut() {
-            let c = Check::convert_from(check, &block_symbols)?;
-            *check = c.convert(&mut self.symbols);
-        }
-
-        Ok(())
     }
 
     /// serializes a authorizer's content
@@ -201,188 +105,6 @@ impl Authorizer {
         })
     }
 
-    /// Add the rules, facts, checks, and policies of another `Authorizer`.
-    /// If a token has already been added to `other`, it is not merged into `self`.
-    pub fn merge(&mut self, mut other: Authorizer) {
-        self.merge_block(other.authorizer_block_builder);
-        self.policies.append(&mut other.policies);
-    }
-
-    /// Add the rules, facts, and checks of another `BlockBuilder`.
-    pub fn merge_block(&mut self, other: BlockBuilder) {
-        self.authorizer_block_builder.merge(other)
-    }
-
-    pub fn add_fact<F: TryInto<Fact>>(&mut self, fact: F) -> Result<(), error::Token>
-    where
-        error::Token: From<<F as TryInto<Fact>>::Error>,
-    {
-        self.authorizer_block_builder.add_fact(fact)
-    }
-
-    pub fn add_rule<Ru: TryInto<Rule>>(&mut self, rule: Ru) -> Result<(), error::Token>
-    where
-        error::Token: From<<Ru as TryInto<Rule>>::Error>,
-    {
-        self.authorizer_block_builder.add_rule(rule)
-    }
-
-    pub fn add_check<C: TryInto<Check>>(&mut self, check: C) -> Result<(), error::Token>
-    where
-        error::Token: From<<C as TryInto<Check>>::Error>,
-    {
-        self.authorizer_block_builder.add_check(check)
-    }
-
-    /// adds some datalog code to the authorizer
-    ///
-    /// ```rust
-    /// extern crate biscuit_auth as biscuit;
-    ///
-    /// use biscuit::Authorizer;
-    ///
-    /// let mut authorizer = Authorizer::new();
-    ///
-    /// authorizer.add_code(r#"
-    ///   resource("/file1.txt");
-    ///
-    ///   check if user(1234);
-    ///
-    ///   // default allow
-    ///   allow if true;
-    /// "#).expect("should parse correctly");
-    /// ```
-    pub fn add_code<T: AsRef<str>>(&mut self, source: T) -> Result<(), error::Token> {
-        self.add_code_with_params(source, HashMap::new(), HashMap::new())
-    }
-
-    pub fn add_code_with_params<T: AsRef<str>>(
-        &mut self,
-        source: T,
-        params: HashMap<String, Term>,
-        scope_params: HashMap<String, PublicKey>,
-    ) -> Result<(), error::Token> {
-        let source = source.as_ref();
-
-        let source_result = parse_source(source).map_err(|e| {
-            let e2: biscuit_parser::error::LanguageError = e.into();
-            e2
-        })?;
-
-        for (_, fact) in source_result.facts.into_iter() {
-            let mut fact: Fact = fact.into();
-            for (name, value) in &params {
-                let res = match fact.set(name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            fact.validate()?;
-            self.authorizer_block_builder.facts.push(fact);
-        }
-
-        for (_, rule) in source_result.rules.into_iter() {
-            let mut rule: Rule = rule.into();
-            for (name, value) in &params {
-                let res = match rule.set(name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            for (name, value) in &scope_params {
-                let res = match rule.set_scope(name, *value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            rule.validate_parameters()?;
-            self.authorizer_block_builder.rules.push(rule);
-        }
-
-        for (_, check) in source_result.checks.into_iter() {
-            let mut check: Check = check.into();
-            for (name, value) in &params {
-                let res = match check.set(name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            for (name, value) in &scope_params {
-                let res = match check.set_scope(name, *value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            check.validate_parameters()?;
-            self.authorizer_block_builder.checks.push(check);
-        }
-        for (_, policy) in source_result.policies.into_iter() {
-            let mut policy: Policy = policy.into();
-            for (name, value) in &params {
-                let res = match policy.set(name, value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            for (name, value) in &scope_params {
-                let res = match policy.set_scope(name, *value) {
-                    Ok(_) => Ok(()),
-                    Err(error::Token::Language(
-                        biscuit_parser::error::LanguageError::Parameters {
-                            missing_parameters, ..
-                        },
-                    )) if missing_parameters.is_empty() => Ok(()),
-                    Err(e) => Err(e),
-                };
-                res?;
-            }
-            policy.validate_parameters()?;
-            self.policies.push(policy);
-        }
-
-        Ok(())
-    }
-
-    pub fn add_scope(&mut self, scope: Scope) {
-        self.authorizer_block_builder.add_scope(scope);
-    }
-
     /// Returns the runtime limits of the authorizer
     ///
     /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
@@ -390,11 +112,9 @@ impl Authorizer {
         &self.limits
     }
 
-    /// Sets the runtime limits of the authorizer
-    ///
-    /// Those limits cover all the executions under the `authorize`, `query` and `query_all` methods
-    pub fn set_limits(&mut self, limits: AuthorizerLimits) {
-        self.limits = limits;
+    /// Returns the currently registered external functions
+    pub fn external_funcs(&self) -> &HashMap<String, ExternFunc> {
+        &self.world.extern_funcs
     }
 
     /// run a query over the authorizer's Datalog engine to gather data
@@ -403,10 +123,11 @@ impl Authorizer {
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
     /// let keypair = KeyPair::new();
-    /// let mut builder = Biscuit::builder();
-    /// builder.add_fact("user(\"John Doe\", 42)");
-    ///
-    /// let biscuit = builder.build(&keypair).unwrap();
+    /// let biscuit = Biscuit::builder()
+    ///     .fact("user(\"John Doe\", 42)")
+    ///     .expect("parse error")
+    ///     .build(&keypair)
+    ///     .unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query("data($name, $id) <- user($name, $id)").unwrap();
@@ -422,12 +143,13 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.query_with_limits(rule, limits)
     }
@@ -445,11 +167,12 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
         let start = Instant::now();
         let result = self.query_inner(rule, limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(start.elapsed() + execution_time);
 
         result
     }
@@ -457,7 +180,7 @@ impl Authorizer {
     fn query_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: datalog::Rule,
-        limits: AuthorizerLimits,
+        _limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
         let rule_trusted_origins = TrustedOrigins::from_scopes(
             &rule.scopes,
@@ -469,7 +192,6 @@ impl Authorizer {
             &self.public_key_to_block_id,
         );
 
-        self.world.run_with_limits(&self.symbols, limits)?;
         let res = self
             .world
             .query_rule(rule, usize::MAX, &rule_trusted_origins, &self.symbols)?;
@@ -493,10 +215,11 @@ impl Authorizer {
     /// # use biscuit_auth::KeyPair;
     /// # use biscuit_auth::Biscuit;
     /// let keypair = KeyPair::new();
-    /// let mut builder = Biscuit::builder();
-    /// builder.add_fact("user(\"John Doe\", 42)");
-    ///
-    /// let biscuit = builder.build(&keypair).unwrap();
+    /// let biscuit = Biscuit::builder()
+    ///     .fact("user(\"John Doe\", 42)")
+    ///     .expect("parse error")
+    ///     .build(&keypair)
+    ///     .unwrap();
     ///
     /// let mut authorizer = biscuit.authorizer().unwrap();
     /// let res: Vec<(String, i64)> = authorizer.query_all("data($name, $id) <- user($name, $id)").unwrap();
@@ -511,12 +234,13 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.query_all_with_limits(rule, limits)
     }
@@ -538,11 +262,12 @@ impl Authorizer {
     where
         error::Token: From<<R as TryInto<Rule>>::Error>,
     {
+        let execution_time = self.run()?;
         let rule = rule.try_into()?.convert(&mut self.symbols);
 
         let start = Instant::now();
         let result = self.query_all_inner(rule, limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(execution_time + start.elapsed());
 
         result
     }
@@ -550,10 +275,8 @@ impl Authorizer {
     fn query_all_inner<T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
         &mut self,
         rule: datalog::Rule,
-        limits: AuthorizerLimits,
+        _limits: AuthorizerLimits,
     ) -> Result<Vec<T>, error::Token> {
-        self.world.run_with_limits(&self.symbols, limits)?;
-
         let rule_trusted_origins = if rule.scopes.is_empty() {
             self.token_origins.clone()
         } else {
@@ -583,36 +306,8 @@ impl Authorizer {
             .collect::<Result<Vec<T>, _>>()
     }
 
-    /// adds a fact with the current time
-    pub fn set_time(&mut self) {
-        let fact = fact("time", &[date(&SystemTime::now())]);
-        self.authorizer_block_builder.add_fact(fact).unwrap();
-    }
-
-    /// add a policy to the authorizer
-    pub fn add_policy<P: TryInto<Policy>>(&mut self, policy: P) -> Result<(), error::Token>
-    where
-        error::Token: From<<P as TryInto<Policy>>::Error>,
-    {
-        let policy = policy.try_into()?;
-        policy.validate_parameters()?;
-        self.policies.push(policy);
-        Ok(())
-    }
-
-    /// todo remove, it's covered in BuilderExt
-    /// adds a `allow if true` policy
-    pub fn allow(&mut self) -> Result<(), error::Token> {
-        self.add_policy("allow if true")
-    }
-
-    /// adds a `deny if true` policy
-    pub fn deny(&mut self) -> Result<(), error::Token> {
-        self.add_policy("deny if true")
-    }
-
     /// returns the elapsed execution time
-    pub fn execution_time(&self) -> Duration {
+    pub fn execution_time(&self) -> Option<Duration> {
         self.execution_time
     }
 
@@ -631,17 +326,17 @@ impl Authorizer {
     /// on error, this can return a list of all the failed checks or deny policy
     /// on success, it returns the index of the policy that matched
     pub fn authorize(&mut self) -> Result<usize, error::Token> {
+        let execution_time = self.run()?;
         let mut limits = self.limits.clone();
         limits.max_iterations -= self.world.iterations;
-        if self.execution_time >= limits.max_time {
+        if execution_time >= limits.max_time {
             return Err(error::Token::RunLimit(error::RunLimit::Timeout));
         }
-        limits.max_time -= self.execution_time;
+        limits.max_time -= execution_time;
 
         self.authorize_with_limits(limits)
     }
 
-    /// TODO: consume the input to prevent further direct use
     /// verifies the checks and policies
     ///
     /// on error, this can return a list of all the failed checks or deny policy
@@ -651,62 +346,23 @@ impl Authorizer {
         &mut self,
         limits: AuthorizerLimits,
     ) -> Result<usize, error::Token> {
+        let execution_time = self.run()?;
         let start = Instant::now();
         let result = self.authorize_inner(limits);
-        self.execution_time += start.elapsed();
+        self.execution_time = Some(execution_time + start.elapsed());
 
         result
     }
 
-    fn authorize_inner(&mut self, mut limits: AuthorizerLimits) -> Result<usize, error::Token> {
+    fn authorize_inner(&mut self, limits: AuthorizerLimits) -> Result<usize, error::Token> {
         let start = Instant::now();
         let time_limit = start + limits.max_time;
-        let mut current_iterations = self.world.iterations;
 
         let mut errors = vec![];
         let mut policy_result: Option<Result<usize, usize>> = None;
 
         let mut authorizer_origin = Origin::default();
         authorizer_origin.insert(usize::MAX);
-
-        let authorizer_scopes: Vec<token::Scope> = self
-            .authorizer_block_builder
-            .scopes
-            .clone()
-            .iter()
-            .map(|s| s.convert(&mut self.symbols))
-            .collect();
-
-        let authorizer_trusted_origins = TrustedOrigins::from_scopes(
-            &authorizer_scopes,
-            &TrustedOrigins::default(),
-            usize::MAX,
-            &self.public_key_to_block_id,
-        );
-
-        for fact in &self.authorizer_block_builder.facts {
-            self.world
-                .facts
-                .insert(&authorizer_origin, fact.convert(&mut self.symbols));
-        }
-
-        for rule in &self.authorizer_block_builder.rules {
-            let rule = rule.convert(&mut self.symbols);
-
-            let rule_trusted_origins = TrustedOrigins::from_scopes(
-                &rule.scopes,
-                &authorizer_trusted_origins,
-                usize::MAX,
-                &self.public_key_to_block_id,
-            );
-
-            self.world
-                .rules
-                .insert(usize::MAX, &rule_trusted_origins, rule);
-        }
-
-        limits.max_time = time_limit - Instant::now();
-        self.world.run_with_limits(&self.symbols, limits.clone())?;
 
         let authorizer_scopes: Vec<token::Scope> = self
             .authorizer_block_builder
@@ -746,6 +402,12 @@ impl Authorizer {
                         self.world
                             .query_match_all(query, &rule_trusted_origins, &self.symbols)?
                     }
+                    CheckKind::Reject => !self.world.query_match(
+                        query,
+                        usize::MAX,
+                        &rule_trusted_origins,
+                        &self.symbols,
+                    )?,
                 };
 
                 let now = Instant::now();
@@ -796,6 +458,12 @@ impl Authorizer {
                         )?,
                         CheckKind::All => self.world.query_match_all(
                             query.clone(),
+                            &rule_trusted_origins,
+                            &self.symbols,
+                        )?,
+                        CheckKind::Reject => !self.world.query_match(
+                            query.clone(),
+                            0,
                             &rule_trusted_origins,
                             &self.symbols,
                         )?,
@@ -863,12 +531,6 @@ impl Authorizer {
                     &self.public_key_to_block_id,
                 );
 
-                limits.max_time = time_limit - Instant::now();
-                limits.max_iterations -= self.world.iterations - current_iterations;
-                current_iterations = self.world.iterations;
-
-                self.world.run_with_limits(&self.symbols, limits.clone())?;
-
                 for (j, check) in block.checks.iter().enumerate() {
                     let mut successful = false;
 
@@ -889,6 +551,12 @@ impl Authorizer {
                             )?,
                             CheckKind::All => self.world.query_match_all(
                                 query.clone(),
+                                &rule_trusted_origins,
+                                &self.symbols,
+                            )?,
+                            CheckKind::Reject => !self.world.query_match(
+                                query.clone(),
+                                i + 1,
                                 &rule_trusted_origins,
                                 &self.symbols,
                             )?,
@@ -951,23 +619,21 @@ impl Authorizer {
             }
         }
 
-        let mut facts = self
+        let facts = self
             .world
             .facts
             .iter_all()
             .map(|f| Fact::convert_from(f.1, &self.symbols))
             .collect::<Result<Vec<_>, error::Format>>()
             .unwrap();
-        facts.extend(self.authorizer_block_builder.facts.clone());
 
-        let mut rules = self
+        let rules = self
             .world
             .rules
             .iter_all()
             .map(|r| Rule::convert_from(r.1, &self.symbols))
             .collect::<Result<Vec<_>, error::Format>>()
             .unwrap();
-        rules.extend(self.authorizer_block_builder.rules.clone());
 
         (facts, rules, checks, self.policies.clone())
     }
@@ -975,6 +641,9 @@ impl Authorizer {
     pub fn dump_code(&self) -> String {
         let (facts, rules, checks, policies) = self.dump();
         let mut f = String::new();
+
+        let mut facts = facts.into_iter().map(|f| f.to_string()).collect::<Vec<_>>();
+        facts.sort();
         for fact in &facts {
             let _ = writeln!(f, "{fact};");
         }
@@ -1017,24 +686,6 @@ impl std::fmt::Display for Authorizer {
             all_facts.insert(origin, facts);
         }
 
-        let builder_facts = self
-            .authorizer_block_builder
-            .facts
-            .iter()
-            .map(|f| f.to_string())
-            .collect::<HashSet<_>>();
-        has_facts = has_facts || !builder_facts.is_empty();
-        let mut authorizer_origin = Origin::default();
-        authorizer_origin.insert(usize::MAX);
-        match all_facts.get_mut(&authorizer_origin) {
-            Some(e) => {
-                e.extend(builder_facts);
-            }
-            None => {
-                all_facts.insert(&authorizer_origin, builder_facts);
-            }
-        }
-
         if has_facts {
             writeln!(f, "// Facts:")?;
         }
@@ -1067,19 +718,6 @@ impl std::fmt::Display for Authorizer {
                     .insert(self.symbols.print_rule(rule));
             }
         }
-
-        let builder_rules = self
-            .authorizer_block_builder
-            .rules
-            .iter()
-            .map(|rule| rule.to_string())
-            .collect::<HashSet<_>>();
-        has_rules = has_rules || !builder_rules.is_empty();
-
-        rules_map
-            .entry(usize::MAX)
-            .or_default()
-            .extend(builder_rules);
 
         if has_rules {
             writeln!(f, "// Rules:")?;
@@ -1173,15 +811,16 @@ impl TryFrom<AuthorizerPolicies> for Authorizer {
         let mut authorizer = Self::new();
 
         for fact in facts.into_iter() {
-            authorizer.authorizer_block_builder.add_fact(fact)?;
+            authorizer.authorizer_block_builder = authorizer.authorizer_block_builder.fact(fact)?;
         }
 
         for rule in rules.into_iter() {
-            authorizer.authorizer_block_builder.add_rule(rule)?;
+            authorizer.authorizer_block_builder = authorizer.authorizer_block_builder.rule(rule)?;
         }
 
         for check in checks.into_iter() {
-            authorizer.authorizer_block_builder.add_check(check)?;
+            authorizer.authorizer_block_builder =
+                authorizer.authorizer_block_builder.check(check)?;
         }
 
         for policy in policies {
@@ -1230,114 +869,15 @@ impl AuthorizerPolicies {
 
 pub type AuthorizerLimits = RunLimits;
 
-impl BuilderExt for Authorizer {
-    fn add_resource(&mut self, name: &str) {
-        let f = fact("resource", &[string(name)]);
-        self.add_fact(f).unwrap();
-    }
-    fn check_resource(&mut self, name: &str) {
-        self.add_check(Check {
-            queries: vec![rule(
-                "resource_check",
-                &[string("resource_check")],
-                &[pred("resource", &[string(name)])],
-            )],
-            kind: CheckKind::One,
-        })
-        .unwrap();
-    }
-    fn add_operation(&mut self, name: &str) {
-        let f = fact("operation", &[string(name)]);
-        self.add_fact(f).unwrap();
-    }
-    fn check_operation(&mut self, name: &str) {
-        self.add_check(Check {
-            queries: vec![rule(
-                "operation_check",
-                &[string("operation_check")],
-                &[pred("operation", &[string(name)])],
-            )],
-            kind: CheckKind::One,
-        })
-        .unwrap();
-    }
-    fn check_resource_prefix(&mut self, prefix: &str) {
-        let check = constrained_rule(
-            "prefix",
-            &[var("resource")],
-            &[pred("resource", &[var("resource")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("resource")),
-                    Op::Value(string(prefix)),
-                    Op::Binary(Binary::Prefix),
-                ],
-            }],
-        );
-
-        self.add_check(Check {
-            queries: vec![check],
-            kind: CheckKind::One,
-        })
-        .unwrap();
-    }
-
-    fn check_resource_suffix(&mut self, suffix: &str) {
-        let check = constrained_rule(
-            "suffix",
-            &[var("resource")],
-            &[pred("resource", &[var("resource")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("resource")),
-                    Op::Value(string(suffix)),
-                    Op::Binary(Binary::Suffix),
-                ],
-            }],
-        );
-
-        self.add_check(Check {
-            queries: vec![check],
-            kind: CheckKind::One,
-        })
-        .unwrap();
-    }
-
-    fn check_expiration_date(&mut self, exp: SystemTime) {
-        let check = constrained_rule(
-            "expiration",
-            &[var("time")],
-            &[pred("time", &[var("time")])],
-            &[Expression {
-                ops: vec![
-                    Op::Value(var("time")),
-                    Op::Value(date(&exp)),
-                    Op::Binary(Binary::LessOrEqual),
-                ],
-            }],
-        );
-
-        self.add_check(Check {
-            queries: vec![check],
-            kind: CheckKind::One,
-        })
-        .unwrap();
-    }
-}
-
-impl AuthorizerExt for Authorizer {
-    fn add_allow_all(&mut self) {
-        self.add_policy("allow if true").unwrap();
-    }
-    fn add_deny_all(&mut self) {
-        self.add_policy("deny if true").unwrap();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
+    use datalog::{SymbolTable, World};
+    use token::builder::{self, load_and_translate_block, var};
+    use token::{public_keys::PublicKeys, DATALOG_3_1};
+
+    use crate::PublicKey;
     use crate::{
         builder::{BiscuitBuilder, BlockBuilder},
         KeyPair,
@@ -1347,8 +887,11 @@ mod tests {
 
     #[test]
     fn empty_authorizer() {
-        let mut authorizer = Authorizer::new();
-        authorizer.add_policy("allow if true").unwrap();
+        let mut authorizer = AuthorizerBuilder::new()
+            .policy("allow if true")
+            .unwrap()
+            .build_unauthenticated()
+            .unwrap();
         assert_eq!(
             authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1360,7 +903,6 @@ mod tests {
 
     #[test]
     fn parameter_substitution() {
-        let mut authorizer = Authorizer::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "value".into());
         params.insert("p2".to_string(), 0i64.into());
@@ -1371,11 +913,12 @@ mod tests {
             PublicKey::from_bytes(
                 &hex::decode("6e9e6d5a75cf0c0e87ec1256b4dfed0ca3ba452912d213fcc70f8516583db9db")
                     .unwrap(),
+                crate::builder::Algorithm::Ed25519,
             )
             .unwrap(),
         );
-        authorizer
-            .add_code_with_params(
+        let _authorizer = AuthorizerBuilder::new()
+            .code_with_params(
                 r#"
                   fact({p1}, "value");
                   rule($var, {p2}) <- fact($var, {p2});
@@ -1385,75 +928,69 @@ mod tests {
                 params,
                 scope_params,
             )
+            .unwrap()
+            .build_unauthenticated()
             .unwrap();
     }
 
     #[test]
     fn forbid_unbound_parameters() {
-        let mut builder = Authorizer::new();
+        let builder = AuthorizerBuilder::new();
 
         let mut fact = Fact::try_from("fact({p1}, {p4})").unwrap();
         fact.set("p1", "hello").unwrap();
-        let res = builder.add_fact(fact);
+        let res = builder.clone().fact(fact);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut rule = Rule::try_from(
             "fact($var1, {p2}) <- f1($var1, $var3), f2({p2}, $var3, {p4}), $var3.starts_with({p2})",
         )
         .unwrap();
         rule.set("p2", "hello").unwrap();
-        let res = builder.add_rule(rule);
+        let res = builder.clone().rule(rule);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut check = Check::try_from("check if {p4}, {p3}").unwrap();
         check.set("p3", true).unwrap();
-        let res = builder.add_check(check);
+        let res = builder.clone().check(check);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
         let mut policy = Policy::try_from("allow if {p4}, {p3}").unwrap();
         policy.set("p3", true).unwrap();
 
-        let res = builder.add_policy(policy);
+        let res = builder.clone().policy(policy);
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p4".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p4".to_string()],
+                unused_parameters: vec![],
+            })
         );
     }
 
     #[test]
     fn forbid_unbound_parameters_in_add_code() {
-        let mut builder = Authorizer::new();
+        let builder = AuthorizerBuilder::new();
         let mut params = HashMap::new();
         params.insert("p1".to_string(), "hello".into());
         params.insert("p2".to_string(), 1i64.into());
         params.insert("p4".to_string(), "this will be ignored".into());
-        let res = builder.add_code_with_params(
+        let res = builder.code_with_params(
             r#"fact({p1}, "value");
              rule($head_var) <- f1($head_var), {p2} > 0;
              check if {p3};
@@ -1464,13 +1001,11 @@ mod tests {
         );
 
         assert_eq!(
-            res,
-            Err(error::Token::Language(
-                biscuit_parser::error::LanguageError::Parameters {
-                    missing_parameters: vec!["p3".to_string()],
-                    unused_parameters: vec![],
-                }
-            ))
+            res.unwrap_err(),
+            error::Token::Language(biscuit_parser::error::LanguageError::Parameters {
+                missing_parameters: vec!["p3".to_string()],
+                unused_parameters: vec![],
+            })
         )
     }
 
@@ -1479,10 +1014,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\", 42)").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .fact("user(\"John Doe\", 42)")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String, i64)> = authorizer
@@ -1499,10 +1035,11 @@ mod tests {
         use crate::Biscuit;
         use crate::KeyPair;
         let keypair = KeyPair::new();
-        let mut builder = Biscuit::builder();
-        builder.add_fact("user(\"John Doe\")").unwrap();
-
-        let biscuit = builder.build(&keypair).unwrap();
+        let biscuit = Biscuit::builder()
+            .fact("user(\"John Doe\")")
+            .unwrap()
+            .build(&keypair)
+            .unwrap();
 
         let mut authorizer = biscuit.authorizer().unwrap();
         let res: Vec<(String,)> = authorizer.query("data($name) <- user($name)").unwrap();
@@ -1516,26 +1053,25 @@ mod tests {
         let root = KeyPair::new();
         let external = KeyPair::new();
 
-        let mut builder = Biscuit::builder();
         let mut scope_params = HashMap::new();
         scope_params.insert("external_pub".to_string(), external.public());
-        builder
-            .add_code_with_params(
+
+        let biscuit1 = Biscuit::builder()
+            .code_with_params(
                 r#"right("read");
-               check if group("admin") trusting {external_pub};
-            "#,
+           check if group("admin") trusting {external_pub};
+        "#,
                 HashMap::new(),
                 scope_params,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-
-        let biscuit1 = builder.build(&root).unwrap();
 
         let req = biscuit1.third_party_request().unwrap();
 
-        let mut builder = BlockBuilder::new();
-        builder
-            .add_code(
+        let builder = BlockBuilder::new()
+            .code(
                 r#"group("admin");
              check if right("read");
             "#,
@@ -1543,16 +1079,18 @@ mod tests {
             .unwrap();
         let res = req.create_block(&external.private(), builder).unwrap();
         let biscuit2 = biscuit1.append_third_party(external.public(), res).unwrap();
+        let serialized = biscuit2.to_vec().unwrap();
+        let biscuit2 = Biscuit::from(serialized, root.public()).unwrap();
 
-        let mut authorizer = Authorizer::new();
+        let builder = AuthorizerBuilder::new();
         let external2 = KeyPair::new();
 
         let mut scope_params = HashMap::new();
         scope_params.insert("external".to_string(), external.public());
         scope_params.insert("external2".to_string(), external2.public());
 
-        authorizer
-            .add_code_with_params(
+        let mut authorizer = builder
+            .code_with_params(
                 r#"
             // this rule trusts both the third-party block and the authority, and can access facts
             // from both
@@ -1571,17 +1109,16 @@ mod tests {
                 HashMap::new(),
                 scope_params,
             )
+            .unwrap()
+            .limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10), //Set 10 seconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
+                ..Default::default()
+            })
+            .build(&biscuit2)
             .unwrap();
-
-        authorizer.add_token(&biscuit2).unwrap();
 
         println!("token:\n{}", biscuit2);
         println!("world:\n{}", authorizer.print_world());
-
-        authorizer.set_limits(AuthorizerLimits {
-            max_time: Duration::from_millis(10), //Set 10 milliseconds as the maximum time allowed for the authorization due to "cheap" worker on GitHub Actions
-            ..Default::default()
-        });
 
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -1696,21 +1233,20 @@ mod tests {
     fn authorizer_display_before_and_after_authorization() {
         let root = KeyPair::new();
 
-        let mut token_builder = BiscuitBuilder::new();
-        token_builder
-            .add_code(
+        let token = BiscuitBuilder::new()
+            .code(
                 r#"
             authority_fact(true);
             authority_rule($v) <- authority_fact($v);
             check if authority_fact(true), authority_rule(true);
         "#,
             )
+            .unwrap()
+            .build(&root)
             .unwrap();
-        let token = token_builder.build(&root).unwrap();
 
-        let mut authorizer = token.authorizer().unwrap();
-        authorizer
-            .add_code(
+        let mut authorizer = AuthorizerBuilder::new()
+            .code(
                 r#"
           authorizer_fact(true);
           authorizer_rule($v) <- authorizer_fact($v);
@@ -1718,6 +1254,8 @@ mod tests {
           allow if true;
         "#,
             )
+            .unwrap()
+            .build(&token)
             .unwrap();
         let output_before_authorization = authorizer.to_string();
 
@@ -1771,5 +1309,68 @@ allow if true;
     fn empty_authorizer_display() {
         let authorizer = Authorizer::new();
         assert_eq!("", authorizer.to_string())
+    }
+
+    #[test]
+    fn rule_validate_variables() {
+        let builder = AuthorizerBuilder::new();
+        let mut syms = SymbolTable::new();
+        let rule_name = syms.insert("test");
+        let pred_name = syms.insert("pred");
+        let rule = datalog::rule(
+            rule_name,
+            &[datalog::var(&mut syms, "unbound")],
+            &[datalog::pred(pred_name, &[datalog::var(&mut syms, "any")])],
+        );
+        let mut block = Block {
+            symbols: syms.clone(),
+            facts: vec![],
+            rules: vec![rule],
+            checks: vec![],
+            context: None,
+            version: DATALOG_3_1,
+            external_key: None,
+            public_keys: PublicKeys::new(),
+            scopes: vec![],
+        };
+
+        // FIXME
+        assert_eq!(
+            /*builder
+            .load_and_translate_block(&mut block, 0, &syms)*/
+            load_and_translate_block(
+                &mut block,
+                0,
+                &syms,
+                &mut SymbolTable::new(),
+                &mut HashMap::new(),
+                &mut World::new(),
+            )
+            .unwrap_err(),
+            error::Token::FailedLogic(error::Logic::InvalidBlockRule(
+                0,
+                "test($unbound) <- pred($any)".to_string()
+            ))
+        );
+
+        // broken rules directly added to the authorizer currently don’t trigger any error, but silently fail to generate facts when they match
+        let mut authorizer = builder
+            .rule(builder::rule(
+                "test",
+                &[var("unbound")],
+                &[builder::pred("pred", &[builder::var("any")])],
+            ))
+            .unwrap()
+            .build_unauthenticated()
+            .unwrap();
+        let res: Vec<(String,)> = authorizer
+            .query(builder::rule(
+                "output",
+                &[builder::string("x")],
+                &[builder::pred("test", &[builder::var("any")])],
+            ))
+            .unwrap();
+
+        assert_eq!(res, vec![]);
     }
 }
