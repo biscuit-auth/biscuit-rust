@@ -12,6 +12,12 @@ pub enum Algorithm {
     Secp256r1,
 }
 
+impl Default for Algorithm {
+    fn default() -> Self {
+        Self::Ed25519
+    }
+}
+
 impl Display for Algorithm {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
