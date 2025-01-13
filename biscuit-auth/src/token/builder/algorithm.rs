@@ -1,4 +1,8 @@
-use std::convert::TryFrom;
+use core::fmt::Display;
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
 use crate::error;
 
@@ -6,6 +10,22 @@ use crate::error;
 pub enum Algorithm {
     Ed25519,
     Secp256r1,
+}
+
+impl Display for Algorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Algorithm::Ed25519 => write!(f, "ed25519"),
+            Algorithm::Secp256r1 => write!(f, "secp256r1"),
+        }
+    }
+}
+impl FromStr for Algorithm {
+    type Err = error::Format;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.try_into()
+    }
 }
 
 impl TryFrom<&str> for Algorithm {
