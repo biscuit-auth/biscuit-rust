@@ -32,6 +32,11 @@ impl KeyPair {
 
     /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
+        // the version of generic-array used by p256 panics if the input length
+        // is incorrect (including when using `.try_into()`)
+        if bytes.len() != 32 {
+            return Err(Format::InvalidKeySize(bytes.len()));
+        }
         let kp = SigningKey::from_bytes(bytes.into())
             .map_err(|s| s.to_string())
             .map_err(Format::InvalidKey)?;
@@ -100,6 +105,11 @@ impl PrivateKey {
 
     /// deserializes from a big endian byte array
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
+        // the version of generic-array used by p256 panics if the input length
+        // is incorrect (including when using `.try_into()`)
+        if bytes.len() != 32 {
+            return Err(Format::InvalidKeySize(bytes.len()));
+        }
         SigningKey::from_bytes(bytes.into())
             .map(PrivateKey)
             .map_err(|s| s.to_string())
@@ -243,5 +253,18 @@ mod tests {
             .verify_signature(message.as_bytes(), &signature)
             .unwrap();
         //panic!();
+    }
+
+    #[test]
+    fn invalid_sizes() {
+        assert_eq!(
+            PrivateKey::from_bytes(&[0xaa]).unwrap_err(),
+            error::Format::InvalidKeySize(1)
+        );
+        assert_eq!(
+            KeyPair::from_bytes(&[0xaa]).unwrap_err(),
+            error::Format::InvalidKeySize(1)
+        );
+        PublicKey::from_bytes(&[0xaa]).unwrap_err();
     }
 }
