@@ -1,2 +1,3 @@
 [workspace]
 members = ["biscuit-auth", "biscuit-quote", "biscuit-parser", "biscuit-capi"]
+resolver = "2"
