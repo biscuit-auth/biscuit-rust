@@ -167,6 +167,8 @@ fn run(target: String, root_key: Option<String>, test: bool, json: bool) {
 
     add_test_result(&mut results, secp256r1(&target, &root, test));
 
+    add_test_result(&mut results, secp256r1_third_party(&target, &root, test));
+
     if json {
         let s = serde_json::to_string_pretty(&TestCases {
             root_private_key: hex::encode(root.private().to_bytes()),
@@ -2390,6 +2392,67 @@ fn secp256r1(target: &str, root: &KeyPair, test: bool) -> TestResult {
             "#
             ),
         )
+        .unwrap();
+
+    token = print_blocks(&biscuit2);
+
+    let data = write_or_load_testcase(target, &filename, root, &biscuit2, test);
+
+    let mut validations = BTreeMap::new();
+    validations.insert(
+        "".to_string(),
+        validate_token(
+            root,
+            &data[..],
+            r#"
+            resource("file1");
+            operation("read");
+            allow if true;
+        "#,
+        ),
+    );
+
+    TestResult {
+        title,
+        filename,
+        token,
+        validations,
+    }
+}
+
+fn secp256r1_third_party(target: &str, root: &KeyPair, test: bool) -> TestResult {
+    let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
+    let title = "ECDSA secp256r1 signature on third-party block".to_string();
+    let filename = "test037_secp256r1_third_party".to_string();
+    let token;
+
+    let external_keypair = KeyPair::new_with_rng(Algorithm::Secp256r1, &mut rng);
+    let keypair2 = KeyPair::new_with_rng(Algorithm::Secp256r1, &mut rng);
+    let biscuit1 = biscuit!(
+        r#"
+        right("file1", "read");
+        right("file2", "read");
+        right("file1", "write");
+        check if from_third(true) trusting {external_pub};
+    "#,
+        external_pub = external_keypair.public(),
+    )
+    .build_with_key_pair(&root, SymbolTable::default(), &keypair2)
+    .unwrap();
+
+    let req = biscuit1.third_party_request().unwrap();
+    let block = req
+        .create_block(
+            &external_keypair.private(),
+            block!(
+                r#" check if resource($0), operation("read"), right($0, "read"); from_third(true);"#
+            ),
+        )
+        .unwrap();
+    let keypair3 = KeyPair::new_with_rng(Algorithm::Secp256r1, &mut rng);
+
+    let biscuit2 = biscuit1
+        .append_third_party_with_keypair(external_keypair.public(), block, keypair3)
         .unwrap();
 
     token = print_blocks(&biscuit2);
