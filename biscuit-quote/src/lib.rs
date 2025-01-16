@@ -129,7 +129,7 @@ pub fn authorizer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         parameters,
     } = syn::parse_macro_input!(input as ParsedCreateNew);
 
-    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let ty = syn::parse_quote!(::biscuit_auth::builder::AuthorizerBuilder);
     let builder = Builder::source(ty, None, datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
@@ -148,7 +148,7 @@ pub fn authorizer_merge(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         parameters,
     } = syn::parse_macro_input!(input as ParsedMerge);
 
-    let ty = syn::parse_quote!(::biscuit_auth::Authorizer);
+    let ty = syn::parse_quote!(::biscuit_auth::builder::AuthorizerBuilder);
     let builder = Builder::source(ty, Some(target), datalog, parameters)
         .unwrap_or_else(|e| abort_call_site!(e.to_string()));
 
@@ -349,7 +349,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_fact(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.fact(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -361,7 +361,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_rule(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.rule(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -374,7 +374,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_check(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder =__biscuit_auth_builder.check(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -387,7 +387,7 @@ impl Item {
             },
             middle: TokenStream::new(),
             end: quote! {
-                __biscuit_auth_builder.add_policy(__biscuit_auth_item).unwrap();
+                __biscuit_auth_builder = __biscuit_auth_builder.policy(__biscuit_auth_item).unwrap();
             },
         }
     }
@@ -476,7 +476,7 @@ impl ToTokens for Builder {
         let builder_type = &self.builder_type;
         let builder_quote = if let Some(target) = &self.target {
             quote! {
-                let __biscuit_auth_builder: &mut #builder_type = #target;
+                let mut __biscuit_auth_builder: #builder_type = #target;
             }
         } else {
             quote! {

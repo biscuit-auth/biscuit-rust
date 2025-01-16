@@ -1,20 +1,20 @@
 //! main structures to interact with Biscuit tokens
-use std::convert::TryInto;
 use std::fmt::Display;
+use std::iter::once;
 
-use self::public_keys::PublicKeys;
-
-use super::crypto::{KeyPair, PublicKey};
-use super::datalog::SymbolTable;
-use super::error;
-use super::format::SerializedBiscuit;
 use builder::{BiscuitBuilder, BlockBuilder};
 use prost::Message;
 use rand_core::{CryptoRng, RngCore};
 
+use self::public_keys::PublicKeys;
+use super::crypto::{KeyPair, PublicKey, Signature};
+use super::datalog::SymbolTable;
+use super::error;
+use super::format::SerializedBiscuit;
 use crate::crypto::{self};
 use crate::format::convert::proto_block_to_token_block;
 use crate::format::schema::{self, ThirdPartyBlockContents};
+use crate::format::{ThirdPartyVerificationMode, THIRD_PARTY_SIGNATURE_VERSION};
 use authorizer::Authorizer;
 
 pub mod authorizer;
@@ -24,14 +24,19 @@ pub mod builder_ext;
 pub(crate) mod public_keys;
 pub(crate) mod third_party;
 pub mod unverified;
-
 pub use block::Block;
 pub use third_party::*;
 
 /// minimum supported version of the serialization format
 pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// maximum supported version of the serialization format
-pub const MAX_SCHEMA_VERSION: u32 = 5;
+pub const MAX_SCHEMA_VERSION: u32 = 6;
+/// starting version for datalog 3.1 features (check all, bitwise operators, !=, …)
+pub const DATALOG_3_1: u32 = 4;
+/// starting version for 3rd party blocks (datalog 3.2)
+pub const DATALOG_3_2: u32 = 5;
+/// starting version for datalog 3.3 features (reject if, closures, array/map, null, external functions, …)
+pub const DATALOG_3_3: u32 = 6;
 
 /// some symbols are predefined and available in every implementation, to avoid
 /// transmitting them with every token
@@ -49,25 +54,26 @@ pub fn default_symbol_table() -> SymbolTable {
 ///
 /// use biscuit::{KeyPair, Biscuit, builder::*, builder_ext::*};
 ///
-/// fn main() {
+/// fn main() -> Result<(), biscuit::error::Token> {
 ///   let root = KeyPair::new();
 ///
 ///   // first we define the authority block for global data,
 ///   // like access rights
 ///   // data from the authority block cannot be created in any other block
-///   let mut builder = Biscuit::builder();
-///   builder.add_fact(fact("right", &[string("/a/file1.txt"), string("read")]));
+///   let token1 = Biscuit::builder()
+///       .fact(fact("right", &[string("/a/file1.txt"), string("read")]))?
 ///
-///   // facts and rules can also be parsed from a string
-///   builder.add_fact("right(\"/a/file1.txt\", \"read\")").expect("parse error");
-///
-///   let token1 = builder.build(&root).unwrap();
+///       // facts and rules can also be parsed from a string
+///       .fact("right(\"/a/file1.txt\", \"read\")")?
+///       .build(&root)?;
 ///
 ///   // we can create a new block builder from that token
-///   let mut builder2 = BlockBuilder::new();
-///   builder2.check_operation("read");
+///   let builder2 = BlockBuilder::new()
+///       .check_operation("read");
 ///
-///   let token2 = token1.append(builder2).unwrap();
+///   let token2 = token1.append(builder2)?;
+///
+///   Ok(())
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -105,6 +111,23 @@ impl Biscuit {
         Biscuit::from_base64_with_symbols(slice, key_provider, default_symbol_table())
     }
 
+    /// deserializes a token and validates the signature using the root public key
+    ///
+    /// This allows the deprecated 3rd party block format
+    pub fn unsafe_deprecated_deserialize<T, KP>(
+        slice: T,
+        key_provider: KP,
+    ) -> Result<Self, error::Token>
+    where
+        T: AsRef<[u8]>,
+        KP: RootKeyProvider,
+    {
+        let container = SerializedBiscuit::unsafe_from_slice(slice.as_ref(), key_provider)
+            .map_err(error::Token::Format)?;
+
+        Biscuit::from_serialized_container(container, default_symbol_table())
+    }
+
     /// serializes the token
     pub fn to_vec(&self) -> Result<Vec<u8>, error::Token> {
         self.container.to_vec().map_err(error::Token::Format)
@@ -135,16 +158,9 @@ impl Biscuit {
         Ok(token)
     }
 
-    /// creates a authorizer from this token
+    /// creates an authorizer from this token
     pub fn authorizer(&self) -> Result<Authorizer, error::Token> {
         Authorizer::from_token(self)
-    }
-
-    /// runs authorization with the provided authorizer
-    pub fn authorize(&self, authorizer: &Authorizer) -> Result<usize, error::Token> {
-        let mut a = authorizer.clone();
-        a.add_token(self)?;
-        a.authorize()
     }
 
     /// adds a new block to the token
@@ -152,7 +168,7 @@ impl Biscuit {
     /// since the public key is integrated into the token, the keypair can be
     /// discarded right after calling this function
     pub fn append(&self, block_builder: BlockBuilder) -> Result<Self, error::Token> {
-        let keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let keypair = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
         self.append_with_keypair(&keypair, block_builder)
     }
 
@@ -221,6 +237,11 @@ impl Biscuit {
         })
     }
 
+    /// gets the datalog version for a given block
+    pub fn block_version(&self, index: usize) -> Result<u32, error::Token> {
+        self.block(index).map(|block| block.version)
+    }
+
     /// creates a new token, using a provided CSPRNG
     ///
     /// the public part of the root keypair must be used for verification
@@ -228,6 +249,25 @@ impl Biscuit {
         rng: &mut T,
         root_key_id: Option<u32>,
         root: &KeyPair,
+        symbols: SymbolTable,
+        authority: Block,
+    ) -> Result<Biscuit, error::Token> {
+        Self::new_with_key_pair(
+            root_key_id,
+            root,
+            &KeyPair::new_with_rng(builder::Algorithm::Ed25519, rng),
+            symbols,
+            authority,
+        )
+    }
+
+    /// creates a new token, using provided keypairs (the root keypair, and the keypair used to sign the next block)
+    ///
+    /// the public part of the root keypair must be used for verification
+    pub(crate) fn new_with_key_pair(
+        root_key_id: Option<u32>,
+        root: &KeyPair,
+        next_keypair: &KeyPair,
         mut symbols: SymbolTable,
         authority: Block,
     ) -> Result<Biscuit, error::Token> {
@@ -239,8 +279,7 @@ impl Biscuit {
 
         let blocks = vec![];
 
-        let next_keypair = KeyPair::new_with_rng(rng);
-        let container = SerializedBiscuit::new(root_key_id, root, &next_keypair, &authority)?;
+        let container = SerializedBiscuit::new(root_key_id, root, next_keypair, &authority)?;
 
         symbols.public_keys.extend(&authority.public_keys)?;
 
@@ -368,7 +407,8 @@ impl Biscuit {
         external_key: PublicKey,
         response: ThirdPartyBlock,
     ) -> Result<Self, error::Token> {
-        let next_keypair = KeyPair::new_with_rng(&mut rand::rngs::OsRng);
+        let next_keypair =
+            KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rand::rngs::OsRng);
 
         self.append_third_party_with_keypair(external_key, response, next_keypair)
     }
@@ -383,37 +423,42 @@ impl Biscuit {
             external_signature,
         } = response.0;
 
-        if external_signature.public_key.algorithm != schema::public_key::Algorithm::Ed25519 as i32
-        {
+        let provided_key = PublicKey::from_proto(&external_signature.public_key)?;
+        if external_key != provided_key {
             return Err(error::Token::Format(error::Format::DeserializationError(
                 format!(
-                    "deserialization error: unexpected key algorithm {}",
-                    external_signature.public_key.algorithm
+                    "deserialization error: unexpected key {}",
+                    provided_key.print()
                 ),
             )));
         }
-        let bytes: [u8; 64] = (&external_signature.signature[..])
-            .try_into()
-            .map_err(|_| error::Format::InvalidSignatureSize(external_signature.signature.len()))?;
 
-        let signature = ed25519_dalek::Signature::from_bytes(&bytes);
+        let signature = Signature::from_vec(external_signature.signature);
+
         let previous_key = self
             .container
             .blocks
             .last()
             .unwrap_or(&self.container.authority)
             .next_key;
-        let mut to_verify = payload.clone();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&previous_key.to_bytes());
 
-        external_key
-            .0
-            .verify_strict(&to_verify, &signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        let external_signature = crypto::ExternalSignature {
+            public_key: external_key,
+            signature,
+        };
+        crypto::verify_external_signature(
+            &payload,
+            &previous_key,
+            &self
+                .container
+                .blocks
+                .last()
+                .unwrap_or(&self.container.authority)
+                .signature,
+            &external_signature,
+            THIRD_PARTY_SIGNATURE_VERSION,
+            ThirdPartyVerificationMode::PreviousSignatureHashing,
+        )?;
 
         let block = schema::Block::decode(&payload[..]).map_err(|e| {
             error::Token::Format(error::Format::DeserializationError(format!(
@@ -421,11 +466,6 @@ impl Biscuit {
                 e
             )))
         })?;
-
-        let external_signature = crypto::ExternalSignature {
-            public_key: external_key,
-            signature,
-        };
 
         let symbols = self.symbols.clone();
         let mut blocks = self.blocks.clone();
@@ -529,6 +569,32 @@ impl Biscuit {
         };
 
         Ok(block)
+    }
+
+    pub(crate) fn blocks(&self) -> impl Iterator<Item = Result<Block, error::Token>> + use<'_> {
+        once(
+            proto_block_to_token_block(
+                &self.authority,
+                self.container
+                    .authority
+                    .external_signature
+                    .as_ref()
+                    .map(|ex| ex.public_key),
+            )
+            .map_err(error::Token::Format),
+        )
+        .chain(self.blocks.iter().zip(self.container.blocks.iter()).map(
+            |(block, container)| {
+                proto_block_to_token_block(
+                    block,
+                    container
+                        .external_signature
+                        .as_ref()
+                        .map(|ex| ex.public_key),
+                )
+                .map_err(error::Token::Format)
+            },
+        ))
     }
 }
 
@@ -665,23 +731,25 @@ mod tests {
     use super::*;
     use crate::builder::CheckKind;
     use crate::crypto::KeyPair;
-    use crate::{error::*, AuthorizerLimits};
+    use crate::{error::*, AuthorizerLimits, UnverifiedBiscuit};
+    use builder::AuthorizerBuilder;
+    use builder_ext::AuthorizerExt;
     use rand::prelude::*;
     use std::time::{Duration, SystemTime};
 
     #[test]
     fn basic() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
-            let mut builder = Biscuit::builder();
-
-            builder.add_fact("right(\"file1\", \"read\")").unwrap();
-            builder.add_fact("right(\"file2\", \"read\")").unwrap();
-            builder.add_fact("right(\"file1\", \"write\")").unwrap();
-
-            let biscuit1 = builder
+            let biscuit1 = Biscuit::builder()
+                .fact("right(\"file1\", \"read\")")
+                .unwrap()
+                .fact("right(\"file2\", \"read\")")
+                .unwrap()
+                .fact("right(\"file1\", \"write\")")
+                .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
@@ -727,10 +795,8 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, root.public()).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = BlockBuilder::new();
-
-            block2
-                .add_check(rule(
+            let block2 = BlockBuilder::new()
+                .check(rule(
                     "check1",
                     &[var("resource")],
                     &[
@@ -741,7 +807,7 @@ mod tests {
                 ))
                 .unwrap();
 
-            let keypair2 = KeyPair::new_with_rng(&mut rng);
+            let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit2 = biscuit1_deser
                 .append_with_keypair(&keypair2, block2)
                 .unwrap();
@@ -758,17 +824,15 @@ mod tests {
             let biscuit2_deser = Biscuit::from(&serialized2, root.public()).unwrap();
 
             // new check: can only access file1
-            let mut block3 = BlockBuilder::new();
-
-            block3
-                .add_check(rule(
+            let block3 = BlockBuilder::new()
+                .check(rule(
                     "check2",
                     &[string("file1")],
                     &[pred("resource", &[string("file1")])],
                 ))
                 .unwrap();
 
-            let keypair3 = KeyPair::new_with_rng(&mut rng);
+            let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit3 = biscuit2_deser
                 .append_with_keypair(&keypair3, block3)
                 .unwrap();
@@ -783,7 +847,7 @@ mod tests {
         let final_token = Biscuit::from(&serialized3, root.public()).unwrap();
         println!("final token:\n{}", final_token);
         {
-            let mut authorizer = final_token.authorizer().unwrap();
+            let mut builder = AuthorizerBuilder::new();
 
             let mut facts = vec![
                 fact("resource", &[string("file1")]),
@@ -791,11 +855,12 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                authorizer.add_fact(fact).unwrap();
+                builder = builder.fact(fact).unwrap();
             }
 
             //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+
+            let mut authorizer = builder.allow_all().build(&final_token).unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -803,7 +868,7 @@ mod tests {
         }
 
         {
-            let mut authorizer = final_token.authorizer().unwrap();
+            let mut builder = AuthorizerBuilder::new();
 
             let mut facts = vec![
                 fact("resource", &[string("file2")]),
@@ -811,10 +876,11 @@ mod tests {
             ];
 
             for fact in facts.drain(..) {
-                authorizer.add_fact(fact).unwrap();
+                builder = builder.fact(fact).unwrap();
             }
+            builder = builder.allow_all();
 
-            authorizer.allow().unwrap();
+            let mut authorizer = builder.build(&final_token).unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -835,35 +901,36 @@ mod tests {
     #[test]
     fn folders() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("/folder1/file1", "read");
-        builder.add_right("/folder1/file1", "write");
-        builder.add_right("/folder1/file2", "read");
-        builder.add_right("/folder1/file2", "write");
-        builder.add_right("/folder2/file3", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .right("/folder1/file1", "read")
+            .right("/folder1/file1", "write")
+            .right("/folder1/file2", "read")
+            .right("/folder1/file2", "write")
+            .right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
+        let block2 = BlockBuilder::new()
+            .check_resource_prefix("/folder1/")
+            .check_right("read")
+            .unwrap();
 
-        block2.check_resource_prefix("/folder1/");
-        block2.check_right("read");
-
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -875,10 +942,14 @@ mod tests {
         }
 
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"/folder2/file3\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"/folder2/file3\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -901,9 +972,13 @@ mod tests {
         }
 
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"/folder2/file1\")").unwrap();
-            authorizer.add_fact("operation(\"write\")").unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"/folder2/file1\")")
+                .unwrap()
+                .fact("operation(\"write\")")
+                .unwrap()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize();
             println!("res3: {:?}", res);
@@ -919,33 +994,34 @@ mod tests {
     #[test]
     fn constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("file1", "read");
-        builder.add_right("file2", "read");
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .right("file1", "read")
+            .right("file2", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
+        let block2 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
+            .fact("key(1234)")
+            .unwrap();
 
-        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.add_fact("key(1234)").unwrap();
-
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.set_time();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .time()
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -957,11 +1033,15 @@ mod tests {
 
         {
             println!("biscuit2: {}", biscuit2);
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.set_time();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .time()
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -978,36 +1058,37 @@ mod tests {
     #[test]
     fn sealed_token() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("/folder1/file1", "read");
-        builder.add_right("/folder1/file1", "write");
-        builder.add_right("/folder1/file2", "read");
-        builder.add_right("/folder1/file2", "write");
-        builder.add_right("/folder2/file3", "read");
-
-        let biscuit1 = builder
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+        let biscuit1 = Biscuit::builder()
+            .right("/folder1/file1", "read")
+            .right("/folder1/file1", "write")
+            .right("/folder1/file2", "read")
+            .right("/folder1/file2", "write")
+            .right("/folder2/file3", "read")
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
+        let block2 = BlockBuilder::new()
+            .check_resource_prefix("/folder1/")
+            .check_right("read")
+            .unwrap();
 
-        block2.check_resource_prefix("/folder1/");
-        block2.check_right("read");
-
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         //println!("biscuit2:\n{:#?}", biscuit2);
         //panic!();
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1026,10 +1107,14 @@ mod tests {
         let biscuit3 = Biscuit::from(sealed, root.public()).unwrap();
 
         {
-            let mut authorizer = biscuit3.authorizer().unwrap();
-            authorizer.add_fact("resource(\"/folder1/file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"/folder1/file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .allow_all()
+                .build(&biscuit3)
+                .unwrap();
 
             let res = authorizer.authorize();
             println!("res1: {:?}", res);
@@ -1042,36 +1127,31 @@ mod tests {
         use crate::token::builder::*;
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(1234);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder
-            .add_fact(fact("right", &[string("file1"), string("read")]))
-            .unwrap();
-        builder
-            .add_fact(fact("right", &[string("file2"), string("read")]))
-            .unwrap();
-        builder
-            .add_fact(fact("right", &[string("file1"), string("write")]))
-            .unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .fact(fact("right", &[string("file1"), string("read")]))
+            .unwrap()
+            .fact(fact("right", &[string("file2"), string("read")]))
+            .unwrap()
+            .fact(fact("right", &[string("file1"), string("write")]))
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
         println!("{}", biscuit1);
 
-        let mut v = biscuit1.authorizer().expect("omg authorizer");
-
-        v.add_check(rule(
-            "right",
-            &[string("right")],
-            &[pred("right", &[string("file2"), string("write")])],
-        ))
-        .unwrap();
+        let mut authorizer = AuthorizerBuilder::new()
+            .check(rule(
+                "right",
+                &[string("right")],
+                &[pred("right", &[string("file2"), string("write")])],
+            ))
+            .unwrap()
+            .build(&biscuit1)
+            .unwrap();
 
         //assert!(v.verify().is_err());
-        let res = v.authorize_with_limits(AuthorizerLimits {
+        let res = authorizer.authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
             ..Default::default()
         });
@@ -1090,42 +1170,44 @@ mod tests {
     #[test]
     fn authorizer_queries() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_right("file1", "read");
-        builder.add_right("file2", "read");
-        builder.add_fact("key(0000)").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .right("file1", "read")
+            .right("file2", "read")
+            .fact("key(0000)")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
+        let block2 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(30))
+            .fact("key(1234)")
+            .unwrap();
 
-        block2.check_expiration_date(SystemTime::now() + Duration::from_secs(30));
-        block2.add_fact("key(1234)").unwrap();
-
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut block3 = BlockBuilder::new();
+        let block3 = BlockBuilder::new()
+            .check_expiration_date(SystemTime::now() + Duration::from_secs(10))
+            .fact("key(5678)")
+            .unwrap();
 
-        block3.check_expiration_date(SystemTime::now() + Duration::from_secs(10));
-        block3.add_fact("key(5678)").unwrap();
-
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
+        let keypair3 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit3 = biscuit2.append_with_keypair(&keypair3, block3).unwrap();
         {
             println!("biscuit3: {}", biscuit3);
 
-            let mut authorizer = biscuit3.authorizer().unwrap();
-            authorizer.add_fact("resource(\"file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            authorizer.set_time();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .time()
+                .build(&biscuit3)
+                .unwrap();
 
             // test that cloning correctly embeds the first block's facts
             let mut other_authorizer = authorizer.clone();
@@ -1178,39 +1260,39 @@ mod tests {
     #[test]
     fn check_head_name() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder
-            .add_check(check(
+        let biscuit1 = Biscuit::builder()
+            .check(check(
                 &[pred("resource", &[string("hello")])],
                 CheckKind::One,
             ))
-            .unwrap();
-
-        let biscuit1 = builder
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
         // new check: can only have read access1
-        let mut block2 = BlockBuilder::new();
-        block2.add_fact(fact("check1", &[string("test")])).unwrap();
+        let block2 = BlockBuilder::new()
+            .fact(fact("check1", &[string("test")]))
+            .unwrap();
 
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
         println!("biscuit2: {}", biscuit2);
 
         //println!("generated biscuit token 2: {} bytes\n{}", serialized2.len(), serialized2.to_hex(16));
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("resource(\"file1\")").unwrap();
-            authorizer.add_fact("operation(\"read\")").unwrap();
-            println!("symbols before time: {:?}", authorizer.symbols);
-            authorizer.set_time();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("resource(\"file1\")")
+                .unwrap()
+                .fact("operation(\"read\")")
+                .unwrap()
+                .time()
+                .build(&biscuit2)
+                .unwrap();
 
             println!("world:\n{}", authorizer.print_world());
             println!("symbols: {:?}", authorizer.symbols);
@@ -1282,28 +1364,32 @@ mod tests {
     #[test]
     fn bytes_constraints() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-        builder.add_fact("bytes(hex:0102AB)").unwrap();
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .fact("bytes(hex:0102AB)")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut block2 = BlockBuilder::new();
-        block2
-            .add_rule("has_bytes($0) <- bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
+        let block2 = BlockBuilder::new()
+            .rule("has_bytes($0) <- bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
             .unwrap();
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
+        let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
         let biscuit2 = biscuit1.append_with_keypair(&keypair2, block2).unwrap();
 
-        let mut authorizer = biscuit2.authorizer().unwrap();
-        authorizer
-            .add_check("check if bytes($0), [ hex:00000000, hex:0102AB ].contains($0)")
+        let mut authorizer = AuthorizerBuilder::new()
+            .check("check if bytes($0), { hex:00000000, hex:0102AB }.contains($0)")
+            .unwrap()
+            .allow_all()
+            .limits(AuthorizerLimits {
+                max_time: Duration::from_secs(10),
+                ..Default::default()
+            })
+            .build(&biscuit2)
             .unwrap();
-        authorizer.allow().unwrap();
 
         let res = authorizer.authorize_with_limits(AuthorizerLimits {
             max_time: Duration::from_secs(10),
@@ -1328,23 +1414,18 @@ mod tests {
     #[test]
     fn block1_generates_authority_or_ambient() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
         let serialized1 = {
-            let mut builder = Biscuit::builder();
-
-            builder
-                .add_fact("right(\"/folder1/file1\", \"read\")")
-                .unwrap();
-            builder
-                .add_fact("right(\"/folder1/file1\", \"write\")")
-                .unwrap();
-            builder
-                .add_fact("right(\"/folder2/file1\", \"read\")")
-                .unwrap();
-            builder.add_check("check if operation(\"read\")").unwrap();
-
-            let biscuit1 = builder
+            let biscuit1 = Biscuit::builder()
+                .fact("right(\"/folder1/file1\", \"read\")")
+                .unwrap()
+                .fact("right(\"/folder1/file1\", \"write\")")
+                .unwrap()
+                .fact("right(\"/folder2/file1\", \"read\")")
+                .unwrap()
+                .check("check if operation(\"read\")")
+                .unwrap()
                 .build_with_rng(&root, default_symbol_table(), &mut rng)
                 .unwrap();
 
@@ -1361,23 +1442,21 @@ mod tests {
             let biscuit1_deser = Biscuit::from(&serialized1, |_| Ok(root.public())).unwrap();
 
             // new check: can only have read access1
-            let mut block2 = BlockBuilder::new();
+            let  block2 = BlockBuilder::new()
 
             // Bypass `check if operation("read")` from authority block
-            block2
-                .add_rule("operation(\"read\") <- operation($any)")
-                .unwrap();
+                .rule("operation(\"read\") <- operation($any)")
+                .unwrap()
 
             // Bypass `check if resource($file), $file.starts_with("/folder1/")` from block #1
-            block2
-                .add_rule("resource(\"/folder1/\") <- resource($any)")
-                .unwrap();
+                .rule("resource(\"/folder1/\") <- resource($any)")
+                .unwrap()
 
             // Add missing rights
-            block2.add_rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
+          .rule("right($file, $right) <- right($any1, $any2), resource($file), operation($right)")
                 .unwrap();
 
-            let keypair2 = KeyPair::new_with_rng(&mut rng);
+            let keypair2 = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
             let biscuit2 = biscuit1_deser
                 .append_with_keypair(&keypair2, block2)
                 .unwrap();
@@ -1393,13 +1472,16 @@ mod tests {
         let final_token = Biscuit::from(&serialized2, root.public()).unwrap();
         println!("final token:\n{}", final_token);
 
-        let mut authorizer = final_token.authorizer().unwrap();
-        authorizer.add_fact("resource(\"/folder2/file1\")").unwrap();
-        authorizer.add_fact("operation(\"write\")").unwrap();
-        authorizer
-            .add_policy("allow if resource($file), operation($op), right($file, $op)")
+        let mut authorizer = AuthorizerBuilder::new()
+            .fact("resource(\"/folder2/file1\")")
+            .unwrap()
+            .fact("operation(\"write\")")
+            .unwrap()
+            .policy("allow if resource($file), operation($op), right($file, $op)")
+            .unwrap()
+            .deny_all()
+            .build(&final_token)
             .unwrap();
-        authorizer.deny().unwrap();
 
         let res = authorizer.authorize_with_limits(crate::token::authorizer::AuthorizerLimits {
             max_time: Duration::from_secs(1),
@@ -1414,35 +1496,34 @@ mod tests {
     #[test]
     fn check_all() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new_with_rng(&mut rng);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_check("check if fact($v), $v < 1").unwrap();
-
-        let biscuit1 = builder
+        let biscuit1 = Biscuit::builder()
+            .check("check if fact($v), $v < 1")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit1 (authority): {}", biscuit1);
 
-        let mut builder = Biscuit::builder();
-
-        builder.add_check("check all fact($v), $v < 1").unwrap();
-
-        let biscuit2 = builder
+        let biscuit2 = Biscuit::builder()
+            .check("check all fact($v), $v < 1")
+            .unwrap()
             .build_with_rng(&root, default_symbol_table(), &mut rng)
             .unwrap();
 
         println!("biscuit2 (authority): {}", biscuit2);
 
         {
-            let mut authorizer = biscuit1.authorizer().unwrap();
-            authorizer.add_fact("fact(0)").unwrap();
-            authorizer.add_fact("fact(1)").unwrap();
-
-            //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("fact(0)")
+                .unwrap()
+                .fact("fact(1)")
+                .unwrap()
+                //println!("final token: {:#?}", final_token);
+                .allow_all()
+                .build(&biscuit1)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1453,12 +1534,15 @@ mod tests {
         }
 
         {
-            let mut authorizer = biscuit2.authorizer().unwrap();
-            authorizer.add_fact("fact(0)").unwrap();
-            authorizer.add_fact("fact(1)").unwrap();
-
-            //println!("final token: {:#?}", final_token);
-            authorizer.allow().unwrap();
+            let mut authorizer = AuthorizerBuilder::new()
+                .fact("fact(0)")
+                .unwrap()
+                .fact("fact(1)")
+                .unwrap()
+                //println!("final token: {:#?}", final_token);
+                .allow_all()
+                .build(&biscuit2)
+                .unwrap();
 
             let res = authorizer.authorize_with_limits(AuthorizerLimits {
                 max_time: Duration::from_secs(10),
@@ -1477,6 +1561,85 @@ mod tests {
                     }),]
                 }))
             );
+        }
+    }
+
+    // check that we can still allow the verification of the old 3rd party block signature
+    #[test]
+    fn third_party_unsafe_deserialize() {
+        // this is a token generated with the old third party signature, that does not include the previous block's signature
+        let token_bytes = include_bytes!("../../tests/fixtures/unsafe_third_party.bc");
+        let _ = UnverifiedBiscuit::unsafe_deprecated_deserialize(token_bytes).unwrap();
+        assert_eq!(
+            UnverifiedBiscuit::from(token_bytes).unwrap_err(),
+            error::Token::Format(error::Format::DeserializationError(
+                "Unsupported third party block version".to_string()
+            ))
+        );
+
+        let root_key = PublicKey::from_bytes_hex(
+            "1055c750b1a1505937af1537c626ba3263995c33a64758aaafb1275b0312e284",
+            builder::Algorithm::Ed25519,
+        )
+        .unwrap();
+        let _ = Biscuit::unsafe_deprecated_deserialize(token_bytes, root_key).unwrap();
+        assert_eq!(
+            Biscuit::from(token_bytes, root_key).unwrap_err(),
+            error::Token::Format(error::Format::DeserializationError(
+                "Unsupported third party block version".to_string()
+            ))
+        );
+    }
+
+    // tests that the authority block signature version 1 works
+    #[test]
+    fn authority_signature_v1() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+
+        let authority_block = Block {
+            symbols: default_symbol_table(),
+            facts: vec![],
+            rules: vec![],
+            checks: vec![],
+            context: None,
+            version: 0,
+            external_key: None,
+            public_keys: PublicKeys::new(),
+            scopes: vec![],
+        };
+
+        let next_keypair = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+        let token =
+            SerializedBiscuit::new_inner(None, &root, &next_keypair, &authority_block, 1).unwrap();
+        let serialized = token.to_vec().unwrap();
+
+        let _ = Biscuit::from(&serialized, root.public()).unwrap();
+    }
+
+    #[test]
+    fn verified_unverified_consistency() {
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(builder::Algorithm::Ed25519, &mut rng);
+        let biscuit1 = Biscuit::builder()
+            .fact("right(\"file1\", \"read\")")
+            .unwrap()
+            .fact("right(\"file2\", \"read\")")
+            .unwrap()
+            .fact("right(\"file1\", \"write\")")
+            .unwrap()
+            .build_with_rng(&root, default_symbol_table(), &mut rng)
+            .unwrap();
+
+        println!("biscuit1 (authority): {}", biscuit1);
+
+        let serialized = biscuit1.to_vec().unwrap();
+
+        let parsed = UnverifiedBiscuit::from(serialized).unwrap();
+
+        for i in 0..parsed.block_count() {
+            assert_eq!(parsed.print_block_source(i), biscuit1.print_block_source(i));
+            assert_eq!(parsed.block_version(i), biscuit1.block_version(i));
         }
     }
 }

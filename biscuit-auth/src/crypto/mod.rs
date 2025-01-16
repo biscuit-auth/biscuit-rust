@@ -7,62 +7,107 @@
 //!
 //! The implementation is based on [ed25519_dalek](https://github.com/dalek-cryptography/ed25519-dalek).
 #![allow(non_snake_case)]
-use crate::{error::Format, format::schema};
+use crate::builder::Algorithm;
+use crate::format::schema;
+use crate::format::ThirdPartyVerificationMode;
 
 use super::error;
-#[cfg(feature = "pem")]
-use ed25519_dalek::pkcs8::DecodePrivateKey;
-use ed25519_dalek::*;
+mod ed25519;
+mod p256;
 
 use nom::Finish;
 use rand_core::{CryptoRng, RngCore};
-use std::{convert::TryInto, fmt::Display, hash::Hash, ops::Drop, str::FromStr};
-use zeroize::Zeroize;
+use std::fmt;
+use std::hash::Hash;
+use std::str::FromStr;
 
 /// pair of cryptographic keys used to sign a token's block
 #[derive(Debug)]
-pub struct KeyPair {
-    pub(crate) kp: ed25519_dalek::SigningKey,
+pub enum KeyPair {
+    Ed25519(ed25519::KeyPair),
+    P256(p256::KeyPair),
 }
 
 impl KeyPair {
+    /// Create a new ed25519 keypair with the default OS RNG
     pub fn new() -> Self {
-        Self::new_with_rng(&mut rand::rngs::OsRng)
+        Self::new_with_rng(Algorithm::Ed25519, &mut rand::rngs::OsRng)
     }
 
-    pub fn new_with_rng<T: RngCore + CryptoRng>(rng: &mut T) -> Self {
-        let kp = ed25519_dalek::SigningKey::generate(rng);
+    /// Create a new keypair with a chosen algorithm and the default OS RNG
+    pub fn new_with_algorithm(algorithm: Algorithm) -> Self {
+        Self::new_with_rng(algorithm, &mut rand::rngs::OsRng)
+    }
 
-        KeyPair { kp }
+    pub fn new_with_rng<T: RngCore + CryptoRng>(algorithm: Algorithm, rng: &mut T) -> Self {
+        match algorithm {
+            Algorithm::Ed25519 => KeyPair::Ed25519(ed25519::KeyPair::new_with_rng(rng)),
+            Algorithm::Secp256r1 => KeyPair::P256(p256::KeyPair::new_with_rng(rng)),
+        }
     }
 
     pub fn from(key: &PrivateKey) -> Self {
-        KeyPair {
-            kp: ed25519_dalek::SigningKey::from_bytes(&key.0),
+        match key {
+            PrivateKey::Ed25519(key) => KeyPair::Ed25519(ed25519::KeyPair::from(key)),
+            PrivateKey::P256(key) => KeyPair::P256(p256::KeyPair::from(key)),
+        }
+    }
+
+    /// deserializes from a byte array
+    pub fn from_bytes(
+        bytes: &[u8],
+        algorithm: schema::public_key::Algorithm,
+    ) -> Result<Self, error::Format> {
+        match algorithm {
+            schema::public_key::Algorithm::Ed25519 => {
+                Ok(KeyPair::Ed25519(ed25519::KeyPair::from_bytes(bytes)?))
+            }
+            schema::public_key::Algorithm::Secp256r1 => {
+                Ok(KeyPair::P256(p256::KeyPair::from_bytes(bytes)?))
+            }
+        }
+    }
+
+    pub fn sign(&self, data: &[u8]) -> Result<Signature, error::Format> {
+        match self {
+            KeyPair::Ed25519(key) => key.sign(data),
+            KeyPair::P256(key) => key.sign(data),
         }
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_der(bytes)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
+        ed25519::KeyPair::from_private_key_der(bytes)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_der(bytes).map(KeyPair::P256))
     }
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        let kp = SigningKey::from_pkcs8_pem(str)
-            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Ok(KeyPair { kp })
+        ed25519::KeyPair::from_private_key_pem(str)
+            .map(KeyPair::Ed25519)
+            .or_else(|_| p256::KeyPair::from_private_key_pem(str).map(KeyPair::P256))
     }
 
     pub fn private(&self) -> PrivateKey {
-        let secret = self.kp.to_bytes();
-        PrivateKey(secret)
+        match self {
+            KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
+            KeyPair::P256(key) => PrivateKey::P256(key.private()),
+        }
     }
 
     pub fn public(&self) -> PublicKey {
-        PublicKey(self.kp.verifying_key())
+        match self {
+            KeyPair::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            KeyPair::P256(key) => PublicKey::P256(key.public()),
+        }
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            KeyPair::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            KeyPair::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
     }
 }
 
@@ -73,13 +118,19 @@ impl std::default::Default for KeyPair {
 }
 
 /// the private part of a [KeyPair]
-#[derive(Debug)]
-pub struct PrivateKey(pub(crate) ed25519_dalek::SecretKey);
+#[derive(Debug, Clone)]
+pub enum PrivateKey {
+    Ed25519(ed25519::PrivateKey),
+    P256(p256::PrivateKey),
+}
 
 impl PrivateKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0
+    pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
+        match self {
+            PrivateKey::Ed25519(key) => zeroize::Zeroizing::new(key.to_bytes()),
+            PrivateKey::P256(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -88,45 +139,49 @@ impl PrivateKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let bytes: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-        Ok(PrivateKey(bytes))
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_bytes(bytes)?)),
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&bytes, algorithm)
     }
 
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
-        PublicKey(SigningKey::from_bytes(&self.0).verifying_key())
+        match self {
+            PrivateKey::Ed25519(key) => PublicKey::Ed25519(key.public()),
+            PrivateKey::P256(key) => PublicKey::P256(key.public()),
+        }
     }
-}
 
-impl std::clone::Clone for PrivateKey {
-    fn clone(&self) -> Self {
-        PrivateKey::from_bytes(&self.to_bytes()).unwrap()
-    }
-}
-
-impl Drop for PrivateKey {
-    fn drop(&mut self) {
-        self.0.zeroize();
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            PrivateKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PrivateKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
     }
 }
 
 /// the public part of a [KeyPair]
-#[derive(Debug, Clone, Copy, Eq)]
-pub struct PublicKey(pub(crate) ed25519_dalek::VerifyingKey);
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+pub enum PublicKey {
+    Ed25519(ed25519::PublicKey),
+    P256(p256::PublicKey),
+}
 
 impl PublicKey {
     /// serializes to a byte array
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            PublicKey::Ed25519(key) => key.to_bytes().into(),
+            PublicKey::P256(key) => key.to_bytes(),
+        }
     }
 
     /// serializes to an hex-encoded string
@@ -135,56 +190,101 @@ impl PublicKey {
     }
 
     /// deserializes from a byte array
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, error::Format> {
-        let bytes: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| Format::InvalidKeySize(bytes.len()))?;
-
-        ed25519_dalek::VerifyingKey::from_bytes(&bytes)
-            .map(PublicKey)
-            .map_err(|s| s.to_string())
-            .map_err(Format::InvalidKey)
+    pub fn from_bytes(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_bytes(bytes)?)),
+        }
     }
 
     /// deserializes from an hex-encoded string
-    pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
+    pub fn from_bytes_hex(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&bytes, algorithm)
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {
-        if key.algorithm != schema::public_key::Algorithm::Ed25519 as i32 {
-            return Err(error::Format::DeserializationError(format!(
+        if key.algorithm == schema::public_key::Algorithm::Ed25519 as i32 {
+            Ok(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(
+                &key.key,
+            )?))
+        } else if key.algorithm == schema::public_key::Algorithm::Secp256r1 as i32 {
+            Ok(PublicKey::P256(p256::PublicKey::from_bytes(&key.key)?))
+        } else {
+            Err(error::Format::DeserializationError(format!(
                 "deserialization error: unexpected key algorithm {}",
                 key.algorithm
-            )));
+            )))
         }
-
-        PublicKey::from_bytes(&key.key)
     }
 
     pub fn to_proto(&self) -> schema::PublicKey {
         schema::PublicKey {
-            algorithm: schema::public_key::Algorithm::Ed25519 as i32,
-            key: self.to_bytes().to_vec(),
+            algorithm: self.algorithm() as i32,
+            key: self.to_bytes(),
+        }
+    }
+
+    pub fn verify_signature(
+        &self,
+        data: &[u8],
+        signature: &Signature,
+    ) -> Result<(), error::Format> {
+        match self {
+            PublicKey::Ed25519(key) => key.verify_signature(data, signature),
+            PublicKey::P256(key) => key.verify_signature(data, signature),
+        }
+    }
+
+    pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
+        match self {
+            PublicKey::Ed25519(_) => crate::format::schema::public_key::Algorithm::Ed25519,
+            PublicKey::P256(_) => crate::format::schema::public_key::Algorithm::Secp256r1,
+        }
+    }
+
+    pub fn algorithm_string(&self) -> &str {
+        match self {
+            PublicKey::Ed25519(_) => "ed25519",
+            PublicKey::P256(_) => "secp256r1",
+        }
+    }
+
+    pub(crate) fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PublicKey::Ed25519(key) => key.write(f),
+            PublicKey::P256(key) => key.write(f),
         }
     }
 
     pub fn print(&self) -> String {
-        self.to_string()
+        match self {
+            PublicKey::Ed25519(key) => key.print(),
+            PublicKey::P256(key) => key.print(),
+        }
     }
 }
 
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.to_bytes() == other.0.to_bytes()
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.write(f)
     }
 }
 
-impl Hash for PublicKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (crate::format::schema::public_key::Algorithm::Ed25519 as i32).hash(state);
-        self.0.to_bytes().hash(state);
+#[derive(Clone, Debug)]
+pub struct Signature(pub(crate) Vec<u8>);
+
+impl Signature {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, error::Format> {
+        Ok(Signature(data.to_owned()))
+    }
+
+    pub(crate) fn from_vec(data: Vec<u8>) -> Self {
+        Signature(data)
+    }
+
+    pub fn to_bytes(&self) -> &[u8] {
+        &self.0[..]
     }
 }
 
@@ -192,16 +292,16 @@ impl FromStr for PublicKey {
     type Err = error::Token;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, bytes) = biscuit_parser::parser::public_key(s)
+        let (_, public_key) = biscuit_parser::parser::public_key(s)
             .finish()
             .map_err(biscuit_parser::error::LanguageError::from)?;
-        Ok(PublicKey::from_bytes(&bytes)?)
-    }
-}
-
-impl Display for PublicKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ed25519/{}", hex::encode(self.to_bytes()))
+        Ok(PublicKey::from_bytes(
+            &public_key.key,
+            match public_key.algorithm {
+                biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
+                biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
+            },
+        )?)
     }
 }
 
@@ -209,177 +309,272 @@ impl Display for PublicKey {
 pub struct Block {
     pub(crate) data: Vec<u8>,
     pub(crate) next_key: PublicKey,
-    pub signature: ed25519_dalek::Signature,
+    pub signature: Signature,
     pub external_signature: Option<ExternalSignature>,
+    pub version: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct ExternalSignature {
     pub(crate) public_key: PublicKey,
-    pub(crate) signature: ed25519_dalek::Signature,
-}
-
-#[derive(Clone, Debug)]
-pub struct Token {
-    pub root: PublicKey,
-    pub blocks: Vec<Block>,
-    pub next: TokenNext,
+    pub(crate) signature: Signature,
 }
 
 #[derive(Clone, Debug)]
 pub enum TokenNext {
     Secret(PrivateKey),
-    Seal(ed25519_dalek::Signature),
+    Seal(Signature),
 }
 
-pub fn sign(
+pub fn sign_authority_block(
     keypair: &KeyPair,
     next_key: &KeyPair,
     message: &[u8],
+    version: u32,
 ) -> Result<Signature, error::Token> {
-    //FIXME: replace with SHA512 hashing
-    let mut to_sign = message.to_vec();
-    to_sign.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_sign.extend(&next_key.public().to_bytes());
+    let to_sign = match version {
+        0 => generate_authority_block_signature_payload_v0(&message, &next_key.public()),
+        1 => generate_authority_block_signature_payload_v1(&message, &next_key.public(), version),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                version
+            ))
+            .into())
+        }
+    };
 
-    let signature = keypair
-        .kp
-        .try_sign(&to_sign)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignatureGeneration)
-        .map_err(error::Format::Signature)?;
+    let signature = keypair.sign(&to_sign)?;
 
-    Ok(signature)
+    Ok(Signature(signature.to_bytes().to_vec()))
 }
 
-pub fn verify_block_signature(block: &Block, public_key: &PublicKey) -> Result<(), error::Format> {
-    //FIXME: replace with SHA512 hashing
-    let mut to_verify = block.data.to_vec();
+pub fn sign_block(
+    keypair: &KeyPair,
+    next_key: &KeyPair,
+    message: &[u8],
+    external_signature: Option<&ExternalSignature>,
+    previous_signature: &Signature,
+    version: u32,
+) -> Result<Signature, error::Token> {
+    let to_sign = match version {
+        0 => generate_block_signature_payload_v0(&message, &next_key.public(), external_signature),
+        1 => generate_block_signature_payload_v1(
+            &message,
+            &next_key.public(),
+            external_signature,
+            previous_signature,
+            version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                version
+            ))
+            .into())
+        }
+    };
 
-    if let Some(signature) = block.external_signature.as_ref() {
-        to_verify.extend_from_slice(&signature.signature.to_bytes());
-    }
-    to_verify.extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-    to_verify.extend(&block.next_key.to_bytes());
+    Ok(keypair.sign(&to_sign)?)
+}
 
-    public_key
-        .0
-        .verify_strict(&to_verify, &block.signature)
-        .map_err(|s| s.to_string())
-        .map_err(error::Signature::InvalidSignature)
-        .map_err(error::Format::Signature)?;
+pub fn verify_authority_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+) -> Result<(), error::Format> {
+    let to_verify = match block.version {
+        0 => generate_block_signature_payload_v0(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+        ),
+        1 => generate_authority_block_signature_payload_v1(
+            &block.data,
+            &block.next_key,
+            block.version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                block.version
+            )))
+        }
+    };
+
+    public_key.verify_signature(&to_verify, &block.signature)
+}
+
+pub fn verify_block_signature(
+    block: &Block,
+    public_key: &PublicKey,
+    previous_signature: &Signature,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
+    let to_verify = match block.version {
+        0 => generate_block_signature_payload_v0(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+        ),
+        1 => generate_block_signature_payload_v1(
+            &block.data,
+            &block.next_key,
+            block.external_signature.as_ref(),
+            previous_signature,
+            block.version,
+        ),
+        _ => {
+            return Err(error::Format::DeserializationError(format!(
+                "unsupported block version: {}",
+                block.version
+            )))
+        }
+    };
+
+    public_key.verify_signature(&to_verify, &block.signature)?;
 
     if let Some(external_signature) = block.external_signature.as_ref() {
-        let mut to_verify = block.data.to_vec();
-        to_verify
-            .extend(&(crate::format::schema::public_key::Algorithm::Ed25519 as i32).to_le_bytes());
-        to_verify.extend(&public_key.to_bytes());
-
-        external_signature
-            .public_key
-            .0
-            .verify_strict(&to_verify, &external_signature.signature)
-            .map_err(|s| s.to_string())
-            .map_err(error::Signature::InvalidSignature)
-            .map_err(error::Format::Signature)?;
+        verify_external_signature(
+            &block.data,
+            public_key,
+            previous_signature,
+            external_signature,
+            block.version,
+            verification_mode,
+        )?;
     }
 
     Ok(())
 }
 
-impl Token {
-    #[allow(dead_code)]
-    pub fn new<T: RngCore + CryptoRng>(
-        keypair: &KeyPair,
-        next_key: &KeyPair,
-        message: &[u8],
-    ) -> Result<Self, error::Token> {
-        let signature = sign(keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature: None,
-        };
-
-        Ok(Token {
-            root: keypair.public(),
-            blocks: vec![block],
-            next: TokenNext::Secret(next_key.private()),
-        })
-    }
-
-    #[allow(dead_code)]
-    pub fn append<T: RngCore + CryptoRng>(
-        &self,
-        next_key: &KeyPair,
-        message: &[u8],
-        external_signature: Option<ExternalSignature>,
-    ) -> Result<Self, error::Token> {
-        let keypair = match self.next.keypair() {
-            Err(error::Token::AlreadySealed) => Err(error::Token::AppendOnSealed),
-            other => other,
-        }?;
-
-        let signature = sign(&keypair, next_key, message)?;
-
-        let block = Block {
-            data: message.to_vec(),
-            next_key: next_key.public(),
-            signature,
-            external_signature,
-        };
-
-        let mut t = Token {
-            root: self.root,
-            blocks: self.blocks.clone(),
-            next: TokenNext::Secret(next_key.private()),
-        };
-
-        t.blocks.push(block);
-
-        Ok(t)
-    }
-
-    #[allow(dead_code)]
-    pub fn verify(&self, root: PublicKey) -> Result<(), error::Token> {
-        //FIXME: try batched signature verification
-        let mut current_pub = root;
-
-        for block in &self.blocks {
-            verify_block_signature(block, &current_pub)?;
-            current_pub = block.next_key;
+pub fn verify_external_signature(
+    payload: &[u8],
+    public_key: &PublicKey,
+    previous_signature: &Signature,
+    external_signature: &ExternalSignature,
+    version: u32,
+    verification_mode: ThirdPartyVerificationMode,
+) -> Result<(), error::Format> {
+    let to_verify = match verification_mode {
+        ThirdPartyVerificationMode::UnsafeLegacy => {
+            generate_external_signature_payload_v0(payload, public_key)
         }
-
-        match &self.next {
-            TokenNext::Secret(private) => {
-                if current_pub != private.public() {
-                    return Err(error::Format::Signature(error::Signature::InvalidSignature(
-                        "the last public key does not match the private key".to_string(),
-                    ))
-                    .into());
-                }
-            }
-            TokenNext::Seal(signature) => {
-                //FIXME: replace with SHA512 hashing
-                let mut to_verify = Vec::new();
-                for block in &self.blocks {
-                    to_verify.extend(&block.data);
-                    to_verify.extend(&block.next_key.to_bytes());
-                }
-
-                current_pub
-                    .0
-                    .verify_strict(&to_verify, signature)
-                    .map_err(|s| s.to_string())
-                    .map_err(error::Signature::InvalidSignature)
-                    .map_err(error::Format::Signature)?;
-            }
+        ThirdPartyVerificationMode::PreviousSignatureHashing => {
+            generate_external_signature_payload_v1(payload, previous_signature.to_bytes(), version)
         }
+    };
 
-        Ok(())
+    external_signature
+        .public_key
+        .verify_signature(&to_verify, &external_signature.signature)
+}
+
+pub(crate) fn generate_authority_block_signature_payload_v0(
+    payload: &[u8],
+    next_key: &PublicKey,
+) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(next_key.to_bytes());
+    to_verify
+}
+
+pub(crate) fn generate_block_signature_payload_v0(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+
+    if let Some(signature) = external_signature.as_ref() {
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
     }
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(next_key.to_bytes());
+    to_verify
+}
+
+pub(crate) fn generate_authority_block_signature_payload_v1(
+    payload: &[u8],
+    next_key: &PublicKey,
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0BLOCK\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0ALGORITHM\0".to_vec());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+
+    to_verify.extend(b"\0NEXTKEY\0".to_vec());
+    to_verify.extend(&next_key.to_bytes());
+
+    to_verify
+}
+
+pub(crate) fn generate_block_signature_payload_v1(
+    payload: &[u8],
+    next_key: &PublicKey,
+    external_signature: Option<&ExternalSignature>,
+    previous_signature: &Signature,
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0BLOCK\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0ALGORITHM\0".to_vec());
+    to_verify.extend(&(next_key.algorithm() as i32).to_le_bytes());
+
+    to_verify.extend(b"\0NEXTKEY\0".to_vec());
+    to_verify.extend(&next_key.to_bytes());
+
+    to_verify.extend(b"\0PREVSIG\0".to_vec());
+    to_verify.extend(previous_signature.to_bytes());
+
+    if let Some(signature) = external_signature.as_ref() {
+        to_verify.extend(b"\0EXTERNALSIG\0".to_vec());
+        to_verify.extend_from_slice(&signature.signature.to_bytes());
+    }
+
+    to_verify
+}
+
+fn generate_external_signature_payload_v0(payload: &[u8], previous_key: &PublicKey) -> Vec<u8> {
+    let mut to_verify = payload.to_vec();
+    to_verify.extend(&(previous_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(&previous_key.to_bytes());
+
+    to_verify
+}
+
+pub(crate) fn generate_external_signature_payload_v1(
+    payload: &[u8],
+    previous_signature: &[u8],
+    version: u32,
+) -> Vec<u8> {
+    let mut to_verify = b"\0EXTERNAL\0\0VERSION\0".to_vec();
+    to_verify.extend(version.to_le_bytes());
+
+    to_verify.extend(b"\0PAYLOAD\0".to_vec());
+    to_verify.extend(payload.to_vec());
+
+    to_verify.extend(b"\0PREVSIG\0".to_vec());
+    to_verify.extend(previous_signature);
+    to_verify
+}
+
+pub(crate) fn generate_seal_signature_payload_v0(block: &Block) -> Vec<u8> {
+    let mut to_verify = block.data.to_vec();
+    to_verify.extend(&(block.next_key.algorithm() as i32).to_le_bytes());
+    to_verify.extend(&block.next_key.to_bytes());
+    to_verify.extend(block.signature.to_bytes());
+    to_verify
 }
 
 impl TokenNext {
@@ -396,100 +591,4 @@ impl TokenNext {
             TokenNext::Secret(_) => false,
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    /*
-    use super::*;
-    use rand::prelude::*;
-    use rand_core::SeedableRng;
-
-    #[test]
-    fn basic_signature() {
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message = b"hello world";
-        let keypair = KeyPair::new_with_rng(&mut rng);
-
-        let signature = keypair.sign(&mut rng, message);
-
-        assert!(verify(&keypair.public, message, &signature));
-
-        assert!(!verify(&keypair.public, b"AAAA", &signature));
-    }
-
-    #[test]
-    fn three_messages() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        assert_eq!(token2.verify(), Ok(()), "cannot verify second token");
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(token3.verify(), Ok(()), "cannot verify third token");
-    }
-
-    #[test]
-    fn change_message() {
-        //let mut rng: OsRng = OsRng::new().unwrap();
-        //keep the same values in tests
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let message1 = b"hello";
-        let keypair1 = KeyPair::new_with_rng(&mut rng);
-
-        let token1 = Token::new(&mut rng, &keypair1, &message1[..]);
-
-        assert_eq!(token1.verify(), Ok(()), "cannot verify first token");
-
-        println!("will derive a second token");
-
-        let message2 = b"world";
-        let keypair2 = KeyPair::new_with_rng(&mut rng);
-
-        let mut token2 = token1.append(&mut rng, &keypair2, &message2[..]);
-
-        token2.messages[1] = Vec::from(&b"you"[..]);
-
-        assert_eq!(
-            token2.verify(),
-            Err(error::Signature::InvalidSignature),
-            "second token should not be valid"
-        );
-
-        println!("will derive a third token");
-
-        let message3 = b"!!!";
-        let keypair3 = KeyPair::new_with_rng(&mut rng);
-
-        let token3 = token2.append(&mut rng, &keypair3, &message3[..]);
-
-        assert_eq!(
-            token3.verify(),
-            Err(error::Signature::InvalidSignature),
-            "cannot verify third token"
-        );
-    }*/
 }
