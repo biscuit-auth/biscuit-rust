@@ -13,10 +13,10 @@ jobs:
   benchmarks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup rust toolchain, cache and cargo-codspeed binary
-        uses: moonrepo/setup-rust@v0
+        uses: moonrepo/setup-rust@v1
         with:
           channel: stable
           cache-target: release
@@ -26,7 +26,7 @@ jobs:
         run: cargo codspeed build -p biscuit-auth
 
       - name: Run the benchmarks
-        uses: CodSpeedHQ/action@v2
+        uses: CodSpeedHQ/action@v3
         with:
           run: cargo codspeed run -p biscuit-auth
           token: ${{ secrets.CODSPEED_TOKEN }}

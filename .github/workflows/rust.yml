@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -65,7 +65,7 @@ jobs:
           profile: minimal
           override: true
       - name: Cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
       - name: Install cargo-tarpaulin
         uses: actions-rs/cargo@v1
         with:
@@ -77,7 +77,7 @@ jobs:
           command: tarpaulin
           args: --output-dir coverage --out xml --workspace --features serde-error --tests --example testcases --example third_party
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: biscuit-auth/biscuit-rust
