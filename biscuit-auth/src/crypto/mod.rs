@@ -124,6 +124,22 @@ pub enum PrivateKey {
     P256(p256::PrivateKey),
 }
 
+impl FromStr for PrivateKey {
+    type Err = error::Format;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.split_once('/') {
+            Some(("ed25519", bytes)) => Self::from_bytes_hex(bytes, Algorithm::Ed25519),
+            Some(("secp256r1", bytes)) => Self::from_bytes_hex(bytes, Algorithm::Secp256r1),
+            Some((alg, _)) => Err(error::Format::InvalidKey(format!(
+                "Unsupported key algorithm {alg}"
+            ))),
+            None => Err(error::Format::InvalidKey(
+                "Missing key algorithm".to_string(),
+            )),
+        }
+    }
+}
+
 impl PrivateKey {
     /// serializes to a byte array
     pub fn to_bytes(&self) -> zeroize::Zeroizing<Vec<u8>> {
@@ -136,6 +152,15 @@ impl PrivateKey {
     /// serializes to an hex-encoded string
     pub fn to_bytes_hex(&self) -> String {
         hex::encode(self.to_bytes())
+    }
+
+    /// serializes to an hex-encoded string, prefixed with the key algorithm
+    pub fn to_prefixed_string(&self) -> String {
+        let algorithm = match self.algorithm() {
+            schema::public_key::Algorithm::Ed25519 => "ed25519",
+            schema::public_key::Algorithm::Secp256r1 => "secp256r1",
+        };
+        format!("{algorithm}/{}", self.to_bytes_hex())
     }
 
     /// deserializes from a byte array
@@ -590,5 +615,117 @@ impl TokenNext {
             TokenNext::Seal(_) => true,
             TokenNext::Secret(_) => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip_from_string() {
+        let ed_root = KeyPair::new_with_algorithm(Algorithm::Ed25519);
+        assert_eq!(
+            ed_root.public(),
+            ed_root.public().to_string().parse().unwrap()
+        );
+        assert_eq!(
+            ed_root.private().to_bytes(),
+            ed_root
+                .private()
+                .to_prefixed_string()
+                .parse::<PrivateKey>()
+                .unwrap()
+                .to_bytes()
+        );
+        let p256_root = KeyPair::new_with_algorithm(Algorithm::Secp256r1);
+        assert_eq!(
+            p256_root.public(),
+            p256_root.public().to_string().parse().unwrap()
+        );
+        assert_eq!(
+            p256_root.private().to_bytes(),
+            p256_root
+                .private()
+                .to_prefixed_string()
+                .parse::<PrivateKey>()
+                .unwrap()
+                .to_bytes()
+        )
+    }
+
+    #[test]
+    fn parsing_ed25519() {
+        let private_ed = PrivateKey::from_bytes_hex(
+            "bf6065d753c4a2c679dcd28828ac625c6c713efee2d4dd4b9c9ff3c9a2b2f966",
+            Algorithm::Ed25519,
+        )
+        .unwrap();
+
+        assert_eq!(
+            private_ed.to_prefixed_string(),
+            "ed25519/bf6065d753c4a2c679dcd28828ac625c6c713efee2d4dd4b9c9ff3c9a2b2f966".to_string()
+        );
+
+        let public_ed = PublicKey::from_bytes_hex(
+            "eb396fa7a681c614fefc5bd8d1fa0383f30a8c562a99d8e8a830286e844be074",
+            Algorithm::Ed25519,
+        )
+        .unwrap();
+
+        assert_eq!(
+            public_ed.to_string(),
+            "ed25519/eb396fa7a681c614fefc5bd8d1fa0383f30a8c562a99d8e8a830286e844be074".to_string()
+        );
+    }
+
+    #[test]
+    fn parsing_secp256r1() {
+        let private_p256 = PrivateKey::from_bytes_hex(
+            "4e85237ab258ca7d53051073dd6c1e501ea4699f2fed6b0f5d399dc2a5f7d38f",
+            Algorithm::Secp256r1,
+        )
+        .unwrap();
+
+        assert_eq!(
+            private_p256.to_prefixed_string(),
+            "secp256r1/4e85237ab258ca7d53051073dd6c1e501ea4699f2fed6b0f5d399dc2a5f7d38f"
+                .to_string()
+        );
+
+        let public_p256 = PublicKey::from_bytes_hex(
+            "03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29",
+            Algorithm::Secp256r1,
+        )
+        .unwrap();
+
+        assert_eq!(
+            public_p256.to_string(),
+            "secp256r1/03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+                .to_string()
+        );
+
+        assert_eq!(
+            public_p256,
+            "secp256r1/03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+                .parse()
+                .unwrap()
+        );
+    }
+    #[test]
+    fn parsing_errors() {
+        "xx/03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+            .parse::<PublicKey>()
+            .unwrap_err();
+        "03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+            .parse::<PublicKey>()
+            .unwrap_err();
+
+        "xx/03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+            .parse::<PrivateKey>()
+            .unwrap_err();
+        "03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
+            .parse::<PrivateKey>()
+            .unwrap_err();
     }
 }
