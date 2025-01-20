@@ -314,19 +314,19 @@ impl Signature {
 }
 
 impl FromStr for PublicKey {
-    type Err = error::Token;
+    type Err = error::Format;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (_, public_key) = biscuit_parser::parser::public_key(s)
             .finish()
-            .map_err(biscuit_parser::error::LanguageError::from)?;
-        Ok(PublicKey::from_bytes(
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        PublicKey::from_bytes(
             &public_key.key,
             match public_key.algorithm {
                 biscuit_parser::builder::Algorithm::Ed25519 => Algorithm::Ed25519,
                 biscuit_parser::builder::Algorithm::Secp256r1 => Algorithm::Secp256r1,
             },
-        )?)
+        )
     }
 }
 
