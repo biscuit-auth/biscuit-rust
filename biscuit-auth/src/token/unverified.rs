@@ -216,16 +216,11 @@ impl UnverifiedBiscuit {
     /// Blocks carrying an external public key are _third-party blocks_
     /// and their contents can be trusted as coming from the holder of
     /// the corresponding private key
-    pub fn external_public_keys(&self) -> Vec<Option<Vec<u8>>> {
+    pub fn external_public_keys(&self) -> Vec<Option<PublicKey>> {
         let mut res = vec![None];
 
         for block in self.container.blocks.iter() {
-            res.push(
-                block
-                    .external_signature
-                    .as_ref()
-                    .map(|sig| sig.public_key.to_bytes().to_vec()),
-            );
+            res.push(block.external_signature.as_ref().map(|sig| sig.public_key));
         }
 
         res
@@ -377,5 +372,46 @@ impl UnverifiedBiscuit {
     {
         let decoded = base64::decode_config(slice, base64::URL_SAFE)?;
         self.append_third_party(&decoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{BiscuitBuilder, BlockBuilder, KeyPair};
+
+    use super::UnverifiedBiscuit;
+
+    #[test]
+    fn consistent_with_biscuit() {
+        let root_key = KeyPair::new();
+        let external_key = KeyPair::new();
+        let biscuit = BiscuitBuilder::new()
+            .fact("test(true)")
+            .unwrap()
+            .build(&root_key)
+            .unwrap()
+            .append(BlockBuilder::new().fact("test(false)").unwrap())
+            .unwrap();
+        let req = biscuit.third_party_request().unwrap();
+        let res = req
+            .create_block(
+                &external_key.private(),
+                BlockBuilder::new().fact("third_party(true)").unwrap(),
+            )
+            .unwrap();
+        let biscuit = biscuit
+            .append_third_party(external_key.public(), res)
+            .unwrap();
+
+        let unverified = UnverifiedBiscuit::from_base64(biscuit.to_base64().unwrap()).unwrap();
+
+        unverified.clone().verify(root_key.public()).unwrap();
+
+        assert_eq!(unverified.blocks, biscuit.blocks);
+
+        assert_eq!(
+            unverified.external_public_keys(),
+            biscuit.external_public_keys()
+        );
     }
 }
