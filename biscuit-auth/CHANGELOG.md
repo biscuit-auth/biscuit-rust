@@ -5,6 +5,7 @@
 - Support for P256 signatures (#108)
 - `query_exactly_once()` (#260) (Baran Yildirim)
 - include algorithm prefix in public/private key strings (#261)
+- `UnverifiedBiscuit.external_public_keys()` now returns `PublicKey`s, not byte vecs (TODO)
 
 # `5.0.0`
 
