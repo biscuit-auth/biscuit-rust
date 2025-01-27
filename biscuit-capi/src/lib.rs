@@ -98,6 +98,7 @@ pub enum ErrorKind {
     FormatSignatureInvalidSignatureGeneration,
     AlreadySealed,
     Execution,
+    UnexpectedQueryResult,
 }
 
 #[no_mangle]
@@ -175,6 +176,9 @@ pub extern "C" fn error_kind() -> ErrorKind {
                     Token::RunLimit(RunLimit::TooManyFacts) => ErrorKind::TooManyFacts,
                     Token::RunLimit(RunLimit::TooManyIterations) => ErrorKind::TooManyIterations,
                     Token::RunLimit(RunLimit::Timeout) => ErrorKind::Timeout,
+                    Token::RunLimit(RunLimit::UnexpectedQueryResult(_, _)) => {
+                        ErrorKind::UnexpectedQueryResult
+                    }
                     Token::ConversionError(_) => ErrorKind::ConversionError,
                     Token::Base64(_) => ErrorKind::FormatDeserializationError,
                     Token::Execution(_) => ErrorKind::Execution,

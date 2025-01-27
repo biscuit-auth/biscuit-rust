@@ -154,6 +154,39 @@ impl Authorizer {
         self.query_with_limits(rule, limits)
     }
 
+    /// Run a query over the authorizer's Datalog engine to gather data.
+    /// If there is more than one result, this function will throw an error.
+    ///
+    /// ```rust
+    /// # use biscuit_auth::KeyPair;
+    /// # use biscuit_auth::Biscuit;
+    /// let keypair = KeyPair::new();
+    /// let builder = Biscuit::builder().fact("user(\"John Doe\", 42)").unwrap();
+    ///
+    /// let biscuit = builder.build(&keypair).unwrap();
+    ///
+    /// let mut authorizer = biscuit.authorizer().unwrap();
+    /// let res: (String, i64) = authorizer.query_exactly_one("data($name, $id) <- user($name, $id)").unwrap();
+    /// assert_eq!(res.0, "John Doe");
+    /// assert_eq!(res.1, 42);
+    /// ```
+    pub fn query_exactly_one<R: TryInto<Rule>, T: TryFrom<Fact, Error = E>, E: Into<error::Token>>(
+        &mut self,
+        rule: R,
+    ) -> Result<T, error::Token>
+    where
+        error::Token: From<<R as TryInto<Rule>>::Error>,
+    {
+        let mut res: Vec<T> = self.query(rule)?;
+        if res.len() == 1 {
+            Ok(res.remove(0))
+        } else {
+            Err(error::Token::RunLimit(
+                error::RunLimit::UnexpectedQueryResult(1, res.len()),
+            ))
+        }
+    }
+
     /// run a query over the authorizer's Datalog engine to gather data
     ///
     /// this only sees facts from the authorizer and the authority block
@@ -1046,6 +1079,62 @@ mod tests {
 
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].0, "John Doe");
+    }
+
+    #[test]
+    fn query_exactly_one_authorizer_from_token_string() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let builder = Biscuit::builder().fact("user(\"John Doe\")").unwrap();
+
+        let biscuit = builder.build(&keypair).unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: (String,) = authorizer
+            .query_exactly_one("data($name) <- user($name)")
+            .unwrap();
+        assert_eq!(res.0, "John Doe");
+    }
+
+    #[test]
+    fn query_exactly_one_no_results() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let builder = Biscuit::builder();
+
+        let biscuit = builder.build(&keypair).unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Result<(String,), error::Token> =
+            authorizer.query_exactly_one("data($name) <- user($name)");
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            "Reached Datalog execution limits"
+        );
+    }
+
+    #[test]
+    fn query_exactly_one_too_many_results() {
+        use crate::Biscuit;
+        use crate::KeyPair;
+        let keypair = KeyPair::new();
+        let builder = Biscuit::builder()
+            .fact("user(\"John Doe\")")
+            .unwrap()
+            .fact("user(\"Jane Doe\")")
+            .unwrap();
+
+        let biscuit = builder.build(&keypair).unwrap();
+
+        let mut authorizer = biscuit.authorizer().unwrap();
+        let res: Result<(String,), error::Token> =
+            authorizer.query_exactly_one("data($name) <- user($name)");
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            "Reached Datalog execution limits"
+        );
     }
 
     #[test]
