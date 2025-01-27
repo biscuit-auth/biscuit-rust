@@ -1,4 +1,14 @@
-# not released
+# `6.0.0-alpha.2`
+
+- [biscuit-datalog 3.3](https://www.biscuitsec.org/blog/biscuit-3-3/) support (#217)
+- Separate `AuthorizerBuilder` from `Authorizer` (#250 and #255)
+- Support for P256 signatures (#108)
+- `query_exactly_once()` (#260) (Baran Yildirim)
+- include algorithm prefix in public/private key strings (#261)
+
+# `5.0.0`
+
+- fix [GHSA-rgqv-mwc3-c78m](https://github.com/biscuit-auth/biscuit/security/advisories/GHSA-rgqv-mwc3-c78m)
 
 # `4.1.1`
 
