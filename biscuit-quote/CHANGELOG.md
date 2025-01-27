@@ -1,3 +1,7 @@
+# `0.3.0-alpha.1`
+
+- [biscuit-datalog 3.3](https://www.biscuitsec.org/blog/biscuit-3-3/) support (#217)
+
 # `0.2.1`
 
 - support for a `rule` macro
