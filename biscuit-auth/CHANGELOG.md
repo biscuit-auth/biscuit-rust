@@ -1,4 +1,4 @@
-# `6.0.0-alpha.2`
+# `6.0.0-beta.1`
 
 - [biscuit-datalog 3.3](https://www.biscuitsec.org/blog/biscuit-3-3/) support (#217)
 - Separate `AuthorizerBuilder` from `Authorizer` (#250 and #255)
