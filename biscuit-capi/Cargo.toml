@@ -13,6 +13,7 @@ repository = "https://github.com/biscuit-auth/biscuit-rust"
 biscuit-auth = { version = "6.0.0-alpha.1", path = "../biscuit-auth", features = [
     "datalog-macro",
     "serde-error",
+    "pem",
 ] }
 libc = { version = "0.2", optional = true }
 rand = "0.8"

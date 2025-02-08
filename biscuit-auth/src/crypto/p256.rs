@@ -10,7 +10,7 @@ use p256::NistP256;
 use std::hash::Hash;
 
 /// pair of cryptographic keys used to sign a token's block
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct KeyPair {
     kp: SigningKey,
 }
@@ -83,6 +83,27 @@ impl KeyPair {
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(KeyPair { kp })
     }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+        use p256::pkcs8::EncodePrivateKey;
+        let kp = self
+            .kp
+            .to_pkcs8_der()
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp.to_bytes())
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+        use p256::pkcs8::EncodePrivateKey;
+        use p256::pkcs8::LineEnding;
+        let kp = self
+            .kp
+            .to_pkcs8_pem(LineEnding::LF)
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp)
+    }
 }
 
 impl std::default::Default for KeyPair {
@@ -92,7 +113,7 @@ impl std::default::Default for KeyPair {
 }
 
 /// the private part of a [KeyPair]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PrivateKey(SigningKey);
 
 impl PrivateKey {
@@ -142,6 +163,27 @@ impl PrivateKey {
         let kp = SigningKey::from_pkcs8_pem(str)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(PrivateKey(kp))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+        use p256::pkcs8::EncodePrivateKey;
+        let kp = self
+            .0
+            .to_pkcs8_der()
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp.to_bytes())
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+        use p256::pkcs8::EncodePrivateKey;
+        use p256::pkcs8::LineEnding;
+        let kp = self
+            .0
+            .to_pkcs8_pem(LineEnding::LF)
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp)
     }
 
     /// returns the matching public key
@@ -206,6 +248,27 @@ impl PublicKey {
         let pubkey = VerifyingKey::from_public_key_pem(str)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(PublicKey(pubkey))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_public_key_der(&self) -> Result<Vec<u8>, error::Format> {
+        use p256::pkcs8::EncodePublicKey;
+        let kp = self
+            .0
+            .to_public_key_der()
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp.to_vec())
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_public_key_pem(&self) -> Result<String, error::Format> {
+        use p256::pkcs8::EncodePublicKey;
+        use p256::pkcs8::LineEnding;
+        let kp = self
+            .0
+            .to_public_key_pem(LineEnding::LF)
+            .map_err(|e| error::Format::PKCS8(e.to_string()))?;
+        Ok(kp)
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {

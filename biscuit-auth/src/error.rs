@@ -153,6 +153,9 @@ pub enum Format {
     UnknownExternalKey,
     #[error("the symbol id was not in the table")]
     UnknownSymbol(u64),
+    #[cfg(feature = "pem")]
+    #[error("PKCS8 serialization error")]
+    PKCS8(String),
 }
 
 /// Signature errors

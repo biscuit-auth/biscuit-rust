@@ -11,7 +11,7 @@ homepage = "https://github.com/biscuit-auth/biscuit"
 repository = "https://github.com/biscuit-auth/biscuit-rust"
 
 [features]
-default = ["regex-full", "datalog-macro"]
+default = ["regex-full", "datalog-macro", "pem"]
 regex-full = ["regex/perf", "regex/unicode"]
 wasm = ["wasm-bindgen", "getrandom/wasm-bindgen"]
 # used by biscuit-wasm to serialize errors to JSON
