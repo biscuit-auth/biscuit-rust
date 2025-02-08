@@ -848,4 +848,61 @@ mod tests {
         let deser_pub = PublicKey::from_public_key_der(&der_pub, Algorithm::Ed25519).unwrap();
         assert_eq!(ed25519_pub, deser_pub);
     }
+
+    #[cfg(feature = "pem")]
+    #[test]
+    fn ed25519_pem() {
+        let ed25519_kp = KeyPair::new_with_algorithm(Algorithm::Ed25519);
+        let pem_kp = ed25519_kp.to_private_key_pem().unwrap();
+        let deser = KeyPair::from_private_key_pem(&pem_kp, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_kp, deser);
+
+        let ed25519_priv = ed25519_kp.private();
+        let pem_priv = ed25519_priv.to_private_key_pem().unwrap();
+        let deser_priv = PrivateKey::from_private_key_pem(&pem_priv, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_priv, deser_priv);
+
+        let ed25519_pub = ed25519_kp.public();
+        let pem_pub = ed25519_pub.to_public_key_pem().unwrap();
+        let deser_pub = PublicKey::from_public_key_pem(&pem_pub, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_pub, deser_pub);
+    }
+
+    #[cfg(feature = "pem")]
+    #[test]
+    fn p256_der() {
+        let p256_kp = KeyPair::new_with_algorithm(Algorithm::Secp256r1);
+        let der_kp = p256_kp.to_private_key_der().unwrap();
+        let deser = KeyPair::from_private_key_der(&der_kp, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_kp, deser);
+
+        let p256_priv = p256_kp.private();
+        let der_priv = p256_priv.to_private_key_der().unwrap();
+        let deser_priv = PrivateKey::from_private_key_der(&der_priv, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_priv, deser_priv);
+
+        let p256_pub = p256_kp.public();
+        let der_pub = p256_pub.to_public_key_der().unwrap();
+        let deser_pub = PublicKey::from_public_key_der(&der_pub, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_pub, deser_pub);
+    }
+
+    #[cfg(feature = "pem")]
+    #[test]
+    fn p256_pem() {
+        let p256_kp = KeyPair::new_with_algorithm(Algorithm::Secp256r1);
+        let pem_kp = p256_kp.to_private_key_pem().unwrap();
+        let deser = KeyPair::from_private_key_pem(&pem_kp, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_kp, deser);
+
+        let p256_priv = p256_kp.private();
+        let pem_priv = p256_priv.to_private_key_pem().unwrap();
+        let deser_priv = PrivateKey::from_private_key_pem(&pem_priv, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_priv, deser_priv);
+
+        let p256_pub = p256_kp.public();
+        let pem_pub = p256_pub.to_public_key_pem().unwrap();
+        let deser_pub = PublicKey::from_public_key_pem(&pem_pub, Algorithm::Secp256r1).unwrap();
+        assert_eq!(p256_pub, deser_pub);
+    }
 }
