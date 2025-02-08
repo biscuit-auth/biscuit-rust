@@ -22,7 +22,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 
 /// pair of cryptographic keys used to sign a token's block
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum KeyPair {
     Ed25519(ed25519::KeyPair),
     P256(p256::KeyPair),
@@ -95,6 +95,22 @@ impl KeyPair {
         }
     }
 
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+        match self {
+            KeyPair::Ed25519(key) => key.to_private_key_der(),
+            KeyPair::P256(key) => key.to_private_key_der(),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+        match self {
+            KeyPair::Ed25519(key) => key.to_private_key_pem(),
+            KeyPair::P256(key) => key.to_private_key_pem(),
+        }
+    }
+
     pub fn private(&self) -> PrivateKey {
         match self {
             KeyPair::Ed25519(key) => PrivateKey::Ed25519(key.private()),
@@ -124,7 +140,7 @@ impl std::default::Default for KeyPair {
 }
 
 /// the private part of a [KeyPair]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PrivateKey {
     Ed25519(ed25519::PrivateKey),
     P256(p256::PrivateKey),
@@ -204,6 +220,22 @@ impl PrivateKey {
             Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_private_key_pem(
                 str,
             )?)),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+        match self {
+            PrivateKey::Ed25519(key) => key.to_private_key_der(),
+            PrivateKey::P256(key) => key.to_private_key_der(),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+        match self {
+            PrivateKey::Ed25519(key) => key.to_private_key_pem(),
+            PrivateKey::P256(key) => key.to_private_key_pem(),
         }
     }
 
@@ -299,6 +331,22 @@ impl PublicKey {
                 str,
             )?)),
             Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_public_key_pem(str)?)),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_public_key_der(&self) -> Result<Vec<u8>, error::Format> {
+        match self {
+            PublicKey::Ed25519(key) => key.to_public_key_der(),
+            PublicKey::P256(key) => key.to_public_key_der(),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn to_public_key_pem(&self) -> Result<String, error::Format> {
+        match self {
+            PublicKey::Ed25519(key) => key.to_public_key_pem(),
+            PublicKey::P256(key) => key.to_public_key_pem(),
         }
     }
 
@@ -779,5 +827,25 @@ mod tests {
         "03b6d94743381d3452f11a1aec8d73b0a899827d48be2e4387112e4d2faacfcc29"
             .parse::<PrivateKey>()
             .unwrap_err();
+    }
+
+    #[cfg(feature = "pem")]
+    #[test]
+    fn ed25519_der() {
+        let ed25519_kp = KeyPair::new_with_algorithm(Algorithm::Ed25519);
+        let der_kp = ed25519_kp.to_private_key_der().unwrap();
+
+        let deser = KeyPair::from_private_key_der(&der_kp, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_kp, deser);
+
+        let ed25519_priv = ed25519_kp.private();
+        let der_priv = ed25519_priv.to_private_key_der().unwrap();
+        let deser_priv = PrivateKey::from_private_key_der(&der_priv, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_priv, deser_priv);
+
+        let ed25519_pub = ed25519_kp.public();
+        let der_pub = ed25519_pub.to_public_key_der().unwrap();
+        let deser_pub = PublicKey::from_public_key_der(&der_pub, Algorithm::Ed25519).unwrap();
+        assert_eq!(ed25519_pub, deser_pub);
     }
 }

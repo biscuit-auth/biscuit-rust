@@ -99,6 +99,7 @@ pub enum ErrorKind {
     AlreadySealed,
     Execution,
     UnexpectedQueryResult,
+    FormatPKCS8,
 }
 
 #[no_mangle]
@@ -160,6 +161,7 @@ pub extern "C" fn error_kind() -> ErrorKind {
                         ErrorKind::FormatUnknownExternalKey
                     }
                     Token::Format(Format::UnknownSymbol(_)) => ErrorKind::FormatUnknownSymbol,
+                    Token::Format(Format::PKCS8(_)) => ErrorKind::FormatPKCS8,
                     Token::AppendOnSealed => ErrorKind::AppendOnSealed,
                     Token::AlreadySealed => ErrorKind::AlreadySealed,
                     Token::Language(_) => ErrorKind::LanguageError,
