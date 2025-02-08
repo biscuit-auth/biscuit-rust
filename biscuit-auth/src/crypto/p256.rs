@@ -68,6 +68,8 @@ impl KeyPair {
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePrivateKey;
+
         let kp = SigningKey::from_pkcs8_der(bytes)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(KeyPair { kp })
@@ -75,6 +77,8 @@ impl KeyPair {
 
     #[cfg(feature = "pem")]
     pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePrivateKey;
+
         let kp = SigningKey::from_pkcs8_pem(str)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(KeyPair { kp })
@@ -122,6 +126,24 @@ impl PrivateKey {
         Self::from_bytes(&bytes)
     }
 
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePrivateKey;
+
+        let kp = SigningKey::from_pkcs8_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PrivateKey(kp))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePrivateKey;
+
+        let kp = SigningKey::from_pkcs8_pem(str)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PrivateKey(kp))
+    }
+
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         PublicKey(*(&self.0).verifying_key())
@@ -166,6 +188,24 @@ impl PublicKey {
     pub fn from_bytes_hex(str: &str) -> Result<Self, error::Format> {
         let bytes = hex::decode(str).map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Self::from_bytes(&bytes)
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePublicKey;
+
+        let pubkey = VerifyingKey::from_public_key_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(pubkey))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_pem(str: &str) -> Result<Self, error::Format> {
+        use p256::pkcs8::DecodePublicKey;
+
+        let pubkey = VerifyingKey::from_public_key_pem(str)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(pubkey))
     }
 
     pub fn from_proto(key: &schema::PublicKey) -> Result<Self, error::Format> {

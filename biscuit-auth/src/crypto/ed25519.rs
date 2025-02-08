@@ -126,6 +126,20 @@ impl PrivateKey {
         Self::from_bytes(&bytes)
     }
 
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        let kp = SigningKey::from_pkcs8_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PrivateKey(kp.to_bytes()))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+        let kp = SigningKey::from_pkcs8_pem(str)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PrivateKey(kp.to_bytes()))
+    }
+
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         PublicKey(SigningKey::from_bytes(&self.0).verifying_key())
@@ -221,6 +235,24 @@ impl PublicKey {
 
     pub fn algorithm(&self) -> crate::format::schema::public_key::Algorithm {
         crate::format::schema::public_key::Algorithm::Ed25519
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        use ed25519_dalek::pkcs8::DecodePublicKey;
+
+        let pubkey = ed25519_dalek::VerifyingKey::from_public_key_der(bytes)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(pubkey))
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_pem(str: &str) -> Result<Self, error::Format> {
+        use ed25519_dalek::pkcs8::DecodePublicKey;
+
+        let pubkey = ed25519_dalek::VerifyingKey::from_public_key_pem(str)
+            .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
+        Ok(PublicKey(pubkey))
     }
 
     pub(crate) fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

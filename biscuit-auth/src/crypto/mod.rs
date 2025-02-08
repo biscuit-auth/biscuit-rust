@@ -76,17 +76,23 @@ impl KeyPair {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        ed25519::KeyPair::from_private_key_der(bytes)
-            .map(KeyPair::Ed25519)
-            .or_else(|_| p256::KeyPair::from_private_key_der(bytes).map(KeyPair::P256))
+    pub fn from_private_key_der(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_der(
+                bytes,
+            )?)),
+            Algorithm::Secp256r1 => Ok(KeyPair::P256(p256::KeyPair::from_private_key_der(bytes)?)),
+        }
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        ed25519::KeyPair::from_private_key_pem(str)
-            .map(KeyPair::Ed25519)
-            .or_else(|_| p256::KeyPair::from_private_key_pem(str).map(KeyPair::P256))
+    pub fn from_private_key_pem(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(KeyPair::Ed25519(ed25519::KeyPair::from_private_key_pem(
+                str,
+            )?)),
+            Algorithm::Secp256r1 => Ok(KeyPair::P256(p256::KeyPair::from_private_key_pem(str)?)),
+        }
     }
 
     pub fn private(&self) -> PrivateKey {
@@ -177,6 +183,30 @@ impl PrivateKey {
         Self::from_bytes(&bytes, algorithm)
     }
 
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_der(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(
+                ed25519::PrivateKey::from_private_key_der(bytes)?,
+            )),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_private_key_der(
+                bytes,
+            )?)),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_private_key_pem(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(
+                ed25519::PrivateKey::from_private_key_pem(str)?,
+            )),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_private_key_pem(
+                str,
+            )?)),
+        }
+    }
+
     /// returns the matching public key
     pub fn public(&self) -> PublicKey {
         match self {
@@ -247,6 +277,28 @@ impl PublicKey {
         schema::PublicKey {
             algorithm: self.algorithm() as i32,
             key: self.to_bytes(),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_der(bytes: &[u8], algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_public_key_der(
+                bytes,
+            )?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_public_key_der(
+                bytes,
+            )?)),
+        }
+    }
+
+    #[cfg(feature = "pem")]
+    pub fn from_public_key_pem(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
+        match algorithm {
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_public_key_pem(
+                str,
+            )?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_public_key_pem(str)?)),
         }
     }
 
