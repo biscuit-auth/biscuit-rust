@@ -148,21 +148,21 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
         let kp = SigningKey::from_pkcs8_der(bytes)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(PrivateKey(kp.to_bytes()))
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
         let kp = SigningKey::from_pkcs8_pem(str)
             .map_err(|e| error::Format::InvalidKey(e.to_string()))?;
         Ok(PrivateKey(kp.to_bytes()))
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+    pub fn to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
         use ed25519_dalek::pkcs8::EncodePrivateKey;
         let kp = ed25519_dalek::SigningKey::from_bytes(&self.0)
             .to_pkcs8_der()
@@ -171,7 +171,7 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+    pub fn to_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
         use ed25519_dalek::pkcs8::EncodePrivateKey;
         use p256::pkcs8::LineEnding;
         let kp = ed25519_dalek::SigningKey::from_bytes(&self.0)
@@ -278,7 +278,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
         use ed25519_dalek::pkcs8::DecodePublicKey;
 
         let pubkey = ed25519_dalek::VerifyingKey::from_public_key_der(bytes)
@@ -287,7 +287,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_pem(str: &str) -> Result<Self, error::Format> {
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
         use ed25519_dalek::pkcs8::DecodePublicKey;
 
         let pubkey = ed25519_dalek::VerifyingKey::from_public_key_pem(str)
@@ -296,7 +296,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_der(&self) -> Result<Vec<u8>, error::Format> {
+    pub fn to_der(&self) -> Result<Vec<u8>, error::Format> {
         use ed25519_dalek::pkcs8::EncodePublicKey;
         let kp = self
             .0
@@ -306,7 +306,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_pem(&self) -> Result<String, error::Format> {
+    pub fn to_pem(&self) -> Result<String, error::Format> {
         use ed25519_dalek::pkcs8::EncodePublicKey;
         use p256::pkcs8::LineEnding;
         let kp = self

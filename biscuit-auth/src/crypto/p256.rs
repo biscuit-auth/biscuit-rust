@@ -148,7 +148,7 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
         use p256::pkcs8::DecodePrivateKey;
 
         let kp = SigningKey::from_pkcs8_der(bytes)
@@ -157,7 +157,7 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
         use p256::pkcs8::DecodePrivateKey;
 
         let kp = SigningKey::from_pkcs8_pem(str)
@@ -166,7 +166,7 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+    pub fn to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
         use p256::pkcs8::EncodePrivateKey;
         let kp = self
             .0
@@ -176,7 +176,7 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+    pub fn to_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
         use p256::pkcs8::EncodePrivateKey;
         use p256::pkcs8::LineEnding;
         let kp = self
@@ -233,7 +233,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
         use p256::pkcs8::DecodePublicKey;
 
         let pubkey = VerifyingKey::from_public_key_der(bytes)
@@ -242,7 +242,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_pem(str: &str) -> Result<Self, error::Format> {
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
         use p256::pkcs8::DecodePublicKey;
 
         let pubkey = VerifyingKey::from_public_key_pem(str)
@@ -251,7 +251,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_der(&self) -> Result<Vec<u8>, error::Format> {
+    pub fn to_der(&self) -> Result<Vec<u8>, error::Format> {
         use p256::pkcs8::EncodePublicKey;
         let kp = self
             .0
@@ -261,7 +261,7 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_pem(&self) -> Result<String, error::Format> {
+    pub fn to_pem(&self) -> Result<String, error::Format> {
         use p256::pkcs8::EncodePublicKey;
         use p256::pkcs8::LineEnding;
         let kp = self

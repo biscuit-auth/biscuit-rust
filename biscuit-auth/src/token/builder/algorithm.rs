@@ -12,6 +12,12 @@ pub enum Algorithm {
     Secp256r1,
 }
 
+impl Algorithm {
+    pub fn values() -> &'static [Self] {
+        &[Self::Ed25519, Self::Secp256r1]
+    }
+}
+
 impl Default for Algorithm {
     fn default() -> Self {
         Self::Ed25519
