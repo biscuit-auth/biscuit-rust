@@ -216,58 +216,47 @@ impl PrivateKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_der_with_algorithm(
+    pub fn from_der_with_algorithm(
         bytes: &[u8],
         algorithm: Algorithm,
     ) -> Result<Self, error::Format> {
         match algorithm {
-            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(
-                ed25519::PrivateKey::from_private_key_der(bytes)?,
-            )),
-            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_private_key_der(
-                bytes,
-            )?)),
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_der(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_der(bytes)?)),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        parse_any_algorithm(bytes, Self::from_private_key_der_with_algorithm)
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        parse_any_algorithm(bytes, Self::from_der_with_algorithm)
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_pem_with_algorithm(
-        str: &str,
-        algorithm: Algorithm,
-    ) -> Result<Self, error::Format> {
+    pub fn from_pem_with_algorithm(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         match algorithm {
-            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(
-                ed25519::PrivateKey::from_private_key_pem(str)?,
-            )),
-            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_private_key_pem(
-                str,
-            )?)),
+            Algorithm::Ed25519 => Ok(PrivateKey::Ed25519(ed25519::PrivateKey::from_pem(str)?)),
+            Algorithm::Secp256r1 => Ok(PrivateKey::P256(p256::PrivateKey::from_pem(str)?)),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_private_key_pem(str: &str) -> Result<Self, error::Format> {
-        parse_any_algorithm(str, Self::from_private_key_pem_with_algorithm)
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
+        parse_any_algorithm(str, Self::from_pem_with_algorithm)
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
+    pub fn to_der(&self) -> Result<zeroize::Zeroizing<Vec<u8>>, error::Format> {
         match self {
-            PrivateKey::Ed25519(key) => key.to_private_key_der(),
-            PrivateKey::P256(key) => key.to_private_key_der(),
+            PrivateKey::Ed25519(key) => key.to_der(),
+            PrivateKey::P256(key) => key.to_der(),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_private_key_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
+    pub fn to_pem(&self) -> Result<zeroize::Zeroizing<String>, error::Format> {
         match self {
-            PrivateKey::Ed25519(key) => key.to_private_key_pem(),
-            PrivateKey::P256(key) => key.to_private_key_pem(),
+            PrivateKey::Ed25519(key) => key.to_pem(),
+            PrivateKey::P256(key) => key.to_pem(),
         }
     }
 
@@ -345,56 +334,47 @@ impl PublicKey {
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_der_with_algorithm(
+    pub fn from_der_with_algorithm(
         bytes: &[u8],
         algorithm: Algorithm,
     ) -> Result<Self, error::Format> {
         match algorithm {
-            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_public_key_der(
-                bytes,
-            )?)),
-            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_public_key_der(
-                bytes,
-            )?)),
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_der(bytes)?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_der(bytes)?)),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_der(bytes: &[u8]) -> Result<Self, error::Format> {
-        parse_any_algorithm(bytes, Self::from_public_key_der_with_algorithm)
+    pub fn from_der(bytes: &[u8]) -> Result<Self, error::Format> {
+        parse_any_algorithm(bytes, Self::from_der_with_algorithm)
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_pem_with_algorithm(
-        str: &str,
-        algorithm: Algorithm,
-    ) -> Result<Self, error::Format> {
+    pub fn from_pem_with_algorithm(str: &str, algorithm: Algorithm) -> Result<Self, error::Format> {
         match algorithm {
-            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_public_key_pem(
-                str,
-            )?)),
-            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_public_key_pem(str)?)),
+            Algorithm::Ed25519 => Ok(PublicKey::Ed25519(ed25519::PublicKey::from_pem(str)?)),
+            Algorithm::Secp256r1 => Ok(PublicKey::P256(p256::PublicKey::from_pem(str)?)),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn from_public_key_pem(str: &str) -> Result<Self, error::Format> {
-        parse_any_algorithm(str, Self::from_public_key_pem_with_algorithm)
+    pub fn from_pem(str: &str) -> Result<Self, error::Format> {
+        parse_any_algorithm(str, Self::from_pem_with_algorithm)
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_der(&self) -> Result<Vec<u8>, error::Format> {
+    pub fn to_der(&self) -> Result<Vec<u8>, error::Format> {
         match self {
-            PublicKey::Ed25519(key) => key.to_public_key_der(),
-            PublicKey::P256(key) => key.to_public_key_der(),
+            PublicKey::Ed25519(key) => key.to_der(),
+            PublicKey::P256(key) => key.to_der(),
         }
     }
 
     #[cfg(feature = "pem")]
-    pub fn to_public_key_pem(&self) -> Result<String, error::Format> {
+    pub fn to_pem(&self) -> Result<String, error::Format> {
         match self {
-            PublicKey::Ed25519(key) => key.to_public_key_pem(),
-            PublicKey::P256(key) => key.to_public_key_pem(),
+            PublicKey::Ed25519(key) => key.to_pem(),
+            PublicKey::P256(key) => key.to_pem(),
         }
     }
 
@@ -906,19 +886,18 @@ mod tests {
         assert_eq!(ed25519_kp, deser);
 
         let ed25519_priv = ed25519_kp.private();
-        let der_priv = ed25519_priv.to_private_key_der().unwrap();
+        let der_priv = ed25519_priv.to_der().unwrap();
         let deser_priv =
-            PrivateKey::from_private_key_der_with_algorithm(&der_priv, Algorithm::Ed25519).unwrap();
+            PrivateKey::from_der_with_algorithm(&der_priv, Algorithm::Ed25519).unwrap();
         assert_eq!(ed25519_priv, deser_priv);
-        let deser_priv = PrivateKey::from_private_key_der(&der_priv).unwrap();
+        let deser_priv = PrivateKey::from_der(&der_priv).unwrap();
         assert_eq!(ed25519_priv, deser_priv);
 
         let ed25519_pub = ed25519_kp.public();
-        let der_pub = ed25519_pub.to_public_key_der().unwrap();
-        let deser_pub =
-            PublicKey::from_public_key_der_with_algorithm(&der_pub, Algorithm::Ed25519).unwrap();
+        let der_pub = ed25519_pub.to_der().unwrap();
+        let deser_pub = PublicKey::from_der_with_algorithm(&der_pub, Algorithm::Ed25519).unwrap();
         assert_eq!(ed25519_pub, deser_pub);
-        let deser_pub = PublicKey::from_public_key_der(&der_pub).unwrap();
+        let deser_pub = PublicKey::from_der(&der_pub).unwrap();
         assert_eq!(ed25519_pub, deser_pub);
     }
 
@@ -934,19 +913,18 @@ mod tests {
         assert_eq!(ed25519_kp, deser);
 
         let ed25519_priv = ed25519_kp.private();
-        let pem_priv = ed25519_priv.to_private_key_pem().unwrap();
+        let pem_priv = ed25519_priv.to_pem().unwrap();
         let deser_priv =
-            PrivateKey::from_private_key_pem_with_algorithm(&pem_priv, Algorithm::Ed25519).unwrap();
+            PrivateKey::from_pem_with_algorithm(&pem_priv, Algorithm::Ed25519).unwrap();
         assert_eq!(ed25519_priv, deser_priv);
-        let deser_priv = PrivateKey::from_private_key_pem(&pem_priv).unwrap();
+        let deser_priv = PrivateKey::from_pem(&pem_priv).unwrap();
         assert_eq!(ed25519_priv, deser_priv);
 
         let ed25519_pub = ed25519_kp.public();
-        let pem_pub = ed25519_pub.to_public_key_pem().unwrap();
-        let deser_pub =
-            PublicKey::from_public_key_pem_with_algorithm(&pem_pub, Algorithm::Ed25519).unwrap();
+        let pem_pub = ed25519_pub.to_pem().unwrap();
+        let deser_pub = PublicKey::from_pem_with_algorithm(&pem_pub, Algorithm::Ed25519).unwrap();
         assert_eq!(ed25519_pub, deser_pub);
-        let deser_pub = PublicKey::from_public_key_pem(&pem_pub).unwrap();
+        let deser_pub = PublicKey::from_pem(&pem_pub).unwrap();
         assert_eq!(ed25519_pub, deser_pub);
     }
 
@@ -962,20 +940,18 @@ mod tests {
         assert_eq!(p256_kp, deser);
 
         let p256_priv = p256_kp.private();
-        let der_priv = p256_priv.to_private_key_der().unwrap();
+        let der_priv = p256_priv.to_der().unwrap();
         let deser_priv =
-            PrivateKey::from_private_key_der_with_algorithm(&der_priv, Algorithm::Secp256r1)
-                .unwrap();
+            PrivateKey::from_der_with_algorithm(&der_priv, Algorithm::Secp256r1).unwrap();
         assert_eq!(p256_priv, deser_priv);
-        let deser_priv = PrivateKey::from_private_key_der(&der_priv).unwrap();
+        let deser_priv = PrivateKey::from_der(&der_priv).unwrap();
         assert_eq!(p256_priv, deser_priv);
 
         let p256_pub = p256_kp.public();
-        let der_pub = p256_pub.to_public_key_der().unwrap();
-        let deser_pub =
-            PublicKey::from_public_key_der_with_algorithm(&der_pub, Algorithm::Secp256r1).unwrap();
+        let der_pub = p256_pub.to_der().unwrap();
+        let deser_pub = PublicKey::from_der_with_algorithm(&der_pub, Algorithm::Secp256r1).unwrap();
         assert_eq!(p256_pub, deser_pub);
-        let deser_pub = PublicKey::from_public_key_der(&der_pub).unwrap();
+        let deser_pub = PublicKey::from_der(&der_pub).unwrap();
         assert_eq!(p256_pub, deser_pub);
     }
 
@@ -991,20 +967,18 @@ mod tests {
         assert_eq!(p256_kp, deser);
 
         let p256_priv = p256_kp.private();
-        let pem_priv = p256_priv.to_private_key_pem().unwrap();
+        let pem_priv = p256_priv.to_pem().unwrap();
         let deser_priv =
-            PrivateKey::from_private_key_pem_with_algorithm(&pem_priv, Algorithm::Secp256r1)
-                .unwrap();
+            PrivateKey::from_pem_with_algorithm(&pem_priv, Algorithm::Secp256r1).unwrap();
         assert_eq!(p256_priv, deser_priv);
-        let deser_priv = PrivateKey::from_private_key_pem(&pem_priv).unwrap();
+        let deser_priv = PrivateKey::from_pem(&pem_priv).unwrap();
         assert_eq!(p256_priv, deser_priv);
 
         let p256_pub = p256_kp.public();
-        let pem_pub = p256_pub.to_public_key_pem().unwrap();
-        let deser_pub =
-            PublicKey::from_public_key_pem_with_algorithm(&pem_pub, Algorithm::Secp256r1).unwrap();
+        let pem_pub = p256_pub.to_pem().unwrap();
+        let deser_pub = PublicKey::from_pem_with_algorithm(&pem_pub, Algorithm::Secp256r1).unwrap();
         assert_eq!(p256_pub, deser_pub);
-        let deser_pub = PublicKey::from_public_key_pem(&pem_pub).unwrap();
+        let deser_pub = PublicKey::from_pem(&pem_pub).unwrap();
         assert_eq!(p256_pub, deser_pub);
     }
 }
