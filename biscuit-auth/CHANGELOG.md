@@ -1,3 +1,7 @@
+# `6.0.0-beta.2`
+
+- support for `pem` / `der` private and public keys (#212 and #265)
+
 # `6.0.0-beta.1`
 
 - [biscuit-datalog 3.3](https://www.biscuitsec.org/blog/biscuit-3-3/) support (#217)
